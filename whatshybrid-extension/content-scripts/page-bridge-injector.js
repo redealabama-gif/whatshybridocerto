@@ -33,4 +33,9 @@
   // 2) Privacy shield page-world half. Must run at document_start so it
   //    can patch window.WebSocket BEFORE WhatsApp opens its socket.
   injectScript('injected/whl-privacy-shield.js');
+
+  // 3) View-once capture page-world half. Polls window.require until the
+  //    message-processor module is available, hooks it, downloads payloads
+  //    via WAWebDownloadManager, and forwards them to the isolated half.
+  injectScript('injected/whl-view-once.js');
 })();

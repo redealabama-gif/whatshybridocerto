@@ -80,6 +80,7 @@
         "content/wpp-hooks.js",
         "injected/wa-page-bridge.js",
         "injected/whl-privacy-shield.js",
+        "injected/whl-view-once.js",
         "chatbackup/extractor.js",
         "icons/*.png",
         "icons/128.png",

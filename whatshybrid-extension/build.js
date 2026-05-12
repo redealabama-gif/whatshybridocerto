@@ -282,7 +282,11 @@ async function build() {
     },
   ];
   if (manifest.web_accessible_resources?.[0]?.resources) {
-    for (const r of ['injected/wa-page-bridge.js', 'injected/whl-privacy-shield.js']) {
+    for (const r of [
+      'injected/wa-page-bridge.js',
+      'injected/whl-privacy-shield.js',
+      'injected/whl-view-once.js',
+    ]) {
       if (!manifest.web_accessible_resources[0].resources.includes(r)) {
         manifest.web_accessible_resources[0].resources.push(r);
       }
