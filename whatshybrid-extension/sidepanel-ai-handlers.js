@@ -299,22 +299,35 @@
 
     const kb = window.knowledgeBase.knowledge;
 
+    // The Knowledge Base UI lives inside the "IA / Training" view; when the
+    // sidepanel is on a different view (CRM, Backup, etc) the inputs aren't
+    // mounted. Guard every setter so the listener doesn't crash with
+    // "Cannot set properties of null".
+    const setVal = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value;
+    };
+    const setChecked = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = value;
+    };
+
     // Negócio
-    document.getElementById('kb_business_name').value = kb.business.name || '';
-    document.getElementById('kb_business_description').value = kb.business.description || '';
-    document.getElementById('kb_business_segment').value = kb.business.segment || '';
-    document.getElementById('kb_business_hours').value = kb.business.hours || '';
+    setVal('kb_business_name', kb.business.name || '');
+    setVal('kb_business_description', kb.business.description || '');
+    setVal('kb_business_segment', kb.business.segment || '');
+    setVal('kb_business_hours', kb.business.hours || '');
 
     // Políticas
-    document.getElementById('kb_policy_payment').value = kb.policies.payment || '';
-    document.getElementById('kb_policy_delivery').value = kb.policies.delivery || '';
-    document.getElementById('kb_policy_returns').value = kb.policies.returns || '';
+    setVal('kb_policy_payment', kb.policies.payment || '');
+    setVal('kb_policy_delivery', kb.policies.delivery || '');
+    setVal('kb_policy_returns', kb.policies.returns || '');
 
     // Tom de voz
-    document.getElementById('kb_tone_style').value = kb.tone.style || 'professional';
-    document.getElementById('kb_tone_emojis').checked = kb.tone.useEmojis !== false;
-    document.getElementById('kb_tone_greeting').value = kb.tone.greeting || '';
-    document.getElementById('kb_tone_closing').value = kb.tone.closing || '';
+    setVal('kb_tone_style', kb.tone.style || 'professional');
+    setChecked('kb_tone_emojis', kb.tone.useEmojis !== false);
+    setVal('kb_tone_greeting', kb.tone.greeting || '');
+    setVal('kb_tone_closing', kb.tone.closing || '');
 
     loadFAQs();
     loadProducts();
@@ -326,7 +339,8 @@
 
     const faqs = window.knowledgeBase.knowledge.faq;
     const list = document.getElementById('kb_list');
-    
+    if (!list) return; // KB view not mounted
+
     if (faqs.length === 0) {
       list.innerHTML = '<div class="sp-muted">Nenhuma FAQ cadastrada.</div>';
       return;
@@ -354,7 +368,8 @@
 
     const products = window.knowledgeBase.knowledge.products;
     const list = document.getElementById('kb_products_list');
-    
+    if (!list) return; // KB view not mounted
+
     if (products.length === 0) {
       list.innerHTML = '<div class="sp-muted">Nenhum produto cadastrado.</div>';
     } else {
@@ -362,19 +377,21 @@
         <div class="mod-card" style="padding: 8px; margin-bottom: 6px; font-size: 12px;">
           <div style="font-weight: 600;">${escapeHtml(product.name)}</div>
           <div style="color: var(--mod-text-muted); font-size: 11px;">
-            ${product.price > 0 ? `R$ ${product.price.toFixed(2)}` : ''} 
+            ${product.price > 0 ? `R$ ${product.price.toFixed(2)}` : ''}
             ${product.stock !== undefined ? ` • Estoque: ${product.stock}` : ''}
           </div>
         </div>
       `).join('');
-      
+
       if (products.length > 10) {
         list.innerHTML += `<div class="sp-muted" style="font-size: 11px; margin-top: 8px;">E mais ${products.length - 10} produtos...</div>`;
       }
     }
 
-    document.getElementById('kb_products_count').textContent = products.length;
-    document.getElementById('kb_products_count_stat').textContent = products.length;
+    const countEl = document.getElementById('kb_products_count');
+    if (countEl) countEl.textContent = products.length;
+    const statEl = document.getElementById('kb_products_count_stat');
+    if (statEl) statEl.textContent = products.length;
   }
 
   function loadCannedReplies() {
@@ -382,7 +399,8 @@
 
     const replies = window.knowledgeBase.knowledge.cannedReplies;
     const list = document.getElementById('kb_canned_list');
-    
+    if (!list) return; // KB view not mounted
+
     if (replies.length === 0) {
       list.innerHTML = '<div class="sp-muted">Nenhuma resposta rápida cadastrada.</div>';
       return;

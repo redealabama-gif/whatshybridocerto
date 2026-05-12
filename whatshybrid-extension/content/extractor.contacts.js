@@ -292,6 +292,41 @@
       
       return normalized;
     },
+
+    // Add a phone that came from a TRUSTED source (the WhatsApp Store
+    // collections themselves, not free-text DOM/storage scans). The score
+    // heuristic and DDD validator are deliberately bypassed — Store IDs are
+    // authoritative. Still enforces minimal sanity (8–15 digits, not all-same).
+    addTrusted(rawNum, contactType = 'normal', sourceType = 'cus') {
+      if (rawNum === undefined || rawNum === null) return null;
+      const n = String(rawNum).replace(/\D/g, '');
+      if (n.length < 8 || n.length > 15) return null;
+      const uniq = new Set(n.split(''));
+      if (uniq.size <= 1) return null; // all same digit
+      const normalized = n;
+      if (contactType === 'archived') this._archived.add(normalized);
+      else if (contactType === 'blocked') this._blocked.add(normalized);
+      if (!this._phones.has(normalized)) {
+        // Give Store-sourced entries a baseline score well above minValidScore
+        // so getFiltered()/getArchived()/getBlocked() always include them.
+        this._phones.set(normalized, {
+          sources: new Set([sourceType, 'store']),
+          score: Math.max(CONFIG.minValidScore + 5, 20),
+          occurrences: 1,
+          type: contactType,
+          trusted: true,
+        });
+      } else {
+        const rec = this._phones.get(normalized);
+        rec.sources.add(sourceType);
+        rec.sources.add('store');
+        rec.trusted = true;
+        rec.occurrences++;
+        // Keep the type stable if it was already classified as archived/blocked.
+        if (contactType !== 'normal' && rec.type === 'normal') rec.type = contactType;
+      }
+      return normalized;
+    },
     
     getFiltered() {
       const result = [];
@@ -464,37 +499,106 @@
     return count;
   }
   
+  // Resolve a chat/contact entity to a phone-number string by trying every
+  // shape the post-2.3000.x WhatsApp Web model exposes. Returns null when
+  // there's genuinely no phone (some @lid contacts are linked-device-only and
+  // never had a phone exposed to the page world).
+  function resolvePhoneFromEntity(entity, opts = {}) {
+    if (!entity) return null;
+    const tryIdString = (s) => {
+      if (!s) return null;
+      const str = String(s);
+      // Phone-shaped serialized id
+      let m = str.match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
+      if (m) return m[1];
+      // Bare digits (typical of contact.id.user)
+      m = str.match(/^(\d{8,15})$/);
+      if (m) return m[1];
+      // @lid: NOT a phone, but capture so caller can decide to store it raw.
+      m = str.match(/^(\d{8,20})@lid$/);
+      if (m) return opts.acceptLid ? m[1] : null;
+      return null;
+    };
+
+    // 1. Direct id
+    let phone = tryIdString(entity.id?._serialized);
+    if (phone) return phone;
+    phone = tryIdString(entity.id?.user);
+    if (phone) return phone;
+
+    // 2. Explicit phone-number fields on chat/contact
+    const directFields = [
+      entity.__x_phoneNumber, entity.phoneNumber,
+      entity.__x_pnh, entity.pnh,
+      entity.__x_pn, entity.pn,
+    ];
+    for (const f of directFields) {
+      const p = tryIdString(f);
+      if (p) return p;
+    }
+
+    // 3. Chat → Contact link
+    const contact = entity.__x_contact || entity.contact;
+    if (contact && contact !== entity) {
+      const p = resolvePhoneFromEntity(contact, { acceptLid: opts.acceptLid });
+      if (p) return p;
+    }
+    return null;
+  }
+
   // ===== EXTRAIR CONTATOS NORMAIS DA STORE (via bridge) =====
   // Iterates window.WHL_Store.Chat (WAWebChatCollection) and pulls every
-  // non-archived 1-on-1 chat. Supports both @c.us and the newer @lid IDs.
+  // non-archived 1-on-1 chat. Supports @c.us, @s.whatsapp.net AND the newer
+  // @lid IDs (resolving the latter through chat.__x_contact when possible).
   function extractNormalContactsFromStore() {
+    if (!window.WHL_Store) {
+      console.warn('[WHL] ⚠️ window.WHL_Store ausente — page-bridge não respondeu');
+      return 0;
+    }
     let count = 0;
+    let scanned = 0;
+    let skippedArchived = 0;
+    let skippedGroup = 0;
+    let unresolvable = 0;
     try {
       const chats = modelsOf(window.WHL_Store?.Chat);
       chats.forEach(chat => {
+        scanned++;
         try {
           const isArchived = readProp(chat, 'archive') === true;
-          if (isArchived) return;
-          const id = chat.id?._serialized;
-          if (!id) return;
-          if (id.endsWith('@g.us')) return; // groups handled elsewhere
-          // Accept @c.us and the newer @lid IDs.
-          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
-          if (m && PhoneStore.add(m[1], 'cus', id, 'normal')) count++;
+          if (isArchived) { skippedArchived++; return; }
+          const id = chat.id?._serialized || '';
+          if (id.endsWith('@g.us')) { skippedGroup++; return; }
+          // Try to resolve to a phone (accepts @c.us, @s.whatsapp.net,
+          // and falls back to chat.__x_contact for @lid chats).
+          const phone = resolvePhoneFromEntity(chat);
+          if (phone) {
+            if (PhoneStore.addTrusted(phone, 'normal', 'store_chat')) count++;
+          } else {
+            unresolvable++;
+          }
         } catch (_) {}
       });
+
       // Augment with the address book too — covers contacts you've never chatted with.
       const book = modelsOf(window.WHL_Store?.Contact);
+      let bookHits = 0;
       book.forEach(c => {
         try {
-          const id = c.id?._serialized;
-          if (!id) return;
-          if (id.endsWith('@g.us')) return;
-          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
-          if (m && PhoneStore.add(m[1], 'cus', id, 'normal')) count++;
+          const id = c.id?._serialized || '';
+          if (id.endsWith('@g.us') || id.endsWith('@broadcast')) return;
+          const phone = resolvePhoneFromEntity(c);
+          if (phone) {
+            if (PhoneStore.addTrusted(phone, 'normal', 'store_contact')) {
+              count++;
+              bookHits++;
+            }
+          }
         } catch (_) {}
       });
-      console.log(`[WHL] 👥 Contatos normais (Store): ${count}`);
+      console.log(`[WHL] 👥 Contatos normais (Store) — scan: ${scanned} chats, ` +
+        `arquivados: ${skippedArchived}, grupos: ${skippedGroup}, ` +
+        `sem-telefone(@lid puro): ${unresolvable}, address-book hits: ${bookHits}, total únicos: ${count}`);
     } catch (e) {
       console.error('[WHL] Erro ao extrair normais via Store:', e);
     }
@@ -504,20 +608,29 @@
   // ===== EXTRAIR CONTATOS ARQUIVADOS =====
   function extractArchivedContacts() {
     let count = 0;
+    let scanned = 0;
+    let archivedSeen = 0;
+    let unresolvable = 0;
 
     try {
       // Método 1: Usar window.WHL_Store.Chat (WAWebChatCollection) — propriedade
       // __x_archive na 2.3000.x+, fallback para `archive` em versões antigas.
       const chats = modelsOf(window.WHL_Store?.Chat);
       chats.forEach(chat => {
+        scanned++;
         try {
           const isArchived = readProp(chat, 'archive') === true ||
                              chat.archived === true || chat.isArchive === true;
           if (!isArchived) return;
-          const id = chat.id?._serialized;
-          if (!id) return;
-          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
-          if (m && PhoneStore.add(m[1], 'cus', id, 'archived')) count++;
+          archivedSeen++;
+          const id = chat.id?._serialized || '';
+          if (id.endsWith('@g.us')) return;
+          const phone = resolvePhoneFromEntity(chat);
+          if (phone) {
+            if (PhoneStore.addTrusted(phone, 'archived', 'store_chat')) count++;
+          } else {
+            unresolvable++;
+          }
         } catch (_) {}
       });
       
@@ -559,27 +672,35 @@
         }
       }
       
-      console.log(`[WHL] 📁 Contatos arquivados encontrados: ${count}`);
+      console.log(`[WHL] 📁 Arquivados (Store) — scan: ${scanned} chats, ` +
+        `arquivados encontrados: ${archivedSeen}, sem-telefone(@lid): ${unresolvable}, ` +
+        `total: ${count}`);
     } catch (e) {
       console.error('[WHL] Erro ao extrair arquivados:', e);
     }
-    
+
     return count;
   }
-  
+
   // ===== EXTRAIR CONTATOS BLOQUEADOS =====
   function extractBlockedContacts() {
     let count = 0;
-    
+
     try {
-      // Método 1: Usar window.WHL_Store.Blocklist (WAWebBlocklistCollection)
+      // Método 1: Usar window.WHL_Store.Blocklist (WAWebBlocklistCollection).
+      // Entradas bloqueadas costumam ser @c.us, mas em algumas contas vêm @lid;
+      // por isso resolvemos via resolvePhoneFromEntity (com fallback aceitando lid).
       const blocked = modelsOf(window.WHL_Store?.Blocklist);
-      blocked.forEach(contact => {
+      blocked.forEach(entry => {
         try {
-          const id = contact.id?._serialized || contact.id?.user;
-          if (!id) return;
-          const match = String(id).match(/(\d{10,15})/);
-          if (match && PhoneStore.add(match[1], 'cus', String(id), 'blocked')) count++;
+          // Some Blocklist entries are { id: Wid } not full contacts; if so look
+          // up the corresponding Contact for a richer phone field.
+          const fullContact = window.WHL_Store?.Contact?.get?.(entry?.id?._serialized) || entry;
+          const phone = resolvePhoneFromEntity(fullContact, { acceptLid: true })
+            || resolvePhoneFromEntity(entry, { acceptLid: true });
+          if (phone) {
+            if (PhoneStore.addTrusted(phone, 'blocked', 'store_blocklist')) count++;
+          }
         } catch (_) {}
       });
       
@@ -631,7 +752,7 @@
         }
       });
       
-      console.log(`[WHL] 🚫 Contatos bloqueados encontrados: ${count}`);
+      console.log(`[WHL] 🚫 Bloqueados (Store + storage) — total: ${count}`);
     } catch (e) {
       console.error('[WHL] Erro ao extrair bloqueados:', e);
     }
