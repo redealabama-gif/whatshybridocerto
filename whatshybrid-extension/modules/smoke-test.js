@@ -22,54 +22,85 @@
   // ═══════════════════════════════════════════════════════════════════
 
   const TESTS = {
-    // Testes da API interna do WhatsApp
+    // Bridge to the page-world WhatsApp internals.
+    //
+    // In WA 2.3000.x window.Store is gone; the canonical source of truth
+    // is the WHL page bridge (injected/wa-page-bridge.js), which mirrors
+    // WAWebChatCollection / ContactCollection / etc into the isolated
+    // world. We poll WHL_WaBridge.healthCheck() instead of poking
+    // window.Store.* directly.
     whatsappStore: {
       name: 'WhatsApp Store API',
       critical: true,
-      timeout: 5000,
+      timeout: 12000,
       test: async () => {
-        // Aguarda Store estar disponível
         const maxWait = 10000;
         const startTime = Date.now();
-        
+        let lastHealth = null;
+
         while (Date.now() - startTime < maxWait) {
-          if (window.Store && window.Store.Chat && window.Store.Msg) {
+          const health = window.WHL_WaBridge?.healthCheck?.();
+          if (health && health.ok && (health.modulesLoaded || []).length > 0) {
+            const loaded = new Set(health.modulesLoaded);
             return {
               passed: true,
               details: {
+                via: 'WHL_WaBridge',
+                version: health.version,
+                hasChat: loaded.has('Chat'),
+                hasMsg: loaded.has('Msg'),
+                hasContact: loaded.has('Contact'),
+                hasBlocklist: loaded.has('Blocklist'),
+                loaded: health.modulesLoaded,
+                missing: health.missing,
+              }
+            };
+          }
+          lastHealth = health;
+          // Legacy fallback: builds anteriores ao 2.3000.x ainda expunham
+          // window.Store. Não emitimos warning aqui pra não confundir.
+          if (window.Store?.Chat && window.Store?.Msg) {
+            return {
+              passed: true,
+              details: {
+                via: 'window.Store(legacy)',
                 hasChat: !!window.Store.Chat,
                 hasMsg: !!window.Store.Msg,
                 hasContact: !!window.Store.Contact,
-                hasConn: !!window.Store.Conn
+                hasConn: !!window.Store.Conn,
               }
             };
           }
           await new Promise(r => setTimeout(r, 500));
         }
-        
+
         return {
           passed: false,
-          error: 'window.Store não disponível após timeout',
-          details: { timeout: maxWait }
+          error: 'Page bridge não respondeu STORE_READY após ' + maxWait + 'ms',
+          details: { lastHealth, timeout: maxWait },
         };
       }
     },
 
-    // Teste de conectividade do WhatsApp
+    // Conexão com WhatsApp — checa se o usuário fez QR-login.
+    // Em WA 2.3000.x não temos window.Store.Conn. Heurística:
+    //   bridge pronto + pane-side renderizado = sessão registrada.
     whatsappConnection: {
       name: 'Conexão WhatsApp',
       critical: true,
       timeout: 3000,
       test: async () => {
         try {
-          // Verifica se está conectado
-          const isConnected = window.Store?.Conn?.isRegistered?.() || 
-                              document.querySelector('[data-testid="chat-list"]') !== null;
-          
+          const bridgeReady = !!window.WHL_WaBridge?.healthCheck?.()?.ok;
+          // #pane-side existe nas duas eras (2.2000.x e 2.3000.x) e só
+          // aparece após o login.
+          const paneSide = document.querySelector('#pane-side');
+          const legacyConn = window.Store?.Conn?.isRegistered?.();
+          const isConnected = (bridgeReady && !!paneSide) || legacyConn === true;
           return {
             passed: isConnected,
             error: isConnected ? null : 'WhatsApp não está conectado',
-            details: { isConnected }
+            details: { bridgeReady, hasPaneSide: !!paneSide, legacyConn: !!legacyConn }
           };
         } catch (e) {
           return { passed: false, error: e.message };
@@ -77,7 +108,9 @@
       }
     },
 
-    // Teste de seletores críticos
+    // Seletores críticos — prefere os duráveis (IDs antigos do WA que
+    // sobrevivem updates) e mantém os data-testid como tentativa
+    // secundária. Em WA 2.3000.x a maioria dos data-testid morreu.
     criticalSelectors: {
       name: 'Seletores Críticos',
       critical: true,
@@ -85,17 +118,20 @@
       test: async () => {
         const selectors = {
           chatList: [
+            '#pane-side',
+            '[aria-label="Lista de conversas"]',
+            '[aria-label="Chat list"]',
             '[data-testid="chat-list"]',
-            '#pane-side'
           ],
           mainPanel: [
             '#main',
-            '[data-testid="conversation-panel-wrapper"]'
+            '[data-testid="conversation-panel-wrapper"]',
           ],
           header: [
+            '#app header',
+            'header._amid',
             'header[data-testid="chatlist-header"]',
-            '#app header'
-          ]
+          ],
         };
 
         const results = {};
@@ -104,15 +140,18 @@
         for (const [name, variants] of Object.entries(selectors)) {
           let found = false;
           for (const selector of variants) {
-            if (document.querySelector(selector)) {
-              found = true;
-              results[name] = { found: true, selector };
-              break;
-            }
+            try {
+              if (document.querySelector(selector)) {
+                found = true;
+                results[name] = { found: true, selector };
+                break;
+              }
+            } catch (_) {}
           }
           if (!found) {
-            results[name] = { found: false };
-            allPassed = false;
+            results[name] = { found: false, tried: variants };
+            // mainPanel só existe quando um chat está aberto — não falha o teste.
+            if (name !== 'mainPanel') allPassed = false;
           }
         }
 
@@ -124,70 +163,89 @@
       }
     },
 
-    // Teste de seletores de input
+    // Seletor de input do compositor.
+    // WA 2.3000.x: o composer é um lexical-editor:
+    //   footer div[contenteditable="true"][role="textbox"]
+    //   div[contenteditable="true"][data-lexical-editor="true"]
+    // Os data-tab="10/1" são da era 2.2000.x — mantidos como fallback.
     inputSelectors: {
       name: 'Seletores de Input',
       critical: false,
       timeout: 3000,
       test: async () => {
         const inputSelectors = [
+          'footer div[contenteditable="true"][role="textbox"]',
+          'footer div[contenteditable="true"][data-lexical-editor="true"]',
+          '[data-lexical-editor="true"][contenteditable="true"]',
+          '#main footer div[contenteditable="true"]',
+          'footer div[contenteditable="true"]',
+          // legacy:
           'div[contenteditable="true"][data-tab="10"]',
           'div[contenteditable="true"][data-tab="1"]',
-          'footer div[contenteditable="true"]'
+          '[data-testid="conversation-compose-box-input"]',
         ];
 
         for (const selector of inputSelectors) {
-          const el = document.querySelector(selector);
-          if (el) {
-            return {
-              passed: true,
-              details: { selector, found: true }
-            };
-          }
+          try {
+            const el = document.querySelector(selector);
+            if (el && (el.offsetWidth || el.offsetHeight)) {
+              return { passed: true, details: { selector, found: true } };
+            }
+          } catch (_) {}
         }
 
-        // Input pode não existir se não houver chat aberto
-        const hasOpenChat = document.querySelector('#main');
+        // Input só existe quando há chat aberto.
+        const hasOpenChat = !!document.querySelector('#main');
         return {
-          passed: !hasOpenChat, // Passa se não há chat aberto
+          passed: !hasOpenChat,
           error: hasOpenChat ? 'Input não encontrado com chat aberto' : null,
-          details: { hasOpenChat, inputFound: false }
+          details: { hasOpenChat, inputFound: false, tried: inputSelectors.length }
         };
       }
     },
 
-    // Teste de mensagens
+    // Container de mensagens dentro do chat aberto.
     messageSelectors: {
       name: 'Seletores de Mensagens',
       critical: false,
       timeout: 3000,
       test: async () => {
-        const hasChat = document.querySelector('#main');
-        if (!hasChat) {
-          return { passed: true, details: { noChat: true } };
-        }
+        const hasChat = !!document.querySelector('#main');
+        if (!hasChat) return { passed: true, details: { noChat: true } };
 
         const messageSelectors = [
-          'div[data-testid="msg-container"]',
+          // WA 2.3000.x usa classes ofuscadas mas mantém data-id no DOM.
+          '#main [data-id]',
+          '#main [role="row"]',
+          'div.copyable-text',
           '[data-id^="true_"]',
-          '[data-id^="false_"]'
+          '[data-id^="false_"]',
+          // legacy:
+          'div[data-testid="msg-container"]',
         ];
 
         for (const selector of messageSelectors) {
-          if (document.querySelector(selector)) {
-            return { passed: true, details: { selector, found: true } };
-          }
+          try {
+            if (document.querySelector(selector)) {
+              return { passed: true, details: { selector, found: true } };
+            }
+          } catch (_) {}
         }
 
         return {
           passed: false,
           error: 'Seletores de mensagem não encontrados',
-          details: { hasChat: true }
+          details: { hasChat: true, tried: messageSelectors }
         };
       }
     },
 
-    // Teste de extensões Chrome
+    // Chrome APIs disponíveis no isolated world do content script.
+    //
+    // Importante: chrome.tabs e chrome.alarms NÃO existem em content
+    // scripts (são background-only). Esse era o motivo do teste falhar
+    // direto sempre. Aqui só validamos o que o content script realmente
+    // tem acesso: chrome.storage.local + chrome.runtime.sendMessage.
     chromeAPIs: {
       name: 'Chrome Extension APIs',
       critical: true,
@@ -195,16 +253,14 @@
       test: async () => {
         const apis = {
           storage: typeof chrome?.storage?.local !== 'undefined',
-          runtime: typeof chrome?.runtime?.sendMessage !== 'undefined',
-          tabs: typeof chrome?.tabs !== 'undefined',
-          alarms: typeof chrome?.alarms !== 'undefined'
+          runtime_sendMessage: typeof chrome?.runtime?.sendMessage === 'function',
+          runtime_getURL: typeof chrome?.runtime?.getURL === 'function',
+          extensionId: !!chrome?.runtime?.id,
         };
-
-        const allAvailable = Object.values(apis).every(v => v);
-
+        const allAvailable = Object.values(apis).every(Boolean);
         return {
           passed: allAvailable,
-          error: allAvailable ? null : 'Algumas Chrome APIs não disponíveis',
+          error: allAvailable ? null : 'Algumas Chrome APIs essenciais ausentes',
           details: apis
         };
       }
