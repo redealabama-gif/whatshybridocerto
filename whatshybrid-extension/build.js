@@ -282,8 +282,10 @@ async function build() {
     },
   ];
   if (manifest.web_accessible_resources?.[0]?.resources) {
-    if (!manifest.web_accessible_resources[0].resources.includes('injected/wa-page-bridge.js')) {
-      manifest.web_accessible_resources[0].resources.push('injected/wa-page-bridge.js');
+    for (const r of ['injected/wa-page-bridge.js', 'injected/whl-privacy-shield.js']) {
+      if (!manifest.web_accessible_resources[0].resources.includes(r)) {
+        manifest.web_accessible_resources[0].resources.push(r);
+      }
     }
   }
   if (manifest.web_accessible_resources?.[0]?.resources) {
