@@ -231,27 +231,66 @@
      * @returns {Promise} - Promessa resolvida quando carregado
      */
     async load(moduleName) {
-      // Já carregado?
+      // Já carregado por este loader?
       if (this.loadedModules.has(moduleName)) {
         return this._getModuleExport(moduleName);
       }
-      
+
+      // Já provido por outro caminho (advanced-bundle, content-bundle, etc).
+      // O LazyLoader tenta injetar um <script src=…> com chrome.runtime.getURL,
+      // o que (a) só funciona se a resource estiver listada em
+      // web_accessible_resources, e (b) executa no PAGE world, enquanto o
+      // próprio loader roda no ISOLATED world e lê window.X dali. Para os
+      // módulos lazy desta extensão, advanced-bundle.js (carregado pelo
+      // background via chrome.scripting.executeScript) já injetou as classes
+      // no isolated world quando o side panel abre. Se elas já existem,
+      // nem tenta carregar — só registra e devolve.
+      const existing = this._getModuleExport(moduleName);
+      if (existing) {
+        this.loadedModules.add(moduleName);
+        const cfg = this.moduleRegistry.get(moduleName);
+        if (cfg) { cfg.loaded = true; cfg.loading = false; }
+        return existing;
+      }
+
       // Já carregando?
       if (this.loadingPromises.has(moduleName)) {
         return this.loadingPromises.get(moduleName);
       }
-      
+
       // Verificar se é um módulo registrado
       const config = this.moduleRegistry.get(moduleName);
       if (!config) {
         console.warn(`[LazyLoader] Unknown module: ${moduleName}`);
         return null;
       }
-      
-      // Iniciar carregamento
+
+      // Pedir ao background pra injetar o advanced-bundle (que contém
+      // copilot-engine, ai-suggestion-fixed, crm, etc) antes de cair no
+      // <script src> direto. O background já lida com duplicate-injection.
+      try {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+          await new Promise(resolve => {
+            try {
+              chrome.runtime.sendMessage({ type: 'WHL_LOAD_ADVANCED' }, () => resolve());
+            } catch (_) { resolve(); }
+            // Não bloquear pra sempre se o background não responder.
+            setTimeout(resolve, 1500);
+          });
+          const afterAdvanced = this._getModuleExport(moduleName);
+          if (afterAdvanced) {
+            this.loadedModules.add(moduleName);
+            const cfg = this.moduleRegistry.get(moduleName);
+            if (cfg) { cfg.loaded = true; cfg.loading = false; }
+            return afterAdvanced;
+          }
+        }
+      } catch (_) {}
+
+      // Último recurso: caminho legado de script tag (page world).
       const loadPromise = this._doLoad(moduleName);
       this.loadingPromises.set(moduleName, loadPromise);
-      
+
       try {
         const result = await loadPromise;
         this.loadingPromises.delete(moduleName);
