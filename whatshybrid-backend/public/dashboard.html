@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel — WhatsHybrid Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/futuristic.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Layout: sidebar + content */
+    .portal {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: rgba(15, 12, 41, 0.7);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      display: flex; flex-direction: column;
+      position: sticky; top: 0;
+      height: 100vh;
+    }
+    .sidebar-logo { padding: 0 8px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .sidebar-user { padding: 12px 8px; }
+    .user-info { font-size: 0.85rem; color: var(--text-muted); }
+    .user-email { color: white; font-weight: 600; word-break: break-all; }
+    .plan-badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 12px;
+      background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
+      color: black;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sidebar-tabs { flex: 1; margin-top: 16px; }
+    .sidebar-footer { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; }
+
+    .content-area {
+      padding: 32px 40px;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 1.8rem; }
+    .page-header p { color: var(--text-muted); margin-top: 4px; }
+
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .kpi-card {
+      background: rgba(15, 12, 41, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .kpi-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .kpi-value.gradient {
+      background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .kpi-sub { font-size: 0.85rem; color: var(--text-dim); }
+    .kpi-sub.success { color: var(--success); }
+
+    /* Section */
+    .section {
+      background: rgba(15, 12, 41, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .section h2 { font-size: 1.2rem; margin-bottom: 16px; }
+    .section h3 { font-size: 1.05rem; margin-bottom: 12px; }
+
+    /* Extension callout */
+    .ext-cta {
+      background: linear-gradient(135deg, rgba(111, 0, 255, 0.15), rgba(0, 255, 255, 0.05));
+      border: 1px solid var(--brand-purple);
+      border-radius: 16px;
+      padding: 32px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 700px) {
+      .ext-cta { grid-template-columns: 1fr; text-align: center; }
+    }
+
+    /* Form fields in tabs */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    textarea.input { min-height: 100px; resize: vertical; font-family: inherit; }
+
+    /* Mobile */
+    .mobile-toggle {
+      display: none;
+      background: var(--brand-purple); color: white;
+      border: 0; padding: 8px 16px; border-radius: 8px;
+    }
+    @media (max-width: 900px) {
+      .portal { grid-template-columns: 1fr; }
+      .sidebar {
+        position: fixed; top: 0; left: -300px; width: 260px; z-index: 100;
+        transition: left 0.3s;
+      }
+      .sidebar.open { left: 0; }
+      .mobile-toggle { display: inline-flex; }
+      .content-area { padding: 20px; }
+    }
+
+    /* Activity table */
+    .activity-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .activity-table th, .activity-table td {
+      text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .activity-table th {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-muted); font-weight: 600;
+    }
+
+    /* API keys */
+    .api-key {
+      font-family: 'Cascadia Code', ui-monospace, monospace;
+      font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: inline-flex; align-items: center; gap: 8px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+    }
+    .empty i { color: var(--text-dim); width: 48px; height: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body class="has-cursor">
+
+<div class="bg-grid"></div>
+
+<div class="portal">
+
+  <!-- ── Sidebar ───────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo" aria-label="WhatsHybrid Pro - Início">
+        <span class="logo-mark" aria-hidden="true">W</span>
+        <span style="font-size:1rem;">WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
+      </a>
+    </div>
+
+    <div class="sidebar-user glass" aria-label="Informações da conta">
+      <div class="user-info">
+        <div class="user-email" id="user-email">carregando...</div>
+        <div class="text-muted" style="margin-top:4px;font-size:0.8rem;" id="company-name">—</div>
+        <span class="plan-badge" id="user-plan" aria-label="Plano atual">—</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-tabs tabs-nav" aria-label="Navegação do painel" role="tablist">
+      <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview">
+        <i data-lucide="layout-dashboard" aria-hidden="true"></i>
+        Visão Geral
+      </button>
+      <button class="tab-btn" data-tab="extension" role="tab" aria-selected="false" aria-controls="tab-extension">
+        <i data-lucide="chrome" aria-hidden="true"></i>
+        Extensão Chrome
+      </button>
+      <button class="tab-btn" data-tab="tokens" role="tab" aria-selected="false" aria-controls="tab-tokens">
+        <i data-lucide="coins" aria-hidden="true"></i>
+        Tokens &amp; Uso
+      </button>
+      <button class="tab-btn" data-tab="ai" role="tab" aria-selected="false" aria-controls="tab-ai">
+        <i data-lucide="brain-circuit" aria-hidden="true"></i>
+        Inteligência Artificial
+      </button>
+      <button class="tab-btn" data-tab="billing" role="tab" aria-selected="false" aria-controls="tab-billing">
+        <i data-lucide="credit-card" aria-hidden="true"></i>
+        Assinatura
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="tab-btn" onclick="api.logout()" aria-label="Sair da conta">
+        <i data-lucide="log-out" aria-hidden="true"></i>
+        Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Content ───────────────────────────────────────────────────── -->
+  <main class="content-area" id="main-content">
+
+    <button class="mobile-toggle"
+            onclick="document.getElementById('sidebar').classList.toggle('open')"
+            aria-label="Abrir menu"
+            aria-controls="sidebar"
+            aria-expanded="false">
+      <i data-lucide="menu" style="width:18px;height:18px;" aria-hidden="true"></i> Menu
+    </button>
+
+    <!-- ─── Tab: Overview ─── -->
+    <div class="tab-content active" id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview">
+      <div class="page-header">
+        <div>
+          <h1>Olá, <span id="user-name">amigo</span> 👋</h1>
+          <p id="trial-banner-text">Carregando informações da conta...</p>
+        </div>
+        <a href="#" class="btn btn-cyan" onclick="switchTab('extension'); return false;">
+          <i data-lucide="chrome" style="width:18px;height:18px;"></i>
+          Instalar extensão
+        </a>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Mensagens este mês</div>
+          <div class="kpi-value gradient" id="kpi-messages">—</div>
+          <div class="kpi-sub" id="kpi-messages-sub">de — incluído no plano</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Padrões aprendidos</div>
+          <div class="kpi-value" id="kpi-patterns">—</div>
+          <div class="kpi-sub success" id="kpi-patterns-sub">Carregando...</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Contatos no CRM</div>
+          <div class="kpi-value" id="kpi-contacts">—</div>
+          <div class="kpi-sub">total cadastrados</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Atendentes</div>
+          <div class="kpi-value" id="kpi-users">—</div>
+          <div class="kpi-sub" id="kpi-users-sub">de — no plano</div>
+        </div>
+      </div>
+
+      <!-- Recent activity -->
+      <div class="section">
+        <h2>Últimas interações da IA</h2>
+        <div id="recent-activity">
+          <div class="empty">
+            <i data-lucide="message-circle"></i>
+            <p>Nenhuma interação registrada ainda.</p>
+            <p style="font-size:0.85rem;margin-top:8px;">Assim que você instalar a extensão e começar a atender, aparece aqui.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: Extension ─── -->
+    <div class="tab-content" id="tab-extension" role="tabpanel" aria-labelledby="tab-btn-extension">
+      <div class="page-header">
+        <div>
+          <h1>Instalar a Extensão</h1>
+          <p>Em 3 passos você está vendendo no WhatsApp Web.</p>
+        </div>
+      </div>
+
+      <div class="ext-cta">
+        <div>
+          <h2 style="margin-bottom:8px;">WhatsHybrid Pro para Chrome</h2>
+          <p class="text-muted mb-4">Adicione a extensão ao seu navegador. Funciona no Chrome, Edge e Brave.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <a href="#" class="btn btn-primary btn-large" id="install-extension-btn">
+              <i data-lucide="chrome" style="width:20px;height:20px;"></i>
+              Instalar agora
+            </a>
+            <button class="btn btn-ghost" onclick="downloadExtension()">
+              <i data-lucide="download" style="width:18px;height:18px;"></i>
+              Baixar .zip (instalação manual)
+            </button>
+          </div>
+        </div>
+        <div style="font-size: 6rem; line-height: 1;">⚡</div>
+      </div>
+
+      <div class="section">
+        <h2>Como ativar em 3 passos</h2>
+        <ol style="padding-left: 0; list-style: none; counter-reset: step;">
+          <li style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); counter-increment: step;">
+            <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--brand-purple); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;" id="step-1-num">1</div>
+            <div>
+              <h4>Instale a extensão</h4>
+              <p class="text-muted" style="font-size:0.9rem;">Clique em "Instalar agora" acima e adicione ao Chrome.</p>
+            </div>
+          </li>
+          <li style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); counter-increment: step;">
+            <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--brand-purple); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">2</div>
+            <div>
+              <h4>Faça login na extensão</h4>
+              <p class="text-muted" style="font-size:0.9rem;">Use o mesmo email e senha desta conta. A extensão vai se conectar automaticamente ao seu workspace.</p>
+              <div style="margin-top: 8px;">
+                <span class="text-muted" style="font-size:0.8rem;">Endpoint da API: </span>
+                <code class="api-key" id="api-endpoint">https://api.whatshybrid.com.br</code>
+              </div>
+            </div>
+          </li>
+          <li style="display: flex; gap: 16px; padding: 16px 0; counter-increment: step;">
+            <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--brand-purple); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">3</div>
+            <div>
+              <h4>Abra o WhatsApp Web</h4>
+              <p class="text-muted" style="font-size:0.9rem;">Acesse <a href="https://web.whatsapp.com" target="_blank">web.whatsapp.com</a>, faça login normalmente. O painel da IA aparece à direita.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="section">
+        <h3><i data-lucide="brain" style="width:16px;height:16px;display:inline;color:var(--brand-cyan);"></i> Treinamento da IA</h3>
+        <p class="text-muted mt-2">
+          O treinamento completo da IA (FAQ, produtos, tom de voz, políticas, exemplos few-shot, simulação neural)
+          fica <strong>dentro da extensão</strong>, onde você atende. Clique em <strong>Treinar IA</strong> no painel
+          lateral da extensão (após instalar) ou abra a página dedicada de treinamento via menu ⚙️.
+        </p>
+        <p class="text-muted mt-3" style="font-size: 0.85rem;">
+          Com isso o treinamento fica perto do contexto: você ajusta a IA enquanto vê as conversas acontecendo.
+        </p>
+      </div>
+
+      <div class="section">
+        <h3><i data-lucide="info" style="width:16px;height:16px;display:inline;color:var(--brand-cyan);"></i> Requisitos</h3>
+        <ul style="padding-left: 20px; color: var(--text-muted); margin-top: 8px;">
+          <li>Chrome, Edge ou Brave (versão recente)</li>
+          <li>Conta no WhatsApp ativa para fazer login no Web</li>
+          <li>Computador ligado durante o atendimento (a extensão só funciona com o navegador aberto)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ─── Tab: Tokens & Uso ─── -->
+    <div class="tab-content" id="tab-tokens" role="tabpanel" aria-labelledby="tab-btn-tokens">
+      <div class="page-header">
+        <div>
+          <h1>Tokens & Uso</h1>
+          <p>Saldo da sua IA, histórico e pacotes para comprar mais.</p>
+        </div>
+        <button class="btn btn-cyan" onclick="openBuyTokens()">
+          <i data-lucide="plus" style="width:18px;height:18px;"></i>
+          Comprar tokens
+        </button>
+      </div>
+
+      <!-- Saldo -->
+      <div class="section" style="background: linear-gradient(135deg, rgba(111,0,255,0.1), rgba(0,255,255,0.05)); border-color: var(--brand-purple);">
+        <div style="display:grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;">
+          <div>
+            <div class="kpi-label">Saldo disponível</div>
+            <div class="kpi-value gradient" id="tokens-balance" style="font-size: 3rem;">—</div>
+            <div class="kpi-sub" id="tokens-sub">de — tokens neste ciclo</div>
+            <div class="progress mt-4" style="max-width: 400px;">
+              <div class="progress-fill" id="tokens-progress" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div style="font-size: 5rem; line-height: 1;">🪙</div>
+        </div>
+      </div>
+
+      <!-- Resumo de uso -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Consumido (30d)</div>
+          <div class="kpi-value" id="usage-tokens">—</div>
+          <div class="kpi-sub">tokens usados</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Requests (30d)</div>
+          <div class="kpi-value" id="usage-requests">—</div>
+          <div class="kpi-sub">chamadas à IA</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Média por request</div>
+          <div class="kpi-value" id="usage-avg">—</div>
+          <div class="kpi-sub">tokens/request</div>
+        </div>
+      </div>
+
+      <!-- Pacotes para comprar -->
+      <div class="section" id="tokens-packages-section">
+        <h2>Comprar tokens avulsos</h2>
+        <p class="text-muted mb-4">Tokens avulsos não expiram. Use quando quiser.</p>
+        <div id="tokens-packages-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+          <!-- preenchido via JS -->
+        </div>
+      </div>
+
+      <!-- Histórico -->
+      <div class="section">
+        <h2>Histórico recente</h2>
+        <div id="tokens-history-container">
+          <div class="empty">
+            <i data-lucide="clock"></i>
+            <p>Nenhum movimento ainda.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: AI Settings ─── -->
+    <div class="tab-content" id="tab-ai" role="tabpanel" aria-labelledby="tab-btn-ai">
+      <div class="page-header">
+        <div>
+          <h1>Inteligência Artificial</h1>
+          <p>Configure como a IA responde mensagens dos seus clientes.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom: 8px;">Personalidade e tom</h3>
+        <p class="text-muted" style="margin-bottom: 20px; font-size: 0.9rem;">
+          Defina como a IA deve falar com seus clientes.
+        </p>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label class="input-label" for="ai-tone">Tom de voz</label>
+            <select id="ai-tone" class="input">
+              <option value="friendly">Amigável (padrão)</option>
+              <option value="formal">Formal</option>
+              <option value="casual">Casual</option>
+              <option value="professional">Profissional</option>
+              <option value="enthusiastic">Entusiasmado</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label" for="ai-sector">Setor / Nicho</label>
+            <input type="text" id="ai-sector" class="input"
+                   placeholder="Ex: Loja de roupas, Imobiliária, Clínica..."
+                   maxlength="200">
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 16px;">
+          <label class="input-label" for="ai-system-prompt">
+            Instruções customizadas (opcional)
+            <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85rem;">
+              — defina como a IA deve se comportar
+            </span>
+          </label>
+          <textarea id="ai-system-prompt" class="input"
+                    rows="6"
+                    maxlength="5000"
+                    placeholder="Exemplo: Você é o assistente da Loja XPTO. Sempre cumprimente o cliente pelo nome quando souber. Nunca prometa descontos sem confirmar com humano. Seja breve nas respostas (máximo 3 frases)."></textarea>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+            <span id="prompt-char-count">0</span> / 5000 caracteres
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <h3 style="margin-bottom: 8px;">Configurações avançadas</h3>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label class="input-label" for="ai-max-tokens">
+              Máximo de tokens por resposta
+              <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85rem;">
+                (50–2000)
+              </span>
+            </label>
+            <input type="number" id="ai-max-tokens" class="input"
+                   min="50" max="2000" value="500">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+              Respostas mais curtas economizam tokens (≈ R$ 0,002 por 1k).
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="input-label">
+              <input type="checkbox" id="ai-auto-reply" checked
+                     style="margin-right: 8px;">
+              Enviar respostas automaticamente
+            </label>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+              Se desligado, IA só sugere e você confirma.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <h3 style="margin-bottom: 8px;">Base de conhecimento</h3>
+        <p class="text-muted" style="margin-bottom: 16px; font-size: 0.9rem;">
+          Cole aqui informações sobre seu negócio (FAQ, regras, preços, horários).
+          A IA vai usar isso para responder com precisão.
+        </p>
+        <textarea id="ai-knowledge-base" class="input"
+                  rows="10" maxlength="50000"
+                  placeholder="Exemplo:
+- Horário: Segunda a sábado, 9h às 18h
+- Endereço: Rua X, 123
+- Frete grátis acima de R$ 200
+- Aceitamos: Pix, cartão, boleto
+- Trocas em até 7 dias"></textarea>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+          <span id="kb-char-count">0</span> / 50000 caracteres
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
+        <button class="btn btn-primary" id="ai-save-btn" type="button">
+          <i data-lucide="save" aria-hidden="true" style="width:16px;height:16px;"></i>
+          Salvar configurações
+        </button>
+        <button class="btn btn-cyan" id="ai-test-btn" type="button">
+          <i data-lucide="play" aria-hidden="true" style="width:16px;height:16px;"></i>
+          Testar IA
+        </button>
+      </div>
+
+      <!-- Test result panel -->
+      <div class="card" id="ai-test-result-panel" style="margin-top: 24px; display: none;">
+        <h3 style="margin-bottom: 12px;">Teste da IA</h3>
+        <div class="input-group">
+          <label class="input-label" for="ai-test-input">Mensagem de teste</label>
+          <input type="text" id="ai-test-input" class="input"
+                 placeholder="Ex: Vocês entregam no fim de semana?">
+        </div>
+        <button class="btn btn-primary" id="ai-test-send-btn" type="button" style="margin-top: 12px;">
+          Enviar teste
+        </button>
+        <div id="ai-test-output" style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 8px; min-height: 60px; display: none;">
+          <strong style="color: var(--brand-cyan);">Resposta da IA:</strong>
+          <div id="ai-test-response" style="margin-top: 8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: Billing ─── -->
+    <div class="tab-content" id="tab-billing" role="tabpanel" aria-labelledby="tab-btn-billing">
+      <div class="page-header">
+        <div>
+          <h1>Minha Assinatura</h1>
+          <p>Gerencie seu plano e formas de pagamento.</p>
+        </div>
+      </div>
+
+      <div class="section" id="current-plan-section">
+        <h2>Plano atual</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+          <div>
+            <div style="font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 700;" id="billing-plan-name">Pro</div>
+            <div class="text-muted mt-2" id="billing-plan-price">R$ 197/mês</div>
+            <div class="text-muted mt-2" id="billing-next-charge" style="font-size: 0.85rem;">Próxima cobrança: —</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-ghost">Mudar plano</button>
+            <button class="btn btn-ghost" onclick="cancelSubscription()" style="color: var(--error);">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Forma de pagamento</h2>
+        <div id="payment-method-info" class="text-muted">
+          <i data-lucide="info" style="width:16px;height:16px;display:inline;"></i>
+          Você está em período de trial. Configure o método de pagamento antes de <strong id="trial-end-date">—</strong>.
+        </div>
+        <div class="mt-4 flex gap-3" style="flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="subscribeRecurring()" data-cursor="hover">
+            <i data-lucide="repeat" style="width:18px;height:18px;"></i>
+            Assinar com renovação automática
+          </button>
+          <button class="btn btn-ghost" onclick="startCheckout()">
+            <i data-lucide="credit-card" style="width:18px;height:18px;"></i>
+            Pagamento único (1 mês)
+          </button>
+          <button class="btn btn-ghost" onclick="changePlan()">
+            <i data-lucide="arrow-up-right" style="width:18px;height:18px;"></i>
+            Mudar plano
+          </button>
+        </div>
+        <p class="text-muted mt-3" style="font-size:0.85rem;">
+          <strong>Renovação automática:</strong> você autoriza UMA vez e o MercadoPago cobra todo mês automaticamente. Pode cancelar quando quiser.
+        </p>
+      </div>
+
+      <div class="section">
+        <h2>Histórico de faturas</h2>
+        <div class="empty">
+          <i data-lucide="receipt"></i>
+          <p>Nenhuma fatura ainda.</p>
+          <p style="font-size:0.85rem;margin-top:8px;">Suas faturas aparecerão aqui após o fim do trial.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: API ─── -->
+    <div class="tab-content" id="tab-api-removed" style="display:none;">
+      <!-- v8.4.0: aba API Keys removida — modelo de tokens substitui esse fluxo -->
+    </div>
+
+  </main>
+</div>
+
+<script src="js/futuristic.js"></script>
+<script src="js/i18n-frontend.js" defer></script>
+<script src="js/datetime.js" defer></script>
+<script src="js/onboarding.js" defer></script>
+
+<!-- v9.0.0: Crisp chat (ativa automaticamente se window.CRISP_WEBSITE_ID definido) -->
+<script>
+  // Define em deploy/.env: CRISP_WEBSITE_ID=xxx-xxx-xxx
+  // E injete via template no signup.html / dashboard.html
+  window.$crisp=[];
+  if (window.CRISP_WEBSITE_ID) {
+    window.CRISP_WEBSITE_ID = window.CRISP_WEBSITE_ID;
+    (function(){
+      var d = document;
+      var s = d.createElement("script");
+      s.src = "https://client.crisp.chat/l.js";
+      s.async = 1;
+      d.getElementsByTagName("head")[0].appendChild(s);
+    })();
+    // Identifica usuário automaticamente quando logado
+    if (window.api && typeof window.api.get === 'function') {
+      window.api.get('/api/v1/users/me').then(r => {
+        if (r?.user) {
+          window.$crisp.push(["set", "user:email", r.user.email]);
+          window.$crisp.push(["set", "user:nickname", r.user.name]);
+          window.$crisp.push(["set", "session:data", [["workspace_id", r.user.workspaceId]]]);
+        }
+      }).catch(_=>{});
+    }
+  }
+</script>
+<script>
+  lucide.createIcons();
+
+  // Auth gate
+  if (!api.isAuthenticated()) {
+    window.location.href = '/login.html';
+  }
+
+  let userData = null;
+
+  // ── Tab switcher ─────────────────────────────────────────
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
+    // Close mobile sidebar
+    document.getElementById('sidebar').classList.remove('open');
+  }
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // ── Load user data ───────────────────────────────────────
+  async function loadUser() {
+    try {
+      const result = await api.get('/api/v1/auth/me');
+      // Backend retorna { user: {...}, workspace: {...} }
+      // Mergeamos para o dashboard usar como objeto único
+      userData = {
+        ...(result.user || {}),
+        workspace: result.workspace || {},
+        // backwards compat
+        company: result.workspace?.name,
+        plan: result.workspace?.plan,
+      };
+      api.setUser(userData);
+      renderUser();
+      loadKpis();
+    } catch (err) {
+      // Tenta cache local se request falhar
+      const cached = api.getUser();
+      if (cached) { userData = cached; renderUser(); }
+      else toast('Erro ao carregar dados: ' + err.message, 'error');
+    }
+  }
+
+  function renderUser() {
+    if (!userData) return;
+    document.getElementById('user-email').textContent = userData.email || '—';
+    document.getElementById('user-name').textContent = (userData.name || userData.email || 'amigo').split(' ')[0];
+    document.getElementById('company-name').textContent = userData.workspace?.name || userData.company || '—';
+
+    const plan = (userData.workspace?.plan || userData.plan || 'free').toUpperCase();
+    document.getElementById('user-plan').textContent = plan;
+
+    // Trial banner
+    const trial = userData.workspace?.trial_end_at;
+    const trialEl = document.getElementById('trial-banner-text');
+    if (trial) {
+      const end = new Date(trial);
+      const days = Math.max(0, Math.ceil((end - Date.now()) / 86400000));
+      if (days > 0) {
+        trialEl.innerHTML = `🎁 Você está no <strong>trial gratuito</strong>. <strong style="color:var(--brand-cyan);">${days} dias restantes</strong> antes da primeira cobrança.`;
+        document.getElementById('trial-end-date').textContent = end.toLocaleDateString('pt-BR');
+      } else {
+        trialEl.innerHTML = '⚠️ Seu trial expirou. Configure o pagamento para continuar usando.';
+      }
+    } else {
+      trialEl.textContent = `Plano ${plan} ativo. Use o menu ao lado para gerenciar sua conta.`;
+    }
+
+    // Billing tab
+    document.getElementById('billing-plan-name').textContent = plan;
+    const planPrices = { STARTER: 'R$ 97/mês', PRO: 'R$ 197/mês', AGENCY: 'R$ 497/mês', FREE: 'R$ 0/mês' };
+    document.getElementById('billing-plan-price').textContent = planPrices[plan] || 'R$ —';
+
+    if (trial) {
+      const end = new Date(trial);
+      document.getElementById('billing-next-charge').textContent = `Próxima cobrança: ${end.toLocaleDateString('pt-BR')}`;
+    }
+  }
+
+  async function loadKpis() {
+    if (!userData?.workspace?.id && !userData?.workspace_id) return;
+    const wsId = userData.workspace?.id || userData.workspace_id;
+
+    try {
+      // Tenta endpoint de stats do workspace (caso exista)
+      const stats = await api.get('/api/v1/users/stats').catch(() => null);
+      if (stats) {
+        document.getElementById('kpi-messages').textContent = (stats.messages_this_month || 0).toLocaleString('pt-BR');
+        document.getElementById('kpi-contacts').textContent = (stats.contacts || 0).toLocaleString('pt-BR');
+        document.getElementById('kpi-patterns').textContent = (stats.graduated_patterns || 0).toString();
+        document.getElementById('kpi-users').textContent = (stats.users_count || 1).toString();
+
+        const planLimits = { STARTER: { msgs: 500, users: 1 }, PRO: { msgs: 5000, users: 5 }, AGENCY: { msgs: -1, users: -1 } };
+        const plan = (userData.workspace?.plan || 'starter').toUpperCase();
+        const limits = planLimits[plan] || planLimits.STARTER;
+        document.getElementById('kpi-messages-sub').textContent = `de ${limits.msgs === -1 ? '∞' : limits.msgs.toLocaleString('pt-BR')} no plano`;
+        document.getElementById('kpi-users-sub').textContent = `de ${limits.users === -1 ? '∞' : limits.users} no plano`;
+        document.getElementById('kpi-patterns-sub').textContent = stats.graduated_patterns > 0
+          ? `IA aprendeu com você ✨`
+          : `Comece a dar feedback para a IA aprender`;
+      } else {
+        // Fallback: zeros visíveis
+        ['kpi-messages', 'kpi-patterns', 'kpi-contacts', 'kpi-users'].forEach(id => {
+          document.getElementById(id).textContent = '0';
+        });
+        document.getElementById('kpi-patterns-sub').textContent = 'Conecte a extensão para começar';
+      }
+    } catch (e) {
+      console.warn('stats error', e);
+    }
+  }
+
+  // ── Extension actions ────────────────────────────────────
+  document.getElementById('install-extension-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    // Quando publicada na Chrome Web Store, troque por o link real:
+    // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
+    toast('Em breve disponível na Chrome Web Store. Por enquanto, use a opção "Baixar .zip" para instalação manual.', 'info', 6000);
+  });
+
+  function downloadExtension() {
+    // Endpoint que entrega o zip da extensão (Onda 4 ou agora — depende do backend)
+    window.location.href = '/api/v1/extension/download';
+  }
+
+  document.getElementById('api-endpoint').textContent = window.location.origin;
+
+  // ── Tokens & Uso ─────────────────────────────────────────
+  async function loadTokens() {
+    try {
+      const r = await api.get('/api/v1/tokens/balance');
+      const b = r.balance;
+      const fmt = (n) => Number(n).toLocaleString('pt-BR');
+
+      document.getElementById('tokens-balance').textContent = fmt(b.balance);
+      document.getElementById('tokens-sub').textContent =
+        `de ${fmt(b.total)} tokens neste ciclo (${b.utilization_pct}% usado)`;
+      document.getElementById('tokens-progress').style.width = b.utilization_pct + '%';
+
+      // KPIs no overview também (se a aba existe)
+      const ov = document.getElementById('kpi-tokens');
+      if (ov) ov.textContent = fmt(b.balance);
+    } catch (e) {
+      console.warn('tokens balance error', e);
+    }
+
+    // Usage 30d
+    try {
+      const r = await api.get('/api/v1/tokens/usage?days=30');
+      const u = r.usage;
+      document.getElementById('usage-tokens').textContent = u.total_tokens_consumed.toLocaleString('pt-BR');
+      document.getElementById('usage-requests').textContent = u.total_requests.toLocaleString('pt-BR');
+      document.getElementById('usage-avg').textContent = u.avg_tokens_per_request.toLocaleString('pt-BR');
+    } catch (e) {
+      console.warn('tokens usage error', e);
+    }
+
+    // Pacotes
+    try {
+      const r = await api.get('/api/v1/tokens/packages');
+      const grid = document.getElementById('tokens-packages-grid');
+      grid.innerHTML = r.packages.map(p => `
+        <div class="card" style="text-align:center;">
+          <div style="font-family:'Orbitron', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--brand-cyan);">
+            ${p.tokens.toLocaleString('pt-BR')}
+          </div>
+          <div class="text-muted mt-2" style="font-size:0.85rem;">tokens</div>
+          <div style="font-family:'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 800; margin-top:12px;">
+            R$ ${p.price_brl.toFixed(2).replace('.', ',')}
+          </div>
+          <div class="text-muted" style="font-size:0.75rem;">R$ ${p.cost_per_1k}/1k tokens</div>
+          <button class="btn btn-primary btn-block mt-4" onclick="buyTokenPackage('${p.id}')">
+            Comprar
+          </button>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.warn('tokens packages error', e);
+    }
+
+    // Histórico
+    try {
+      const r = await api.get('/api/v1/tokens/history?limit=20');
+      const txs = r.transactions || [];
+      const container = document.getElementById('tokens-history-container');
+      if (txs.length === 0) return;
+
+      const typeLabel = {
+        consume: { label: 'Consumo IA', color: 'warning' },
+        topup: { label: 'Compra avulsa', color: 'success' },
+        plan_grant: { label: 'Plano contratado', color: 'success' },
+        plan_renewal: { label: 'Renovação mensal', color: 'success' },
+        adjustment: { label: 'Ajuste', color: '' },
+        refund: { label: 'Reembolso', color: 'success' },
+      };
+
+      container.innerHTML = `
+        <table class="activity-table">
+          <thead><tr>
+            <th>Data</th><th>Tipo</th><th>Modelo</th><th>Movimento</th><th>Saldo após</th>
+          </tr></thead>
+          <tbody>
+            ${txs.map(t => {
+              const tl = typeLabel[t.type] || { label: t.type, color: '' };
+              const isNeg = t.amount < 0;
+              return `<tr>
+                <td>${new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
+                <td><span class="pill ${tl.color}">${tl.label}</span></td>
+                <td style="color:var(--text-muted);font-size:0.85rem;">${t.model || '—'}</td>
+                <td style="color:${isNeg ? 'var(--error)' : 'var(--success)'};font-weight:600;">
+                  ${isNeg ? '' : '+'}${Number(t.amount).toLocaleString('pt-BR')}
+                </td>
+                <td>${Number(t.balance_after).toLocaleString('pt-BR')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.warn('tokens history error', e);
+    }
+  }
+
+  async function buyTokenPackage(packageId) {
+    try {
+      const r = await api.post('/api/v1/billing/create-token-checkout', { package_id: packageId });
+      if (r.checkout_url) {
+        toast('Redirecionando para o pagamento...', 'success');
+        setTimeout(() => { window.location.href = r.checkout_url; }, 600);
+      }
+    } catch (e) {
+      if (e.message.includes('indispon')) {
+        toast('Pagamento ainda não configurado pelo administrador do sistema', 'warning', 8000);
+      } else {
+        toast('Erro: ' + e.message, 'error');
+      }
+    }
+  }
+
+  function openBuyTokens() {
+    document.getElementById('tokens-packages-section').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ── Billing actions ──────────────────────────────────────
+  async function cancelSubscription() {
+    if (!confirm('Tem certeza que quer cancelar? Você mantém acesso até o fim do período pago.')) return;
+    try {
+      await api.post('/api/v1/subscription/cancel');
+      toast('Assinatura cancelada. Acesso mantido até o fim do período.', 'success');
+      loadUser();
+    } catch (e) {
+      toast('Erro: ' + e.message, 'error');
+    }
+  }
+
+  // v9.0.0 — detecção de provider (BR=MP, internacional=Stripe)
+  async function detectPaymentProvider() {
+    // 1. Check user setting (se ele já escolheu)
+    try {
+      const me = await api.get('/api/v1/users/me');
+      if (me?.user?.preferred_payment_provider) return me.user.preferred_payment_provider;
+    } catch(_) {}
+    // 2. Detect by browser locale (heurística inicial)
+    const lang = (navigator.language || 'pt-BR').toLowerCase();
+    if (lang.startsWith('pt')) return 'mercadopago';
+    return 'stripe';
+  }
+
+  // v9.0.0 — checkout via Stripe (alternativa)
+  async function startStripeCheckout() {
+    try {
+      const result = await api.post('/api/v1/billing/create-checkout-stripe', {});
+      if (result.checkout_url) {
+        toast('Redirecionando para Stripe...', 'success');
+        setTimeout(() => { window.location.href = result.checkout_url; }, 600);
+      } else {
+        toast('Falha ao iniciar pagamento Stripe', 'error');
+      }
+    } catch (e) {
+      if (e.message.includes('indispon') || e.message.includes('Stripe não configurado')) {
+        toast('Stripe ainda não configurado. Use MercadoPago.', 'warning', 6000);
+      } else {
+        toast('Erro: ' + e.message, 'error');
+      }
+    }
+  }
+
+  // v8.3.0 — checkout real via MercadoPago
+  async function startCheckout() {
+    // v9.0.0: detecta provider preferido
+    const provider = await detectPaymentProvider();
+    if (provider === 'stripe') return startStripeCheckout();
+
+    try {
+      const result = await api.post('/api/v1/billing/create-checkout', {});
+      if (result.checkout_url) {
+        toast('Redirecionando para o MercadoPago...', 'success');
+        setTimeout(() => { window.location.href = result.checkout_url; }, 600);
+      } else {
+        toast('Falha ao iniciar pagamento', 'error');
+      }
+    } catch (e) {
+      if (e.message.includes('indispon')) {
+        toast('Pagamento ainda não configurado. Contate o admin do sistema para ativar MercadoPago.', 'warning', 8000);
+      } else {
+        toast('Erro: ' + e.message, 'error');
+      }
+    }
+  }
+
+  // v8.4.0 — assinatura recorrente automática
+  async function subscribeRecurring() {
+    try {
+      const result = await api.post('/api/v1/billing/subscribe-recurring', {});
+      if (result.authorize_url) {
+        toast('Você será redirecionado para autorizar a assinatura recorrente. Após autorizar, o MercadoPago cobrará automaticamente todo mês.', 'success', 6000);
+        setTimeout(() => { window.location.href = result.authorize_url; }, 1500);
+      } else {
+        toast('Falha ao criar assinatura recorrente', 'error');
+      }
+    } catch (e) {
+      if (e.message.includes('indispon')) {
+        toast('MercadoPago ainda não configurado pelo admin', 'warning', 8000);
+      } else if (e.message.includes('já tem')) {
+        toast(e.message, 'warning', 6000);
+      } else {
+        toast('Erro: ' + e.message, 'error');
+      }
+    }
+  }
+
+  async function changePlan() {
+    const planChoice = prompt('Para qual plano deseja mudar?\n\n• starter — R$ 97/mês\n• pro — R$ 197/mês\n• agency — R$ 497/mês\n\nDigite: starter, pro ou agency');
+    if (!planChoice) return;
+    const plan = planChoice.toLowerCase().trim();
+    if (!['starter', 'pro', 'agency'].includes(plan)) {
+      toast('Plano inválido', 'error'); return;
+    }
+    try {
+      const result = await api.post('/api/v1/subscription/change-plan', { plan });
+      toast(result.message || 'Plano alterado', 'success');
+      loadUser();
+    } catch (e) {
+      toast('Erro: ' + e.message, 'error');
+    }
+  }
+
+  async function loadInvoices() {
+    try {
+      const result = await api.get('/api/v1/billing/invoices');
+      const invoices = result.invoices || [];
+      // Find o container do histórico de faturas (último .empty no tab-billing)
+      const billingTab = document.getElementById('tab-billing');
+      const sections = billingTab.querySelectorAll('.section');
+      const lastSection = sections[sections.length - 1];
+      const empty = lastSection.querySelector('.empty');
+
+      if (invoices.length === 0) return; // mantém empty state
+      if (empty) empty.remove();
+
+      const html = `
+        <table class="activity-table">
+          <thead><tr>
+            <th>Data</th><th>Plano</th><th>Valor</th><th>Status</th><th>Provedor</th>
+          </tr></thead>
+          <tbody>
+            ${invoices.map(i => `
+              <tr>
+                <td>${new Date(i.paid_at || i.created_at).toLocaleDateString('pt-BR')}</td>
+                <td>${i.plan?.toUpperCase() || '—'}</td>
+                <td>R$ ${(i.amount || 0).toFixed(2).replace('.', ',')}</td>
+                <td><span class="pill ${i.status === 'paid' ? 'success' : 'warning'}">${i.status}</span></td>
+                <td>${i.provider || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      lastSection.insertAdjacentHTML('beforeend', html);
+    } catch (e) {
+      console.warn('invoices error', e);
+    }
+  }
+
+  // ── Initialize ───────────────────────────────────────────
+  loadUser();
+  loadTokens();
+  loadInvoices();
+
+  // ── v8.5.0: AI Settings ───────────────────────────────────
+  async function loadAISettings() {
+    try {
+      const r = await api.get('/api/v1/ai-settings');
+      const s = r.settings || {};
+      document.getElementById('ai-tone').value = s.tone || 'friendly';
+      document.getElementById('ai-sector').value = s.sector || '';
+      document.getElementById('ai-system-prompt').value = s.systemPrompt || '';
+      document.getElementById('ai-max-tokens').value = s.maxResponseTokens || 500;
+      document.getElementById('ai-auto-reply').checked = s.autoReplyEnabled !== false;
+      document.getElementById('ai-knowledge-base').value = s.knowledgeBase || '';
+      updateAICharCounts();
+    } catch (e) {
+      console.warn('loadAISettings error', e);
+    }
+  }
+
+  function updateAICharCounts() {
+    const promptEl = document.getElementById('ai-system-prompt');
+    const kbEl = document.getElementById('ai-knowledge-base');
+    if (promptEl) document.getElementById('prompt-char-count').textContent = promptEl.value.length;
+    if (kbEl) document.getElementById('kb-char-count').textContent = kbEl.value.length;
+  }
+
+  document.getElementById('ai-system-prompt')?.addEventListener('input', updateAICharCounts);
+  document.getElementById('ai-knowledge-base')?.addEventListener('input', updateAICharCounts);
+
+  document.getElementById('ai-save-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('ai-save-btn');
+    setLoading(btn, true);
+    try {
+      const settings = {
+        tone: document.getElementById('ai-tone').value,
+        sector: document.getElementById('ai-sector').value,
+        systemPrompt: document.getElementById('ai-system-prompt').value,
+        maxResponseTokens: parseInt(document.getElementById('ai-max-tokens').value, 10) || 500,
+        autoReplyEnabled: document.getElementById('ai-auto-reply').checked,
+        knowledgeBase: document.getElementById('ai-knowledge-base').value,
+      };
+      await api.put('/api/v1/ai-settings', settings);
+      toast('Configurações de IA salvas ✓', 'success');
+    } catch (e) {
+      toast('Erro: ' + e.message, 'error');
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  document.getElementById('ai-test-btn')?.addEventListener('click', () => {
+    const panel = document.getElementById('ai-test-result-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') document.getElementById('ai-test-input')?.focus();
+  });
+
+  document.getElementById('ai-test-send-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('ai-test-input');
+    const message = input.value.trim();
+    if (!message) return toast('Digite uma mensagem de teste', 'warn');
+
+    const btn = document.getElementById('ai-test-send-btn');
+    const output = document.getElementById('ai-test-output');
+    const responseEl = document.getElementById('ai-test-response');
+    setLoading(btn, true);
+    try {
+      // Salva configs primeiro
+      const settings = {
+        tone: document.getElementById('ai-tone').value,
+        systemPrompt: document.getElementById('ai-system-prompt').value,
+        maxResponseTokens: parseInt(document.getElementById('ai-max-tokens').value, 10) || 500,
+        knowledgeBase: document.getElementById('ai-knowledge-base').value,
+      };
+      await api.put('/api/v1/ai-settings', settings);
+
+      const r = await api.post('/api/v1/ai-settings/test', { message });
+      output.style.display = 'block';
+      // textContent (não innerHTML — evita XSS)
+      responseEl.textContent = r.response || '(sem resposta)';
+      if (r.tokensUsed) {
+        responseEl.textContent += `\n\n[${r.tokensUsed} tokens • ${r.model || ''}]`;
+      }
+    } catch (e) {
+      output.style.display = 'block';
+      responseEl.textContent = 'Erro: ' + e.message;
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  // Lazy load AI tab quando user clicar
+  let _aiLoaded = false;
+  document.querySelector('[data-tab="ai"]')?.addEventListener('click', () => {
+    if (!_aiLoaded) { loadAISettings(); _aiLoaded = true; }
+  });
+
+  // ── v8.5.0: Auto-refresh tokens a cada 60s + reattach quando volta de aba background ──
+  let _tokensInterval = setInterval(() => {
+    if (!document.hidden) loadTokens();
+  }, 60000);
+
+  // Refresh imediato quando usuário volta para a aba
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadTokens();
+  });
+
+  // Cleanup ao navegar
+  window.addEventListener('beforeunload', () => clearInterval(_tokensInterval));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,92 @@
+{
+  "navigation": {
+    "home": "Inicio",
+    "pricing": "Precios",
+    "features": "Características",
+    "login": "Iniciar sesión",
+    "signup": "Crear cuenta",
+    "logout": "Cerrar sesión",
+    "dashboard": "Panel",
+    "settings": "Configuración"
+  },
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "send": "Enviar",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "close": "Cerrar",
+    "loading": "Cargando..."
+  },
+  "form": {
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "name": "Nombre",
+    "company": "Empresa",
+    "phone": "Teléfono",
+    "confirm_password": "Confirmar contraseña",
+    "required": "Campo obligatorio",
+    "invalid_email": "Correo inválido",
+    "password_too_short": "La contraseña debe tener al menos 8 caracteres",
+    "passwords_do_not_match": "Las contraseñas no coinciden"
+  },
+  "auth": {
+    "welcome_back": "Bienvenido de vuelta",
+    "create_account": "Crea tu cuenta",
+    "forgot_password": "Olvidé la contraseña",
+    "reset_password": "Restablecer contraseña",
+    "i_accept_terms": "Acepto los {{terms}} y la {{privacy}}",
+    "terms": "Términos de uso",
+    "privacy": "Política de privacidad",
+    "two_factor_required": "Ingresa el código de tu app autenticador",
+    "logout_success": "Sesión cerrada con éxito"
+  },
+  "billing": {
+    "plan": "Plan",
+    "trial": "Prueba",
+    "trial_days_left": "{{days}} días restantes",
+    "trial_expired": "Prueba expirada",
+    "active": "Activo",
+    "past_due": "Vencido",
+    "cancelled": "Cancelado",
+    "upgrade": "Actualizar plan",
+    "manage_subscription": "Gestionar suscripción"
+  },
+  "ai": {
+    "tone_friendly": "Amigable",
+    "tone_formal": "Formal",
+    "tone_casual": "Casual",
+    "tone_professional": "Profesional",
+    "tone_enthusiastic": "Entusiasta",
+    "auto_reply": "Respuesta automática",
+    "knowledge_base": "Base de conocimiento",
+    "test_ai": "Probar IA"
+  },
+  "errors": {
+    "generic": "Algo salió mal. Inténtalo de nuevo.",
+    "network": "Error de conexión. Revisa tu internet.",
+    "unauthorized": "Debes iniciar sesión",
+    "forbidden": "No tienes permiso para esta acción",
+    "not_found": "No encontrado",
+    "rate_limited": "Demasiados intentos. Inténtalo más tarde.",
+    "email_already_registered": "Correo ya registrado",
+    "invalid_credentials": "Credenciales inválidas",
+    "account_inactive": "Cuenta inactiva",
+    "pre_auth_token_invalid": "Token de pre-autenticación inválido o expirado",
+    "totp_invalid": "Código TOTP inválido",
+    "token_required": "Token de actualización requerido",
+    "token_invalid": "Token inválido o expirado",
+    "reuse_detected": "Reuso de token detectado — todos los tokens revocados por seguridad",
+    "validation_failed": "Datos inválidos",
+    "user_not_found": "Usuario no encontrado",
+    "already_enabled": "2FA ya está activo",
+    "not_enabled": "2FA no está activo",
+    "setup_required": "Configura 2FA primero",
+    "password_incorrect": "Contraseña incorrecta",
+    "confirmation_required": "Confirmación requerida",
+    "score_out_of_range": "Puntuación debe estar entre 0 y 10"
+  }
+}

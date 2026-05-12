@@ -1,0 +1,51 @@
+---
+title: 'Troubleshooting'
+description: 'Problemas comuns e soluções'
+---
+
+## Extensão não aparece no WhatsApp Web
+
+1. Verifique extensão habilitada: `chrome://extensions/`
+2. Recarregue a página `web.whatsapp.com` (Ctrl+R)
+3. Aguarde 10s — a extensão carrega após o WhatsApp estar pronto
+4. Abra console (F12) e procure logs `[WHL]`
+5. Se aparecer "hooks_failed" — WhatsApp Web atualizou. Reporte pelo
+   chat do painel; estamos atualizando.
+
+## IA não responde
+
+Possíveis causas:
+
+1. **Saldo de tokens zerado** — veja "Tokens & Uso"
+2. **Subscription suspended** — pagamento atrasado, regularize
+3. **Auto-reply desativado** — vá em "IA → Configurações" e ative
+4. **Mensagem muito longa** — > 1000 caracteres pode falhar; teste com mais curta
+
+## Resposta da IA está estranha / fora de contexto
+
+1. Verifica que a "Base de conhecimento" tem informação relevante
+2. Confira se "Tom de voz" combina com o canal
+3. Reduza "Tokens máximos por resposta" pra forçar respostas mais focadas
+4. Teste com modelo diferente em "IA → Avançado" (se você tem plano Pro+)
+
+## Webhook MercadoPago não chegou
+
+Se você pagou e a conta não foi ativada após 5min:
+
+1. Confirme pagamento no MP (deve estar "Aprovado")
+2. Aguarde 10min adicionais (webhook pode atrasar em horário de pico)
+3. Se ainda não, contate suporte com:
+   - Email da conta
+   - Payment ID do MP
+   - Hora aproximada do pagamento
+
+## Esqueci a senha
+
+[Recupere aqui](https://whatshybrid.com.br/forgot-password.html). Email
+chega em até 5min. Cheque também spam.
+
+## Outros
+
+Se nenhum dos itens acima resolve, abra um ticket pelo chat (Crisp)
+no canto inferior direito do painel, ou envie email para
+suporte@whatshybrid.com.br.

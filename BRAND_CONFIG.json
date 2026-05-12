@@ -1,0 +1,48 @@
+{
+  "_comment": "White-label branding configuration for WhatsHybrid Pro.",
+  "_usage": "Set BUILD_BRAND=<key> before running npm run build:extension",
+
+  "default": {
+    "name": "WhatsHybrid Pro",
+    "shortName": "WHP",
+    "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo, análise comportamental e muito mais.",
+    "author": "WhatsHybrid Team",
+    "supportEmail": "suporte@whatshybrid.com",
+    "website": "https://whatshybrid.com",
+    "primaryColor": "#25D366",
+    "secondaryColor": "#128C7E",
+    "accentColor": "#34B7F1",
+    "logoPath": "icons/",
+    "fontFamily": "Inter, system-ui, sans-serif"
+  },
+
+  "example_client_a": {
+    "_comment": "Renomeie esta chave para o nome real do cliente (ex: 'acme_corp')",
+    "name": "MeuBot Pro",
+    "shortName": "MBP",
+    "description": "Automação inteligente para WhatsApp — powered by MeuBot.",
+    "author": "MeuBot Technologies",
+    "supportEmail": "suporte@meubot.com.br",
+    "website": "https://meubot.com.br",
+    "primaryColor": "#0066FF",
+    "secondaryColor": "#0044CC",
+    "accentColor": "#00CCFF",
+    "logoPath": "icons/",
+    "fontFamily": "Roboto, system-ui, sans-serif"
+  },
+
+  "example_client_b": {
+    "_comment": "Segundo exemplo de cliente white-label",
+    "name": "ZapAutomação",
+    "shortName": "ZAP",
+    "description": "Plataforma completa de automação WhatsApp para empresas.",
+    "author": "ZapAutomação LTDA",
+    "supportEmail": "ti@zapautomacao.com.br",
+    "website": "https://zapautomacao.com.br",
+    "primaryColor": "#7C3AED",
+    "secondaryColor": "#5B21B6",
+    "accentColor": "#A78BFA",
+    "logoPath": "icons/",
+    "fontFamily": "Nunito, system-ui, sans-serif"
+  }
+}

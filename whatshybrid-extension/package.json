@@ -1,0 +1,43 @@
+{
+  "name": "whatshybrid-extension",
+  "version": "9.5.8",
+  "description": "WhatsHybrid Pro - Extensão Chrome para WhatsApp Web",
+  "private": true,
+  "main": "background.js",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:unit": "node tests/run-all.js --unit",
+    "test:integration": "node tests/run-all.js --integration",
+    "test:verbose": "node tests/run-all.js --verbose",
+    "test:smoke": "node tests/integration/smoke-test.js",
+    "test:eventbus": "node tests/unit/event-bus.test.js",
+    "test:scheduler": "node tests/unit/scheduler.test.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "node build.js",
+    "validate": "node -e \"JSON.parse(require('fs').readFileSync('manifest.json', 'utf8')); console.log('✅ manifest.json válido')\"",
+    "build:dev": "node build.js --dev",
+    "build:watch": "node build.js --dev --watch",
+    "build:prod": "node build.js",
+    "prebuild": "node -e \"console.log('Building bundles...')\""
+  },
+  "keywords": [
+    "whatsapp",
+    "automation",
+    "crm",
+    "ai",
+    "chrome-extension"
+  ],
+  "author": "WhatsHybrid Team",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "pdfjs-dist": "^5.7.284",
+    "xlsx": "^0.18.5"
+  }
+}

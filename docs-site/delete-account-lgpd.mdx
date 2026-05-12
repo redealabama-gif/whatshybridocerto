@@ -1,0 +1,54 @@
+---
+title: 'Excluir minha conta (LGPD)'
+description: 'Direito de exclusão — Lei 13.709/2018'
+---
+
+A LGPD (art. 18, VI) garante o direito de solicitar exclusão dos seus dados.
+
+## Como solicitar
+
+1. Login no painel
+2. **Configurações → LGPD → Excluir conta**
+3. Confirme digitando `EXCLUIR_MINHA_CONTA` no campo
+4. (Opcional) Diga o motivo
+
+OU via API:
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"confirmation": "EXCLUIR_MINHA_CONTA", "reason": "encerrei a empresa"}' \
+  https://api.whatshybrid.com.br/api/v1/me/delete-account
+```
+
+## O que acontece
+
+Imediatamente:
+1. **Conta marcada como `deleted`**
+2. **Email anonymizado** (você não recebe mais comunicação)
+3. **Senha zerada** (não dá mais login)
+4. **2FA desativado**
+5. **Refresh tokens revogados** (sessões em outros devices encerram)
+6. **Workspace cancelado** (subscription cancelled)
+7. **Contatos anonymizados** (nome="anônimo", phone="")
+8. **Conversações** com metadata zerado
+
+Em até 30 dias:
+- Indexação removida de buscas internas
+- Backups antigos com seus dados rotacionados
+
+**O que NÃO é apagado (obrigação legal):**
+- Logs de auditoria → 12 meses (Marco Civil da Internet, art. 15)
+- Faturas e dados fiscais → 5 anos (Receita Federal)
+
+## Reversão
+
+Após confirmar, **NÃO há reversão automática**. Se você confirmou por
+engano, contate suporte em até 24h com prova de identidade. Após 24h,
+a anonymização é irreversível.
+
+## Indicações
+
+Se você tinha indicados ativos, eles continuam ativos. Tokens já creditados
+permanecem com você até o cancelamento da assinatura. Indicações pendentes
+são marcadas como `expired`.

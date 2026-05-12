@@ -1,0 +1,348 @@
+name: CI — WhatsHybrid Pro
+
+on:
+  push:
+    branches: [main, develop, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+
+  # ── Static checks (no server needed) ────────────────────────────────────────
+  static-checks:
+    name: Static Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check all backend JS
+        working-directory: whatshybrid-backend
+        run: |
+          ERRORS=0
+          for f in $(find src -name "*.js"); do
+            err=$(node --check "$f" 2>&1)
+            if [ -n "$err" ]; then
+              echo "❌ $f"
+              echo "$err"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ $ERRORS file(s) with syntax errors"
+            exit 1
+          fi
+          echo "✅ All JS files have valid syntax"
+
+      - name: Validate manifest.json (MV3)
+        working-directory: whatshybrid-extension
+        run: |
+          node -e "
+            const m = JSON.parse(require('fs').readFileSync('manifest.json','utf8'));
+            if (m.manifest_version !== 3) { console.error('Not MV3'); process.exit(1); }
+            console.log('✅ MV3 manifest valid, version', m.version);
+          "
+
+      - name: Validate package.json
+        working-directory: whatshybrid-backend
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+
+  # ── Security ────────────────────────────────────────────────────────────────
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -rE "(sk-[A-Za-z0-9]{20}|sk-ant-[A-Za-z0-9]{20})" --include="*.js" --include="*.json" --exclude-dir=node_modules .; then
+            echo "❌ API key found in code!"
+            exit 1
+          fi
+          if grep -rE "JWT_SECRET\s*=\s*['\"][^'\"]+['\"]" --include="*.js" --exclude-dir=node_modules . | grep -vE "(process\.env|test-secret|REPLACE|EDITAR)"; then
+            echo "❌ JWT_SECRET hardcoded!"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets"
+
+      - name: NPM audit (production high severity)
+        working-directory: whatshybrid-backend
+        run: npm audit --audit-level=high --production || true
+
+  # ── Smoke Tests ─────────────────────────────────────────────────────────────
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: static-checks
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: whatshybrid-backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: whatshybrid-backend
+        run: npm ci
+
+      - name: Start backend in background
+        working-directory: whatshybrid-backend
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          JWT_SECRET: ci-test-secret-with-at-least-32-characters-for-jwt
+          DB_PATH: /tmp/test-whatshybrid.db
+          REDIS_URL: redis://localhost:6379
+          REDIS_DISABLED: 'false'
+          BILLING_CRON_DISABLED: 'true'
+          EMAIL_OUTBOX_DISABLED: 'true'
+        run: |
+          rm -f /tmp/test-whatshybrid.db
+          npm start &
+          echo $! > /tmp/backend.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "✅ Backend up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run smoke tests
+        working-directory: whatshybrid-backend
+        env:
+          TEST_BASE_URL: http://localhost:3000
+        run: npm run test:smoke
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) 2>/dev/null || true
+          fi
+
+  # ── Docker Build ────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: static-checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t whatshybrid-backend:ci ./whatshybrid-backend
+
+      - name: Test container health
+        run: |
+          docker run -d --name test-backend \
+            -e JWT_SECRET="ci-test-secret-with-at-least-32-characters" \
+            -e DB_PATH=/tmp/test.db \
+            -e BILLING_CRON_DISABLED=true \
+            -e REDIS_DISABLED=true \
+            -p 3001:3000 \
+            whatshybrid-backend:ci
+          sleep 8
+          curl -f http://localhost:3001/health || (docker logs test-backend && exit 1)
+          docker stop test-backend
+
+  # ── Security audit ──────────────────────────────────────────────────────────
+  security-audit:
+    name: Security Audit (npm audit)
+    runs-on: ubuntu-latest
+    needs: static-checks
+    continue-on-error: true   # warning, não falha o CI ainda
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: npm audit (backend) — moderate or higher
+        working-directory: whatshybrid-backend
+        run: |
+          npm install --no-audit --no-fund
+          npm audit --audit-level=moderate || echo "::warning::Vulnerabilities found, see audit report"
+
+      - name: npm audit (extension)
+        working-directory: whatshybrid-extension
+        run: |
+          npm install --no-audit --no-fund 2>/dev/null || echo "no extension deps"
+          npm audit --audit-level=moderate 2>/dev/null || echo "::warning::Extension audit found issues"
+
+  # ── Extension build ────────────────────────────────────────────────────────
+  extension-build:
+    name: Extension Bundle Build
+    runs-on: ubuntu-latest
+    needs: static-checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install esbuild
+        working-directory: whatshybrid-extension
+        run: npm install --save-dev esbuild
+
+      - name: Build bundles
+        working-directory: whatshybrid-extension
+        run: npm run build
+
+      - name: Verify bundles
+        working-directory: whatshybrid-extension
+        run: |
+          test -f dist/core-bundle.js
+          test -f dist/content-bundle.js
+          test -f dist/advanced-bundle.js
+          # verifica que manifest agora tem ≤3 content scripts
+          NUM=$(node -e "console.log(JSON.parse(require('fs').readFileSync('manifest.json')).content_scripts.flatMap(cs => cs.js).length)")
+          echo "Manifest tem $NUM scripts (era 139)"
+          if [ "$NUM" -gt 3 ]; then echo "❌ Bundle não foi aplicado"; exit 1; fi
+
+      - name: Bundle sizes
+        working-directory: whatshybrid-extension
+        run: ls -lh dist/
+
+  # ── Migrations test ─────────────────────────────────────────────────────────
+  migrations-test:
+    name: Migrations (SQLite)
+    runs-on: ubuntu-latest
+    needs: static-checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend deps
+        working-directory: whatshybrid-backend
+        run: npm install --no-audit --no-fund
+
+      - name: Create empty SQLite + run migrations
+        working-directory: whatshybrid-backend
+        run: |
+          mkdir -p data
+          node -e "
+            const db = require('./src/utils/database');
+            db.runMigrations().then(() => {
+              console.log('✅ Migrations OK');
+              process.exit(0);
+            }).catch(e => { console.error('❌', e); process.exit(1); });
+          "
+
+      - name: Verify _migrations table
+        working-directory: whatshybrid-backend
+        run: |
+          node -e "
+            const db = require('better-sqlite3')('data/whatshybrid.db');
+            const r = db.prepare('SELECT COUNT(*) as c FROM _migrations').get();
+            console.log('Applied migrations:', r.c);
+            if (r.c < 1) { console.error('❌ No migrations applied'); process.exit(1); }
+          "
+
+  # ── Smoke tests against Postgres (v9.2.0) ───────────────────────────────
+  smoke-postgres:
+    name: Smoke Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    needs: static-checks
+    continue-on-error: true   # ainda warning — driver async não foi totalmente migrado
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: whatshybrid_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend deps + pg
+        working-directory: whatshybrid-backend
+        run: |
+          npm install --no-audit --no-fund
+          npm install pg --no-audit --no-fund
+
+      - name: Run migrations on Postgres
+        working-directory: whatshybrid-backend
+        env:
+          DB_DRIVER: postgres
+          DATABASE_URL: postgres://test:test@localhost:5432/whatshybrid_test
+        run: |
+          node -e "
+            process.env.DB_DRIVER = 'postgres';
+            const db = require('./src/utils/database');
+            db.runMigrations().then(() => {
+              console.log('✅ Postgres migrations applied');
+              process.exit(0);
+            }).catch(e => { console.error('❌', e.message); process.exit(1); });
+          "
+
+      - name: Start backend with Postgres + run smoke
+        working-directory: whatshybrid-backend
+        env:
+          DB_DRIVER: postgres
+          DATABASE_URL: postgres://test:test@localhost:5432/whatshybrid_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret-32-chars-minimum-required
+          BILLING_CRON_DISABLED: 'true'
+          NODE_ENV: test
+          PORT: 3000
+        run: |
+          # NOTE: smoke-postgres ainda warning porque driver pg é async
+          # mas código existente usa sync. Esse job documenta o gap.
+          node src/server.js &
+          BACKEND_PID=$!
+          sleep 8
+          curl -f http://localhost:3000/health || (kill $BACKEND_PID; exit 1)
+          # Smoke v9 ainda assume sync; falha esperada em rotas que tocam DB.
+          # Comportamento atual: health endpoints OK, rotas DB-heavy falham.
+          # Essa é a documentação pública do gap antes da migração definitiva.
+          npm run test:smoke || echo "::warning::Smoke falhou em Postgres (esperado — async/sync gap)"
+          kill $BACKEND_PID || true

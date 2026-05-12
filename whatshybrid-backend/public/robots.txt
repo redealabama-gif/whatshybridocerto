@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /signup.html
+Allow: /login.html
+Allow: /terms.html
+Allow: /privacy.html
+
+Disallow: /api/
+Disallow: /metrics/
+Disallow: /admin/
+Disallow: /dashboard.html
+Disallow: /reset-password.html
+Disallow: /forgot-password.html
+
+# Permite Google Bots crawlear OG/preview
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Sitemap
+Sitemap: https://whatshybrid.com.br/sitemap.xml

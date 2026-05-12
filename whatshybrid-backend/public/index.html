@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary Meta -->
+  <title>WhatsHybrid Pro — IA Neural para WhatsApp Business | Atendimento Automatizado</title>
+  <meta name="description" content="Automatize seu atendimento no WhatsApp Web com IA que aprende sozinha. CRM híbrido com auto-aprendizado, sugestão de respostas e cobrança recorrente. 7 dias grátis. Para PMEs brasileiras.">
+  <meta name="keywords" content="whatsapp, ia, chatbot, atendimento, crm, automação, inteligência artificial, pme, brasil, whatsapp web, mercadopago, saas">
+  <meta name="author" content="WhatsHybrid Pro">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#6f00ff">
+  <link rel="canonical" href="https://whatshybrid.com.br/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+
+  <!-- Open Graph (Facebook, LinkedIn, WhatsApp share) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://whatshybrid.com.br/">
+  <meta property="og:title" content="WhatsHybrid Pro — IA Neural para WhatsApp Business">
+  <meta property="og:description" content="Automatize seu atendimento no WhatsApp Web com IA que aprende sozinha. 7 dias grátis.">
+  <meta property="og:image" content="https://whatshybrid.com.br/img/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="WhatsHybrid Pro — IA para WhatsApp">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:locale:alternate" content="es_ES">
+  <meta property="og:site_name" content="WhatsHybrid Pro">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://whatshybrid.com.br/">
+  <meta name="twitter:title" content="WhatsHybrid Pro — IA para WhatsApp Business">
+  <meta name="twitter:description" content="Automatize seu atendimento no WhatsApp Web com IA neural. 7 dias grátis.">
+  <meta name="twitter:image" content="https://whatshybrid.com.br/img/og-cover.png">
+
+  <!-- Performance hints -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://unpkg.com">
+
+  <!-- Fonts (com display=swap pra melhor performance) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/futuristic.css">
+
+  <!-- Schema.org structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://whatshybrid.com.br/#organization",
+        "name": "WhatsHybrid Pro",
+        "url": "https://whatshybrid.com.br/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://whatshybrid.com.br/img/logo.png",
+          "width": 512,
+          "height": 512
+        },
+        "sameAs": [
+          "https://www.linkedin.com/company/whatshybrid",
+          "https://twitter.com/whatshybrid"
+        ]
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "WhatsHybrid Pro",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Chrome Extension, Web",
+        "description": "CRM SaaS B2B com IA neural para WhatsApp Web",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Starter",
+            "price": "97.00",
+            "priceCurrency": "BRL",
+            "priceValidUntil": "2026-12-31",
+            "availability": "https://schema.org/InStock"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro",
+            "price": "197.00",
+            "priceCurrency": "BRL",
+            "priceValidUntil": "2026-12-31"
+          },
+          {
+            "@type": "Offer",
+            "name": "Business",
+            "price": "397.00",
+            "priceCurrency": "BRL",
+            "priceValidUntil": "2026-12-31"
+          }
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "url": "https://whatshybrid.com.br/",
+        "name": "WhatsHybrid Pro",
+        "inLanguage": "pt-BR",
+        "publisher": { "@id": "https://whatshybrid.com.br/#organization" }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Sentry Browser SDK (no-op se DSN não fornecido inline) -->
+  <script>
+    window.SENTRY_DSN_BROWSER = ''; // será injetado pelo backend se configurado
+  </script>
+
+  <!-- Defer não-crítico -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <style>
+    /* Page-specific */
+    .hero {
+      min-height: 80vh;
+      display: flex; align-items: center;
+      padding: 80px 0 40px;
+      position: relative;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 4.5rem);
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+    .hero p.lead {
+      font-size: clamp(1rem, 1.5vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto 32px;
+    }
+    .hero-ctas {
+      display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+      margin-top: 32px;
+    }
+    .hero-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 24px; max-width: 700px; margin: 64px auto 0;
+    }
+    .stat-card { text-align: center; }
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Features */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-top: 48px;
+    }
+
+    /* How it works */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-top: 48px;
+      counter-reset: step;
+    }
+    .step {
+      position: relative;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step, decimal-leading-zero);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3rem;
+      font-weight: 900;
+      color: rgba(0, 255, 255, 0.1);
+      position: absolute;
+      top: -10px; left: 8px;
+      pointer-events: none;
+    }
+    .step-content { position: relative; z-index: 1; padding-left: 16px; }
+
+    /* Pricing */
+    .pricing-toggle {
+      display: inline-flex;
+      background: rgba(15, 12, 41, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+    }
+    .pricing-toggle button {
+      background: transparent;
+      border: 0; color: var(--text-muted);
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .pricing-toggle button.active {
+      background: var(--brand-purple);
+      color: white;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 1100px; margin: 48px auto 0;
+    }
+    .plan {
+      background: rgba(15, 12, 41, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      transition: all 0.3s;
+      display: flex; flex-direction: column;
+    }
+    .plan:hover { border-color: rgba(255, 255, 255, 0.2); transform: translateY(-4px); }
+    .plan.featured {
+      background: linear-gradient(135deg, rgba(111, 0, 255, 0.1), rgba(0, 255, 255, 0.05));
+      border: 2px solid var(--brand-purple);
+      transform: scale(1.03);
+      position: relative;
+    }
+    .plan.featured:hover { transform: scale(1.03) translateY(-4px); }
+    .plan-badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
+      color: black; font-size: 0.75rem; font-weight: 700;
+      padding: 4px 16px; border-radius: 12px;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .plan h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem; letter-spacing: 0.5px;
+      color: var(--text-muted); margin-bottom: 16px;
+    }
+    .plan.featured h3 { color: var(--brand-cyan); }
+    .plan-price {
+      display: flex; align-items: baseline; gap: 6px;
+      margin-bottom: 24px;
+    }
+    .plan-price-currency { font-size: 1.2rem; color: var(--text-muted); }
+    .plan-price-value {
+      font-size: 3rem; font-weight: 800; line-height: 1;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .plan-price-period { color: var(--text-muted); font-size: 0.9rem; }
+    .plan-features {
+      list-style: none; padding: 0;
+      margin: 0 0 32px; flex: 1;
+    }
+    .plan-features li {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; font-size: 0.95rem;
+    }
+    .plan-features li i { color: var(--success); flex-shrink: 0; margin-top: 2px; width: 16px; height: 16px; }
+    .plan-features li.disabled { color: var(--text-dim); }
+    .plan-features li.disabled i { color: var(--text-dim); }
+
+    /* FAQ */
+    .faq-list { max-width: 720px; margin: 48px auto 0; }
+    .faq-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      background: rgba(15, 12, 41, 0.4);
+    }
+    .faq-question {
+      width: 100%; padding: 20px;
+      background: transparent; border: 0;
+      color: white; font-family: inherit; font-size: 1rem; font-weight: 600;
+      text-align: left;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .faq-question i { transition: transform 0.3s; flex-shrink: 0; }
+    .faq-item.open .faq-question i { transform: rotate(180deg); }
+    .faq-answer {
+      padding: 0 20px;
+      max-height: 0;
+      overflow: hidden;
+      color: var(--text-muted);
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+    .faq-item.open .faq-answer { max-height: 400px; padding: 0 20px 20px; }
+
+    /* CTA banner */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(111, 0, 255, 0.2), rgba(0, 255, 255, 0.1));
+      border: 1px solid var(--brand-purple);
+      border-radius: 16px;
+      padding: 48px 32px;
+      text-align: center;
+      margin-top: 64px;
+      position: relative; overflow: hidden;
+    }
+    .cta-banner::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle at 20% 50%, rgba(111, 0, 255, 0.3), transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.2), transparent 50%);
+      pointer-events: none;
+    }
+    .cta-banner > * { position: relative; z-index: 1; }
+  </style>
+</head>
+<body class="has-cursor">
+
+<div class="bg-grid"></div>
+<div class="bg-glow purple"></div>
+<div class="bg-glow cyan"></div>
+
+<!-- Navbar -->
+<nav class="navbar" aria-label="Navegação principal">
+  <div class="navbar-content">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">W</span>
+      <span>WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Recursos</a></li>
+      <li><a href="#pricing">Planos</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="login.html">Entrar</a></li>
+      <li><a href="signup.html" class="btn btn-cyan">Começar grátis</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container text-center">
+    <div class="pill mb-6">
+      <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
+      <span>Novo · Aprendizado neural validado</span>
+    </div>
+    <h1>
+      A IA que <span class="text-gradient">aprende</span><br>
+      a vender no <span class="text-glow">WhatsApp</span>
+    </h1>
+    <p class="lead">
+      WhatsHybrid Pro automatiza seu atendimento, aprende com seus melhores fechamentos,
+      e responde clientes 24/7 com a voz da sua empresa. Instale a extensão no Chrome,
+      conecte ao WhatsApp Web, e comece em 5 minutos.
+    </p>
+    <div class="hero-ctas">
+      <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
+        <i data-lucide="zap" style="width:20px;height:20px;"></i>
+        Testar 7 dias grátis
+      </a>
+      <a href="#features" class="btn btn-ghost btn-large" data-cursor="hover">
+        Ver como funciona
+        <i data-lucide="arrow-down" style="width:18px;height:18px;"></i>
+      </a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat-card">
+        <div class="stat-value">24/7</div>
+        <div class="stat-label">Atendimento</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">5min</div>
+        <div class="stat-label">Para configurar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Multi-tenant</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="py-16 container">
+  <div class="text-center">
+    <h2 class="mb-4">Em 3 passos você está vendendo</h2>
+    <p class="text-muted">Sem desenvolvimento, sem integrações complicadas.</p>
+  </div>
+
+  <div class="steps">
+    <div class="card step">
+      <div class="step-content">
+        <div class="card-icon"><i data-lucide="chrome"></i></div>
+        <h3>Instalar extensão</h3>
+        <p class="text-muted mt-2">Adicione ao Chrome, faça login, conecte o WhatsApp Web. Tudo via interface — sem configurar API.</p>
+      </div>
+    </div>
+    <div class="card step">
+      <div class="step-content">
+        <div class="card-icon"><i data-lucide="sliders"></i></div>
+        <h3>Treinar a IA</h3>
+        <p class="text-muted mt-2">Configure o tom de voz, FAQ, catálogo e políticas em formulários simples. A IA já está pronta para responder.</p>
+      </div>
+    </div>
+    <div class="card step">
+      <div class="step-content">
+        <div class="card-icon"><i data-lucide="trending-up"></i></div>
+        <h3>Aprender e crescer</h3>
+        <p class="text-muted mt-2">Cada feedback positivo seu vira exemplo aprendido. Em dias, a IA responde melhor que muitos humanos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="py-16 container">
+  <div class="text-center">
+    <h2 class="mb-4">Recursos que <span class="text-gradient">vendem</span></h2>
+    <p class="text-muted">Não é só um chatbot. É um vendedor digital que melhora sozinho.</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="card">
+      <div class="card-icon"><i data-lucide="brain"></i></div>
+      <h4>Aprendizado validado</h4>
+      <p class="text-muted mt-2">Padrões só "graduam" depois de 5+ feedbacks positivos com taxa de aprovação alta. Nada de IA decorando lixo.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon"><i data-lucide="shield-check"></i></div>
+      <h4>Modo Copiloto</h4>
+      <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon"><i data-lucide="users"></i></div>
+      <h4>Multi-tenant nativo</h4>
+      <p class="text-muted mt-2">Workspaces isolados. Padrões de um cliente nunca vazam para outro.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon"><i data-lucide="message-square"></i></div>
+      <h4>Histórico de conversas</h4>
+      <p class="text-muted mt-2">Memória contextual por chat. A IA lembra do que combinaram em mensagens anteriores.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon"><i data-lucide="bar-chart-3"></i></div>
+      <h4>Dashboard operacional</h4>
+      <p class="text-muted mt-2">Veja em tempo real: quantas interações, padrões aprendidos, custo de IA por cliente.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon"><i data-lucide="lock"></i></div>
+      <h4>Segurança em camadas</h4>
+      <p class="text-muted mt-2">JWT validado, rate limiting por tenant, CORS estrito, TLS automático Let's Encrypt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" class="py-16 container">
+  <div class="text-center">
+    <h2 class="mb-4">Investimento que se paga sozinho</h2>
+    <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
+
+    <div class="pricing-toggle" id="pricing-toggle-wrapper">
+      <button class="active" data-period="monthly">Mensal</button>
+      <button data-period="yearly">Anual <span style="color: var(--brand-cyan); font-size: 0.75rem; margin-left: 4px;">-20%</span></button>
+    </div>
+  </div>
+
+  <div class="pricing-grid">
+    <div class="plan">
+      <h3>Starter</h3>
+      <div class="plan-price">
+        <span class="plan-price-currency">R$</span>
+        <span class="plan-price-value" data-monthly="97" data-yearly="77">97</span>
+        <span class="plan-price-period">/mês</span>
+      </div>
+      <ul class="plan-features">
+        <li><i data-lucide="check"></i> 1 atendente</li>
+        <li><i data-lucide="check"></i> 50.000 tokens IA/mês</li>
+        <li><i data-lucide="check"></i> Pacotes avulsos a partir de R$ 19</li>
+        <li><i data-lucide="check"></i> CRM básico</li>
+        <li><i data-lucide="check"></i> Modo Copiloto</li>
+        <li class="disabled"><i data-lucide="x"></i> Sem IA neural</li>
+      </ul>
+      <a href="signup.html?plan=starter" class="btn btn-ghost btn-block">Começar</a>
+    </div>
+
+    <div class="plan featured">
+      <div class="plan-badge">Mais popular</div>
+      <h3>Pro</h3>
+      <div class="plan-price">
+        <span class="plan-price-currency">R$</span>
+        <span class="plan-price-value" data-monthly="197" data-yearly="157">197</span>
+        <span class="plan-price-period">/mês</span>
+      </div>
+      <ul class="plan-features">
+        <li><i data-lucide="check"></i> <strong>IA neural completa</strong></li>
+        <li><i data-lucide="check"></i> Até 5 atendentes</li>
+        <li><i data-lucide="check"></i> 500.000 tokens IA/mês</li>
+        <li><i data-lucide="check"></i> Compre tokens extras quando precisar</li>
+        <li><i data-lucide="check"></i> Aprendizado validado</li>
+        <li><i data-lucide="check"></i> Disparos em massa</li>
+        <li><i data-lucide="check"></i> Suporte prioritário</li>
+      </ul>
+      <a href="signup.html?plan=pro" class="btn btn-primary btn-block">7 dias grátis</a>
+    </div>
+
+    <div class="plan">
+      <h3>Agency</h3>
+      <div class="plan-price">
+        <span class="plan-price-value" style="font-size: 1.8rem;">Sob consulta</span>
+      </div>
+      <ul class="plan-features">
+        <li><i data-lucide="check"></i> Atendentes ilimitados</li>
+        <li><i data-lucide="check"></i> Mensagens ilimitadas</li>
+        <li><i data-lucide="check"></i> White-label</li>
+        <li><i data-lucide="check"></i> API dedicada</li>
+        <li><i data-lucide="check"></i> SLA garantido</li>
+      </ul>
+      <a href="mailto:contato@whatshybrid.com.br?subject=Plano Agency" class="btn btn-ghost btn-block">Falar com consultor</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="py-16 container">
+  <div class="text-center">
+    <h2 class="mb-4">Perguntas frequentes</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Como funciona a integração com WhatsApp?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Você instala nossa extensão no Chrome, abre o WhatsApp Web normalmente e a IA passa a sugerir/responder automaticamente baseado no que aprende com você. Não usamos a API oficial da Meta — funciona diretamente sobre o WhatsApp Web, igual qualquer atendente humano que abriria o navegador.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Posso cancelar quando quiser?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Sim. Sem fidelidade, sem multa. Cancele dentro do portal do cliente e a cobrança para no próximo ciclo. Seus dados ficam disponíveis por 30 dias para você exportar.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Os dados dos meus clientes ficam seguros?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Cada empresa tem um workspace completamente isolado. Padrões aprendidos no seu negócio nunca aparecem em outro. Toda comunicação é via TLS, autenticação JWT, e seguimos boas práticas LGPD.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Como a IA aprende com meu negócio?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Você dá feedback (👍/👎) nas respostas que a IA gera. Quando uma resposta tem 5+ aprovações com mais de 70% positiva, ela "gradua" e passa a ser exemplo no prompt do modelo — a IA repete a fórmula que funciona com você.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Quanto custa a IA por cliente atendido?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Cada plano inclui uma cota mensal de tokens (50k Starter, 500k Pro, 5M Agency). Tokens são a unidade que a IA consome — uma resposta média gasta ~200 tokens. Quando seus tokens acabam, você pode comprar pacotes avulsos (a partir de R$ 19,00 por 10k tokens) que não expiram. No portal você vê o saldo em tempo real e o histórico completo de uso.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Preciso de programador para configurar?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Não. Tudo via interface. Você preenche formulários sobre seu negócio (FAQ, tom de voz, catálogo, políticas) e a IA já está treinada. Configuração inicial leva 30 minutos.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA banner -->
+<section class="container py-16">
+  <div class="cta-banner">
+    <h2 class="mb-4">Pronto para automatizar suas vendas?</h2>
+    <p class="text-muted mb-6">Comece grátis por 7 dias. Sem cartão de crédito.</p>
+    <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
+      <i data-lucide="rocket" style="width:20px;height:20px;"></i>
+      Começar agora
+    </a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <a href="index.html" class="logo justify-center mb-4" style="display: inline-flex;">
+      <span class="logo-mark">W</span>
+      <span>WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
+    </a>
+    <p>© 2026 WhatsHybrid Pro. Todos os direitos reservados.</p>
+    <p class="mt-2">
+      <a href="login.html">Entrar</a> ·
+      <a href="#pricing">Planos</a> ·
+      <a href="mailto:contato@whatshybrid.com.br">Contato</a>
+    </p>
+  </div>
+</footer>
+
+<script src="js/futuristic.js"></script>
+<script>
+  // Lucide icons
+  lucide.createIcons();
+
+  // Pricing toggle
+  const toggle = document.getElementById('pricing-toggle-wrapper');
+  toggle.addEventListener('click', e => {
+    if (!e.target.matches('button')) return;
+    const period = e.target.dataset.period;
+    toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === e.target));
+    document.querySelectorAll('.plan-price-value').forEach(el => {
+      const v = el.dataset[period];
+      if (v) el.textContent = v;
+    });
+    document.querySelectorAll('.plan-price-period').forEach(el => {
+      el.textContent = period === 'yearly' ? '/mês (anual)' : '/mês';
+    });
+  });
+
+  // FAQ accordion
+  document.querySelectorAll('.faq-question').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.classList.toggle('open');
+    });
+  });
+
+  // Auto-redirect logged users to dashboard
+  if (api.isAuthenticated()) {
+    document.querySelectorAll('a[href="login.html"], a[href="signup.html"]').forEach(a => {
+      a.href = '/dashboard.html';
+      a.textContent = 'Meu painel';
+    });
+  }
+</script>
+
+</body>
+</html>

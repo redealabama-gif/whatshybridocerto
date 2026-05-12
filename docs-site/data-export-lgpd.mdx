@@ -1,0 +1,51 @@
+---
+title: 'Exportar meus dados (LGPD)'
+description: 'Direito de portabilidade — Lei 13.709/2018'
+---
+
+A LGPD (art. 18, V) garante a você o direito de receber todos os seus dados
+em formato estruturado e portável.
+
+## Como solicitar
+
+1. Login no painel
+2. **Configurações → LGPD → Exportar dados**
+
+OU via API:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api.whatshybrid.com.br/api/v1/me/export \
+  -o meus-dados.json
+```
+
+## O que vem no arquivo
+
+JSON estruturado com:
+- Dados pessoais (sem password / TOTP secret)
+- Workspace (configurações, assinatura)
+- Contatos
+- Conversações
+- Deals (CRM)
+- Campanhas
+- Tasks
+- Faturas
+- Histórico de tokens (até 1000 últimas transações)
+- Indicações
+- Respostas de NPS
+
+## Tamanho esperado
+
+- Conta com 1 mês de uso: 100KB - 5MB
+- Conta com 1+ ano de uso: 5-50MB
+
+Para contas muito grandes (>50MB), entre em contato — geramos export
+em batches.
+
+## Frequência
+
+Sem limite. Você pode exportar quantas vezes quiser.
+
+## Próximo
+
+Veja também [Excluir minha conta](/delete-account-lgpd).

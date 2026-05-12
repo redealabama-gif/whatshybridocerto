@@ -1,0 +1,91 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "WhatsHybrid Pro",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#6f00ff",
+    "light": "#00ffff",
+    "dark": "#0f0c29",
+    "anchors": {
+      "from": "#6f00ff",
+      "to": "#00ffff"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Suporte",
+      "url": "mailto:suporte@whatshybrid.com.br"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Acessar Painel",
+    "url": "https://app.whatshybrid.com.br"
+  },
+  "anchors": [
+    {
+      "name": "API Reference",
+      "icon": "rectangle-terminal",
+      "url": "https://api.whatshybrid.com.br/api-docs.html"
+    },
+    {
+      "name": "Status",
+      "icon": "signal-stream",
+      "url": "https://status.whatshybrid.com.br"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Começando",
+      "pages": [
+        "introduction",
+        "getting-started",
+        "installing-extension"
+      ]
+    },
+    {
+      "group": "Configuração",
+      "pages": [
+        "configuring-ai",
+        "knowledge-base",
+        "tone-and-personality",
+        "auto-reply"
+      ]
+    },
+    {
+      "group": "Funcionalidades",
+      "pages": [
+        "smartbot",
+        "copilot",
+        "campaigns",
+        "crm",
+        "training"
+      ]
+    },
+    {
+      "group": "Assinatura & Tokens",
+      "pages": [
+        "tokens-explained",
+        "billing-faq",
+        "plans-comparison",
+        "referrals"
+      ]
+    },
+    {
+      "group": "Operacional",
+      "pages": [
+        "troubleshooting",
+        "data-export-lgpd",
+        "delete-account-lgpd",
+        "two-factor-auth"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "linkedin": "https://www.linkedin.com/company/whatshybrid",
+    "twitter": "https://twitter.com/whatshybrid"
+  }
+}

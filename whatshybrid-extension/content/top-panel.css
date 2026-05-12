@@ -1,0 +1,525 @@
+/* ========================================
+   TOP PANEL - INJECTED INTO WHATSAPP WEB
+   🎨 Theme: Purple/Blue/Black Enterprise
+   
+   This panel is injected at the top of WhatsApp Web
+   and creates an "L" shape with the Side Panel
+======================================== */
+
+/* Main Panel Container */
+.wa-extractor-top-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: linear-gradient(135deg, #0A0A0F 0%, #12121A 100%);
+    z-index: 999999;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    border-bottom: 2px solid #8B5CF6;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Mesh background effect */
+.wa-extractor-top-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Hidden state for panel synchronization */
+.wa-extractor-top-panel.hidden {
+    display: none;
+}
+
+/* Panel Container Layout */
+.top-panel-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    padding: 0 16px;
+    max-width: 100%;
+    gap: 24px;
+}
+
+/* Left Section - Logo */
+.top-panel-left {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.top-panel-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+
+.top-panel-logo .logo-icon {
+    font-size: 22px;
+    filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.4));
+}
+
+.top-panel-logo .logo-text {
+    background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+}
+
+/* Center Section - Tabs (now aligned left) */
+.top-panel-center {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.top-panel-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.top-panel-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    background: rgba(139, 92, 246, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.25s ease;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.top-panel-tab .tab-icon {
+    font-size: 16px;
+    transition: transform 0.2s ease;
+}
+
+.top-panel-tab:hover {
+    background: rgba(139, 92, 246, 0.2);
+    color: #ffffff;
+    transform: translateY(-1px);
+    border-color: rgba(139, 92, 246, 0.4);
+}
+
+.top-panel-tab:hover .tab-icon {
+    transform: scale(1.1);
+}
+
+.top-panel-tab.active {
+    background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 2px 15px rgba(139, 92, 246, 0.5),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Botão que abre em nova aba (popup) */
+.top-panel-tab-popup {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+    border-color: rgba(16, 185, 129, 0.4);
+    position: relative;
+}
+
+.top-panel-tab-popup::after {
+    content: '↗';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.top-panel-tab-popup:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%);
+    border-color: rgba(16, 185, 129, 0.6);
+}
+
+.top-panel-tab.active .tab-icon {
+    transform: scale(1.15);
+}
+
+.top-panel-tab .tab-label {
+    font-weight: 700;
+}
+
+/* Right Section - Actions (pushed to right) */
+.top-panel-right {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+/* ========================================
+   SUBSCRIPTION WIDGET
+======================================== */
+
+.subscription-widget {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.subscription-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(139, 92, 246, 0.15);
+    border-radius: 8px;
+    cursor: default;
+}
+
+.subscription-status .sub-icon {
+    font-size: 14px;
+}
+
+.subscription-status .sub-plan {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8b5cf6;
+}
+
+.subscription-status .sub-message {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.subscription-status .sub-message.success {
+    color: #10b981;
+}
+
+.subscription-status .sub-message.error {
+    color: #ef4444;
+}
+
+/* Plan Active Badge */
+.subscription-status .sub-plan.plan-active {
+    font-size: 12px;
+    letter-spacing: 0.3px;
+}
+
+.subscription-status .sub-plan .plan-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: none;
+    animation: planActivated 0.5s ease-out;
+}
+
+.subscription-status .sub-plan .plan-active-badge small {
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+@keyframes planActivated {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Widget status colors */
+.subscription-widget.status-free .subscription-status {
+    background: rgba(107, 114, 128, 0.15);
+    border-color: rgba(107, 114, 128, 0.3);
+}
+
+.subscription-widget.status-starter .subscription-status {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.subscription-widget.status-pro .subscription-status {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+}
+
+.subscription-widget.status-enterprise .subscription-status {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(234, 88, 12, 0.15) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.3);
+}
+
+.subscription-widget.status-trial .subscription-status {
+    position: relative;
+}
+
+.subscription-widget.status-trial .subscription-status::before {
+    content: 'TRIAL';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+/* Master Key - Acesso Total */
+.subscription-widget.status-master .subscription-status {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(234, 88, 12, 0.2) 100%);
+    border: 2px solid rgba(245, 158, 11, 0.7);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(245, 158, 11, 0.1);
+    animation: masterKeyGlow 2s ease-in-out infinite;
+}
+
+.plan-master-key .plan-master {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #f59e0b 100%);
+    background-size: 200% 100%;
+    animation: masterKeyShine 3s linear infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+@keyframes masterKeyGlow {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(245, 158, 11, 0.1);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(245, 158, 11, 0.6), inset 0 0 20px rgba(245, 158, 11, 0.2);
+    }
+}
+
+@keyframes masterKeyShine {
+    0% {
+        background-position: 200% center;
+    }
+    100% {
+        background-position: -200% center;
+    }
+}
+
+.subscription-credits {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(16, 185, 129, 0.15);
+    border-radius: 8px;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.subscription-credits .credits-icon {
+    font-size: 12px;
+}
+
+.subscription-credits .credits-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: #10b981;
+}
+
+.subscription-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.subscription-input {
+    width: 140px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.subscription-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+}
+
+.subscription-input:focus {
+    border-color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.subscription-activate-btn {
+    padding: 6px 10px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.subscription-activate-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.subscription-activate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Action buttons (minimize / etc) */
+.top-panel-action {
+    border: none;
+    background: rgba(139, 92, 246, 0.15);
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 900;
+    padding: 6px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.top-panel-action:hover {
+    background: rgba(139, 92, 246, 0.3);
+    transform: translateY(-1px);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+/* Restore button (appears when the top panel is minimized) */
+.wa-extractor-restore-btn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 999999;
+    border: none;
+    background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(139, 92, 246, 0.5);
+}
+
+.wa-extractor-restore-btn:hover {
+    filter: brightness(1.1);
+}
+
+/* ========================================
+   WHATSAPP CONTENT COMPRESSION
+   
+   These styles push WhatsApp content down
+   to make room for the top panel
+======================================== */
+
+/* When top panel is visible, compress WhatsApp content */
+body.wa-extractor-top-panel-visible #app {
+    margin-top: 64px !important;
+    height: calc(100vh - 64px) !important;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+======================================== */
+
+@media (max-width: 768px) {
+    .top-panel-logo .logo-text {
+        display: none;
+    }
+    
+    .top-panel-tab .tab-label {
+        display: none;
+    }
+    
+    .top-panel-tab {
+        padding: 8px 12px;
+    }
+}
+
+/* ========================================
+   ANIMATIONS
+======================================== */
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.wa-extractor-top-panel {
+    animation: slideDown 0.4s ease-out;
+}
+
+/* ========================================
+   VISUAL CONNECTION WITH SIDE PANEL
+   
+   These styles create the "L" shaped layout
+   by ensuring visual consistency
+======================================== */
+
+/* Match colors with Side Panel */
+.wa-extractor-top-panel {
+    /* Same gradient as Side Panel header */
+    background: linear-gradient(135deg, #0A0A0F 0%, #12121A 100%);
+}
+
+/* Same accent color */
+.top-panel-tab.active {
+    background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
+}

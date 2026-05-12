@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsHybrid Pro — Dashboard Operacional</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 20px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 1.8em; margin-bottom: 8px; color: #f1f5f9; }
+  .subtitle { color: #94a3b8; margin-bottom: 24px; font-size: 0.9em; }
+  .status-bar { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    background: #1e293b;
+    border: 1px solid #334155;
+  }
+  .pill.ok { background: #064e3b; border-color: #059669; color: #6ee7b7; }
+  .pill.warn { background: #78350f; border-color: #d97706; color: #fcd34d; }
+  .pill.error { background: #7f1d1d; border-color: #dc2626; color: #fca5a5; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .card-title { 
+    font-size: 0.8em; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+  }
+  .card-value { 
+    font-size: 1.8em; 
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+  }
+  .card-sub { font-size: 0.85em; color: #64748b; }
+  .section { 
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid #334155;
+  }
+  .section h2 { 
+    font-size: 1.1em; 
+    margin-bottom: 12px; 
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  th, td { 
+    padding: 8px 12px; 
+    text-align: left;
+    border-bottom: 1px solid #334155;
+  }
+  th { 
+    background: #0f172a;
+    font-weight: 600;
+    color: #94a3b8;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tr:hover { background: rgba(255,255,255,0.02); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, "Cascadia Code", monospace; }
+  .progress-bar {
+    height: 6px;
+    background: #334155;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #059669, #34d399);
+    transition: width 0.3s;
+  }
+  .progress-fill.warn { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .progress-fill.error { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .controls input, .controls select {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .controls button {
+    background: #2563eb;
+    color: white;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  .controls button:hover { background: #3b82f6; }
+  .auth-prompt {
+    padding: 32px;
+    text-align: center;
+    background: #1e293b;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    max-width: 480px;
+    margin: 60px auto;
+  }
+  .auth-prompt h2 { margin-bottom: 16px; color: #f1f5f9; }
+  .auth-prompt input { width: 100%; margin-bottom: 12px; }
+  .loading { color: #64748b; font-style: italic; padding: 16px; text-align: center; }
+  .err { color: #fca5a5; padding: 12px; background: #7f1d1d; border-radius: 6px; margin: 8px 0; }
+  .auto-refresh { font-size: 0.85em; color: #64748b; }
+  .auto-refresh input { margin-right: 4px; }
+  details { background: #0f172a; border-radius: 6px; padding: 8px 12px; margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div id="auth" class="auth-prompt" style="display:none;">
+  <h2>🔐 Dashboard Operacional</h2>
+  <p style="margin-bottom:16px;color:#94a3b8;">Cole seu JWT (admin/owner) para acessar:</p>
+  <input id="jwt-input" type="password" placeholder="eyJhbGc..." />
+  <button onclick="saveAuth()" style="width:100%;padding:10px;">Entrar</button>
+  <p style="margin-top:12px;font-size:0.85em;color:#64748b;">
+    O token fica salvo apenas no localStorage do seu navegador.
+  </p>
+</div>
+
+<div id="dashboard" style="display:none;">
+
+  <h1>WhatsHybrid Pro — Dashboard</h1>
+  <p class="subtitle">
+    <span id="last-update">Carregando...</span>
+    <label class="auto-refresh" style="margin-left:16px;">
+      <input type="checkbox" id="auto-refresh-cb" checked />
+      Auto-refresh a cada 30s
+    </label>
+    <button onclick="logout()" style="float:right;background:#475569;border:0;color:#e2e8f0;padding:4px 12px;border-radius:4px;cursor:pointer;">Logout</button>
+  </p>
+
+  <!-- Status pills -->
+  <div class="status-bar" id="status-bar"></div>
+
+  <!-- Top metrics -->
+  <div class="grid" id="top-metrics"></div>
+
+  <!-- Cost section -->
+  <div class="section">
+    <h2>💰 Custo de IA por Tenant</h2>
+    <div class="controls">
+      <select id="cost-period" onchange="loadCost()">
+        <option value="24h">Últimas 24h</option>
+        <option value="7d">Últimos 7 dias</option>
+        <option value="30d">Últimos 30 dias</option>
+      </select>
+      <span id="cost-summary" style="color:#94a3b8;"></span>
+    </div>
+    <div id="cost-table"></div>
+  </div>
+
+  <!-- Tenants section -->
+  <div class="section">
+    <h2>👥 Tenants Ativos</h2>
+    <div id="tenants-table"></div>
+  </div>
+
+  <!-- Errors section -->
+  <div class="section">
+    <h2>🔥 Erros Recentes</h2>
+    <div id="errors-table"></div>
+  </div>
+
+  <!-- Learning section -->
+  <div class="section">
+    <h2>🧠 Saúde do Aprendizado</h2>
+    <div id="learning-table"></div>
+  </div>
+
+  <!-- System -->
+  <div class="section">
+    <h2>⚙️ Sistema</h2>
+    <div id="system-info"></div>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+'use strict';
+
+const API_BASE = window.location.origin;
+
+let jwt = localStorage.getItem('wh_dash_jwt') || '';
+let refreshTimer = null;
+
+function init() {
+  if (!jwt) {
+    document.getElementById('auth').style.display = 'block';
+  } else {
+    document.getElementById('dashboard').style.display = 'block';
+    loadAll();
+    setupAutoRefresh();
+  }
+}
+
+function saveAuth() {
+  jwt = document.getElementById('jwt-input').value.trim();
+  if (!jwt) { alert('Cole o JWT primeiro'); return; }
+  localStorage.setItem('wh_dash_jwt', jwt);
+  location.reload();
+}
+
+function logout() {
+  localStorage.removeItem('wh_dash_jwt');
+  location.reload();
+}
+
+function setupAutoRefresh() {
+  const cb = document.getElementById('auto-refresh-cb');
+  cb.addEventListener('change', () => {
+    if (cb.checked) {
+      refreshTimer = setInterval(loadAll, 30000);
+    } else {
+      clearInterval(refreshTimer);
+    }
+  });
+  refreshTimer = setInterval(loadAll, 30000);
+}
+
+async function fetchJson(path, requireAuth = true) {
+  const headers = { 'Accept': 'application/json' };
+  if (requireAuth) headers['Authorization'] = `Bearer ${jwt}`;
+  const r = await fetch(API_BASE + path, { headers });
+  if (r.status === 401) {
+    logout();
+    throw new Error('JWT inválido ou expirado');
+  }
+  if (!r.ok) {
+    throw new Error(`${r.status} ${r.statusText}`);
+  }
+  return r.json();
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + 'KB';
+  if (bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + 'MB';
+  return (bytes/1024/1024/1024).toFixed(2) + 'GB';
+}
+
+function formatNum(n) {
+  if (n == null) return '—';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return Math.round(n).toString();
+}
+
+function formatTimeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return min + 'min atrás';
+  const h = Math.floor(min / 60);
+  if (h < 24) return h + 'h atrás';
+  return Math.floor(h / 24) + 'd atrás';
+}
+
+async function loadAll() {
+  document.getElementById('last-update').textContent = 'Atualizando...';
+  try {
+    await Promise.all([
+      loadHealth(),
+      loadTenants(),
+      loadCost(),
+      loadErrors(),
+      loadLearning(),
+      loadSystem(),
+    ]);
+    document.getElementById('last-update').textContent = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
+  } catch (e) {
+    document.getElementById('last-update').textContent = 'Erro: ' + e.message;
+  }
+}
+
+async function loadHealth() {
+  try {
+    const data = await fetchJson('/metrics/health-deep', false);
+    const bar = document.getElementById('status-bar');
+    bar.innerHTML = '';
+
+    const allOk = data.status === 'ok';
+    addPill(bar, 'Sistema', allOk ? 'ok' : 'warn', allOk ? 'OK' : 'Degradado');
+
+    Object.entries(data.checks).forEach(([key, check]) => {
+      if (typeof check !== 'object') return;
+      const label = key.replace(/_/g, ' ');
+      const status = check.status || 'ok';
+      const cssClass = status === 'ok' ? 'ok' : status === 'unavailable' ? 'warn' : 'error';
+      addPill(bar, label, cssClass, status);
+    });
+  } catch (e) {
+    document.getElementById('status-bar').innerHTML = `<div class="err">Health: ${e.message}</div>`;
+  }
+}
+
+function addPill(parent, label, cls, value) {
+  const p = document.createElement('span');
+  p.className = 'pill ' + cls;
+  p.innerHTML = `<strong>${label}:</strong> ${value}`;
+  parent.appendChild(p);
+}
+
+async function loadTenants() {
+  const el = document.getElementById('tenants-table');
+  const top = document.getElementById('top-metrics');
+  el.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const data = await fetchJson('/metrics/tenants');
+    
+    // Top metrics cards
+    top.innerHTML = `
+      <div class="card">
+        <div class="card-title">Tenants Total</div>
+        <div class="card-value">${data.summary.total_tenants}</div>
+        <div class="card-sub">${data.summary.active_24h} ativos hoje</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ativos 7 Dias</div>
+        <div class="card-value">${data.summary.active_7d}</div>
+        <div class="card-sub">de ${data.summary.total_tenants} total</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Interações</div>
+        <div class="card-value">${formatNum(data.summary.total_interactions)}</div>
+        <div class="card-sub">${formatNum(data.summary.total_graduated_patterns)} padrões aprendidos</div>
+      </div>
+    `;
+
+    // Tabela
+    if (data.tenants.length === 0) {
+      el.innerHTML = '<p style="color:#64748b;">Nenhum tenant cadastrado ainda.</p>';
+      return;
+    }
+    el.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Tenant</th><th>Plano</th>
+          <th class="num">Users</th><th class="num">Contatos</th>
+          <th class="num">Conversas</th><th class="num">Interações</th>
+          <th class="num">Aprendidos</th>
+          <th class="num">Reqs 24h</th><th class="num">Reqs 7d</th>
+        </tr></thead>
+        <tbody>
+        ${data.tenants.slice(0, 50).map(t => `
+          <tr>
+            <td><a href="#" onclick="loadTenantDetail('${t.id}'); return false;" style="color:#60a5fa;text-decoration:none;">${t.name || t.id}</a></td>
+            <td>${t.plan || 'free'}</td>
+            <td class="num">${t.users_count}</td>
+            <td class="num">${formatNum(t.contacts_count)}</td>
+            <td class="num">${formatNum(t.conversations_count)}</td>
+            <td class="num">${formatNum(t.interactions_count)}</td>
+            <td class="num">${t.graduated_patterns}</td>
+            <td class="num">${t.ai_requests_24h}</td>
+            <td class="num">${t.ai_requests_7d}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="err">Tenants: ${e.message}</div>`;
+  }
+}
+
+async function loadCost() {
+  const el = document.getElementById('cost-table');
+  const summaryEl = document.getElementById('cost-summary');
+  el.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const period = document.getElementById('cost-period').value;
+    const data = await fetchJson('/metrics/cost?period=' + period);
+    
+    summaryEl.innerHTML = `
+      <strong>Total no período:</strong>
+      US$ ${data.summary.total_cost_usd.toFixed(4)} 
+      (~ R$ ${data.summary.total_cost_brl_estimate.toFixed(2)})
+      em ${formatNum(data.summary.total_requests)} requests, 
+      ${formatNum(data.summary.total_tokens)} tokens
+    `;
+
+    if (data.by_tenant.length === 0) {
+      el.innerHTML = '<p style="color:#64748b;">Sem uso de IA registrado no período.</p>';
+      return;
+    }
+
+    el.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Tenant</th>
+          <th class="num">Requests</th>
+          <th class="num">Tokens</th>
+          <th class="num">Custo (USD)</th>
+          <th class="num">Custo (BRL est.)</th>
+          <th>Modelos</th>
+        </tr></thead>
+        <tbody>
+        ${data.by_tenant.slice(0, 50).map(t => `
+          <tr>
+            <td><a href="#" onclick="loadTenantDetail('${t.workspace_id}'); return false;" style="color:#60a5fa;text-decoration:none;">${t.workspace_id}</a></td>
+            <td class="num">${formatNum(t.total_requests)}</td>
+            <td class="num">${formatNum(t.total_tokens)}</td>
+            <td class="num">$${t.total_cost_usd.toFixed(4)}</td>
+            <td class="num">R$${(t.total_cost_usd * 5.5).toFixed(2)}</td>
+            <td>${t.models.map(m => m.model.split('-').slice(0,2).join('-')).join(', ')}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="err">Cost: ${e.message}</div>`;
+  }
+}
+
+async function loadErrors() {
+  const el = document.getElementById('errors-table');
+  el.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const data = await fetchJson('/metrics/errors?limit=50');
+    
+    if (data.total === 0) {
+      el.innerHTML = '<p style="color:#6ee7b7;">✅ Nenhum erro recente. Sistema saudável.</p>';
+      return;
+    }
+
+    const grouped = data.grouped_by_message.slice(0, 10);
+    el.innerHTML = `
+      <p style="margin-bottom:12px;color:#fca5a5;">${data.total} erros recentes (top mensagens):</p>
+      <table>
+        <thead><tr>
+          <th>Mensagem de erro</th>
+          <th class="num">Ocorrências</th>
+          <th class="num">Tenants</th>
+          <th>Última vez</th>
+        </tr></thead>
+        <tbody>
+        ${grouped.map(g => `
+          <tr>
+            <td style="max-width:600px;font-family:monospace;font-size:0.85em;">${g.message ? g.message.substring(0, 200) : '(sem mensagem)'}</td>
+            <td class="num">${g.count}</td>
+            <td class="num">${g.unique_tenants}</td>
+            <td>${formatTimeAgo(g.last_seen)}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="err">Errors: ${e.message}</div>`;
+  }
+}
+
+async function loadLearning() {
+  const el = document.getElementById('learning-table');
+  el.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const data = await fetchJson('/metrics/learning');
+    
+    const sum = data.summary;
+    const totalEvaluated = sum.total_graduated + sum.total_discarded;
+    const gradRate = totalEvaluated > 0 ? (sum.total_graduated / totalEvaluated * 100).toFixed(1) : '—';
+    
+    el.innerHTML = `
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="card">
+          <div class="card-title">Padrões Graduados</div>
+          <div class="card-value" style="color:#34d399;">${sum.total_graduated}</div>
+          <div class="card-sub">aprendizado validado</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Em Avaliação</div>
+          <div class="card-value">${sum.total_candidates}</div>
+          <div class="card-sub">candidatos</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Descartados</div>
+          <div class="card-value" style="color:#f87171;">${sum.total_discarded}</div>
+          <div class="card-sub">feedback ruim</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Taxa de Graduação</div>
+          <div class="card-value">${gradRate}%</div>
+          <div class="card-sub">${sum.active_tenants} tenants aprendendo</div>
+        </div>
+      </div>
+      ${data.by_tenant.length > 0 ? `
+        <table>
+          <thead><tr>
+            <th>Tenant</th>
+            <th class="num">Candidatos</th>
+            <th class="num">Graduados</th>
+            <th class="num">Descartados</th>
+            <th>Taxa</th>
+          </tr></thead>
+          <tbody>
+          ${data.by_tenant.slice(0, 30).map(t => {
+            const total = (t.graduated || 0) + (t.discarded || 0);
+            const rate = total > 0 ? ((t.graduated / total) * 100).toFixed(0) + '%' : '—';
+            const pct = total > 0 ? (t.graduated / total) * 100 : 0;
+            return `
+              <tr>
+                <td>${t.workspace_id}</td>
+                <td class="num">${t.candidates || 0}</td>
+                <td class="num" style="color:#34d399;">${t.graduated || 0}</td>
+                <td class="num" style="color:#f87171;">${t.discarded || 0}</td>
+                <td>
+                  ${rate}
+                  <div class="progress-bar"><div class="progress-fill ${pct < 30 ? 'error' : pct < 60 ? 'warn' : ''}" style="width:${pct}%"></div></div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+          </tbody>
+        </table>
+      ` : '<p style="color:#64748b;">Nenhum padrão registrado ainda. Use a IA + dê feedback para começar a aprender.</p>'}
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="err">Learning: ${e.message}</div>`;
+  }
+}
+
+async function loadSystem() {
+  const el = document.getElementById('system-info');
+  try {
+    const data = await fetchJson('/metrics/system', false);
+    const memPct = Math.round((data.memory.heap_used_mb / data.memory.heap_total_mb) * 100);
+    const sysMemPct = data.system.used_mem_percent;
+    
+    el.innerHTML = `
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">Uptime</div>
+          <div class="card-value">${formatUptime(data.uptime_seconds)}</div>
+          <div class="card-sub">Node ${data.node_version}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">RAM Heap (Node)</div>
+          <div class="card-value">${data.memory.heap_used_mb}MB</div>
+          <div class="card-sub">de ${data.memory.heap_total_mb}MB (${memPct}%)</div>
+          <div class="progress-bar"><div class="progress-fill ${memPct > 80 ? 'error' : memPct > 60 ? 'warn' : ''}" style="width:${memPct}%"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">RAM Sistema</div>
+          <div class="card-value">${sysMemPct}%</div>
+          <div class="card-sub">${data.system.free_mem_gb}GB livre de ${data.system.total_mem_gb}GB</div>
+          <div class="progress-bar"><div class="progress-fill ${sysMemPct > 80 ? 'error' : sysMemPct > 60 ? 'warn' : ''}" style="width:${sysMemPct}%"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Load Average</div>
+          <div class="card-value">${data.system.cpu_load_1m.toFixed(2)}</div>
+          <div class="card-sub">${data.system.cpu_count} CPUs (${data.system.platform})</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="err">System: ${e.message}</div>`;
+  }
+}
+
+function formatUptime(secs) {
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+async function loadTenantDetail(tenantId) {
+  // Modal simples (alert formatado)
+  try {
+    const data = await fetchJson('/metrics/tenant/' + encodeURIComponent(tenantId));
+    
+    const summary = `
+TENANT: ${data.workspace.name} (${tenantId})
+Plano: ${data.workspace.plan || 'free'}
+Criado: ${new Date(data.workspace.created_at).toLocaleString('pt-BR')}
+
+CONTAGENS:
+- Users: ${data.counts.users}
+- Contatos: ${data.counts.contacts}
+- Conversas: ${data.counts.conversations}
+- Interações: ${data.counts.interactions}
+- Padrões aprendidos: ${data.counts.learning_graduated}
+- Em avaliação: ${data.counts.learning_candidates}
+- Descartados: ${data.counts.learning_discarded}
+
+ATIVIDADE:
+- Reqs IA 24h: ${data.activity.ai_requests_24h}
+- Reqs IA 7d: ${data.activity.ai_requests_7d}
+- Interações 24h: ${data.activity.interactions_24h}
+    `.trim();
+    
+    alert(summary);
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

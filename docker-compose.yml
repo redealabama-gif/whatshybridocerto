@@ -1,0 +1,211 @@
+# WhatsHybrid Pro — Docker Compose para produção
+#
+# Stack:
+#   - caddy:      reverse proxy + TLS automático (Let's Encrypt)
+#   - backend:    API Node.js + better-sqlite3
+#   - ai-worker:  worker BullMQ para jobs assíncronos
+#   - redis:      cache, rate limiting, filas
+#
+# Volumes persistentes:
+#   - db_data:     /app/data           (banco SQLite)
+#   - logs_data:   /app/logs           (winston logs)
+#   - caddy_data:  certs Let's Encrypt + state
+#   - caddy_config: configurações persistentes do Caddy
+#   - redis_data:  AOF do Redis
+#
+# Deploy:
+#   1. cp .env.example .env   (e preencha valores)
+#   2. docker compose up -d --build
+#   3. Logs: docker compose logs -f
+#   4. Backup: ./deploy/scripts/backup.sh
+#   5. Update: ./deploy/scripts/deploy.sh
+
+services:
+
+  # ── Caddy: Reverse proxy + TLS automático ────────────────────────────────
+  # Lida com Let's Encrypt sem você precisar pensar em renovação de certificado.
+  # Renova automaticamente 30 dias antes de expirar.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"     # HTTP (redirect to HTTPS)
+      - "443:443"   # HTTPS
+      - "443:443/udp"  # HTTP/3 (QUIC)
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data            # certs Let's Encrypt + state
+      - caddy_config:/config        # config persistida
+    environment:
+      - DOMAIN=${DOMAIN:?DOMAIN is required (ex: api.seudominio.com)}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - wh_network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # ⚠️ Sem `ports:` — Redis só acessível pela rede interna do compose.
+    # Antes expunha 6379 publicamente — risco de acesso não autenticado.
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wh_network
+
+  # ── Backend API ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./whatshybrid-backend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    # ⚠️ Sem `ports:` — backend só acessível pelo Caddy.
+    # Antes expunha 3000 publicamente — bypassava TLS e rate limiting.
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - DB_PATH=/app/data/whatshybrid.db
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ORCHESTRATOR_MAX_TENANTS=${ORCHESTRATOR_MAX_TENANTS:-200}
+      - ORCHESTRATOR_TTL_MS=${ORCHESTRATOR_TTL_MS:-1800000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://${DOMAIN}}
+      - REDIS_DISABLED=${REDIS_DISABLED:-false}
+    volumes:
+      - db_data:/app/data
+      - logs_data:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    networks:
+      - wh_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ── AI Worker ────────────────────────────────────────────────────────────
+  ai-worker:
+    build:
+      context: ./whatshybrid-backend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    command: ["node", "src/jobs/ai-worker.js"]
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - DB_PATH=/app/data/whatshybrid.db
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
+    volumes:
+      - db_data:/app/data
+      - logs_data:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - wh_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # ── PostgreSQL (v9.0.0): produção ────────────────────────────────────────
+  # Habilitar quando migrar de SQLite. Definir DB_DRIVER=postgres no backend.
+  # Para usar: descomente as 2 sections postgres + adicione DATABASE_URL no .env
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles: ["postgres"]   # só sobe se PROFILE=postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-whatshybrid}
+      POSTGRES_USER: ${POSTGRES_USER:-whatshybrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - wh_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-whatshybrid}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ── Uptime Kuma (v9.0.0): status page pública ────────────────────────────
+  # Acesso via subdomain: configure status.seudominio.com.br no Caddy
+  # Após primeiro start: acesse e configure admin user + checks
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    profiles: ["monitoring"]   # opt-in
+    volumes:
+      - kuma_data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"   # bind localhost — Caddy proxy
+    networks:
+      - wh_network
+    healthcheck:
+      test: ["CMD", "node", "extra/healthcheck.js"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local
+  db_data:
+    driver: local
+  logs_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  pg_data:
+    driver: local
+  kuma_data:
+    driver: local
+
+networks:
+  wh_network:
+    driver: bridge

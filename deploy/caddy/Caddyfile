@@ -1,0 +1,128 @@
+# WhatsHybrid Pro — Caddy reverse proxy
+#
+# Caddy resolve TLS automaticamente via Let's Encrypt.
+# Nada de certbot, nada de cron de renovação. Só funciona.
+#
+# Variáveis (vêm do docker-compose via environment):
+#   DOMAIN              — domínio principal (ex: api.seudominio.com)
+#   LETSENCRYPT_EMAIL   — email para registro Let's Encrypt
+#
+# Para múltiplos domínios, copie o bloco {$DOMAIN} e use outros nomes.
+
+{
+    # Email global para Let's Encrypt (recebe avisos antes de expirar)
+    email {$LETSENCRYPT_EMAIL}
+
+    # Logs em formato JSON estruturado (parse fácil em produção)
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+
+    # Servers — protocolo de transição
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+# ── Backend API ─────────────────────────────────────────────────────────────
+{$DOMAIN} {
+    # ── Headers de segurança (defense in depth, complementa o helmet do backend)
+    header {
+        # HSTS: força HTTPS por 1 ano após primeira visita
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Anti-clickjacking
+        X-Frame-Options "DENY"
+
+        # Anti-MIME-sniffing
+        X-Content-Type-Options "nosniff"
+
+        # Anti-referrer leak
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Permissions-Policy: desativa features que API não usa
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+
+        # Esconde versão do servidor
+        -Server
+    }
+
+    # ── Rate limiting básico (Caddy nativo via plugin)
+    # Caddy default não tem rate limit nativo, mas o backend já tem
+    # express-rate-limit + Redis. Caddy só protege contra requests gigantes:
+    request_body {
+        max_size 10MB
+    }
+
+    # ── Reverse proxy para o backend Node.js
+    reverse_proxy backend:3000 {
+        # WebSocket upgrade (Socket.IO)
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Timeouts (servidor lento não trava o cliente)
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 30s
+            read_timeout 60s
+        }
+
+        # Health check do upstream
+        health_uri /health
+        health_interval 30s
+        health_timeout 5s
+        health_status 200
+    }
+
+    # ── Logs
+    log {
+        output stdout
+        format json
+    }
+}
+
+# ── (Opcional) Admin panel em subdomínio diferente para isolamento
+# Descomente se você quiser separar admin de API:
+#
+# admin.{$DOMAIN} {
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Frame-Options "DENY"
+#     }
+#     reverse_proxy backend:3000 {
+#         # Apenas /admin é roteado — resto retorna 404
+#         rewrite * /admin{path}
+#     }
+# }
+
+# ── (v9.0.0) Status page — Uptime Kuma em subdomínio ─────────────────────
+# Para usar: configure DNS A record `status.SEUDOMINIO.com.br` apontando
+# para o mesmo IP, e descomente abaixo.
+# Acesse status.SEUDOMINIO.com.br pra ver / configurar.
+#
+# status.{$DOMAIN_BASE} {
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Frame-Options "SAMEORIGIN"
+#         X-Content-Type-Options "nosniff"
+#     }
+#     reverse_proxy uptime-kuma:3001 {
+#         transport http {
+#             keepalive 30s
+#             keepalive_idle_conns 10
+#         }
+#     }
+# }
+
+# ── (v9.0.0) Documentação API (Swagger UI) ───────────────────────────────
+# Acessível em /api-docs.html no domínio principal — sem config extra
+# necessária (servida via express.static)
+
+# ── (v9.0.0) OpenAPI spec ────────────────────────────────────────────────
+# /openapi.json também servido pelo express — o reverse_proxy acima
+# já cuida disso
+

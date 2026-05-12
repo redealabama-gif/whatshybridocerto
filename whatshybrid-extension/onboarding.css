@@ -1,0 +1,1225 @@
+/**
+ * WhatsHybrid - Onboarding Premium CSS v4.0
+ * Tutorial interativo com spotlight, setas e animações
+ */
+
+/* ========================================
+   VARIÁVEIS GLOBAIS
+======================================== */
+.whl-tour,
+.whl-tour * {
+    --tour-primary: #8b5cf6;
+    --tour-primary-dark: #7c3aed;
+    --tour-primary-light: #a78bfa;
+    --tour-primary-glow: rgba(139, 92, 246, 0.5);
+    --tour-secondary: #3b82f6;
+    --tour-success: #10b981;
+    --tour-warning: #f59e0b;
+    --tour-bg: #0a0a12;
+    --tour-card: #12121d;
+    --tour-card-light: #1a1a28;
+    --tour-border: rgba(255, 255, 255, 0.08);
+    --tour-text: #ffffff;
+    --tour-text-dim: rgba(255, 255, 255, 0.75);
+    --tour-text-muted: rgba(255, 255, 255, 0.45);
+    
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ========================================
+   OVERLAY PRINCIPAL
+======================================== */
+.whl-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    animation: tourFadeIn 0.4s ease;
+}
+
+.whl-tour.exit {
+    animation: tourFadeOut 0.5s ease forwards;
+}
+
+.whl-tour-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* ========================================
+   SPOTLIGHT (DESTAQUE DE ELEMENTO)
+======================================== */
+.whl-tour-spotlight {
+    position: fixed;
+    border-radius: 16px;
+    pointer-events: none;
+    z-index: 1000000;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+        0 0 0 9999px rgba(0, 0, 0, 0.92),
+        0 0 40px var(--tour-primary-glow),
+        inset 0 0 30px rgba(139, 92, 246, 0.2);
+    border: 2px solid var(--tour-primary);
+}
+
+.whl-tour-spotlight.active {
+    opacity: 1;
+}
+
+/* ========================================
+   SETA ANIMADA
+======================================== */
+.whl-tour-arrow {
+    position: fixed;
+    width: 80px;
+    height: 80px;
+    pointer-events: none;
+    z-index: 1000001;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.whl-tour-arrow.active {
+    opacity: 1;
+}
+
+.whl-tour-arrow .arrow-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(90deg);
+    animation: arrowBounce 1s ease-in-out infinite;
+}
+
+.whl-tour-arrow .arrow-path {
+    fill: none;
+    stroke: var(--tour-primary);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: arrowDraw 1.5s ease forwards;
+}
+
+.whl-tour-arrow .arrow-head {
+    fill: var(--tour-primary);
+    animation: arrowHeadPulse 1s ease-in-out infinite;
+}
+
+@keyframes arrowDraw {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes arrowBounce {
+    0%, 100% { transform: rotate(90deg) translateX(0); }
+    50% { transform: rotate(90deg) translateX(8px); }
+}
+
+@keyframes arrowHeadPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* ========================================
+   CARD PRINCIPAL
+======================================== */
+.whl-tour-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(180deg, var(--tour-card) 0%, var(--tour-bg) 100%);
+    border: 1px solid var(--tour-border);
+    border-radius: 24px;
+    padding: 28px 36px;
+    max-width: 580px;
+    width: 92%;
+    max-height: 88vh;
+    overflow-y: auto;
+    z-index: 1000002;
+    box-shadow: 
+        0 0 0 1px rgba(139, 92, 246, 0.15),
+        0 30px 60px -15px rgba(0, 0, 0, 0.6),
+        0 0 120px -30px var(--tour-primary-glow);
+}
+
+.whl-tour-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--tour-primary), var(--tour-secondary), var(--tour-primary));
+    background-size: 200% 100%;
+    animation: gradientShift 3s linear infinite;
+    border-radius: 24px 24px 0 0;
+}
+
+.whl-tour-card.enter {
+    animation: cardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.whl-tour-card.exit {
+    animation: cardExit 0.3s ease forwards;
+}
+
+/* ========================================
+   HEADER DO CARD
+======================================== */
+.whl-tour-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.whl-tour-progress {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.whl-tour-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--tour-primary), var(--tour-secondary));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.whl-tour-counter {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tour-text-muted);
+    min-width: 40px;
+}
+
+.whl-tour-skip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--tour-border);
+    color: var(--tour-text-muted);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.whl-tour-skip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--tour-text);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================
+   ÍCONE E TÍTULOS
+======================================== */
+.whl-tour-icon {
+    font-size: 72px;
+    text-align: center;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.4));
+}
+
+.whl-tour-icon.bounce {
+    animation: iconBounce 2s ease-in-out infinite;
+}
+
+.whl-tour-icon.celebration {
+    animation: iconCelebrate 1s ease-in-out infinite;
+}
+
+.whl-tour-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--tour-text);
+    text-align: center;
+    margin: 0 0 8px;
+    line-height: 1.2;
+}
+
+.whl-tour-subtitle {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--tour-primary-light);
+    text-align: center;
+    margin: 0 0 12px;
+}
+
+.whl-tour-desc {
+    font-size: 14px;
+    color: var(--tour-text-dim);
+    text-align: center;
+    line-height: 1.6;
+    margin: 0 0 24px;
+}
+
+/* ========================================
+   WELCOME - FEATURES GRID
+======================================== */
+.whl-tour-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.whl-tour-feature {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 12px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.06));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 14px;
+    transition: all 0.3s ease;
+    cursor: default;
+}
+
+.whl-tour-feature:hover {
+    transform: translateY(-4px);
+    border-color: var(--tour-primary);
+    box-shadow: 0 10px 30px var(--tour-primary-glow);
+}
+
+.whl-tour-feature .feature-icon {
+    font-size: 28px;
+}
+
+.whl-tour-feature .feature-info {
+    text-align: center;
+}
+
+.whl-tour-feature .feature-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tour-text);
+    margin-bottom: 2px;
+}
+
+.whl-tour-feature .feature-desc {
+    font-size: 10px;
+    color: var(--tour-text-muted);
+}
+
+/* ========================================
+   TOP PANEL MOCK
+======================================== */
+.whl-tour-panel-mock {
+    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    border: 1px solid var(--tour-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.panel-mock-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.panel-mock-logo {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tour-text);
+}
+
+.panel-mock-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.panel-mock-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--tour-border);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    min-width: 56px;
+}
+
+.panel-mock-btn:hover,
+.panel-mock-btn.highlight {
+    background: rgba(var(--btn-color), 0.2);
+    border-color: var(--btn-color, var(--tour-primary));
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.panel-mock-btn .btn-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.panel-mock-btn .btn-label {
+    font-size: 9px;
+    color: var(--tour-text-muted);
+    font-weight: 500;
+}
+
+.panel-mock-btn .btn-pulse {
+    position: absolute;
+    inset: -3px;
+    border-radius: 12px;
+    border: 2px solid var(--btn-color, var(--tour-primary));
+    opacity: 0;
+    animation: btnPulse 2s ease-in-out infinite;
+}
+
+.panel-mock-btn:hover .btn-pulse {
+    animation: btnPulseActive 1s ease-in-out infinite;
+}
+
+/* ========================================
+   TOP PANEL INDICATOR (Para Features)
+======================================== */
+.whl-tour-toppanel-indicator {
+    background: linear-gradient(180deg, #1e1e2e 0%, #14141f 100%);
+    border: 2px solid var(--tour-primary);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 30px var(--tour-primary-glow);
+}
+
+.toppanel-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.toppanel-label .label-icon {
+    font-size: 18px;
+}
+
+.toppanel-label span:last-child {
+    font-size: 13px;
+    color: var(--tour-text-dim);
+    font-weight: 500;
+}
+
+.toppanel-mock-mini {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+
+.toppanel-btn-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--tour-border);
+    border-radius: 8px;
+    min-width: 50px;
+    position: relative;
+    transition: all 0.3s ease;
+    opacity: 0.5;
+}
+
+.toppanel-btn-mini .btn-icon {
+    font-size: 16px;
+    margin-bottom: 2px;
+}
+
+.toppanel-btn-mini .btn-label {
+    font-size: 8px;
+    color: var(--tour-text-muted);
+}
+
+/* Botão destacado */
+.toppanel-btn-mini.highlighted {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1));
+    border-color: var(--btn-color, var(--tour-primary));
+    transform: scale(1.15);
+    z-index: 10;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.toppanel-btn-mini.highlighted .btn-label {
+    color: var(--tour-text);
+    font-weight: 600;
+}
+
+/* Anel de destaque animado */
+.btn-highlight-ring {
+    position: absolute;
+    inset: -4px;
+    border: 2px solid var(--btn-color, var(--tour-primary));
+    border-radius: 10px;
+    animation: highlightRing 1.5s ease-in-out infinite;
+}
+
+@keyframes highlightRing {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.5; 
+        transform: scale(1.1);
+    }
+}
+
+/* Seta indicadora */
+.btn-arrow-indicator {
+    position: absolute;
+    bottom: -45px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+}
+
+.btn-arrow-indicator .arrow-pointer {
+    font-size: 20px;
+    animation: arrowBounceUp 0.8s ease-in-out infinite;
+}
+
+.btn-arrow-indicator .arrow-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tour-primary-light);
+    background: rgba(139, 92, 246, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--tour-primary);
+}
+
+@keyframes arrowBounceUp {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+/* ========================================
+   FEATURE - HOW TO
+======================================== */
+.whl-tour-howto {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--tour-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.howto-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tour-text);
+    margin-bottom: 14px;
+}
+
+.howto-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.howto-step:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--tour-primary), var(--tour-secondary));
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.step-text {
+    font-size: 13px;
+    color: var(--tour-text-dim);
+    line-height: 1.5;
+    padding-top: 4px;
+}
+
+/* ========================================
+   FEATURE - TIPS
+======================================== */
+.whl-tour-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.tour-tip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
+    border-left: 3px solid var(--tour-success);
+    border-radius: 0 10px 10px 0;
+}
+
+.tour-tip .tip-icon {
+    font-size: 18px;
+}
+
+.tour-tip .tip-text {
+    font-size: 13px;
+    color: var(--tour-text-dim);
+}
+
+/* ========================================
+   HEADER - MOCK DO SIDEPANEL
+======================================== */
+.whl-tour-header-mock {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, #1e1e2e 0%, #14141f 100%);
+    border: 2px solid var(--tour-primary);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 0 20px var(--tour-primary-glow);
+}
+
+.header-mock-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-mock-logo {
+    font-size: 20px;
+}
+
+.header-mock-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--tour-text);
+}
+
+.header-mock-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-mock-btn {
+    position: relative;
+    font-size: 18px;
+    padding: 6px;
+    background: rgba(139, 92, 246, 0.2);
+    border: 1px solid var(--tour-primary);
+    border-radius: 8px;
+    cursor: default;
+}
+
+.header-mock-btn.highlighted {
+    animation: btnGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes btnGlow {
+    0%, 100% { box-shadow: 0 0 10px var(--tour-primary-glow); }
+    50% { box-shadow: 0 0 20px var(--tour-primary-glow); }
+}
+
+.header-btn-tooltip {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--tour-card);
+    border: 1px solid var(--tour-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--tour-text);
+    white-space: nowrap;
+    opacity: 0;
+    animation: tooltipFade 2s ease-in-out infinite;
+}
+
+@keyframes tooltipFade {
+    0%, 40%, 100% { opacity: 0; }
+    50%, 90% { opacity: 1; }
+}
+
+.header-mock-version {
+    font-size: 11px;
+    color: var(--tour-text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+/* ========================================
+   HEADER - BUTTONS LIST
+======================================== */
+.whl-tour-header-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.header-btn-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--tour-border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.header-btn-item:hover {
+    border-color: var(--tour-primary);
+    transform: translateX(4px);
+}
+
+.header-btn-icon {
+    font-size: 32px;
+    width: 50px;
+    text-align: center;
+}
+
+.header-btn-info {
+    flex: 1;
+}
+
+.header-btn-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tour-text);
+    margin-bottom: 4px;
+}
+
+.header-btn-desc {
+    font-size: 12px;
+    color: var(--tour-text-muted);
+}
+
+/* ========================================
+   CONCLUSION - SHORTCUTS
+======================================== */
+.whl-tour-shortcuts {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--tour-border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+}
+
+.shortcuts-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tour-text);
+    margin-bottom: 14px;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.shortcut-item:last-child {
+    border-bottom: none;
+}
+
+.shortcut-keys {
+    display: flex;
+    gap: 6px;
+}
+
+.shortcut-keys kbd {
+    background: var(--tour-card-light);
+    border: 1px solid var(--tour-border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--tour-primary-light);
+    min-width: 30px;
+    text-align: center;
+}
+
+.shortcut-action {
+    font-size: 13px;
+    color: var(--tour-text-dim);
+}
+
+/* ========================================
+   CONCLUSION - FINAL TIPS
+======================================== */
+.whl-tour-final-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.final-tip {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.04));
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--tour-text-dim);
+    transition: all 0.2s;
+}
+
+.final-tip:hover {
+    border-color: var(--tour-primary);
+    transform: translateX(6px);
+}
+
+/* ========================================
+   CONFETTI
+======================================== */
+.whl-tour-confetti {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 100px;
+    opacity: 0.1;
+    pointer-events: none;
+    animation: confettiFloat 3s ease-in-out infinite;
+}
+
+/* ========================================
+   HINT
+======================================== */
+.whl-tour-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px dashed rgba(139, 92, 246, 0.3);
+    border-radius: 10px;
+    margin-bottom: 24px;
+}
+
+.whl-tour-hint .hint-arrow {
+    font-size: 20px;
+    animation: fingerPoint 1s ease-in-out infinite;
+}
+
+.whl-tour-hint span:last-child {
+    font-size: 13px;
+    color: var(--tour-text-dim);
+}
+
+/* ========================================
+   DOTS DE NAVEGAÇÃO
+======================================== */
+.whl-tour-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.whl-tour-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.whl-tour-dot:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.3);
+}
+
+.whl-tour-dot.active {
+    width: 32px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--tour-primary), var(--tour-secondary));
+    box-shadow: 0 0 15px var(--tour-primary-glow);
+}
+
+.whl-tour-dot.done {
+    background: var(--tour-success);
+}
+
+/* ========================================
+   BOTÕES DE NAVEGAÇÃO
+======================================== */
+.whl-tour-buttons {
+    display: flex;
+    gap: 14px;
+    justify-content: space-between;
+}
+
+.whl-tour-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 28px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.whl-tour-btn.primary {
+    background: linear-gradient(135deg, var(--tour-primary), var(--tour-secondary));
+    color: white;
+    box-shadow: 0 6px 20px var(--tour-primary-glow);
+}
+
+.whl-tour-btn.primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px var(--tour-primary-glow);
+}
+
+.whl-tour-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--tour-border);
+    color: var(--tour-text-dim);
+}
+
+.whl-tour-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--tour-text);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================
+   KEYBOARD HINT
+======================================== */
+.whl-tour-keyboard {
+    text-align: center;
+    font-size: 11px;
+    color: var(--tour-text-muted);
+    margin-top: 18px;
+}
+
+.whl-tour-keyboard kbd {
+    background: var(--tour-card-light);
+    border: 1px solid var(--tour-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: monospace;
+    margin: 0 2px;
+}
+
+/* ========================================
+   TOAST DE CONCLUSÃO
+======================================== */
+.whl-tour-toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: linear-gradient(135deg, var(--tour-card), var(--tour-bg));
+    border: 1px solid var(--tour-border);
+    border-left: 4px solid var(--tour-success);
+    border-radius: 14px;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    z-index: 999999;
+    opacity: 0;
+    transform: translateX(120px);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 380px;
+}
+
+.whl-tour-toast.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.whl-tour-toast .toast-icon {
+    font-size: 36px;
+    animation: iconBounce 2s ease-in-out infinite;
+}
+
+.whl-tour-toast .toast-content {
+    flex: 1;
+}
+
+.whl-tour-toast .toast-content strong {
+    display: block;
+    font-size: 16px;
+    color: var(--tour-text);
+    margin-bottom: 4px;
+}
+
+.whl-tour-toast .toast-content p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--tour-text-dim);
+}
+
+.whl-tour-toast .toast-close {
+    background: transparent;
+    border: none;
+    color: var(--tour-text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s;
+}
+
+.whl-tour-toast .toast-close:hover {
+    color: var(--tour-text);
+}
+
+/* ========================================
+   ANIMAÇÕES
+======================================== */
+@keyframes tourFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes tourFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes cardEnter {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) translateY(0);
+    }
+}
+
+@keyframes cardExit {
+    from {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.95) translateY(-20px);
+    }
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes iconBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes iconCelebrate {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-5deg); }
+    75% { transform: scale(1.1) rotate(5deg); }
+}
+
+@keyframes fingerPoint {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+@keyframes highlightPulse {
+    0%, 100% { box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); }
+    50% { box-shadow: 0 12px 40px rgba(139, 92, 246, 0.5); }
+}
+
+@keyframes btnPulse {
+    0%, 100% { opacity: 0; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(1.05); }
+}
+
+@keyframes btnPulseActive {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes confettiFloat {
+    0%, 100% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0.1; }
+    50% { transform: translate(-50%, -60%) rotate(10deg); opacity: 0.2; }
+}
+
+/* ========================================
+   SCROLLBAR CUSTOMIZADA
+======================================== */
+.whl-tour-card::-webkit-scrollbar {
+    width: 6px;
+}
+
+.whl-tour-card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.whl-tour-card::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.whl-tour-card::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================
+   RESPONSIVO
+======================================== */
+@media (max-width: 600px) {
+    .whl-tour-card {
+        padding: 22px 20px;
+        border-radius: 18px;
+        max-height: 92vh;
+        width: 95%;
+    }
+    
+    .whl-tour-icon {
+        font-size: 56px;
+    }
+    
+    .whl-tour-title {
+        font-size: 22px;
+    }
+    
+    .whl-tour-features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .panel-mock-buttons {
+        gap: 5px;
+    }
+    
+    .panel-mock-btn {
+        padding: 8px 10px;
+        min-width: 48px;
+    }
+    
+    .panel-mock-btn .btn-icon {
+        font-size: 16px;
+    }
+    
+    .panel-mock-btn .btn-label {
+        font-size: 8px;
+    }
+    
+    /* Top Panel Indicator responsivo */
+    .toppanel-mock-mini {
+        gap: 4px;
+    }
+    
+    .toppanel-btn-mini {
+        padding: 6px 8px;
+        min-width: 42px;
+    }
+    
+    .toppanel-btn-mini .btn-icon {
+        font-size: 14px;
+    }
+    
+    .toppanel-btn-mini .btn-label {
+        font-size: 7px;
+    }
+    
+    .toppanel-btn-mini.highlighted {
+        transform: scale(1.1);
+    }
+    
+    .btn-arrow-indicator {
+        bottom: -40px;
+    }
+    
+    .btn-arrow-indicator .arrow-pointer {
+        font-size: 16px;
+    }
+    
+    .btn-arrow-indicator .arrow-text {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+    
+    /* Header mock responsivo */
+    .whl-tour-header-mock {
+        padding: 10px 12px;
+    }
+    
+    .header-mock-title {
+        font-size: 14px;
+    }
+    
+    .header-mock-btn {
+        font-size: 16px;
+        padding: 4px;
+    }
+    
+    .whl-tour-buttons {
+        flex-direction: column;
+    }
+    
+    .whl-tour-btn {
+        width: 100%;
+    }
+    
+    .whl-tour-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: none;
+        transform: translateY(120px);
+    }
+    
+    .whl-tour-toast.visible {
+        transform: translateY(0);
+    }
+}

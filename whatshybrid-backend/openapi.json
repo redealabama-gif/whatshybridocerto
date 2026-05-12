@@ -1,0 +1,467 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WhatsHybrid Pro API",
+    "description": "API REST do WhatsHybrid Pro — CRM SaaS B2B com IA neural para WhatsApp.",
+    "version": "9.0.0",
+    "contact": {
+      "name": "Suporte WhatsHybrid",
+      "email": "suporte@whatshybrid.com.br",
+      "url": "https://whatshybrid.com.br"
+    },
+    "license": { "name": "Proprietary" }
+  },
+  "servers": [
+    { "url": "https://api.whatshybrid.com.br", "description": "Produção" },
+    { "url": "http://localhost:3000", "description": "Desenvolvimento" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string" },
+          "details": { "type": "object" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["user", "admin"] },
+          "workspaceId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "Workspace": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "plan": { "type": "string", "enum": ["free", "starter", "pro", "business"] },
+          "subscription_status": {
+            "type": "string",
+            "enum": ["trialing", "active", "past_due", "cancelled", "trial_expired"]
+          },
+          "credits": { "type": "integer" },
+          "health_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      },
+      "TokenTransaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "amount": { "type": "integer", "description": "Negativo se débito" },
+          "type": { "type": "string", "enum": ["consume", "topup", "plan_grant", "plan_renewal", "adjustment", "refund", "referral_reward"] },
+          "balance_after": { "type": "integer" },
+          "model": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check raso (load balancer)",
+        "tags": ["Operations"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "version": { "type": "string", "example": "9.0.0" },
+                    "uptime": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/deep": {
+      "get": {
+        "summary": "Health check profundo (DB, Redis, AI providers)",
+        "tags": ["Operations"],
+        "security": [],
+        "responses": {
+          "200": { "description": "All systems operational" },
+          "503": { "description": "One or more dependencies failed" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login com email + senha (+ TOTP se ativo)",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso (ou requer TOTP)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": { "type": "string" },
+                        "refreshToken": { "type": "string" },
+                        "user": { "$ref": "#/components/schemas/User" },
+                        "workspace": { "$ref": "#/components/schemas/Workspace" }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "requires_totp": { "type": "boolean" },
+                        "pre_auth_token": { "type": "string" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "description": "Credenciais inválidas" }
+        }
+      }
+    },
+    "/api/v1/auth/login/totp": {
+      "post": {
+        "summary": "Step 2 do login com 2FA",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["pre_auth_token", "code"],
+                "properties": {
+                  "pre_auth_token": { "type": "string" },
+                  "code": { "type": "string", "pattern": "^[0-9]{6}$" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Sucesso (retorna tokens JWT)" },
+          "401": { "description": "Código inválido" }
+        }
+      }
+    },
+    "/api/v1/auth/signup": {
+      "post": {
+        "summary": "Cria conta + workspace + trial 7 dias",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "name"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "name": { "type": "string" },
+                  "company": { "type": "string" },
+                  "plan": { "type": "string", "default": "starter" },
+                  "ref": { "type": "string", "description": "Código de referral" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Conta criada" },
+          "400": { "description": "Dados inválidos ou email duplicado" }
+        }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "summary": "Solicita link de redefinição de senha",
+        "description": "Sempre retorna 200 (não vaza enumeração de emails)",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": { "email": { "type": "string", "format": "email" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Link enviado se email existir" } }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "summary": "Redefine senha com token recebido por email",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Senha redefinida" },
+          "400": { "description": "Token inválido ou expirado" }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/setup": {
+      "post": {
+        "summary": "Inicia setup de 2FA TOTP",
+        "tags": ["Auth"],
+        "responses": {
+          "200": {
+            "description": "Secret e URI gerados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "secret": { "type": "string" },
+                    "uri": { "type": "string", "description": "otpauth:// URL pra QR code" },
+                    "digits": { "type": "integer", "example": 6 },
+                    "period": { "type": "integer", "example": 30 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens/balance": {
+      "get": {
+        "summary": "Saldo atual de tokens",
+        "tags": ["Tokens"],
+        "responses": {
+          "200": {
+            "description": "Saldo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "balance": { "type": "integer" },
+                    "plan_limit": { "type": "integer" },
+                    "next_renewal_at": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens/history": {
+      "get": {
+        "summary": "Histórico de transações",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de transações",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transactions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/TokenTransaction" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai-settings": {
+      "get": {
+        "summary": "Configurações de IA do workspace",
+        "tags": ["AI"],
+        "responses": { "200": { "description": "Config atual" } }
+      },
+      "put": {
+        "summary": "Atualiza configurações de IA",
+        "tags": ["AI"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "systemPrompt": { "type": "string", "maxLength": 5000 },
+                  "tone": { "type": "string", "enum": ["formal", "casual", "friendly", "professional", "enthusiastic"] },
+                  "sector": { "type": "string", "maxLength": 200 },
+                  "maxResponseTokens": { "type": "integer", "minimum": 50, "maximum": 2000 },
+                  "autoReplyEnabled": { "type": "boolean" },
+                  "qualityThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "knowledgeBase": { "type": "string", "maxLength": 50000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Atualizado" } }
+      }
+    },
+    "/api/v1/ai-settings/test": {
+      "post": {
+        "summary": "Testa IA com mensagem de exemplo",
+        "tags": ["AI"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": { "message": { "type": "string", "maxLength": 1000 } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resposta gerada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "type": "string" },
+                    "model": { "type": "string" },
+                    "tokensUsed": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/referrals/code": {
+      "get": {
+        "summary": "Código + URL de referral do usuário",
+        "tags": ["Referrals"],
+        "responses": { "200": { "description": "Código" } }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "summary": "Exporta todos os dados do usuário (LGPD art. 18)",
+        "tags": ["LGPD"],
+        "responses": {
+          "200": {
+            "description": "JSON com todos os dados",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/me/delete-account": {
+      "post": {
+        "summary": "Solicita exclusão da conta (LGPD art. 18)",
+        "tags": ["LGPD"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirmation"],
+                "properties": {
+                  "confirmation": { "type": "string", "enum": ["EXCLUIR_MINHA_CONTA"] },
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Conta excluída" },
+          "400": { "description": "Confirmação inválida" }
+        }
+      }
+    },
+    "/api/v1/me/nps": {
+      "post": {
+        "summary": "Registra resposta de NPS",
+        "tags": ["Feedback"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["score"],
+                "properties": {
+                  "score": { "type": "integer", "minimum": 0, "maximum": 10 },
+                  "comment": { "type": "string", "maxLength": 2000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Registrado" } }
+      }
+    }
+  }
+}

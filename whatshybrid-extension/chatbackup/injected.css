@@ -1,0 +1,1 @@
+.chatbackup-exporting #main{opacity:.75;pointer-events:none}.chatbackup-exporting::after{content:'Exportando...';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.82);color:#fff;padding:14px 22px;border-radius:10px;z-index:999999;font-size:15px}

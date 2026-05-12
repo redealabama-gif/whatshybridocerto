@@ -1,0 +1,92 @@
+{
+  "navigation": {
+    "home": "Início",
+    "pricing": "Preços",
+    "features": "Recursos",
+    "login": "Entrar",
+    "signup": "Criar conta",
+    "logout": "Sair",
+    "dashboard": "Painel",
+    "settings": "Configurações"
+  },
+  "buttons": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "send": "Enviar",
+    "next": "Próximo",
+    "previous": "Anterior",
+    "close": "Fechar",
+    "loading": "Carregando..."
+  },
+  "form": {
+    "email": "Email",
+    "password": "Senha",
+    "name": "Nome",
+    "company": "Empresa",
+    "phone": "Telefone",
+    "confirm_password": "Confirme a senha",
+    "required": "Campo obrigatório",
+    "invalid_email": "Email inválido",
+    "password_too_short": "Senha precisa ter no mínimo 8 caracteres",
+    "passwords_do_not_match": "Senhas não coincidem"
+  },
+  "auth": {
+    "welcome_back": "Bem-vindo de volta",
+    "create_account": "Crie sua conta",
+    "forgot_password": "Esqueci a senha",
+    "reset_password": "Redefinir senha",
+    "i_accept_terms": "Aceito os {{terms}} e {{privacy}}",
+    "terms": "Termos de Uso",
+    "privacy": "Política de Privacidade",
+    "two_factor_required": "Insira o código do seu app authenticator",
+    "logout_success": "Você saiu com sucesso"
+  },
+  "billing": {
+    "plan": "Plano",
+    "trial": "Trial",
+    "trial_days_left": "{{days}} dias restantes",
+    "trial_expired": "Trial expirou",
+    "active": "Ativo",
+    "past_due": "Atrasado",
+    "cancelled": "Cancelado",
+    "upgrade": "Fazer upgrade",
+    "manage_subscription": "Gerenciar assinatura"
+  },
+  "ai": {
+    "tone_friendly": "Amigável",
+    "tone_formal": "Formal",
+    "tone_casual": "Casual",
+    "tone_professional": "Profissional",
+    "tone_enthusiastic": "Entusiasmado",
+    "auto_reply": "Resposta automática",
+    "knowledge_base": "Base de conhecimento",
+    "test_ai": "Testar IA"
+  },
+  "errors": {
+    "generic": "Algo deu errado. Tente novamente.",
+    "network": "Erro de conexão. Verifique sua internet.",
+    "unauthorized": "Você precisa estar logado",
+    "forbidden": "Sem permissão para esta ação",
+    "not_found": "Não encontrado",
+    "rate_limited": "Muitas tentativas. Tente novamente mais tarde.",
+    "email_already_registered": "Email já cadastrado",
+    "invalid_credentials": "Credenciais inválidas",
+    "account_inactive": "Conta inativa",
+    "pre_auth_token_invalid": "Token de pré-autenticação inválido ou expirado",
+    "totp_invalid": "Código TOTP inválido",
+    "token_required": "Token de atualização obrigatório",
+    "token_invalid": "Token inválido ou expirado",
+    "reuse_detected": "Reuso de token detectado — todos tokens revogados por segurança",
+    "validation_failed": "Dados inválidos",
+    "user_not_found": "Usuário não encontrado",
+    "already_enabled": "2FA já está ativo",
+    "not_enabled": "2FA não está ativo",
+    "setup_required": "Setup de 2FA necessário primeiro",
+    "password_incorrect": "Senha incorreta",
+    "confirmation_required": "Confirmação obrigatória",
+    "score_out_of_range": "Score deve ser entre 0 e 10"
+  }
+}

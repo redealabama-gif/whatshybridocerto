@@ -1,0 +1,58 @@
+{
+  "name": "whatshybrid-monorepo",
+  "version": "8.0.1",
+  "description": "WhatsHybrid Pro - WhatsApp Automation Platform",
+  "private": true,
+  "workspaces": [
+    "whatshybrid-extension",
+    "whatshybrid-backend"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:critical": "playwright test e2e/critical-flows.spec.js",
+    "prepare": "husky install || echo 'Husky not installed yet'",
+    "build:extension": "node scripts/build-extension.js",
+    "pack:extension": "node scripts/pack-extension.js",
+    "release:build": "npm run build:extension && npm run pack:extension",
+    "bump:version": "node scripts/bump-version.js",
+    "validate:versions": "node -e \"const m=require('./whatshybrid-extension/manifest.json').version,r=require('./package.json').version,b=require('./whatshybrid-backend/package.json').version,e=require('./whatshybrid-extension/package.json').version;console.log('manifest:',m);console.log('root    :',r,m===r?'✔':'✖ DESSINCRONIZADO');console.log('backend :',b);console.log('ext pkg :',e,m===e?'✔':'✖ DESSINCRONIZADO');process.exit(m===r&&m===e?0:1)\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.1.1"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "whatsapp",
+    "automation",
+    "crm",
+    "ai",
+    "chrome-extension",
+    "backend"
+  ],
+  "author": "WhatsHybrid Team",
+  "license": "MIT"
+}

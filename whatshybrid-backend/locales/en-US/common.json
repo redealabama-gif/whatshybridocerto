@@ -1,0 +1,92 @@
+{
+  "navigation": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "features": "Features",
+    "login": "Sign in",
+    "signup": "Sign up",
+    "logout": "Sign out",
+    "dashboard": "Dashboard",
+    "settings": "Settings"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "send": "Send",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "loading": "Loading..."
+  },
+  "form": {
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "company": "Company",
+    "phone": "Phone",
+    "confirm_password": "Confirm password",
+    "required": "Required field",
+    "invalid_email": "Invalid email",
+    "password_too_short": "Password must be at least 8 characters",
+    "passwords_do_not_match": "Passwords don't match"
+  },
+  "auth": {
+    "welcome_back": "Welcome back",
+    "create_account": "Create your account",
+    "forgot_password": "Forgot password",
+    "reset_password": "Reset password",
+    "i_accept_terms": "I accept the {{terms}} and {{privacy}}",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "two_factor_required": "Enter the code from your authenticator app",
+    "logout_success": "Signed out successfully"
+  },
+  "billing": {
+    "plan": "Plan",
+    "trial": "Trial",
+    "trial_days_left": "{{days}} days remaining",
+    "trial_expired": "Trial expired",
+    "active": "Active",
+    "past_due": "Past due",
+    "cancelled": "Cancelled",
+    "upgrade": "Upgrade",
+    "manage_subscription": "Manage subscription"
+  },
+  "ai": {
+    "tone_friendly": "Friendly",
+    "tone_formal": "Formal",
+    "tone_casual": "Casual",
+    "tone_professional": "Professional",
+    "tone_enthusiastic": "Enthusiastic",
+    "auto_reply": "Auto reply",
+    "knowledge_base": "Knowledge base",
+    "test_ai": "Test AI"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Connection error. Check your internet.",
+    "unauthorized": "You must be signed in",
+    "forbidden": "You don't have permission for this action",
+    "not_found": "Not found",
+    "rate_limited": "Too many attempts. Try again later.",
+    "email_already_registered": "Email already registered",
+    "invalid_credentials": "Invalid credentials",
+    "account_inactive": "Account is inactive",
+    "pre_auth_token_invalid": "Pre-auth token invalid or expired",
+    "totp_invalid": "Invalid TOTP code",
+    "token_required": "Refresh token required",
+    "token_invalid": "Token invalid or expired",
+    "reuse_detected": "Token reuse detected — all tokens revoked for safety",
+    "validation_failed": "Invalid data",
+    "user_not_found": "User not found",
+    "already_enabled": "2FA is already enabled",
+    "not_enabled": "2FA is not enabled",
+    "setup_required": "Setup 2FA first",
+    "password_incorrect": "Incorrect password",
+    "confirmation_required": "Confirmation required",
+    "score_out_of_range": "Score must be between 0 and 10"
+  }
+}

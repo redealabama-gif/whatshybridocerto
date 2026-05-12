@@ -1,0 +1,44 @@
+---
+title: 'Autenticação 2FA'
+description: 'Proteja sua conta com TOTP (Google Authenticator, Authy)'
+---
+
+## Por que ativar
+
+Mesmo que alguém descubra sua senha, sem o código TOTP eles não conseguem
+entrar. **Recomendado para todas as contas comerciais.**
+
+## Como ativar
+
+1. Login no painel
+2. **Configurações → Segurança**
+3. Clique "Ativar 2FA"
+4. Escaneie o QR code com app authenticator:
+   - Google Authenticator (gratuito)
+   - Authy (gratuito, com backup)
+   - 1Password (pago, mas integra com gerenciador de senha)
+5. Insira código de 6 dígitos exibido no app
+6. Pronto — 2FA ativo
+
+## Backup
+
+⚠️ **IMPORTANTE:** salve o **secret** mostrado durante setup em local seguro.
+Se perder o celular, é só com esse secret que você consegue restaurar 2FA
+em outro dispositivo.
+
+## Login com 2FA ativo
+
+1. Insere email + senha como sempre
+2. Aparece campo "Código TOTP"
+3. Abre app authenticator → pega código de 6 dígitos
+4. Insere → entra normal
+
+## Desativar
+
+Em **Configurações → Segurança**, clique "Desativar 2FA".
+Precisa: senha atual + código TOTP atual.
+
+## Perdi o celular e o backup do secret
+
+Único caminho: contatar suporte com prova de identidade
+(documento + email original da conta). Processo manual, leva ~24h.

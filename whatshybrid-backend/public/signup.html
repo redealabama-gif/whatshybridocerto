@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar conta — WhatsHybrid Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/futuristic.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .signup-page {
+      min-height: 100vh;
+      padding: 24px;
+      display: flex; align-items: flex-start; justify-content: center;
+    }
+    .signup-card {
+      width: 100%; max-width: 720px;
+      padding: 40px;
+      margin: 32px 0;
+    }
+    .progress-steps {
+      display: flex; align-items: center;
+      margin-bottom: 32px;
+      gap: 12px;
+    }
+    .progress-step {
+      flex: 1;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .progress-step + .progress-step::before {
+      content: ''; flex: 1;
+      height: 2px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .progress-step.completed + .progress-step::before { background: var(--brand-cyan); }
+    .step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--border);
+      font-weight: 700; color: var(--text-muted);
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .progress-step.active .step-num {
+      background: var(--brand-purple);
+      border-color: var(--brand-cyan);
+      color: white;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+    .progress-step.completed .step-num {
+      background: var(--brand-cyan);
+      border-color: var(--brand-cyan);
+      color: black;
+    }
+    .step-label { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+    .progress-step.active .step-label { color: white; }
+    @media (max-width: 600px) { .step-label { display: none; } }
+
+    .step-form { display: none; }
+    .step-form.active { display: block; animation: fadeIn 0.3s; }
+
+    .step-header { margin-bottom: 24px; }
+    .step-header h2 { font-size: 1.5rem; margin-bottom: 8px; }
+
+    .step-actions {
+      display: flex; gap: 12px; justify-content: space-between;
+      margin-top: 32px;
+    }
+
+    /* Plan cards (smaller version) */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .plan-option {
+      background: rgba(15, 12, 41, 0.6);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .plan-option:hover { border-color: rgba(255, 255, 255, 0.2); }
+    .plan-option.selected {
+      border-color: var(--brand-cyan);
+      background: linear-gradient(135deg, rgba(111, 0, 255, 0.1), rgba(0, 255, 255, 0.05));
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+    }
+    .plan-option.selected::after {
+      content: '✓';
+      position: absolute; top: 12px; right: 12px;
+      width: 24px; height: 24px;
+      background: var(--brand-cyan);
+      color: black;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+    .plan-option h4 {
+      font-family: 'Orbitron', sans-serif;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+    .plan-option.selected h4 { color: var(--brand-cyan); }
+    .plan-option .price {
+      font-size: 1.5rem; font-weight: 800;
+      margin-bottom: 8px;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .plan-option ul { list-style: none; padding: 0; font-size: 0.85rem; color: var(--text-muted); }
+    .plan-option li { padding: 4px 0; display: flex; gap: 6px; align-items: center; }
+    .plan-option li i { color: var(--success); width: 14px; height: 14px; }
+
+    .summary-row {
+      display: flex; justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-row.total { border-bottom: 0; font-size: 1.2rem; font-weight: 700; }
+
+    .input-with-icon { position: relative; }
+    .input-with-icon i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--text-dim); width: 18px; height: 18px;
+    }
+    .input-with-icon .input { padding-left: 44px; }
+
+    .pwd-strength {
+      height: 4px; border-radius: 2px;
+      background: var(--border);
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .pwd-strength-bar {
+      height: 100%; width: 0; background: var(--error);
+      transition: width 0.3s, background 0.3s;
+    }
+    .pwd-strength-bar[data-level="weak"] { width: 33%; background: var(--error); }
+    .pwd-strength-bar[data-level="medium"] { width: 66%; background: var(--warning); }
+    .pwd-strength-bar[data-level="strong"] { width: 100%; background: var(--success); }
+    .pwd-strength-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+    .trial-banner {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(0, 255, 255, 0.05));
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .trial-banner i { color: var(--success); flex-shrink: 0; margin-top: 2px; }
+  </style>
+</head>
+<body class="has-cursor signup-page">
+
+<div class="bg-grid"></div>
+<div class="bg-glow purple"></div>
+<div class="bg-glow cyan"></div>
+
+<div class="signup-card glass-strong">
+  <a href="index.html" class="logo mb-6" style="display:flex; justify-content:center;">
+    <span class="logo-mark">W</span>
+    <span>WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
+  </a>
+
+  <!-- Progress steps -->
+  <div class="progress-steps">
+    <div class="progress-step active" data-step="1">
+      <span class="step-num">1</span>
+      <span class="step-label">Sua conta</span>
+    </div>
+    <div class="progress-step" data-step="2">
+      <span class="step-num">2</span>
+      <span class="step-label">Plano</span>
+    </div>
+    <div class="progress-step" data-step="3">
+      <span class="step-num">3</span>
+      <span class="step-label">Pagamento</span>
+    </div>
+  </div>
+
+  <!-- ── Step 1: Account ── -->
+  <form class="step-form active" id="form-step-1">
+    <div class="step-header">
+      <h2>Vamos começar</h2>
+      <p class="text-muted">Crie sua conta. Leva 30 segundos.</p>
+    </div>
+
+    <div class="trial-banner">
+      <i data-lucide="gift"></i>
+      <div>
+        <strong>7 dias grátis em qualquer plano</strong><br>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Sem cartão na assinatura. Você só paga ao final do trial.</span>
+      </div>
+    </div>
+
+    <div class="input-group" data-field="company">
+      <label class="input-label" for="company">Nome da empresa</label>
+      <div class="input-with-icon">
+        <i data-lucide="briefcase"></i>
+        <input type="text" id="company" autocomplete="organization" class="input" placeholder="Sua Empresa Ltda" required autofocus minlength="2">
+      </div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <div class="input-group" data-field="name">
+      <label class="input-label" for="name">Seu nome</label>
+      <div class="input-with-icon">
+        <i data-lucide="user"></i>
+        <input type="text" id="name" aria-required="true" autocomplete="name" class="input" placeholder="João Silva" required minlength="2">
+      </div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <div class="input-group" data-field="email">
+      <label class="input-label" for="email">Email profissional</label>
+      <div class="input-with-icon">
+        <i data-lucide="mail"></i>
+        <input type="email" id="email" aria-required="true" autocomplete="email" class="input" placeholder="voce@empresa.com" required autocomplete="email">
+      </div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <div class="input-group" data-field="password">
+      <label class="input-label" for="password">Senha</label>
+      <div class="input-with-icon">
+        <i data-lucide="lock"></i>
+        <input type="password" id="password" aria-required="true" autocomplete="new-password" class="input" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
+      </div>
+      <div class="pwd-strength"><div class="pwd-strength-bar" id="pwd-bar"></div></div>
+      <div class="pwd-strength-text" id="pwd-text">Use 8+ caracteres com letras, números e símbolos</div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <label class="checkbox-row" style="margin-bottom: 16px;">
+      <input type="checkbox" id="terms" required>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">
+        Eu aceito os <a href="terms.html" target="_blank">Termos de Uso</a> e a
+        <a href="privacy.html" target="_blank">Política de Privacidade</a>
+      </span>
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-block btn-large">
+      Continuar
+      <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+    </button>
+
+    <p class="text-center mt-6 text-muted" style="font-size: 0.9rem;">
+      Já tem conta? <a href="login.html"><strong>Entrar</strong></a>
+    </p>
+  </form>
+
+  <!-- ── Step 2: Plan ── -->
+  <form class="step-form" id="form-step-2">
+    <div class="step-header">
+      <h2>Escolha seu plano</h2>
+      <p class="text-muted">Você só é cobrado ao fim do trial. Pode mudar a qualquer momento.</p>
+    </div>
+
+    <div class="plans-grid">
+      <div class="plan-option" data-plan="starter" data-price="97">
+        <h4>Starter</h4>
+        <div class="price">R$ 97<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <ul>
+          <li><i data-lucide="check"></i> 1 atendente</li>
+          <li><i data-lucide="check"></i> 500 msgs/mês</li>
+          <li><i data-lucide="check"></i> CRM básico</li>
+        </ul>
+      </div>
+      <div class="plan-option selected" data-plan="pro" data-price="197">
+        <h4>Pro <span class="pill" style="font-size:0.65rem;padding:2px 8px;margin-left:4px;">Popular</span></h4>
+        <div class="price">R$ 197<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <ul>
+          <li><i data-lucide="check"></i> 5 atendentes</li>
+          <li><i data-lucide="check"></i> 5.000 msgs/mês</li>
+          <li><i data-lucide="check"></i> IA neural completa</li>
+          <li><i data-lucide="check"></i> Aprendizado ativo</li>
+        </ul>
+      </div>
+      <div class="plan-option" data-plan="agency" data-price="497">
+        <h4>Agency</h4>
+        <div class="price">R$ 497<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <ul>
+          <li><i data-lucide="check"></i> Ilimitado</li>
+          <li><i data-lucide="check"></i> White-label</li>
+          <li><i data-lucide="check"></i> SLA garantido</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step-actions">
+      <button type="button" class="btn btn-ghost" onclick="goToStep(1)">
+        <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+        Voltar
+      </button>
+      <button type="submit" class="btn btn-primary">
+        Continuar
+        <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+  </form>
+
+  <!-- ── Step 3: Checkout placeholder ── -->
+  <form class="step-form" id="form-step-3">
+    <div class="step-header">
+      <h2>Confirmação</h2>
+      <p class="text-muted">Revise e ative seu trial.</p>
+    </div>
+
+    <div class="card" style="background: rgba(0,0,0,0.3);">
+      <div class="summary-row">
+        <span class="text-muted">Plano</span>
+        <span><strong id="summary-plan">Pro</strong></span>
+      </div>
+      <div class="summary-row">
+        <span class="text-muted">Preço</span>
+        <span><strong id="summary-price">R$ 197/mês</strong></span>
+      </div>
+      <div class="summary-row">
+        <span class="text-muted">Trial</span>
+        <span class="pill success">7 dias grátis</span>
+      </div>
+      <div class="summary-row total">
+        <span>Total agora</span>
+        <span class="text-gradient">R$ 0,00</span>
+      </div>
+      <p class="text-muted mt-4" style="font-size: 0.85rem;">
+        Você só será cobrado ao fim do trial. Cancele quando quiser dentro do portal.
+      </p>
+    </div>
+
+    <div class="trial-banner mt-6">
+      <i data-lucide="info"></i>
+      <div>
+        <strong>Pagamento por PIX, boleto ou cartão</strong><br>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+          A integração de pagamento é configurada após o cadastro. Você terá acesso completo durante o trial.
+        </span>
+      </div>
+    </div>
+
+    <div class="step-actions">
+      <button type="button" class="btn btn-ghost" onclick="goToStep(2)">
+        <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+        Voltar
+      </button>
+      <button type="submit" class="btn btn-cyan btn-large" id="signup-submit">
+        <i data-lucide="rocket" style="width:18px;height:18px;"></i>
+        Começar trial grátis
+      </button>
+    </div>
+  </form>
+
+</div>
+
+<script src="js/futuristic.js"></script>
+<script src="js/i18n-frontend.js" defer></script>
+<script src="js/datetime.js" defer></script>
+<script>
+  lucide.createIcons();
+
+  // Already logged in?
+  if (api.isAuthenticated()) {
+    window.location.href = '/dashboard.html';
+  }
+
+  let signupData = {
+    company: '', name: '', email: '', password: '',
+    plan: 'pro', price: 197,
+  };
+
+  // Pre-select plan from URL ?plan=
+  const urlPlan = new URLSearchParams(window.location.search).get('plan');
+  if (urlPlan && ['starter', 'pro', 'agency'].includes(urlPlan)) {
+    document.querySelectorAll('.plan-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.plan === urlPlan);
+    });
+    signupData.plan = urlPlan;
+    signupData.price = parseInt(document.querySelector(`[data-plan="${urlPlan}"]`).dataset.price);
+  }
+
+  function goToStep(n) {
+    document.querySelectorAll('.step-form').forEach(f => f.classList.remove('active'));
+    document.getElementById('form-step-' + n).classList.add('active');
+    document.querySelectorAll('.progress-step').forEach(s => {
+      const sn = parseInt(s.dataset.step);
+      s.classList.remove('active', 'completed');
+      if (sn < n) s.classList.add('completed');
+      if (sn === n) s.classList.add('active');
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Password strength
+  const pwdInput = document.getElementById('password');
+  const pwdBar = document.getElementById('pwd-bar');
+  const pwdText = document.getElementById('pwd-text');
+  pwdInput.addEventListener('input', () => {
+    const v = pwdInput.value;
+    let level = '';
+    let txt = 'Use 8+ caracteres com letras, números e símbolos';
+    if (v.length >= 8) {
+      const hasLower = /[a-z]/.test(v);
+      const hasUpper = /[A-Z]/.test(v);
+      const hasNum = /\d/.test(v);
+      const hasSym = /[^a-zA-Z0-9]/.test(v);
+      const score = hasLower + hasUpper + hasNum + hasSym + (v.length >= 12 ? 1 : 0);
+      if (score >= 4) { level = 'strong'; txt = 'Senha forte'; }
+      else if (score >= 2) { level = 'medium'; txt = 'Senha média'; }
+      else { level = 'weak'; txt = 'Senha fraca — adicione mais variedade'; }
+    } else if (v.length > 0) {
+      level = 'weak'; txt = `Faltam ${8 - v.length} caracteres`;
+    }
+    pwdBar.dataset.level = level;
+    pwdText.textContent = txt;
+  });
+
+  // Step 1 → Step 2
+  document.getElementById('form-step-1').addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearFormErrors(e.target);
+
+    signupData.company = document.getElementById('company').value.trim();
+    signupData.name = document.getElementById('name').value.trim();
+    signupData.email = document.getElementById('email').value.trim();
+    signupData.password = document.getElementById('password').value;
+    const acceptedTerms = document.getElementById('terms').checked;
+
+    if (signupData.company.length < 2) return formError(e.target, 'company', 'Nome muito curto');
+    if (signupData.name.length < 2) return formError(e.target, 'name', 'Nome muito curto');
+    if (!signupData.email.match(/.+@.+\..+/)) return formError(e.target, 'email', 'Email inválido');
+    if (signupData.password.length < 8) return formError(e.target, 'password', 'Mínimo 8 caracteres');
+    if (!acceptedTerms) { toast('Você precisa aceitar os termos para continuar', 'error'); return; }
+
+    goToStep(2);
+  });
+
+  // Plan selection
+  document.querySelectorAll('.plan-option').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.plan-option').forEach(p => p.classList.remove('selected'));
+      el.classList.add('selected');
+      signupData.plan = el.dataset.plan;
+      signupData.price = parseInt(el.dataset.price);
+    });
+  });
+
+  // Step 2 → Step 3
+  document.getElementById('form-step-2').addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('summary-plan').textContent =
+      signupData.plan.charAt(0).toUpperCase() + signupData.plan.slice(1);
+    document.getElementById('summary-price').textContent = `R$ ${signupData.price}/mês`;
+    goToStep(3);
+  });
+
+  // Step 3 → Submit
+  document.getElementById('form-step-3').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('signup-submit');
+    setLoading(btn, true);
+    try {
+      // Tenta /api/v1/auth/signup. Backend precisa implementar (Onda 4).
+      const result = await api.post('/api/v1/auth/signup', {
+        company: signupData.company,
+        name: signupData.name,
+        email: signupData.email,
+        password: signupData.password,
+        plan: signupData.plan,
+      });
+
+      const token = result.token || result.accessToken;
+      if (!token) throw new Error('Resposta do servidor sem token');
+
+      api.setToken(token);
+      if (result.user) api.setUser(result.user);
+
+      toast('Conta criada! Bem-vindo ao WhatsHybrid Pro 🎉', 'success');
+      setTimeout(() => { window.location.href = '/dashboard.html'; }, 600);
+    } catch (err) {
+      toast('Erro: ' + err.message, 'error', 6000);
+      // Em caso de email duplicado, volta pro step 1
+      if (err.message.toLowerCase().includes('já existe') || err.message.toLowerCase().includes('exists')) {
+        goToStep(1);
+        formError(document.getElementById('form-step-1'), 'email', 'Esse email já está cadastrado');
+      }
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+</script>
+
+</body>
+</html>

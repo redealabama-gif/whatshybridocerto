@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar — WhatsHybrid Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/futuristic.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .auth-card {
+      width: 100%; max-width: 440px;
+      padding: 40px;
+      animation: fadeIn 0.5s;
+    }
+    .auth-header { text-align: center; margin-bottom: 32px; }
+    .auth-header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+    }
+    .auth-divider {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin: 24px 0;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; height: 1px; flex: 1;
+      background: var(--border);
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 24px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .form-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+      font-size: 0.85rem;
+    }
+    .checkbox-row {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text-muted); cursor: pointer;
+    }
+    .checkbox-row input { accent-color: var(--brand-purple); cursor: pointer; }
+    .input-with-icon { position: relative; }
+    .input-with-icon i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--text-dim); width: 18px; height: 18px;
+    }
+    .input-with-icon .input { padding-left: 44px; }
+    .toggle-pwd {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: transparent; border: 0; color: var(--text-dim); cursor: pointer;
+    }
+    .toggle-pwd:hover { color: var(--text-muted); }
+  </style>
+</head>
+<body class="has-cursor auth-page">
+
+<div class="bg-grid"></div>
+<div class="bg-glow purple"></div>
+<div class="bg-glow cyan"></div>
+
+<div class="auth-card glass-strong">
+  <div class="auth-header">
+    <a href="index.html" class="logo justify-center mb-6" style="display:inline-flex;">
+      <span class="logo-mark">W</span>
+      <span>WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
+    </a>
+    <h1 data-i18n="auth.welcome_back">Bem-vindo de volta</h1>
+    <p class="text-muted">Entre para acessar seu painel</p>
+  </div>
+
+  <form id="login-form" novalidate>
+    <div class="input-group" data-field="email">
+      <label class="input-label" for="email" data-i18n="form.email">Email</label>
+      <div class="input-with-icon">
+        <i data-lucide="mail"></i>
+        <input type="email" id="email" aria-required="true" autocomplete="email" name="email" class="input" placeholder="seu@email.com" required autocomplete="email" autofocus>
+      </div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <div class="input-group" data-field="password">
+      <label class="input-label" for="password" data-i18n="form.password">Senha</label>
+      <div class="input-with-icon">
+        <i data-lucide="lock"></i>
+        <input type="password" id="password" aria-required="true" autocomplete="current-password" name="password" class="input" placeholder="••••••••" required autocomplete="current-password" minlength="8">
+        <button type="button" class="toggle-pwd" onclick="togglePassword()" aria-label="Mostrar senha">
+          <i data-lucide="eye" id="eye-icon" style="width:18px;height:18px;"></i>
+        </button>
+      </div>
+      <div class="input-error-text"></div>
+    </div>
+
+    <div class="form-row">
+      <label class="checkbox-row">
+        <input type="checkbox" id="remember" checked>
+        Lembrar de mim
+      </label>
+      <a href="forgot-password.html" style="font-size: 0.85rem;" data-i18n="auth.forgot_password">Esqueci a senha</a>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block btn-large" id="submit-btn">
+      <i data-lucide="log-in" style="width:18px;height:18px;"></i>
+      Entrar
+    </button>
+  </form>
+
+  <div class="auth-footer">
+    Ainda não tem conta?
+    <a href="signup.html"><strong>Criar conta grátis</strong></a>
+  </div>
+</div>
+
+<script src="js/futuristic.js"></script>
+<script src="js/i18n-frontend.js" defer></script>
+<script src="js/datetime.js" defer></script>
+<script>
+  lucide.createIcons();
+
+  // Already logged in? Redirect.
+  if (api.isAuthenticated()) {
+    window.location.href = '/dashboard.html';
+  }
+
+  function togglePassword() {
+    const input = document.getElementById('password');
+    const icon = document.getElementById('eye-icon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.setAttribute('data-lucide', 'eye-off');
+    } else {
+      input.type = 'password';
+      icon.setAttribute('data-lucide', 'eye');
+    }
+    lucide.createIcons();
+  }
+
+  const form = document.getElementById('login-form');
+  const submitBtn = document.getElementById('submit-btn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFormErrors(form);
+
+    const email = form.email.value.trim();
+    const password = form.password.value;
+
+    // Validação client-side mínima
+    if (!email.match(/.+@.+\..+/)) {
+      formError(form, 'email', 'Email inválido');
+      return;
+    }
+    if (password.length < 8) {
+      formError(form, 'password', 'Senha precisa de ao menos 8 caracteres');
+      return;
+    }
+
+    setLoading(submitBtn, true);
+    try {
+      const result = await api.post('/api/v1/auth/login', { email, password });
+      // O backend retorna { token, user } ou { accessToken, user } — suportamos ambos
+      const token = result.token || result.accessToken;
+      if (!token) throw new Error('Resposta do servidor sem token');
+
+      api.setToken(token);
+      if (result.user) api.setUser(result.user);
+
+      toast('Login realizado!', 'success');
+      setTimeout(() => { window.location.href = '/dashboard.html'; }, 400);
+    } catch (err) {
+      toast(err.message, 'error', 6000);
+      // Se o erro vier do backend com detalhes, marcamos campo
+      if (err.message.toLowerCase().includes('email')) formError(form, 'email', err.message);
+      else if (err.message.toLowerCase().includes('senha') || err.message.toLowerCase().includes('password')) {
+        formError(form, 'password', err.message);
+      }
+    } finally {
+      setLoading(submitBtn, false);
+    }
+  });
+</script>
+
+</body>
+</html>

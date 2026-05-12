@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Ajuda — WhatsHybrid Pro</title>
+  <meta name="description" content="Central de ajuda WhatsHybrid Pro: tutoriais, FAQ, troubleshooting">
+  <link rel="canonical" href="https://whatshybrid.com.br/help.html">
+  <meta name="theme-color" content="#6f00ff">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/futuristic.css">
+  <style>
+    .help-container { max-width: 900px; margin: 80px auto; padding: 0 24px; }
+    .help-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin-top: 32px; }
+    .help-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(111,0,255,0.2); border-radius: 12px; padding: 24px; transition: all 0.2s; }
+    .help-card:hover { border-color: rgba(0,255,255,0.5); transform: translateY(-2px); }
+    .help-card h3 { margin: 0 0 8px; color: #fff; font-size: 1.1rem; }
+    .help-card p { color: #cbd5e1; font-size: 0.9rem; margin: 0 0 12px; }
+    .help-card a { color: #00ffff; text-decoration: none; font-weight: 600; font-size: 0.85rem; }
+    .help-card a:hover { text-decoration: underline; }
+    .help-search { width: 100%; padding: 16px 24px; background: rgba(255,255,255,0.05); border: 2px solid rgba(111,0,255,0.3); border-radius: 12px; color: #fff; font-size: 1rem; margin-top: 16px; }
+    .help-search:focus { outline: none; border-color: #00ffff; }
+    article { margin-top: 48px; padding: 32px; background: rgba(255,255,255,0.02); border-radius: 12px; line-height: 1.7; color: #cbd5e1; }
+    article h2 { color: #fff; margin-top: 32px; }
+    article ul, article ol { padding-left: 24px; }
+    article code { background: rgba(0,255,255,0.1); color: #00ffff; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    article pre { background: #0a0820; padding: 16px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container header-container">
+      <a href="/" class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">WhatsHybrid<span style="color:var(--accent-cyan)">Pro</span></span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">Início</a>
+        <a href="/login.html">Entrar</a>
+        <a href="/signup.html" class="btn btn-primary btn-sm">Criar conta</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="help-container">
+    <h1 style="font-size: 2.5rem; color: #fff;">Central de Ajuda</h1>
+    <p style="color: #94a3b8; font-size: 1.1rem;">Encontre tutoriais, FAQ e troubleshooting do WhatsHybrid Pro.</p>
+
+    <input type="search" class="help-search" id="helpSearch"
+           placeholder="🔍 Buscar nos tópicos..." aria-label="Buscar ajuda">
+
+    <div class="help-grid" id="helpGrid">
+      <article class="help-card" data-keywords="começar configurar primeiro signup trial">
+        <h3>🚀 Começando</h3>
+        <p>Configure sua conta em 5 minutos. Trial 7 dias gratuitos.</p>
+        <a href="#getting-started" data-show="getting-started">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="extensão chrome instalar download">
+        <h3>🔌 Instalando a extensão</h3>
+        <p>Como instalar e ativar a extensão Chrome no WhatsApp Web.</p>
+        <a href="#installing-extension" data-show="installing-extension">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="ia inteligência artificial tom configurar">
+        <h3>🤖 Configurando a IA</h3>
+        <p>Defina tom de voz, setor e parâmetros da IA neural.</p>
+        <a href="#configuring-ai" data-show="configuring-ai">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="faq base conhecimento perguntas">
+        <h3>📚 Base de conhecimento</h3>
+        <p>O que colocar na FAQ que a IA usa para responder.</p>
+        <a href="#knowledge-base" data-show="knowledge-base">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="tokens consumo uso pagamento">
+        <h3>💎 Tokens explicados</h3>
+        <p>O que é um token, quanto vem em cada plano, como acompanhar uso.</p>
+        <a href="#tokens" data-show="tokens">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="2fa autenticação dois fatores totp segurança">
+        <h3>🔐 Autenticação 2FA</h3>
+        <p>Proteja sua conta com TOTP (Google Authenticator, Authy).</p>
+        <a href="#two-factor" data-show="two-factor">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="lgpd dados exportar baixar privacidade">
+        <h3>📥 Exportar meus dados (LGPD)</h3>
+        <p>Direito de portabilidade — receba todos os seus dados em JSON.</p>
+        <a href="#export-data" data-show="export-data">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="excluir conta apagar lgpd cancelar">
+        <h3>🗑️ Excluir minha conta (LGPD)</h3>
+        <p>Direito de exclusão — anonymize seus dados na plataforma.</p>
+        <a href="#delete-account" data-show="delete-account">Ler guia →</a>
+      </article>
+
+      <article class="help-card" data-keywords="problema erro bug troubleshooting não funciona">
+        <h3>🛠️ Troubleshooting</h3>
+        <p>Problemas comuns e suas soluções rápidas.</p>
+        <a href="#troubleshooting" data-show="troubleshooting">Ler guia →</a>
+      </article>
+    </div>
+
+    <article id="article-content" style="display:none;"></article>
+
+    <p style="margin-top: 64px; text-align: center; color: #94a3b8;">
+      Não encontrou o que procurava?
+      <a href="mailto:suporte@whatshybrid.com.br" style="color: #00ffff;">Fale com o suporte</a>
+    </p>
+  </main>
+
+  <script>
+    // Conteúdo inline (no futuro: pode ser carregado de Mintlify ou MDX)
+    const ARTICLES = {
+      'getting-started': `
+<h2>🚀 Começando</h2>
+<p><strong>Pré-requisitos:</strong> Google Chrome 100+, conta WhatsApp Business</p>
+<ol>
+  <li>Crie conta em <a href="/signup.html">signup</a></li>
+  <li>Você ganha 7 dias de trial automático</li>
+  <li>Recebe 100.000 tokens iniciais</li>
+  <li>Configure idioma em "Configurações → Conta"</li>
+  <li>(Opcional) Ative 2FA em "Configurações → Segurança"</li>
+</ol>
+      `,
+      'installing-extension': `
+<h2>🔌 Instalando a extensão</h2>
+<h3>Via Chrome Web Store</h3>
+<ol>
+  <li>Clique no link no painel</li>
+  <li>"Adicionar ao Chrome" → "Adicionar extensão"</li>
+  <li>Ícone roxo aparece no canto superior direito</li>
+</ol>
+<h3>Verificando que funcionou</h3>
+<ol>
+  <li>Abra <code>web.whatsapp.com</code></li>
+  <li>Aguarde QR code (se primeira vez) e escaneie</li>
+  <li>Painel lateral roxo do WhatsHybrid deve aparecer</li>
+</ol>
+      `,
+      'configuring-ai': `
+<h2>🤖 Configurando a IA</h2>
+<h3>Tom de voz</h3>
+<ul>
+  <li><strong>Formal</strong> — "Prezado cliente, agradecemos seu contato"</li>
+  <li><strong>Casual</strong> — "Oi! Tudo bem? Como posso ajudar?"</li>
+  <li><strong>Amigável</strong> — "Olá! 😊 Que bom ver você"</li>
+  <li><strong>Profissional</strong> — "Boa tarde, em que posso ajudar?"</li>
+  <li><strong>Entusiasmado</strong> — "Olá! 🎉 Adorei sua mensagem!"</li>
+</ul>
+<h3>Tokens máximos por resposta</h3>
+<p>Default: 250. Recomendamos 150-300 para respostas naturais.</p>
+      `,
+      'knowledge-base': `
+<h2>📚 Base de conhecimento</h2>
+<p>É texto livre onde você cola informações da empresa. A IA usa isso via RAG pra responder.</p>
+<h3>O que colocar</h3>
+<ul>
+  <li>Horário de funcionamento</li>
+  <li>Endereço(s)</li>
+  <li>Regras de troca / devolução</li>
+  <li>Política de frete</li>
+  <li>FAQ recorrente</li>
+</ul>
+<p><strong>Tamanho ideal:</strong> 2.000–5.000 caracteres</p>
+      `,
+      'tokens': `
+<h2>💎 Tokens explicados</h2>
+<p>Um token ≈ 1 palavra portuguesa. Mensagem média (50 palavras) ≈ 65 tokens.</p>
+<p>Resposta típica + contexto = ~750 tokens por interação.</p>
+<h3>Quanto vem em cada plano</h3>
+<ul>
+  <li><strong>Trial:</strong> 100k tokens (7 dias)</li>
+  <li><strong>Starter R$ 97/mês:</strong> 100k tokens</li>
+  <li><strong>Pro R$ 197/mês:</strong> 500k tokens</li>
+  <li><strong>Business R$ 397/mês:</strong> 1M tokens</li>
+</ul>
+      `,
+      'two-factor': `
+<h2>🔐 Autenticação 2FA</h2>
+<h3>Como ativar</h3>
+<ol>
+  <li>Configurações → Segurança → "Ativar 2FA"</li>
+  <li>Escaneie QR code com Google Authenticator/Authy/1Password</li>
+  <li>Insira código de 6 dígitos pra confirmar</li>
+</ol>
+<p>⚠️ <strong>IMPORTANTE:</strong> salve o secret em local seguro. Se perder o celular, é só com ele que você restaura.</p>
+      `,
+      'export-data': `
+<h2>📥 Exportar meus dados (LGPD)</h2>
+<p>Direito garantido pela <strong>LGPD art. 18, V</strong>.</p>
+<h3>Como solicitar</h3>
+<ol>
+  <li>Login → Configurações → LGPD → "Exportar dados"</li>
+  <li>Recebe JSON estruturado com tudo (sem password/2FA secret)</li>
+</ol>
+<p>Sem limite de quantas vezes pode exportar.</p>
+      `,
+      'delete-account': `
+<h2>🗑️ Excluir minha conta (LGPD)</h2>
+<p>Direito garantido pela <strong>LGPD art. 18, VI</strong>.</p>
+<h3>O que acontece</h3>
+<ul>
+  <li>Conta marcada como deleted, email anonymizado</li>
+  <li>Senha zerada, 2FA desativado</li>
+  <li>Workspace cancelado, contatos anonymizados</li>
+</ul>
+<p><strong>O que NÃO é apagado:</strong> logs (12m por lei) + faturas (5 anos por Receita).</p>
+<p>⚠️ <strong>Ação irreversível</strong> após 24h.</p>
+      `,
+      'troubleshooting': `
+<h2>🛠️ Troubleshooting</h2>
+<h3>Extensão não aparece no WhatsApp Web</h3>
+<ol>
+  <li>Verifique <code>chrome://extensions/</code></li>
+  <li>Recarregue web.whatsapp.com (Ctrl+R)</li>
+  <li>Aguarde 10s — carrega após WhatsApp ficar pronto</li>
+</ol>
+<h3>IA não responde</h3>
+<ul>
+  <li>Saldo de tokens zerado? Veja "Tokens & Uso"</li>
+  <li>Subscription suspended? Regularize pagamento</li>
+  <li>Auto-reply desativado? Vá em "IA → Configurações"</li>
+</ul>
+      `,
+    };
+
+    const grid = document.getElementById('helpGrid');
+    const article = document.getElementById('article-content');
+    const search = document.getElementById('helpSearch');
+
+    grid.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-show]');
+      if (!a) return;
+      e.preventDefault();
+      const slug = a.dataset.show;
+      if (ARTICLES[slug]) {
+        article.innerHTML = ARTICLES[slug];
+        article.style.display = 'block';
+        article.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    search.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      grid.querySelectorAll('.help-card').forEach(card => {
+        const kw = (card.dataset.keywords || '').toLowerCase();
+        const txt = card.textContent.toLowerCase();
+        card.style.display = !q || kw.includes(q) || txt.includes(q) ? 'block' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>

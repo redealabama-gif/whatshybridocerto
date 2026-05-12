@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsHybrid CRM - Kanban</title>
+    <link rel="stylesheet" href="crm.css">
+</head>
+<body>
+    <div class="crm-app">
+        <!-- Header -->
+        <header class="crm-header">
+            <div class="header-left">
+                <img src="../icons/48.png" alt="Logo" class="logo">
+                <h1>WhatsHybrid <span class="badge">CRM</span></h1>
+            </div>
+            <div class="header-center">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Buscar contatos...">
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" id="btnAddContact">
+                    <span>➕</span> Novo Contato
+                </button>
+                <button class="btn btn-secondary" id="btnRefresh">
+                    <span>🔄</span>
+                </button>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Conectando...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value" id="statTotal">0</span>
+                <span class="stat-label">Total</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="statLeads">0</span>
+                <span class="stat-label">Leads</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="statNegotiation">0</span>
+                <span class="stat-label">Negociação</span>
+            </div>
+            <div class="stat-item highlight">
+                <span class="stat-value" id="statWon">0</span>
+                <span class="stat-label">Ganhos</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="statValue">R$ 0</span>
+                <span class="stat-label">Valor Total</span>
+            </div>
+        </div>
+
+        <!-- Kanban Board -->
+        <div class="kanban-container">
+            <div class="kanban-board" id="kanbanBoard">
+                <!-- Colunas serão criadas dinamicamente -->
+            </div>
+        </div>
+
+        <!-- Modal: Adicionar/Editar Contato -->
+        <div class="modal" id="contactModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Novo Contato</h2>
+                    <button class="modal-close" id="closeModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="contactForm">
+                        <input type="hidden" id="contactId">
+                        
+                        <div class="form-group">
+                            <label>Telefone *</label>
+                            <input type="text" id="contactPhone" placeholder="+55 11 99999-9999" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Nome</label>
+                            <input type="text" id="contactName" placeholder="Nome do contato">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="contactEmail" placeholder="email@exemplo.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Empresa</label>
+                            <input type="text" id="contactCompany" placeholder="Nome da empresa">
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Estágio</label>
+                                <select id="contactStage">
+                                    <!-- Opções dinâmicas -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor (R$)</label>
+                                <input type="number" id="contactValue" placeholder="0.00" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Etiquetas</label>
+                            <div class="labels-container" id="labelsContainer">
+                                <!-- Labels dinâmicas -->
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Notas</label>
+                            <textarea id="contactNotes" placeholder="Observações..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btnCancel">Cancelar</button>
+                    <button class="btn btn-danger" id="btnDelete" style="display:none;">Excluir</button>
+                    <button class="btn btn-whatsapp" id="btnOpenChat" style="display:none;">
+                        💬 Abrir Chat
+                    </button>
+                    <button class="btn btn-primary" id="btnSave">Salvar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <!-- Utilitários compartilhados (escapeHtml / unescapeHtml) -->
+    <script src="../utils/html-utils.js"></script>
+    <script src="../utils/logger.js"></script>
+    <script src="../utils/ui-helpers.js"></script>
+    <script src="crm.js"></script>
+</body>
+</html>

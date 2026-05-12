@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsHybrid Pro - Side Panel</title>
+    <link rel="stylesheet" href="sidepanel.css">
+    <link rel="stylesheet" href="onboarding.css">
+    <link rel="stylesheet" href="modules/modules.css">
+</head>
+<body>
+    <div class="container">
+        <!-- ========================================
+             HEADER
+        ======================================== -->
+        <header class="header">
+            <div class="logo">
+                <img src="icons/48.png" alt="WhatsHybrid logo" class="logo-icon-img">
+                <h1 id="spHeaderTitle">WhatsHybrid</h1>
+            </div>
+            <div class="header-actions">
+                <button id="btnOpenCrmFullscreen" class="btn-icon-header" title="Abrir CRM em Nova Aba" style="font-size: 16px;">
+                    📊
+                </button>
+                <button id="btnViewHistory" class="btn-icon-header" title="Ver Histórico (Ctrl+H)">
+                    📜
+                </button>
+                <span class="version" id="sp_version">v…</span>
+            </div>
+        </header>
+
+        <!-- ========================================
+             WHL FUSION: VIEW ROOT (dynamic content)
+        ======================================== -->
+        <div id="whlViewRoot" class="whl-view-root">
+
+            <!-- ============ VIEW: PRINCIPAL ============ -->
+            <section id="whlViewPrincipal" class="whl-view">
+  <div class="sp-card">
+    <div class="sp-title">📨 Disparo de mensagens — Envio em massa</div>
+    <div class="sp-muted">Cole os números, escreva a mensagem, anexe uma imagem (opcional), gere a tabela e inicie a campanha.</div>
+
+    <label class="sp-label">📱 Números (um por linha)</label>
+    <textarea id="sp_numbers" class="sp-textarea" placeholder="5511999998888&#10;5511988887777"></textarea>
+
+    <div class="sp-row" style="margin-top:8px;align-items:center">
+      <input id="sp_csv" type="file" accept=".csv,text/csv" style="display:none" />
+      <button id="sp_select_csv" class="sp-btn sp-btn-secondary" style="flex:1">📊 Importar CSV</button>
+      <button id="sp_clear_csv" class="sp-btn sp-btn-danger" style="display:none">🗑️ Remover</button>
+    </div>
+    
+    <div class="sp-row" style="margin-top:8px;align-items:center">
+      <!-- Excel import disabled until XLSX library is added (CSP restriction) -->
+      <!-- <input id="sp_excel_file" type="file" accept=".xlsx,.xls" style="display:none" /> -->
+      <!-- <button id="sp_import_excel" class="sp-btn sp-btn-secondary" style="flex:1">📊 Importar Excel</button> -->
+    </div>
+    
+    <div id="sp_csv_hint" class="sp-status"></div>
+
+    <label class="sp-label" style="margin-top:10px">💬 Mensagem</label>
+    
+    <div style="position:relative">
+      <textarea id="sp_message" class="sp-textarea" style="min-height:120px;padding-right:56px" placeholder="Digite a mensagem..."></textarea>
+      <button id="sp_emoji_btn" class="sp-btn sp-btn-secondary" style="position:absolute;right:8px;bottom:8px;padding:6px 10px">😊</button>
+      <div id="sp_emoji_picker" style="display:none;position:absolute;right:8px;bottom:50px;z-index:10;background:rgba(0,0,0,0.60);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:8px;max-width:260px"></div>
+    </div>
+
+    <div class="sp-row" style="margin-top:8px;align-items:center">
+      <input id="sp_image" type="file" accept="image/*" style="display:none" />
+      <button id="sp_select_image" class="sp-btn sp-btn-secondary" style="flex:1">📎 Anexar imagem</button>
+    </div>
+    <div class="sp-row" style="gap:6px">
+      <input id="sp_audio_file" type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" style="display:none" />
+      <button id="sp_attach_audio" class="sp-btn sp-btn-secondary" style="flex:1">🎵 Anexar Áudio</button>
+      <button id="sp_select_file" class="sp-btn sp-btn-secondary" style="flex:1">📁 Anexar Arquivo</button>
+      <button id="sp_clear_image" class="sp-btn sp-btn-danger" style="display:none">🗑️ Remover</button>
+    </div>
+    <div id="sp_image_hint" class="sp-status"></div>
+
+    <div class="sp-row" style="margin-top:8px">
+      <button id="sp_save_message" class="sp-btn sp-btn-secondary">💾 Salvar Mensagem</button>
+    </div>
+
+    <div class="sp-title" style="font-size:13px;margin-top:10px">📱 Preview</div>
+    <div class="wa-chat">
+      <div class="wa-bubble">
+        <img id="sp_preview_img" src="" style="display:none;max-width:100%;border-radius:10px;margin-bottom:8px" />
+        <div id="sp_preview_text" style="white-space:pre-wrap;word-break:break-word"></div>
+        <div class="wa-time">
+          <span id="sp_preview_meta"></span>
+          <span class="wa-ticks">✓✓</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-row" style="margin-top:10px">
+      <button id="sp_build_queue" class="sp-btn sp-btn-primary" style="flex:1">📋 Gerar tabela</button>
+      <button id="sp_clear_fields" class="sp-btn sp-btn-secondary" style="flex:1">🧹 Limpar</button>
+    </div>
+
+    <div id="sp_hint" class="sp-status"></div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">🚀 Campanha</div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1;min-width:100px;background:rgba(0,0,0,0.10);border:1px solid rgba(255,255,255,0.10);border-radius:12px;padding:8px">
+        <div class="sp-muted" style="font-size:10px;white-space:nowrap">✅ Enviadas</div>
+        <div id="sp_stat_sent" style="font-size:16px;font-weight:900">0</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:rgba(0,0,0,0.10);border:1px solid rgba(255,255,255,0.10);border-radius:12px;padding:8px">
+        <div class="sp-muted" style="font-size:10px;white-space:nowrap">❌ Falhas</div>
+        <div id="sp_stat_failed" style="font-size:16px;font-weight:900">0</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:rgba(0,0,0,0.10);border:1px solid rgba(255,255,255,0.10);border-radius:12px;padding:8px">
+        <div class="sp-muted" style="font-size:10px;white-space:nowrap">⏳ Pendentes</div>
+        <div id="sp_stat_pending" style="font-size:16px;font-weight:900">0</div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="sp-muted" id="sp_progress_text">0%</div>
+      <div style="height:10px;background:rgba(255,255,255,0.10);border-radius:999px;overflow:hidden">
+        <div id="sp_progress_fill" style="height:100%;width:0%;background:rgba(37,211,102,0.85)"></div>
+      </div>
+      <div class="sp-muted" id="sp_estimated_time" style="margin-top:6px"></div>
+    </div>
+
+    <div class="sp-row" style="margin-top:10px">
+      <button id="sp_start" class="sp-btn sp-btn-primary" style="flex:1">▶️ Iniciar</button>
+      <button id="sp_pause" class="sp-btn sp-btn-secondary" style="flex:1">⏸️ Pausar</button>
+      <button id="sp_stop" class="sp-btn sp-btn-danger" style="flex:1">⏹️ Parar</button>
+    </div>
+
+    <div id="sp_campaign_status" class="sp-status"></div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📋 Tabela / Fila</div>
+    <div class="sp-muted" id="sp_queue_meta">0 contatos</div>
+
+    <div class="sp-queue-container" style="margin-top:8px">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44px">#</th>
+            <th>Número</th>
+            <th style="width:92px">Status</th>
+            <th style="width:70px">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="sp_queue_table"></tbody>
+      </table>
+    </div>
+
+    <div class="sp-row" style="margin-top:10px">
+      <button id="sp_skip" class="sp-btn sp-btn-secondary" style="flex:1">⏭️ Pular atual</button>
+      <button id="sp_wipe" class="sp-btn sp-btn-danger" style="flex:1">🧨 Zerar fila</button>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: EXTRATOR ============ -->
+            <section id="whlViewExtrator" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">📥 Extrator de contatos</div>
+    <div class="sp-muted">Extrai contatos Normais, Arquivados e Bloqueados do WhatsApp Web.</div>
+
+    <div class="sp-row">
+      <button id="sp_extract_contacts" class="sp-btn sp-btn-primary">📥 Extrair</button>
+      <button id="sp_refresh_extract" class="sp-btn sp-btn-secondary">🔄 Atualizar</button>
+      <button id="sp_copy_extract_all" class="sp-btn sp-btn-secondary">📋 Copiar Todos</button>
+    </div>
+
+    <div id="sp_extract_status" class="sp-status">Pronto.</div>
+
+    <div style="margin-top:10px">
+      <div class="sp-title" style="font-size:13px">✅ Normais (<span id="sp_count_normal">0</span>)</div>
+      <textarea id="sp_normal_list" class="sp-textarea"></textarea>
+      <div class="sp-row" style="margin-top:6px">
+        <button id="sp_copy_normal" class="sp-btn sp-btn-secondary">📋 Copiar Normais</button>
+      </div>
+
+      <div class="sp-title" style="font-size:13px;margin-top:12px">📁 Arquivados (<span id="sp_count_archived">0</span>)</div>
+      <textarea id="sp_archived_list" class="sp-textarea"></textarea>
+      <div class="sp-row" style="margin-top:6px">
+        <button id="sp_copy_archived" class="sp-btn sp-btn-secondary">📋 Copiar Arquivados</button>
+      </div>
+
+      <div class="sp-title" style="font-size:13px;margin-top:12px">⛔ Bloqueados (<span id="sp_count_blocked">0</span>)</div>
+      <textarea id="sp_blocked_list" class="sp-textarea"></textarea>
+      <div class="sp-row" style="margin-top:6px">
+        <button id="sp_copy_blocked" class="sp-btn sp-btn-secondary">📋 Copiar Bloqueados</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: GRUPOS (V6 - EXISTENTE) ============ -->
+            <section id="whlViewGroups" class="whl-view hidden">
+
+
+        <!-- ========================================
+             BARRA DE STATUS
+        ======================================== -->
+        <div id="statusBar" class="status-bar hidden">
+            <span id="statusText">Aguardando...</span>
+            <div id="progressBar" class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+                <span class="progress-text" id="progressPercent">0%</span>
+            </div>
+            <!-- Controles de extração -->
+            <div id="extractionControls" class="extraction-controls hidden">
+                <button id="btnPauseExtraction" class="btn-control btn-control-pause" title="Pausar extração">
+                    ⏸️ Pausar
+                </button>
+                <button id="btnResumeExtraction" class="btn-control btn-control-resume hidden" title="Continuar extração">
+                    ▶️ Continuar
+                </button>
+                <button id="btnStopExtraction" class="btn-control btn-control-stop" title="Parar extração">
+                    ⏹️ Parar
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================
+             ETAPA 1: CARREGAR GRUPOS
+        ======================================== -->
+        <section id="step1" class="step">
+            <!-- Dica de reconexão SEMPRE VISÍVEL -->
+            <div class="tip-bubble tip-info" id="connectionTip">
+                <div class="tip-content">
+                    💡 Se "Carregar Grupos" não funcionar, <strong>clique no ícone da extensão</strong> (🧩) para reconectar.
+                </div>
+            </div>
+
+            <!-- NOVO: Dica de reconexão (oculta por padrão) -->
+            <div class="tip-bubble tip-warning" id="reconnectTip" style="display: none;">
+                <div class="tip-content">
+                    ⚠️ Conexão perdida. <strong>Clique no ícone da extensão</strong> (🧩) para reconectar.
+                </div>
+            </div>
+
+            <button id="btnLoadGroups" class="btn btn-primary btn-large">
+                <span class="btn-icon">📂</span>
+                Carregar Grupos
+            </button>
+            
+            <button id="btnForceRefresh" class="btn btn-secondary" style="margin-top:8px;display:none">
+                <span class="btn-icon">🔄</span>
+                Forçar Atualização
+            </button>
+
+            <!-- Atalhos -->
+            <div class="shortcuts-box">
+                <p class="shortcuts-title">⌨️ Atalhos:</p>
+                <ul class="shortcuts-list">
+                    <li><kbd>Ctrl+L</kbd> Carregar grupos</li>
+                    <li><kbd>Ctrl+H</kbd> Ver histórico</li>
+                    <li><kbd>Ctrl+F</kbd> Buscar grupo</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ========================================
+             ETAPA 2: SELECIONAR GRUPO
+        ======================================== -->
+        <section id="step2" class="step hidden">
+            <div class="groups-header">
+                <h2>Selecione um Grupo</h2>
+                <span id="groupCount" class="badge">0 grupos</span>
+            </div>
+
+            <!-- Estatísticas -->
+            <div id="groupStats" class="group-stats">
+                <div class="stat-item" id="statTotal">
+                    <span class="stat-icon">📊</span>
+                    <div class="stat-info">
+                        <span class="stat-label">Total:</span>
+                        <span class="stat-value">0</span>
+                        <span class="stat-unit">grupos</span>
+                    </div>
+                </div>
+                
+                <!-- SEPARADOR 1 - Entre Total e Ativos -->
+                <div class="stats-separator"></div>
+                
+                <div class="stat-item" id="statActive">
+                    <span class="stat-icon">✅</span>
+                    <div class="stat-info">
+                        <span class="stat-label">Ativos:</span>
+                        <span class="stat-value">0</span>
+                    </div>
+                </div>
+                
+                <!-- SEPARADOR 2 - Entre Ativos e Arquivados -->
+                <div class="stats-separator"></div>
+                
+                <div class="stat-item" id="statArchived">
+                    <span class="stat-icon">📦</span>
+                    <div class="stat-info">
+                        <span class="stat-label">Arquivados:</span>
+                        <span class="stat-value">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros por abas -->
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">
+                    <span class="tab-icon">📋</span> Todos
+                </button>
+                <button class="filter-tab" data-filter="active">
+                    <span class="tab-icon">💬</span> Ativos
+                </button>
+                <button class="filter-tab" data-filter="archived">
+                    <span class="tab-icon">📦</span> Arquivados
+                </button>
+            </div>
+
+            <!-- Campo de busca -->
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input 
+                    type="text" 
+                    id="searchGroups" 
+                    placeholder="Filtrar grupos..." 
+                    autocomplete="off" 
+                />
+            </div>
+
+            <!-- Lista de grupos (Virtual Scroll) -->
+            <div id="groupsList" class="groups-list">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando grupos...</p>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="actions">
+                <button id="btnBack" class="btn btn-secondary">
+                    ← Voltar
+                </button>
+                <button id="btnExtract" class="btn btn-primary" disabled>
+                    <span class="btn-icon">📥</span>
+                    Extrair Membros
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================
+             ETAPA 3: RESULTADO
+        ======================================== -->
+        <section id="step3" class="step hidden">
+            <div class="result-header">
+                <span class="result-icon">✅</span>
+                <h2>Extração Concluída!</h2>
+            </div>
+
+            <!-- Informações do resultado -->
+            <div class="result-info">
+                <div class="result-item">
+                    <span class="label">Grupo:</span>
+                    <span id="resultGroupName" class="value">-</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">Status:</span>
+                    <span id="resultGroupStatus" class="value">-</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">Membros:</span>
+                    <span id="resultMemberCount" class="value">-</span>
+                </div>
+            </div>
+
+            <!-- Lista de membros extraídos (Virtual Scroll) -->
+            <div class="members-container">
+                <h3 class="members-title">
+                    <span class="members-icon">👥</span>
+                    Membros Extraídos
+                </h3>
+                <div id="membersList" class="members-list">
+                    <!-- Membros serão inseridos aqui via Virtual Scroll -->
+                </div>
+            </div>
+
+            <!-- Botões de exportação -->
+            <div class="export-buttons">
+                <button id="btnExportCSV" class="btn btn-export" title="Exportar como CSV (Ctrl+S)">
+                    📄 CSV
+                </button>
+                <button id="btnCopyList" class="btn btn-export" title="Copiar lista">
+                    📋 Copiar
+                </button>
+            </div>
+
+            <!-- Botões Google Sheets -->
+            <div class="sheets-buttons">
+                <button id="btnCopySheets" class="btn btn-sheets" title="Copiar para Google Sheets (Ctrl+G)">
+                    <span class="btn-icon">📊</span> Copiar para Sheets
+                </button>
+                <button id="btnOpenSheets" class="btn btn-sheets-outline" title="Abrir no Google Sheets">
+                    <span class="btn-icon">🔗</span> Abrir no Sheets
+                </button>
+            </div>
+
+            <!-- Botão nova extração -->
+            <button id="btnNewExtraction" class="btn btn-secondary btn-large">
+                🔄 Nova Extração
+            </button>
+        </section>
+
+        <!-- ========================================
+             ETAPA 4: HISTÓRICO
+        ======================================== -->
+        <section id="step4" class="step hidden">
+            <div class="history-header">
+                <h2>📜 Histórico de Extrações</h2>
+            </div>
+
+            <!-- Estatísticas do histórico -->
+            <div id="historyStats" class="history-stats">
+                <!-- Stats serão inseridas dinamicamente -->
+            </div>
+
+            <!-- Lista do histórico -->
+            <div id="historyList" class="history-list">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando histórico...</p>
+                </div>
+            </div>
+
+            <!-- Ações do histórico -->
+            <div class="actions">
+                <button id="btnBackFromHistory" class="btn btn-secondary">
+                    ← Voltar
+                </button>
+                <button id="btnClearHistory" class="btn btn-danger">
+                    🗑️ Limpar Tudo
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================
+             MENSAGEM DE ERRO
+        ======================================== -->
+        <div id="errorBox" class="error-box hidden">
+            <span class="error-icon">⚠️</span>
+            <span id="errorText" class="error-text">Erro desconhecido</span>
+            <button id="btnDismissError" class="btn-dismiss" title="Fechar">
+                ✕
+            </button>
+        </div>
+
+            </section>
+
+            <!-- ============ VIEW: RECOVER ============ -->
+                                    <section id="whlViewRecover" class="whl-view hidden">
+  <!-- Header -->
+  <div class="sp-card" style="background: linear-gradient(135deg, #00a884 0%, #008f6f 100%); border: none;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 32px;">🔄</span>
+      <div>
+        <div style="font-size: 18px; font-weight: 700; color: white;" id="sp_recover_version">Recover</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Recupera mensagens apagadas, editadas e revogadas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🛡️ PRIVACY SHIELD — Novo bloco -->
+  <div class="sp-card" id="whl_privacy_card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--mod-text)">🛡️ Privacy Shield</div>
+      <div style="font-size:10px;color:var(--mod-text-muted)">Controle de privacidade</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <!-- Hide Online -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(0,168,132,0.08);border-radius:8px;border:1px solid rgba(0,168,132,0.2)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--mod-text)">🟢 Ocultar status Online</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">Você fica invisível para os contatos</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="whl_toggle_hide_online" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_hide_online_slider"></span>
+        </label>
+      </div>
+      <!-- Hide Typing -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(59,130,246,0.08);border-radius:8px;border:1px solid rgba(59,130,246,0.2)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--mod-text)">⌨️ Ocultar "Digitando..."</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">Contatos não veem que você está digitando</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="whl_toggle_hide_typing" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_hide_typing_slider"></span>
+        </label>
+      </div>
+      <!-- Status Download -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(139,92,246,0.08);border-radius:8px;border:1px solid rgba(139,92,246,0.2)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--mod-text)">📥 Download de Status/Stories</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">Botão flutuante ao visualizar status</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="whl_toggle_status_dl" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_status_dl_slider"></span>
+        </label>
+      </div>
+      <!-- View Once Saver -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.2)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--mod-text)">👁️ Salvar mídias "Ver Uma Vez"</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">Captura antes da expiração automática</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="whl_toggle_view_once" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_view_once_slider"></span>
+        </label>
+      </div>
+    </div>
+    <!-- Dispositivo do remetente info -->
+    <div style="margin-top:8px;padding:6px 8px;background:rgba(0,0,0,0.06);border-radius:6px;font-size:10px;color:var(--mod-text-muted)">
+      💡 <b>Novo:</b> mensagens recuperadas agora exibem 📱 Celular ou 💻 Computador como indicador do dispositivo remetente.
+    </div>
+  </div>
+
+  <!-- View Once Salvas -->
+  <div class="sp-card" id="whl_view_once_card" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:600;color:var(--mod-text)">👁️ Mídias "Ver Uma Vez" Salvas</div>
+      <button id="whl_view_once_refresh" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:4px 8px;font-size:10px">🔄</button>
+    </div>
+    <div id="whl_view_once_list" style="font-size:11px;color:var(--mod-text-muted)">Nenhuma mídia salva ainda.</div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="sp-card">
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between;">
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #ef4444;" id="stat_revoked">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">Revogadas</div>
+      </div>
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #f59e0b;" id="stat_deleted">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">Apagadas</div>
+      </div>
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #3b82f6;" id="stat_edited">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">Editadas</div>
+      </div>
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #8b5cf6;" id="stat_media">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">Mídias</div>
+      </div>
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(251, 191, 36, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #fbbf24;" id="stat_favorites">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">⭐ Favoritos</div>
+      </div>
+      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center;">
+        <div style="font-size: 16px; font-weight: 700; color: #f59e0b;" id="stat_view_once">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted);">👁️ Ver 1x</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles Principais -->
+  <div class="sp-card">
+    <div class="sp-row" style="gap: 6px;">
+      <button id="sp_refresh_recover" class="sp-btn sp-btn-primary" style="flex:1;padding:8px">🔄 Atualizar</button>
+      <button id="recover_sync_backend" class="sp-btn sp-btn-secondary" style="flex:1;padding:8px">☁️ Sync</button>
+      <button id="sp_clear_recover" class="sp-btn sp-btn-danger" style="padding:8px">🗑️</button>
+    </div>
+    
+    
+    <!-- Filtros por Tipo -->
+    <div class="sp-row" style="margin-top:10px;gap:4px;flex-wrap:wrap">
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter active" data-filter="all" style="padding:5px 10px;font-size:10px">📋 Todos</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="revoked" style="padding:5px 10px;font-size:10px">🚫 Revogadas</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="deleted" style="padding:5px 10px;font-size:10px">🗑️ Apagadas</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="edited" style="padding:5px 10px;font-size:10px">✏️ Editadas</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="media" style="padding:5px 10px;font-size:10px">📎 Mídia</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="view_once" style="padding:5px 10px;font-size:10px">👁️ Ver 1x</button>
+      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="favorites" style="padding:5px 10px;font-size:10px">⭐ Favoritos</button>
+    </div>
+    
+    <!-- Busca + Filtro por Chat -->
+    <div class="sp-row" style="margin-top:8px;gap:6px">
+      <input type="text" id="recover_search" class="sp-input" placeholder="🔍 Buscar por número..." style="flex:1;padding:8px;font-size:12px">
+      <select id="recover_chat_filter" class="sp-input" style="width:120px;padding:8px;font-size:11px">
+        <option value="">Todos chats</option>
+      </select>
+    </div>
+    
+    <!-- Exportação -->
+    <div class="sp-row" style="margin-top:8px;gap:4px">
+      <button id="recover_export_csv" class="sp-btn sp-btn-secondary sp-btn-sm" style="flex:1;padding:6px;font-size:10px">📊 CSV</button>
+      <button id="recover_export_txt" class="sp-btn sp-btn-secondary sp-btn-sm" style="flex:1;padding:6px;font-size:10px">📝 TXT</button>
+      <button id="recover_export_pdf" class="sp-btn sp-btn-secondary sp-btn-sm" style="flex:1;padding:6px;font-size:10px">📄 PDF</button>
+      <button id="sp_download_all_recover" class="sp-btn sp-btn-secondary sp-btn-sm" style="flex:1;padding:6px;font-size:10px">💾 JSON</button>
+    </div>
+  </div>
+
+  <!-- Configurações de Notificação -->
+  <div class="sp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sp-title" style="margin:0;font-size:13px">🔔 Notificações Desktop</div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px">
+        <input type="checkbox" id="recover_notifications_enabled" style="width:16px;height:16px">
+        <span>Ativar</span>
+      </label>
+    </div>
+    <div class="sp-row" style="margin-top:8px;gap:6px">
+      <input type="text" id="recover_notify_contact" class="sp-input" placeholder="Número específico (ex: 5521...)" style="flex:1;padding:6px;font-size:11px">
+      <button id="recover_add_notify_contact" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:6px 10px">➕</button>
+    </div>
+    <div id="recover_notify_contacts_list" style="margin-top:6px;font-size:10px;color:var(--mod-text-muted)"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="sp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="sp-title" style="margin:0;font-size:13px">📜 Histórico</div>
+      <div class="sp-muted" style="font-size:11px">Total: <b id="sp_recover_total">0</b></div>
+    </div>
+    
+    <div id="sp_recover_status" class="sp-status" style="margin-bottom:8px;font-size:11px">Pronto.</div>
+    
+    <div id="sp_recover_timeline" class="timeline-container" style="max-height:350px;overflow-y:auto"></div>
+    
+    <!-- Paginação -->
+    <div class="sp-row" style="margin-top:8px;justify-content:center;gap:8px;align-items:center">
+      <button id="recover_prev_page" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:4px 10px;font-size:10px">◀ Anterior</button>
+      <span id="recover_page_info" class="sp-muted" style="font-size:10px">Página 1 de 1</span>
+      <button id="recover_next_page" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:4px 10px;font-size:10px">Próxima ▶</button>
+    </div>
+  </div>
+
+  <!-- Modal de Comparação de Edições -->
+  <div id="recover_compare_modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;padding:20px">
+    <div style="background:var(--mod-card-bg);border-radius:12px;max-width:600px;margin:50px auto;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+        <div style="font-size:16px;font-weight:600">📝 Comparar Versões</div>
+        <button id="recover_close_compare" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px">
+        <div>
+          <div style="font-size:12px;color:#ef4444;margin-bottom:5px">❌ Original (Apagado)</div>
+          <div id="recover_compare_original" style="background:rgba(239,68,68,0.1);padding:10px;border-radius:8px;font-size:13px;min-height:80px"></div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#10b981;margin-bottom:5px">✅ Editado (Atual)</div>
+          <div id="recover_compare_edited" style="background:rgba(16,185,129,0.1);padding:10px;border-radius:8px;font-size:13px;min-height:80px"></div>
+        </div>
+      </div>
+      <div id="recover_compare_diff" style="margin-top:15px;padding:10px;background:rgba(59,130,246,0.1);border-radius:8px;font-size:11px"></div>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: CONFIG ============ -->
+            <section id="whlViewConfig" class="whl-view hidden">
+  <!-- 📞 Suporte WhatsApp -->
+  <a href="https://wa.me/5521995800771" target="_blank" rel="noopener noreferrer" id="whl-support-banner" style="
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    text-decoration: none;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+  " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(37, 211, 102, 0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(37, 211, 102, 0.3)'">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+    <div style="flex: 1;">
+      <div style="font-weight: 600; font-size: 14px;">📞 Suporte WhatsApp</div>
+      <div style="font-size: 12px; opacity: 0.9;">+55 21 99580-0771</div>
+    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style="opacity: 0.7;">
+      <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+    </svg>
+  </a>
+
+  <div class="sp-card">
+    <div class="sp-title">⚙️ Configurações</div>
+    <div class="sp-muted">Ajuste delays, agendamento, templates e relatório (igual ao módulo original).</div>
+
+    <label class="sp-label">⏱️ Delay mínimo (segundos)</label>
+    <input id="sp_delay_min" type="number" class="sp-input" min="0" step="0.5" placeholder="Ex: 2" />
+
+    <label class="sp-label" style="margin-top:10px">⏱️ Delay máximo (segundos)</label>
+    <input id="sp_delay_max" type="number" class="sp-input" min="0" step="0.5" placeholder="Ex: 6" />
+
+    <div class="sp-row" style="margin-top:10px">
+      <button id="sp_save_settings" class="sp-btn sp-btn-primary" style="flex:1">💾 Salvar</button>
+      <button id="sp_reload_settings" class="sp-btn sp-btn-secondary" style="flex:1">🔄 Recarregar</button>
+    </div>
+
+    <div id="sp_config_status" class="sp-status">Pronto.</div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📅 Agendamentos</div>
+    <div class="sp-muted">Agende múltiplas campanhas para horários diferentes.</div>
+    
+    <div class="sp-row" style="margin-top:10px">
+      <input id="sp_schedule_name" class="sp-input" placeholder="Nome da campanha" style="flex:2">
+      <input id="sp_schedule_time" type="datetime-local" class="sp-input" style="flex:2">
+      <button id="sp_add_schedule" class="sp-btn sp-btn-primary" style="white-space:nowrap">➕ Agendar</button>
+    </div>
+    
+    <div id="sp_schedules_list" class="sp-queue-container" style="margin-top:8px;max-height:250px"></div>
+    <div id="sp_schedule_status" class="sp-status"></div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">🛡️ Anti-Ban Inteligente</div>
+    <div class="sp-muted">Proteção contra bloqueios com delays inteligentes e limite diário.</div>
+    
+    <label class="sp-label">Limite diário de mensagens</label>
+    <input id="sp_daily_limit" type="number" class="sp-input" value="200" min="1" max="1000">
+    
+    <div class="sp-row" style="margin-top:8px">
+      <span class="sp-muted">Enviadas hoje: <b id="sp_sent_today">0</b> / <b id="sp_daily_limit_display">200</b></span>
+    </div>
+    
+    <div id="sp_daily_progress" style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;margin-top:8px">
+      <div id="sp_daily_progress_fill" style="height:100%;width:0%;background:#25D366;border-radius:4px;transition:width 0.3s"></div>
+    </div>
+    
+    <label class="sp-checkbox" style="margin-top:10px">
+      <input type="checkbox" id="sp_business_hours_only">
+      <span>Enviar apenas em horário comercial (8h-20h)</span>
+    </label>
+    
+    <div class="sp-row" style="margin-top:10px">
+      <button id="sp_save_antiban" class="sp-btn sp-btn-primary">💾 Salvar</button>
+      <button id="sp_reset_daily_count" class="sp-btn sp-btn-secondary">🔄 Resetar contador</button>
+    </div>
+    
+    <div id="sp_antiban_status" class="sp-status"></div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">🔔 Notificações</div>
+    <div class="sp-muted">Alertas desktop para eventos importantes.</div>
+    
+    <label class="sp-checkbox">
+      <input type="checkbox" id="sp_enable_notifications" checked>
+      <span>Ativar notificações desktop</span>
+    </label>
+    
+    <label class="sp-checkbox">
+      <input type="checkbox" id="sp_enable_sounds" checked>
+      <span>Ativar sons</span>
+    </label>
+    
+    <button id="sp_test_notification" class="sp-btn sp-btn-secondary" style="margin-top:8px">🔔 Testar Notificação</button>
+    <div id="sp_notification_status" class="sp-status"></div>
+  </div>
+
+  <!-- Text-to-Speech Settings -->
+  <div class="sp-card">
+    <div class="sp-title">🔊 Leitura de Mensagens (TTS)</div>
+    <div class="sp-muted">Ouça mensagens em voz alta. Útil para acessibilidade ou multitarefa.</div>
+    
+    <label class="sp-checkbox" style="margin-top:10px">
+      <input type="checkbox" id="sp_tts_enabled" checked>
+      <span>Ativar Text-to-Speech</span>
+    </label>
+    
+    <label class="sp-label" style="margin-top:10px">🎚️ Velocidade</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <input type="range" id="sp_tts_speed" min="0.5" max="2" step="0.1" value="1" style="flex:1">
+      <span id="sp_tts_speed_value" style="min-width:40px;text-align:center">1.0x</span>
+    </div>
+    
+    <label class="sp-label" style="margin-top:10px">🔉 Volume</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <input type="range" id="sp_tts_volume" min="0" max="1" step="0.1" value="1" style="flex:1">
+      <span id="sp_tts_volume_value" style="min-width:40px;text-align:center">100%</span>
+    </div>
+    
+    <label class="sp-label" style="margin-top:10px">🗣️ Voz</label>
+    <select id="sp_tts_voice" class="sp-input">
+      <option value="">Carregando vozes...</option>
+    </select>
+    
+    <div class="sp-row" style="margin-top:12px;gap:8px">
+      <button id="sp_tts_test" class="sp-btn sp-btn-secondary" style="flex:1">🔊 Testar Voz</button>
+      <button id="sp_tts_read_last" class="sp-btn sp-btn-primary" style="flex:1">📖 Ler Última Mensagem</button>
+    </div>
+    
+    <div id="sp_tts_status" class="sp-status" style="margin-top:8px"></div>
+    
+    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px">
+      <div style="font-size:11px;color:rgba(255,255,255,0.6)">
+        💡 <b>Dica:</b> Clique com botão direito em qualquer mensagem e selecione "🔊 Ler mensagem" para ouvir.
+      </div>
+    </div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📝 Templates</div>
+    <div class="sp-muted">Salva e restaura fila, mensagem, imagem e contatos extraídos. Suporte a variáveis dinâmicas.</div>
+
+    <div class="sp-row" style="align-items:center">
+      <input id="sp_draft_name" type="text" class="sp-input" placeholder="Nome do template" />
+      <button id="sp_save_draft" class="sp-btn sp-btn-primary" style="white-space:nowrap">Salvar</button>
+    </div>
+    
+    <div class="sp-muted" style="margin-top:8px;font-size:11px">
+      📌 Variáveis disponíveis: {nome}, {empresa}, {data}, {hora}, {numero}, {saudacao}
+    </div>
+
+    <div class="sp-queue-container" style="margin-top:8px;max-height:36vh">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th style="width:92px">Data</th>
+            <th style="width:52px">#</th>
+            <th style="width:92px">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="sp_drafts_body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📄 Relatório</div>
+    <div class="sp-muted">Exportar CSV da fila e copiar falhas.</div>
+
+    <div class="sp-row">
+      <button id="sp_export_report" class="sp-btn sp-btn-secondary" style="flex:1">⬇️ Exportar CSV</button>
+      <button id="sp_copy_failed" class="sp-btn sp-btn-secondary" style="flex:1">📋 Copiar falhas</button>
+    </div>
+
+    <div id="sp_report_hint" class="sp-status"></div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: BACKUP ============ -->
+            <section id="whlViewBackup" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">💾 Backup</div>
+    <div class="sp-muted">Exporte conversas do WhatsApp Web (HTML/JSON/CSV/TXT) e baixe mídias em ZIP (opcional).</div>
+
+    <div class="sp-row" style="align-items:center; gap:10px">
+      <span id="bk_status_pill" class="sp-pill pending">Verificando…</span>
+      <span id="bk_status_text" class="sp-muted" style="margin:0">—</span>
+      <button id="bk_refresh" class="sp-btn sp-btn-secondary" style="margin-left:auto">🔄 Atualizar</button>
+    </div>
+
+    <div id="bk_wrong_page" class="sp-status" style="margin-top:10px; display:none">Abra o WhatsApp Web (web.whatsapp.com) e faça login.</div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📇 Selecionar conversa</div>
+    <div class="sp-muted">Por padrão, exporta a conversa aberta no WhatsApp. Se preferir, selecione uma conversa abaixo.</div>
+
+    <div class="sp-row">
+      <button id="bk_export_current" class="sp-btn sp-btn-primary" style="flex:1">📤 Exportar conversa atual</button>
+    </div>
+
+    <div class="sp-row" style="margin-top:8px">
+      <button id="bk_load_contacts" class="sp-btn sp-btn-secondary" style="flex:1">🔄 Carregar contatos</button>
+      <button id="bk_clear_selection" class="sp-btn sp-btn-secondary" style="flex:1">🧹 Limpar seleção</button>
+    </div>
+
+    <label class="sp-label">🔎 Buscar</label>
+    <input id="bk_search_contacts" class="sp-input" placeholder="Digite para filtrar..." />
+
+    <!-- Área de contato selecionado para backup -->
+    <div id="bk_selected_contact_display" class="sp-card" style="margin-top:10px; display:none; background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.3);">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <img id="bk_selected_avatar" src="" alt="Avatar" style="width:48px; height:48px; border-radius:50%; object-fit:cover; display:none;" />
+        <div id="bk_selected_avatar_placeholder" style="width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; font-size:20px;">👤</div>
+        <div style="flex:1;">
+          <div id="bk_selected_name" style="font-weight:700; font-size:14px; color:#fff;">Nenhum contato selecionado</div>
+          <div id="bk_selected_info" class="sp-muted" style="font-size:12px;">Selecione um contato ou exporte a conversa atual</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bk_selected_box" class="sp-status" style="margin-top:10px; display:none"></div>
+
+    <div id="bk_contacts_list" class="groups-list" style="margin-top:10px; max-height:320px"></div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">⚙️ Opções de exportação</div>
+    <div class="sp-muted">O download inicia automaticamente. Se selecionar mídias, será gerado um ZIP por tipo.</div>
+
+    <label class="sp-label">Formato</label>
+    <select id="bk_format" class="sp-input">
+      <option value="html">HTML (recomendado)</option>
+      <option value="json">JSON</option>
+      <option value="csv">CSV</option>
+      <option value="txt">TXT</option>
+    </select>
+
+    <label class="sp-label">Limite de mensagens</label>
+    <select id="bk_limit" class="sp-input">
+      <option value="100">100</option>
+      <option value="500">500</option>
+      <option value="1000">1000</option>
+      <option value="5000">5000</option>
+      <option value="-1">Todas (pode demorar)</option>
+    </select>
+
+    <div class="sp-row" style="margin-top:10px">
+      <div style="flex:1">
+        <label class="sp-label">De (data)</label>
+        <input id="bk_date_from" type="date" class="sp-input" />
+      </div>
+      <div style="flex:1">
+        <label class="sp-label">Até (data)</label>
+        <input id="bk_date_to" type="date" class="sp-input" />
+      </div>
+    </div>
+
+    <label class="sp-checkbox" style="margin-top:10px">
+      <input type="checkbox" id="bk_inc_ts" />
+      <span>Incluir timestamps</span>
+    </label>
+
+    <label class="sp-checkbox">
+      <input type="checkbox" id="bk_inc_sender" checked />
+      <span>Incluir remetente</span>
+    </label>
+
+    <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.10)">
+      <div class="sp-title">🖼️ Mídias (opcional)</div>
+      <div class="sp-muted">Baixa mídias da conversa em ZIP. Dependendo do volume, pode demorar.</div>
+
+      <label class="sp-checkbox">
+        <input type="checkbox" id="bk_export_images" checked />
+        <span>Imagens</span>
+      </label>
+      <label class="sp-checkbox">
+        <input type="checkbox" id="bk_export_videos" />
+        <span>Vídeos</span>
+      </label>
+      <label class="sp-checkbox">
+        <input type="checkbox" id="bk_export_audios" />
+        <span>Áudios</span>
+      </label>
+      <label class="sp-checkbox">
+        <input type="checkbox" id="bk_export_docs" />
+        <span>Documentos</span>
+      </label>
+    </div>
+
+    <div class="sp-row" style="margin-top:12px">
+      <button id="bk_export" class="sp-btn sp-btn-primary" style="flex:1">⬇️ Exportar</button>
+      <button id="bk_cancel" class="sp-btn sp-btn-secondary" style="flex:1; display:none">⛔ Cancelar</button>
+    </div>
+
+    <div id="bk_progress_box" style="margin-top:12px; display:none">
+      <div class="progress-bar">
+        <div id="bk_bar_fill" class="progress-fill" style="width:0%"></div>
+        <div id="bk_prog_pct" class="progress-text">0%</div>
+      </div>
+      <div class="sp-row" style="margin-top:8px; justify-content:space-between; align-items:center">
+        <span id="bk_prog_status" class="sp-muted" style="margin:0">—</span>
+        <span id="bk_prog_detail" class="sp-muted" style="margin:0">0 / 0</span>
+      </div>
+      <div id="bk_media_progress" class="sp-muted" style="margin-top:8px; font-size:11px; display:none"></div>
+    </div>
+
+    <div id="bk_feedback" class="sp-status" style="margin-top:10px">Pronto.</div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: CRM ============ -->
+            <section id="whlViewCrm" class="whl-view hidden">
+  <div class="sp-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div class="sp-title" style="color: white;">💼 CRM Kanban</div>
+        <div class="sp-muted" style="color: rgba(255,255,255,0.8);">Experiência completa em tela cheia</div>
+      </div>
+      <button id="crm_open_fullscreen" class="sp-btn" style="background: white; color: #8b5cf6; font-weight: 600; padding: 10px 20px;">
+        🚀 Abrir em Nova Aba
+      </button>
+    </div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">💼 CRM - Pipeline de Vendas</div>
+    <div class="sp-muted">Gerencie seus contatos e negócios em um Kanban visual.</div>
+
+    <div class="sp-row" style="margin-top:12px">
+      <button id="crm_new_deal" class="sp-btn sp-btn-primary">➕ Novo Negócio</button>
+      <button id="crm_new_contact" class="sp-btn sp-btn-secondary">👤 Novo Contato</button>
+      <button id="crm_refresh" class="sp-btn sp-btn-secondary">🔄</button>
+    </div>
+  </div>
+
+  <div class="sp-card" id="crm_kanban_container">
+    <!-- Kanban será renderizado aqui pelo módulo -->
+    <div class="whl-empty">Carregando CRM...</div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">🏷️ Etiquetas / Labels</div>
+    <div class="sp-muted">Organize seus contatos com etiquetas personalizadas.</div>
+    <div id="labels_manager_container" style="margin-top:12px">
+      <!-- Labels serão renderizadas aqui -->
+    </div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">📜 Atividades Recentes</div>
+    <div id="crm_activities_container">
+      <!-- Timeline será renderizada aqui -->
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: ANALYTICS ============ -->
+            <section id="whlViewAnalytics" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">📊 Analytics & Métricas</div>
+    <div class="sp-muted">Acompanhe o desempenho das suas campanhas e mensagens.</div>
+
+    <div class="sp-row" style="margin-top:12px">
+      <button id="analytics_refresh" class="sp-btn sp-btn-secondary">🔄 Atualizar</button>
+      <button id="analytics_export" class="sp-btn sp-btn-secondary">📤 Exportar</button>
+      <button id="analytics_reset" class="sp-btn sp-btn-danger">🗑️ Resetar</button>
+    </div>
+  </div>
+
+  <div id="analytics_dashboard_container">
+    <!-- Dashboard será renderizado aqui pelo módulo -->
+    <div class="whl-empty">Carregando métricas...</div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: TASKS ============ -->
+            <section id="whlViewTasks" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">📋 Sistema de Tarefas</div>
+    <div class="sp-muted">Gerencie seus lembretes e follow-ups com contatos.</div>
+  </div>
+
+  <!-- Stats de Tasks -->
+  <div class="sp-card" id="tasks_stats_container" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <div style="text-align:center;padding:8px;background:rgba(139,92,246,0.1);border-radius:8px">
+      <div style="font-size:20px;font-weight:700" id="stat_total">0</div>
+      <div style="font-size:10px;color:var(--sp-muted)">Total</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:rgba(245,158,11,0.1);border-radius:8px">
+      <div style="font-size:20px;font-weight:700;color:#F59E0B" id="stat_pending">0</div>
+      <div style="font-size:10px;color:var(--sp-muted)">Pendentes</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:rgba(239,68,68,0.1);border-radius:8px">
+      <div style="font-size:20px;font-weight:700;color:#EF4444" id="stat_overdue">0</div>
+      <div style="font-size:10px;color:var(--sp-muted)">Atrasadas</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:rgba(16,185,129,0.1);border-radius:8px">
+      <div style="font-size:20px;font-weight:700;color:#10B981" id="stat_completed">0</div>
+      <div style="font-size:10px;color:var(--sp-muted)">Concluídas</div>
+    </div>
+  </div>
+
+  <div class="sp-card" id="tasks_container">
+    <!-- Lista de tarefas será renderizada aqui pelo módulo (inclui filtros e botão nova tarefa) -->
+    <div class="whl-empty">Carregando tarefas...</div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: SMART REPLIES (IA) ============ -->
+            <section id="whlViewAi" class="whl-view hidden">
+  <!-- Header com tabs -->
+  <div class="sp-card" style="padding: 0; overflow: hidden;">
+    <div class="mod-tabs" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1);">
+      <button class="mod-tab active" data-ai-tab="copilot" style="flex:1; padding: 12px; background: transparent; border: none; color: var(--mod-text); cursor: pointer; border-bottom: 2px solid var(--mod-primary);">
+        🤖 Copilot
+      </button>
+      <button class="mod-tab" data-ai-tab="knowledge" style="flex:1; padding: 12px; background: transparent; border: none; color: var(--mod-text-muted); cursor: pointer;">
+        📚 Knowledge
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab: Copilot -->
+  <div id="aiTabCopilot" class="ai-tab-content">
+    <div class="sp-card">
+      <div class="sp-title">🤖 CopilotEngine - Assistente Inteligente</div>
+      <div class="sp-muted">Respostas automáticas baseadas em contexto, intenção e sentimento.</div>
+      
+      <!-- Indicador de modo atual -->
+      <div id="copilot_mode_indicator" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(16,185,129,0.2); color: #10b981;">
+        💡 Sugestões
+      </div>
+      
+      <div style="margin-top: 12px;">
+        <label class="mod-label">Modo de Operação</label>
+        <select id="copilot_mode" class="mod-input mod-select">
+          <option value="off">🔴 Desativado</option>
+          <option value="suggest" selected>💡 Sugestões - Mostra sugestões</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <label class="mod-label">Persona do Assistente</label>
+        <div id="copilot_personas" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;">
+          <label class="mod-card persona-card active" data-persona="professional" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">👔 Profissional</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Formal e objetivo</div>
+          </label>
+          <label class="mod-card persona-card" data-persona="friendly" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">😊 Amigável</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Descontraído</div>
+          </label>
+          <label class="mod-card persona-card" data-persona="sales" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">💼 Vendas</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Persuasivo</div>
+          </label>
+          <label class="mod-card persona-card" data-persona="support" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">🛠️ Suporte</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Técnico</div>
+          </label>
+          <label class="mod-card persona-card" data-persona="concierge" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">🎩 Concierge</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Premium</div>
+          </label>
+          <label class="mod-card persona-card" data-persona="coach" style="padding: 10px; cursor: pointer;">
+            <div style="font-weight: 600;">🏆 Coach</div>
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Motivador</div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-title">🧪 Testar Análise</div>
+      <textarea id="copilot_test_input" class="mod-input" rows="2" placeholder="Digite uma mensagem para analisar..."></textarea>
+      <button id="copilot_analyze_btn" class="mod-btn mod-btn-primary" style="margin-top: 8px; width: 100%;">🔍 Analisar Mensagem</button>
+      
+      <div id="copilot_analysis_result" style="display: none; margin-top: 12px;">
+        <div class="mod-card" style="background: rgba(139,92,246,0.1);">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
+            <div>
+              <div style="font-size: 11px; color: var(--mod-text-muted);">Intenção</div>
+              <div id="analysis_intent" style="font-weight: 600;">-</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--mod-text-muted);">Sentimento</div>
+              <div id="analysis_sentiment" style="font-weight: 600;">-</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--mod-text-muted);">Confiança</div>
+              <div id="analysis_confidence" style="font-weight: 600;">-</div>
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <div style="font-size: 11px; color: var(--mod-text-muted);">Entidades Detectadas</div>
+            <div id="analysis_entities" style="font-size: 12px;">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>💡 Sugestões de Resposta</span>
+      </div>
+      <div id="copilot_suggestions" class="sp-muted">
+        As sugestões aparecerão aqui quando você receber mensagens.
+      </div>
+    </div>
+
+    <!-- Confidence System Card -->
+    <div class="sp-card">
+      <div class="sp-title">🎯 Sistema de Confiança</div>
+      <div class="sp-muted" style="margin-bottom: 12px;">A IA evolui conforme você usa e dá feedback.</div>
+      
+      <!-- Nível Atual -->
+      <div id="confidence_level_card" style="padding: 16px; border-radius: 12px; background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2)); margin-bottom: 16px; text-align: center;">
+        <div style="font-size: 40px; margin-bottom: 8px;" id="confidence_emoji">🔴</div>
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;" id="confidence_label">Iniciante</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted); margin-bottom: 12px;" id="confidence_description">IA apenas sugere respostas básicas</div>
+        <div style="font-size: 32px; font-weight: 700;" id="confidence_score">0%</div>
+      </div>
+      
+      <!-- Barra de Progresso -->
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; color: var(--mod-text-muted);">Progresso</span>
+          <span style="font-size: 12px; font-weight: 600;" id="confidence_progress_text">0 / 70</span>
+        </div>
+        <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+          <div id="confidence_progress_bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #8b5cf6, #3b82f6); transition: width 0.3s;"></div>
+        </div>
+        <div style="font-size: 11px; color: var(--mod-text-muted); margin-top: 4px;" id="confidence_next_level">
+          Faltam 70 pontos para Copiloto
+        </div>
+      </div>
+      
+      <!-- Toggle Copilot Mode -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">🤖 Modo Copiloto</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Respostas automáticas quando confiante</div>
+        </div>
+        <label class="mod-switch">
+          <input type="checkbox" id="copilot_auto_enabled">
+          <span class="mod-switch-slider"></span>
+        </label>
+      </div>
+      
+      <!-- Threshold Slider -->
+      <div style="margin-bottom: 16px;">
+        <label class="mod-label">Threshold de Confiança: <span id="copilot_threshold_value">70</span>%</label>
+        <input type="range" id="copilot_threshold_slider" min="50" max="95" value="70" step="5" 
+               style="width: 100%; margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--mod-text-muted); margin-top: 4px;">
+          <span>50% Conservador</span>
+          <span>95% Agressivo</span>
+        </div>
+      </div>
+      
+      <!-- Estatísticas de Feedback -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+        <div class="mod-card" style="padding: 10px; text-align: center; background: rgba(16,185,129,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #10b981;" id="confidence_feedback_good">0</div>
+          <div style="font-size: 10px; color: var(--mod-text-muted); margin-top: 2px;">👍 Bom</div>
+        </div>
+        <div class="mod-card" style="padding: 10px; text-align: center; background: rgba(239,68,68,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #ef4444;" id="confidence_feedback_bad">0</div>
+          <div style="font-size: 10px; color: var(--mod-text-muted); margin-top: 2px;">👎 Ruim</div>
+        </div>
+        <div class="mod-card" style="padding: 10px; text-align: center; background: rgba(251,146,60,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #fb923c;" id="confidence_corrections">0</div>
+          <div style="font-size: 10px; color: var(--mod-text-muted); margin-top: 2px;">✏️ Correções</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-title">📊 Métricas do Copilot</div>
+      <div id="copilot_metrics" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+        <div class="mod-card" style="padding: 8px; text-align: center;">
+          <div style="font-size: 20px; font-weight: 600;" id="metric_total_responses">0</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Respostas</div>
+        </div>
+        <div class="mod-card" style="padding: 8px; text-align: center;">
+          <div style="font-size: 20px; font-weight: 600;" id="metric_auto_responses">0</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Automáticas</div>
+        </div>
+        <div class="mod-card" style="padding: 8px; text-align: center;">
+          <div style="font-size: 20px; font-weight: 600;" id="metric_avg_confidence">0%</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Confiança Média</div>
+        </div>
+        <div class="mod-card" style="padding: 8px; text-align: center;">
+          <div style="font-size: 20px; font-weight: 600;" id="metric_feedback_score">-</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Feedback</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust System Widget -->
+    <div class="sp-card">
+      <div id="trust-system-widget"></div>
+    </div>
+
+    <!-- Team System Widget -->
+    <div class="sp-card">
+      <div id="team-system-widget"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Knowledge Base (Simplified - redirects to full training page) -->
+  <div id="aiTabKnowledge" class="ai-tab-content" style="display: none;">
+    <div class="sp-card" style="text-align: center; padding: 30px 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🎓</div>
+      <div class="sp-title" style="font-size: 18px; margin-bottom: 8px;">Treinamento de IA</div>
+      <div class="sp-muted" style="margin-bottom: 20px;">
+        O treinamento da IA agora possui uma interface completa em tela cheia para melhor experiência.
+      </div>
+      <button id="btnOpenTrainingFullscreen" class="mod-btn mod-btn-primary" style="padding: 12px 24px; font-size: 14px;">
+        🚀 Abrir Treinamento de IA
+      </button>
+    </div>
+
+    <!-- Resumo Rápido -->
+    <div class="sp-card">
+      <div class="sp-title">📊 Resumo do Treinamento</div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+        <div class="mod-card" style="padding: 12px; text-align: center; background: rgba(139,92,246,0.1);">
+          <div style="font-size: 24px; font-weight: 600; color: #8b5cf6;" id="training_stat_examples">0</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted); margin-top: 4px;">Exemplos</div>
+        </div>
+        <div class="mod-card" style="padding: 12px; text-align: center; background: rgba(59,130,246,0.1);">
+          <div style="font-size: 24px; font-weight: 600; color: #3b82f6;" id="training_stat_faqs">0</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted); margin-top: 4px;">FAQs</div>
+        </div>
+        <div class="mod-card" style="padding: 12px; text-align: center; background: rgba(16,185,129,0.1);">
+          <div style="font-size: 24px; font-weight: 600; color: #10b981;" id="training_stat_products">0</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted); margin-top: 4px;">Produtos</div>
+        </div>
+        <div class="mod-card" style="padding: 12px; text-align: center; background: rgba(251,146,60,0.1);">
+          <div style="font-size: 24px; font-weight: 600; color: #fb923c;" id="training_stat_accuracy">0%</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted); margin-top: 4px;">Precisão</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dica -->
+    <div class="sp-card" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">💡</span>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Dica</div>
+          <div class="sp-muted" style="font-size: 12px;">
+            Use o botão <strong>🎓 Treinamento IA</strong> no painel superior para acessar a interface completa de treinamento em uma nova aba.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: AUTO-PILOT ============ -->
+            <section id="whlViewAutoPilot" class="whl-view hidden">
+  <!-- Header -->
+  <div class="sp-card" style="background: linear-gradient(135deg, var(--mod-primary) 0%, var(--mod-accent) 100%); border: none;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 32px;">🤖</span>
+      <div>
+        <div style="font-size: 18px; font-weight: 700; color: white;">Auto-Pilot IA</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Responde automaticamente às mensagens não lidas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Principal -->
+  <div class="sp-card" id="autopilot_status_card">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div id="autopilot_status_indicator" style="width: 48px; height: 48px; border-radius: 50%; background: rgba(107, 114, 128, 0.2); display: flex; align-items: center; justify-content: center; font-size: 24px;">
+          ⏹️
+        </div>
+        <div>
+          <div id="autopilot_status_text" style="font-weight: 600; font-size: 16px;">Parado</div>
+          <div id="autopilot_status_detail" style="font-size: 11px; color: var(--mod-text-muted);">Clique em Iniciar para começar</div>
+        </div>
+      </div>
+      <span id="autopilot_status_badge" class="mod-badge" style="background: rgba(107, 114, 128, 0.2); color: #9ca3af; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
+        PARADO
+      </span>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="sp-card" style="overflow: visible;">
+    <div class="sp-title">📊 Estatísticas da Sessão</div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; overflow: visible;">
+      <div class="mod-card" style="padding: 10px 8px; text-align: center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; min-width: 0;">
+        <div id="ap_stat_sent" style="font-size: 22px; font-weight: 700; color: #10b981;">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Enviadas</div>
+      </div>
+      <div class="mod-card" style="padding: 10px 8px; text-align: center; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.2); border-radius: 10px; min-width: 0;">
+        <div id="ap_stat_pending" style="font-size: 22px; font-weight: 700; color: #667eea;">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Pendentes</div>
+      </div>
+      <div class="mod-card" style="padding: 10px 8px; text-align: center; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; min-width: 0;">
+        <div id="ap_stat_skipped" style="font-size: 22px; font-weight: 700; color: #f59e0b;">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Puladas</div>
+      </div>
+      <div class="mod-card" style="padding: 10px 8px; text-align: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 10px; min-width: 0;">
+        <div id="ap_stat_errors" style="font-size: 22px; font-weight: 700; color: #ef4444;">0</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Erros</div>
+      </div>
+    </div>
+
+    <!-- Barra de progresso -->
+    <div style="margin-top: 12px;">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+        <span style="color: var(--mod-text-muted);">Respostas esta hora</span>
+        <span id="ap_progress_text" style="color: var(--mod-text);">0 / 30</span>
+      </div>
+      <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+        <div id="ap_progress_bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--mod-primary), var(--mod-accent)); border-radius: 3px; transition: width 0.3s;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles Principais -->
+  <div class="sp-card">
+    <div class="sp-title">🎮 Controles</div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px;">
+      <button id="ap_btn_start" class="mod-btn mod-btn-primary" style="padding: 14px; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span>▶️</span> Iniciar
+      </button>
+      <button id="ap_btn_pause" class="mod-btn mod-btn-secondary" style="padding: 14px; font-size: 14px; display: none; align-items: center; justify-content: center; gap: 8px; background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b;">
+        <span>⏸️</span> Pausar
+      </button>
+      <button id="ap_btn_resume" class="mod-btn mod-btn-primary" style="padding: 14px; font-size: 14px; display: none; align-items: center; justify-content: center; gap: 8px;">
+        <span>▶️</span> Continuar
+      </button>
+      <button id="ap_btn_stop" class="mod-btn mod-btn-danger" style="padding: 14px; font-size: 14px; display: none; align-items: center; justify-content: center; gap: 8px;">
+        <span>⏹️</span> Parar
+      </button>
+    </div>
+  </div>
+
+  <!-- Configurações -->
+  <div class="sp-card">
+    <div class="sp-title">⚙️ Configurações</div>
+    
+    <div style="margin-top: 12px;">
+      <!-- Pular Grupos -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div>
+          <div style="font-size: 13px; font-weight: 500;">Pular grupos</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Ignora mensagens de grupos</div>
+        </div>
+        <label class="mod-toggle">
+          <input type="checkbox" id="ap_config_skip_groups" checked>
+          <span class="mod-toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Limite por hora -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div>
+          <div style="font-size: 13px; font-weight: 500;">Limite por hora</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Proteção anti-ban</div>
+        </div>
+        <select id="ap_config_limit" class="mod-select" style="width: 80px; padding: 6px 8px; font-size: 12px;">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30" selected>30</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <!-- Delay entre chats -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div>
+          <div style="font-size: 13px; font-weight: 500;">Delay entre chats</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Tempo de espera em segundos</div>
+        </div>
+        <select id="ap_config_delay" class="mod-select" style="width: 80px; padding: 6px 8px; font-size: 12px;">
+          <option value="2000">2s</option>
+          <option value="3000" selected>3s</option>
+          <option value="5000">5s</option>
+          <option value="10000">10s</option>
+        </select>
+      </div>
+
+      <!-- Horário de funcionamento -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0;">
+        <div>
+          <div style="font-size: 13px; font-weight: 500;">Horário de funcionamento</div>
+          <div style="font-size: 11px; color: var(--mod-text-muted);">Ativo apenas nesse período</div>
+        </div>
+        <label class="mod-toggle">
+          <input type="checkbox" id="ap_config_working_hours">
+          <span class="mod-toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="ap_working_hours_config" style="display: none; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-top: 8px;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: var(--mod-text-muted);">Início</label>
+            <input type="time" id="ap_config_start_time" value="08:00" class="mod-input" style="padding: 6px 8px; font-size: 12px;">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: var(--mod-text-muted);">Fim</label>
+            <input type="time" id="ap_config_end_time" value="22:00" class="mod-input" style="padding: 6px 8px; font-size: 12px;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log de Atividades -->
+  <div class="sp-card">
+    <div class="sp-title" style="display: flex; align-items: center; justify-content: space-between;">
+      <span>📋 Log de Atividades</span>
+      <button id="ap_clear_log" class="mod-btn mod-btn-secondary" style="padding: 4px 10px; font-size: 11px;">Limpar</button>
+    </div>
+    <div id="ap_activity_log" style="max-height: 200px; overflow-y: auto; margin-top: 10px; font-size: 12px; font-family: monospace;">
+      <div style="padding: 8px; color: var(--mod-text-muted); text-align: center;">
+        Nenhuma atividade ainda
+      </div>
+    </div>
+  </div>
+
+  <!-- Blacklist/Whitelist -->
+  <div class="sp-card">
+    <div class="sp-title">🚫 Lista de Exclusão</div>
+    <div style="font-size: 11px; color: var(--mod-text-muted); margin-bottom: 10px;">
+      Contatos que serão ignorados pelo Auto-Pilot
+    </div>
+    <div id="ap_blacklist" style="min-height: 40px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+      <div style="color: var(--mod-text-muted); font-size: 11px; text-align: center;">
+        Nenhum contato na lista
+      </div>
+    </div>
+    <button id="ap_add_current_to_blacklist" class="mod-btn mod-btn-secondary" style="width: 100%; margin-top: 10px; font-size: 12px;">
+      ➕ Adicionar chat atual à lista
+    </button>
+  </div>
+</section>
+
+            <!-- ============ VIEW: QUICK REPLIES ============ -->
+            <section id="whlViewQuickReplies" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">⚡ Respostas Rápidas</div>
+    <div class="sp-muted">Crie atalhos para respostas frequentes. Digite /gatilho no chat para usar.</div>
+    
+    <!-- Form para adicionar -->
+    <div style="margin-top: 12px;">
+      <label class="sp-label">Gatilho</label>
+      <input type="text" id="qr-trigger" class="sp-input" placeholder="Ex: preco, horario, pix" style="margin-bottom: 8px;" />
+      
+      <label class="sp-label">Resposta</label>
+      <textarea id="qr-response" class="sp-textarea" rows="3" placeholder="Digite a resposta..."></textarea>
+      
+      <button id="qr-add-btn" class="sp-btn sp-btn-primary" style="width: 100%; margin-top: 10px;">➕ Adicionar Resposta Rápida</button>
+    </div>
+  </div>
+
+  <!-- Lista de respostas -->
+  <div class="sp-card">
+    <div class="sp-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>📋 Suas Respostas Rápidas</span>
+      <span class="sp-muted" style="font-size: 11px;" id="qr-count">0 respostas</span>
+    </div>
+    <div id="qr-list" style="margin-top: 10px;">
+      <!-- Renderizado via JS -->
+      <div class="sp-muted" style="text-align: center; padding: 20px;">
+        Nenhuma resposta rápida cadastrada
+      </div>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="sp-card">
+    <div class="sp-title">📊 Estatísticas</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;">
+      <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600;" id="qr-stat-total">0</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Total</div>
+      </div>
+      <div style="text-align: center; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600; color: #10b981;" id="qr-stat-usage">0</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Usos</div>
+      </div>
+      <div style="text-align: center; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600; color: #f59e0b;" id="qr-stat-most-used">-</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Mais Usada</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-title">💡 Como Usar</div>
+    <div class="sp-muted" style="font-size: 12px;">
+      <p style="margin: 8px 0;">1. Crie uma resposta rápida com um gatilho (ex: "preco")</p>
+      <p style="margin: 8px 0;">2. No WhatsApp, digite <strong>/preco</strong> no campo de mensagem</p>
+      <p style="margin: 8px 0;">3. Selecione a sugestão que aparece ou pressione <strong>Tab</strong>/<strong>Enter</strong></p>
+      <p style="margin: 8px 0;">4. A resposta será inserida automaticamente!</p>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: BACKEND / INTEGRAÇÃO ============ -->
+            <section id="whlViewBackend" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">☁️ Integração com Backend</div>
+    <div class="sp-muted" style="margin-bottom: 12px;">Conecte-se ao servidor WhatsHybrid Pro para sincronizar dados, usar IA avançada e acessar recursos premium.</div>
+
+    <!-- Status de conexão -->
+    <div id="backend_connection_status" style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:12px;">
+      <div id="backend_status_icon" style="font-size:14px;flex-shrink:0;">⚪</div>
+      <div id="backend_status_dot" style="width:10px;height:10px;border-radius:50%;background:#6b7280;flex-shrink:0;display:none;"></div>
+      <div>
+        <div id="backend_status_text" style="font-weight:600;font-size:13px;">Desconectado</div>
+        <div id="backend_status_detail" style="font-size:11px;color:var(--mod-text-muted);">Configure a URL e faça login para conectar</div>
+      </div>
+    </div>
+
+    <!-- URL do backend -->
+    <label class="sp-label">URL do Servidor</label>
+    <input type="url" id="backend_url" class="sp-input" placeholder="http://localhost:3000" style="margin-bottom:12px;" />
+
+    <!-- Formulários de autenticação (wrapper para o ai-backend-handlers.js) -->
+    <div id="backend_auth_form">
+    <!-- Abas: Login / Registro -->
+    <div style="display:flex;gap:4px;margin-bottom:12px;background:rgba(0,0,0,0.2);border-radius:8px;padding:4px;">
+      <button class="backend-auth-tab sp-btn" data-tab="login" style="flex:1;background:rgba(139,92,246,0.2);color:var(--mod-text);border:none;padding:8px;border-radius:6px;font-size:12px;font-weight:600;">
+        🔑 Login
+      </button>
+      <button class="backend-auth-tab sp-btn" data-tab="register" style="flex:1;background:transparent;color:var(--mod-text-muted);border:none;padding:8px;border-radius:6px;font-size:12px;font-weight:600;">
+        📝 Registrar
+      </button>
+    </div>
+
+    <!-- Formulário de Login -->
+    <div id="backend_login_form">
+      <label class="sp-label">Email</label>
+      <input type="email" id="backend_login_email" class="sp-input" placeholder="seu@email.com" style="margin-bottom:8px;" />
+      <label class="sp-label">Senha</label>
+      <input type="password" id="backend_login_password" class="sp-input" placeholder="••••••••" style="margin-bottom:12px;" />
+      <button id="backend_login_btn" class="sp-btn sp-btn-primary" style="width:100%;">🔑 Entrar</button>
+    </div>
+
+    <!-- Formulário de Registro -->
+    <div id="backend_register_form" style="display:none;">
+      <label class="sp-label">Nome</label>
+      <input type="text" id="backend_register_name" class="sp-input" placeholder="Seu Nome" style="margin-bottom:8px;" />
+      <label class="sp-label">Email</label>
+      <input type="email" id="backend_register_email" class="sp-input" placeholder="seu@email.com" style="margin-bottom:8px;" />
+      <label class="sp-label">Senha</label>
+      <input type="password" id="backend_register_password" class="sp-input" placeholder="Mínimo 8 caracteres" style="margin-bottom:12px;" />
+      <button id="backend_register_btn" class="sp-btn sp-btn-primary" style="width:100%;">📝 Criar Conta</button>
+    </div>
+
+    <!-- Mensagem de erro -->
+    <div id="backend_auth_error" class="sp-status" style="display:none;margin-top:8px;color:#ef4444;"></div>
+    </div><!-- /#backend_auth_form -->
+
+  <!-- Painel conectado (mostrado quando autenticado) -->
+  <div id="backend_connected_panel" style="display:none;">
+    <div class="sp-card">
+      <div class="sp-title">👤 Conta Conectada</div>
+      <div id="backend_user_info" class="sp-muted" style="margin-bottom:8px;">—</div>
+      <div style="font-size:12px;margin-bottom:4px;">Nome: <strong id="backend_user_name">—</strong></div>
+      <div style="font-size:12px;margin-bottom:4px;">Email: <strong id="backend_user_email">—</strong></div>
+      <div style="font-size:12px;margin-bottom:4px;">Plano: <strong id="backend_workspace_plan">FREE</strong></div>
+      <div style="font-size:12px;margin-bottom:12px;">Créditos: <strong id="backend_workspace_credits">0</strong></div>
+      <!-- WebSocket status -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;">
+        <span id="backend_ws_status">⚪</span>
+        <span>WebSocket: <span id="backend_ws_text">Desconectado</span></span>
+      </div>
+      <button id="backend_disconnect_btn" class="sp-btn sp-btn-secondary" style="width:100%;">🔌 Desconectar</button>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-title">🔄 Sincronização de Dados</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <button id="backend_sync_contacts" class="sp-btn sp-btn-secondary" style="font-size:12px;">👥 Contatos</button>
+        <button id="backend_sync_deals" class="sp-btn sp-btn-secondary" style="font-size:12px;">💼 Negócios</button>
+        <button id="backend_sync_tasks" class="sp-btn sp-btn-secondary" style="font-size:12px;">✅ Tarefas</button>
+        <button id="backend_sync_all" class="sp-btn sp-btn-primary" style="font-size:12px;">⚡ Sincronizar Tudo</button>
+      </div>
+      <div id="backend_sync_status" class="sp-status" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-title">📊 Status da Sincronização</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;text-align:center;">
+        <div style="padding:10px;background:rgba(16,185,129,0.1);border-radius:8px;">
+          <div style="font-size:18px;font-weight:700;color:#10b981;" id="backend_stat_contacts">0</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);">Contatos</div>
+        </div>
+        <div style="padding:10px;background:rgba(139,92,246,0.1);border-radius:8px;">
+          <div style="font-size:18px;font-weight:700;color:#8b5cf6;" id="backend_stat_deals">0</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);">Negócios</div>
+        </div>
+        <div style="padding:10px;background:rgba(59,130,246,0.1);border-radius:8px;">
+          <div style="font-size:18px;font-weight:700;color:#3b82f6;" id="backend_stat_tasks">0</div>
+          <div style="font-size:10px;color:var(--mod-text-muted);">Tarefas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+            <!-- ============ VIEW: SAPL — System Auto-Protection Layer ============ -->
+            <section id="whlViewSapl" class="whl-view hidden">
+
+              <!-- Header -->
+              <div class="sp-card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(99,102,241,0.3);">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="font-size:32px">🔰</span>
+                  <div>
+                    <div style="font-size:17px;font-weight:700;color:#e2e8f0">System Auto-Protection Layer</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.5)">Detecção • Auto-Heal • Circuit Breaker • Watchdog</div>
+                  </div>
+                  <div style="margin-left:auto;text-align:right">
+                    <div id="sapl_overall_badge" style="font-size:11px;padding:4px 10px;border-radius:20px;background:#22c55e20;color:#22c55e;font-weight:600">● HEALTHY</div>
+                    <div id="sapl_uptime" style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:4px">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ações -->
+              <div class="sp-card">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button id="sapl_btn_self_test" class="sp-btn sp-btn-primary" style="flex:1;padding:8px;font-size:11px">🔬 Self-Test</button>
+                  <button id="sapl_btn_heal"      class="sp-btn sp-btn-secondary" style="flex:1;padding:8px;font-size:11px">🔧 Auto-Heal</button>
+                  <button id="sapl_btn_refresh"   class="sp-btn sp-btn-secondary" style="padding:8px 12px;font-size:11px">🔄</button>
+                </div>
+                <div id="sapl_action_status" style="font-size:10px;color:var(--mod-text-muted);margin-top:6px;min-height:14px"></div>
+              </div>
+
+              <!-- Hooks Watchdog -->
+              <div class="sp-card">
+                <div style="font-size:12px;font-weight:600;color:var(--mod-text);margin-bottom:8px">🪝 Hooks Watchdog</div>
+                <div id="sapl_hooks_list" style="display:flex;flex-direction:column;gap:5px">
+                  <div style="font-size:10px;color:var(--mod-text-muted)">Aguardando dados...</div>
+                </div>
+                <div style="margin-top:8px;font-size:10px;color:var(--mod-text-muted)">
+                  Reinicializações: <span id="sapl_reinit_count" style="color:var(--mod-text)">0</span>
+                </div>
+              </div>
+
+              <!-- Circuit Breakers -->
+              <div class="sp-card">
+                <div style="font-size:12px;font-weight:600;color:var(--mod-text);margin-bottom:8px">⚡ Circuit Breakers</div>
+                <div id="sapl_circuits_list" style="display:flex;flex-direction:column;gap:5px">
+                  <div style="font-size:10px;color:var(--mod-text-muted)">Nenhum circuit ativo.</div>
+                </div>
+              </div>
+
+              <!-- Módulos Monitorados -->
+              <div class="sp-card">
+                <div style="font-size:12px;font-weight:600;color:var(--mod-text);margin-bottom:8px">📦 Módulos Monitorados</div>
+                <div id="sapl_modules_list" style="display:flex;flex-direction:column;gap:5px">
+                  <div style="font-size:10px;color:var(--mod-text-muted)">Aguardando self-test...</div>
+                </div>
+              </div>
+
+              <!-- WA Sentinel -->
+              <div class="sp-card">
+                <div style="font-size:12px;font-weight:600;color:var(--mod-text);margin-bottom:8px">🆕 WA Version Sentinel</div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="display:flex;justify-content:space-between;font-size:11px">
+                    <span style="color:var(--mod-text-muted)">Bundle hash atual</span>
+                    <span id="sapl_bundle_hash" style="color:var(--mod-text);font-family:monospace">—</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px">
+                    <span style="color:var(--mod-text-muted)">Último update detectado</span>
+                    <span id="sapl_bundle_changed" style="color:var(--mod-text)">Nenhum</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px">
+                    <span style="color:var(--mod-text-muted)">Re-scans de seletores</span>
+                    <span id="sapl_rescans" style="color:var(--mod-text)">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Erros Capturados -->
+              <div class="sp-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div style="font-size:12px;font-weight:600;color:var(--mod-text)">🕵️ Erros Capturados</div>
+                  <button id="sapl_clear_errors" class="sp-btn sp-btn-danger sp-btn-sm" style="padding:3px 8px;font-size:10px">Limpar</button>
+                </div>
+                <div id="sapl_errors_list" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:10px;color:var(--mod-text-muted)">Nenhum erro capturado.</div>
+                </div>
+              </div>
+
+              <!-- Histórico de Self-Tests -->
+              <div class="sp-card">
+                <div style="font-size:12px;font-weight:600;color:var(--mod-text);margin-bottom:8px">📈 Histórico de Self-Tests</div>
+                <div id="sapl_history_list" style="display:flex;flex-wrap:wrap;gap:4px">
+                  <div style="font-size:10px;color:var(--mod-text-muted)">Sem histórico ainda.</div>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- ============ VIEW: TEAM SYSTEM ============ -->
+            <section id="whlViewTeam" class="whl-view hidden">
+  <div class="sp-card">
+    <div class="sp-title">👥 Sistema de Equipe</div>
+    <div class="sp-muted">Envie mensagens em broadcast para múltiplos membros da equipe.</div>
+    
+    <!-- Nome do remetente -->
+    <div style="margin-top: 12px;">
+      <label class="sp-label">📝 Nome do Remetente</label>
+      <input type="text" id="team-sender-name" class="sp-input" placeholder="Ex: Rede Alabama" />
+      <div class="sp-muted" style="font-size: 11px; margin-top: 4px;">
+        Aparece no início da mensagem: <strong>*Nome:*</strong> mensagem
+      </div>
+    </div>
+  </div>
+
+  <!-- Adicionar membro -->
+  <div class="sp-card">
+    <div class="sp-title">➕ Adicionar Membro</div>
+    <div style="margin-top: 10px;">
+      <label class="sp-label">Nome (opcional)</label>
+      <input type="text" id="team-member-name" class="sp-input" placeholder="Nome do membro" style="margin-bottom: 8px;" />
+      
+      <label class="sp-label">Telefone</label>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="team-member-phone" class="sp-input" placeholder="5511999999999" style="flex: 1;" />
+        <button id="team-add-btn" class="sp-btn sp-btn-primary" style="white-space: nowrap;">➕ Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de membros -->
+  <div class="sp-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div class="sp-title" style="margin: 0;">📋 Membros da Equipe</div>
+      <div style="display: flex; gap: 6px;">
+        <button id="team-select-all" class="sp-btn sp-btn-secondary" style="padding: 4px 10px; font-size: 11px;">✓ Todos</button>
+        <button id="team-clear-selection" class="sp-btn sp-btn-secondary" style="padding: 4px 10px; font-size: 11px;">✗ Limpar</button>
+      </div>
+    </div>
+    <div id="team-members-list" style="max-height: 300px; overflow-y: auto;">
+      <!-- Renderizado via JS -->
+      <div class="sp-muted" style="text-align: center; padding: 20px;">
+        Nenhum membro cadastrado
+      </div>
+    </div>
+  </div>
+
+  <!-- Área de mensagem -->
+  <div class="sp-card">
+    <div class="sp-title">💬 Mensagem para Equipe</div>
+    <textarea id="team-message" class="sp-textarea" rows="4" placeholder="Digite a mensagem que será enviada para os membros selecionados..."></textarea>
+    <button id="team-send-btn" class="sp-btn sp-btn-primary" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 14px;">
+      📤 Enviar para Selecionados
+    </button>
+    <div id="team-send-status" class="sp-status" style="margin-top: 10px;"></div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="sp-card">
+    <div class="sp-title">📊 Estatísticas</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;">
+      <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600;" id="team-stat-total">0</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Membros</div>
+      </div>
+      <div style="text-align: center; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600; color: #10b981;" id="team-stat-selected">0</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Selecionados</div>
+      </div>
+      <div style="text-align: center; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+        <div style="font-size: 20px; font-weight: 600; color: #3b82f6;" id="team-stat-sent">0</div>
+        <div style="font-size: 11px; color: var(--mod-text-muted);">Msgs Enviadas</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+        </div>
+
+
+
+        <!-- ========================================
+             FOOTER
+        ======================================== -->
+        <footer class="footer">
+            <span class="footer-text">
+                WhatsApp Group Member Extractor
+            </span>
+        </footer>
+    </div>
+
+    <!-- ========================================
+         SCRIPTS - SEM type="module"
+    ======================================== -->
+    <!-- SheetJS: Removido por CSP. Excel import usa alternativa local se disponível -->
+    
+    <!-- Utilities -->
+    <script src="utils/sanitize-html.js"></script>
+  <script src="utils/timer-manager.js"></script>
+  <script src="utils/event-manager.js"></script>
+  <script src="utils/utils-optimized.js"></script>
+    <script src="utils/html-utils.js"></script>
+    <script src="utils/version.js"></script>
+    <script src="utils/logger.js"></script>
+    <script src="utils/ui-helpers.js"></script>
+    <script src="utils/storage.js"></script>
+    <script src="utils/google-sheets-export.js"></script>
+    <script src="utils/templates.js"></script>
+    
+    <!-- New advanced utilities -->
+    <script src="utils/scheduler.js"></script>
+    <script src="utils/anti-ban.js"></script>
+    <script src="utils/contact-importer.js"></script>
+    <script src="utils/group-cache.js"></script>
+    <script src="utils/notifications.js"></script>
+    
+    <!-- Modules - Sistema completo baseado no Quantum CRM -->
+    <!-- ===============================================
+         CORE SYSTEMS - EventBus v2.0 & StateManager v1.0
+    =============================================== -->
+    <script src="modules/event-bus-central.js"></script>
+  <!-- IA: Sistema de confiança/confidence (necessário para o painel de IA) -->
+  <script src="modules/knowledge-base.js"></script>
+  <script src="modules/confidence-system.js"></script>
+  <script src="modules/ai-memory-advanced.js"></script>
+  <script src="modules/ai-response-cache.js"></script>
+  <script src="modules/ai-feedback-system.js"></script>
+  <script src="modules/ai-auto-learner.js"></script>
+  <script src="modules/ai-analytics.js"></script>
+  <script src="modules/trust-system.js"></script>
+    <script src="modules/state-manager.js"></script>
+    <script src="modules/modern-ui.js"></script>
+    <script src="adapters/legacy-smartbot.js"></script>
+    
+    <!-- ===============================================
+         AI SYSTEMS - AIService v1.0 & CopilotEngine v1.0
+    =============================================== -->
+    <script src="modules/ai-service.js"></script>
+    <script src="modules/copilot-engine.js"></script>
+    
+    <!-- ===============================================
+         BACKEND - BackendClient v1.0
+    =============================================== -->
+    <script src="modules/backend-client.js"></script>
+    
+    <!-- ===============================================
+         HANDLERS - AI & Backend UI
+    =============================================== -->
+    <script src="modules/ai-backend-handlers.js"></script>
+    
+    <!-- Modules -->
+    <script src="modules/chart-engine.js"></script>
+    <script src="modules/notifications.js"></script>
+    <script src="modules/analytics.js"></script>
+    <script src="modules/crm.js"></script>
+    <script src="modules/tasks.js"></script>
+    <script src="modules/smart-replies.js"></script>
+    <script src="modules/subscription-manager.js"></script>
+    <script src="modules/feature-gate.js"></script>
+    <script src="modules/labels.js"></script>
+    <script src="modules/quick-replies-fixed.js"></script>
+    <script src="modules/team-system-simple.js"></script>
+    <!-- Injetores são carregados no content script, não no sidepanel -->
+    <script src="modules/init.js"></script>
+    
+    <!-- Tests (Ctrl+Shift+T para executar) -->
+    <script src="tests/regression-tests.js"></script>
+    <script src="tests/ai-copilot-tests.js"></script>
+    
+    <!-- Core scripts -->
+    <script src="onboarding.js"></script>
+    <script src="modules/audio-file-handler.js"></script>
+    <script src="modules/human-typing.js"></script>
+    <script src="sidepanel.js"></script>
+    <script src="modules/recover-advanced.js"></script>
+    <script src="sidepanel-router.js"></script>
+    <script src="sidepanel-fixes.js"></script>
+    
+    <!-- Fix: Garantir texto branco em TODAS as áreas com fundo colorido -->
+    <style>
+        /* ===== REGRA GLOBAL: Todo texto deve ser branco ===== */
+        
+        /* Área de teste da IA */
+        #ai_test_output,
+        #ai_test_output *,
+        #ai_test_result,
+        #ai_test_result * {
+            color: white !important;
+        }
+        #ai_test_output {
+            background: rgba(139, 92, 246, 0.1) !important;
+        }
+        
+        /* Todos os inputs, textareas e selects */
+        input, textarea, select,
+        .sp-input, .sp-textarea, .sp-select,
+        .mod-input, .mod-textarea, .mod-select {
+            color: white !important;
+        }
+        
+        /* Todos os containers de cards e resultados */
+        .sp-card, .mod-card,
+        .sp-card *, .mod-card * {
+            color: white;
+        }
+        
+        /* Areas de resultado/output específicas */
+        [id*="result"], [id*="output"], [id*="preview"],
+        [class*="result"], [class*="output"], [class*="preview"] {
+            color: white !important;
+        }
+        
+        /* Modais */
+        .mod-modal, .mod-modal *,
+        [class*="modal"], [class*="modal"] * {
+            color: white;
+        }
+        
+        /* Corrigir qualquer texto que herda preto */
+        .whl-view, .whl-view *,
+        .sp-section, .sp-section *,
+        .section-content, .section-content * {
+            color: inherit;
+        }
+        
+        /* Placeholders mais visíveis */
+        ::placeholder {
+            color: rgba(255, 255, 255, 0.5) !important;
+        }
+        
+        /* Labels e textos auxiliares */
+        label, .sp-label, .mod-label {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        /* Botões com fundo amarelo/claro - usar texto escuro */
+        .btn-control-pause,
+        [style*="background: yellow"],
+        [style*="background:#ff"],
+        [style*="background: #ff"] {
+            color: #1a1a2e !important;
+            text-shadow: none !important;
+        }
+        
+        /* Smart Replies floating panel */
+        .sr-floating-panel, .sr-floating-panel *,
+        .sr-suggestion-text, .sr-correction-input {
+            color: white !important;
+        }
+        
+        /* Garantir contraste em badges */
+        .mod-badge, .whl-label-badge {
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+    </style>
+    
+    <!-- Initialize Modules - v49 com módulos funcionais -->
+    <script src="sidepanel-handlers.js"></script>
+    
+    <!-- SmartBot IA System (v9.5.3: 4 legacy variants removed — zero call sites confirmed; CopilotEngine + autopilot-v2 are the live implementations. adapters/legacy-smartbot.js still aliases the old SmartBot* globals to CopilotEngine.) -->
+    <script src="modules/smartbot-autopilot-v2.js"></script>
+    <script src="modules/autopilot-handlers.js"></script>
+
+    <!-- ============================================
+        RECOVER - UI DE FILTROS v7.9.13
+         ============================================ -->
+    <div id="sp_recover_filters" class="sp-card" style="display:none">
+      <div class="sp-title">🔍 Filtros do Recover</div>
+      
+      <div class="sp-row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
+        <button id="recover_filter_all" class="sp-btn sp-btn-secondary sp-btn-sm active" data-filter="all">📋 Todas</button>
+        <button id="recover_filter_revoked" class="sp-btn sp-btn-secondary sp-btn-sm" data-filter="revoked">❌ Revogadas</button>
+        <button id="recover_filter_deleted" class="sp-btn sp-btn-secondary sp-btn-sm" data-filter="deleted">🗑️ Apagadas</button>
+        <button id="recover_filter_edited" class="sp-btn sp-btn-secondary sp-btn-sm" data-filter="edited">✏️ Editadas</button>
+        <button id="recover_filter_media" class="sp-btn sp-btn-secondary sp-btn-sm" data-filter="media">📎 Mídias</button>
+      </div>
+      
+      <div class="sp-row" style="margin-top:10px;gap:6px">
+        <input type="text" id="recover_filter_chat" class="sp-input" placeholder="Filtrar por número..." style="flex:1">
+      </div>
+      
+      <div class="sp-row" style="margin-top:10px;gap:6px">
+        <input type="date" id="recover_filter_from" class="sp-input" style="flex:1">
+        <input type="date" id="recover_filter_to" class="sp-input" style="flex:1">
+      </div>
+      
+      <div class="sp-row" style="margin-top:10px;gap:6px">
+        <!-- Botões de export movidos para toolbar principal (IDs recover_export_csv, recover_export_txt, recover_export_pdf) -->
+      </div>
+      
+      <div id="recover_stats" class="sp-muted" style="margin-top:10px;font-size:11px">
+        Total: <span id="recover_stat_total">0</span> |
+        Revogadas: <span id="recover_stat_revoked">0</span> |
+        Apagadas: <span id="recover_stat_deleted">0</span> |
+        Editadas: <span id="recover_stat_edited">0</span>
+      </div>
+      
+      <!-- CORREÇÃO 4.2: Estatísticas de sentimento -->
+      <div id="recover_sentiment_stats" class="sp-muted" style="margin-top:6px;font-size:11px">
+        🙂 0  😐 0  🙁 0
+      </div>
+      
+      <div id="recover_messages_list" style="margin-top:10px;max-height:300px;overflow-y:auto">
+        <!-- Mensagens serão renderizadas aqui -->
+      </div>
+      
+      <div class="sp-row" style="margin-top:10px;gap:6px">
+        <button id="recover_prev_page_2" class="sp-btn sp-btn-secondary sp-btn-sm" disabled>◀ Anterior</button>
+        <span id="recover_page_info_2" class="sp-muted" style="flex:1;text-align:center">Página 1</span>
+        <button id="recover_next_page_2" class="sp-btn sp-btn-secondary sp-btn-sm">Próxima ▶</button>
+      </div>
+    </div>
+
+
+    <!-- CORREÇÃO 2.4: Adicionar jsPDF para exportação PDF -->
+    <!-- jsPDF removido - usar export HTML/TXT para evitar CSP violations -->
+    
+    <!-- AI System Handlers -->
+    <script src="sidepanel-ai-handlers.js"></script>
+
+</body>
+</html>
