@@ -115,6 +115,120 @@ router.post('/selector-failure',
 );
 
 /**
+ * GET /api/v1/telemetry/dashboard
+ *
+ * Painel para o dono da extensão saber quando o WhatsApp Web quebrou
+ * alguma coisa, ANTES dos clientes começarem a reclamar. Auth-required
+ * (qualquer usuário logado), retorna agregados globais — não vaza dados
+ * por workspace.
+ *
+ * Estrutura:
+ *   {
+ *     summary: { total_failures, distinct_selectors, distinct_wa_versions, distinct_ext_versions, since },
+ *     wa_versions:        [ { wa_version, first_seen, last_seen, distinct_selectors, total_failures } ],
+ *     new_failures_24h:   [ { selector_name, wa_version, extension_version, first_seen, failure_count } ],
+ *     top_offenders:      [ { selector_name, wa_version, total_failures, last_seen } ],
+ *     timeline_by_day:    [ { day, total_failures, distinct_selectors } ],
+ *   }
+ *
+ * Query params:
+ *   ?days=7    (window for summary/timeline/top_offenders; default 7, max 90)
+ *   ?limit=20  (top_offenders + new_failures_24h cap; default 20, max 100)
+ */
+router.get('/dashboard',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 90);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const since = new Date(Date.now() - days * 86400_000).toISOString();
+    const since24h = new Date(Date.now() - 24 * 3600_000).toISOString();
+
+    try {
+      const summary = db.get(
+        `SELECT
+           COALESCE(SUM(failure_count), 0) AS total_failures,
+           COUNT(DISTINCT selector_name) AS distinct_selectors,
+           COUNT(DISTINCT wa_version) AS distinct_wa_versions,
+           COUNT(DISTINCT extension_version) AS distinct_ext_versions
+         FROM selector_telemetry
+         WHERE last_seen >= ?`,
+        [since]
+      ) || {};
+
+      const waVersions = db.all(
+        `SELECT wa_version,
+                MIN(first_seen) AS first_seen,
+                MAX(last_seen)  AS last_seen,
+                COUNT(DISTINCT selector_name) AS distinct_selectors,
+                SUM(failure_count) AS total_failures
+         FROM selector_telemetry
+         WHERE wa_version IS NOT NULL AND wa_version <> 'unknown'
+         GROUP BY wa_version
+         ORDER BY MAX(last_seen) DESC
+         LIMIT 30`
+      );
+
+      // "Novas falhas" = combinações (selector, wa_version, ext_version) cujo
+      // first_seen está nas últimas 24h. Esses são o sinal mais cedo de que
+      // algo acabou de quebrar — você quer ser notificado disso.
+      const newFailures = db.all(
+        `SELECT selector_name, wa_version, extension_version,
+                first_seen, last_seen, failure_count
+         FROM selector_telemetry
+         WHERE first_seen >= ?
+         ORDER BY first_seen DESC
+         LIMIT ?`,
+        [since24h, limit]
+      );
+
+      // Top reclamações na janela informada.
+      const topOffenders = db.all(
+        `SELECT selector_name, wa_version,
+                SUM(failure_count) AS total_failures,
+                MAX(last_seen) AS last_seen
+         FROM selector_telemetry
+         WHERE last_seen >= ?
+         GROUP BY selector_name, wa_version
+         ORDER BY total_failures DESC
+         LIMIT ?`,
+        [since, limit]
+      );
+
+      // Timeline diária — útil pra correlacionar com deploys do WhatsApp.
+      // SQLite-friendly: substr(last_seen, 1, 10) = YYYY-MM-DD.
+      const timeline = db.all(
+        `SELECT substr(last_seen, 1, 10) AS day,
+                SUM(failure_count) AS total_failures,
+                COUNT(DISTINCT selector_name) AS distinct_selectors
+         FROM selector_telemetry
+         WHERE last_seen >= ?
+         GROUP BY day
+         ORDER BY day ASC`,
+        [since]
+      );
+
+      res.json({
+        summary: {
+          total_failures: Number(summary.total_failures || 0),
+          distinct_selectors: Number(summary.distinct_selectors || 0),
+          distinct_wa_versions: Number(summary.distinct_wa_versions || 0),
+          distinct_ext_versions: Number(summary.distinct_ext_versions || 0),
+          since,
+          days,
+        },
+        wa_versions: waVersions || [],
+        new_failures_24h: newFailures || [],
+        top_offenders: topOffenders || [],
+        timeline_by_day: timeline || [],
+      });
+    } catch (err) {
+      logger.error('[TelemetryDashboard] query failed:', err.message);
+      res.status(500).json({ error: 'dashboard query failed' });
+    }
+  })
+);
+
+/**
  * GET /api/v1/telemetry/selector-stats — admin only
  */
 router.get('/selector-stats',
