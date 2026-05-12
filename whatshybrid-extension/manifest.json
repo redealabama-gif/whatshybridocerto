@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "WhatsHybrid Pro",
-  "version": "9.5.8",
-  "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo, análise comportamental e muito mais.",
+  "version": "9.5.9",
+  "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo.",
   "icons": {
     "16": "icons/16.png",
     "48": "icons/48.png",
@@ -50,6 +50,16 @@
         "https://web.whatsapp.com/*"
       ],
       "js": [
+        "content-scripts/page-bridge-injector.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
         "dist/core-bundle.js",
         "dist/content-bundle.js"
       ],
@@ -69,6 +79,7 @@
         "content/extractor.contacts.js",
         "content/inject.js",
         "content/wpp-hooks.js",
+        "injected/wa-page-bridge.js",
         "chatbackup/extractor.js",
         "icons/*.png",
         "icons/128.png",

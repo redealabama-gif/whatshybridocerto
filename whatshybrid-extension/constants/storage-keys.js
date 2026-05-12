@@ -49,9 +49,6 @@
 
     TEAM_SYSTEM: 'whl_team_system_v1',
 
-    ANALYTICS: 'whl_analytics_v2',
-    ANALYTICS_DAILY: 'whl_analytics_daily',
-
     RECOVER_DATA: 'whl_recover_data',
     RECOVER_MEDIA: 'whl_recover_media',
 

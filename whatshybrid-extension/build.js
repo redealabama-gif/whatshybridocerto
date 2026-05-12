@@ -251,12 +251,33 @@ async function build() {
   // Atualiza manifest.json
   const manifestPath = path.join(projectRoot, 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  manifest.content_scripts = [{
-    matches: ['https://web.whatsapp.com/*'],
-    js: ['dist/core-bundle.js', 'dist/content-bundle.js'],
-    run_at: 'document_idle',
-    all_frames: false,
-  }];
+  // v9.5.9: keep the document_start page-bridge injector ahead of the bundles.
+  // The injector is tiny and must run before WhatsApp Web's webpack initializes,
+  // so it can drop the <script src=injected/wa-page-bridge.js> tag in time.
+  manifest.content_scripts = [
+    {
+      matches: ['https://web.whatsapp.com/*'],
+      js: ['content-scripts/page-bridge-injector.js'],
+      run_at: 'document_start',
+      all_frames: false,
+    },
+    {
+      matches: ['https://web.whatsapp.com/*'],
+      js: ['dist/core-bundle.js', 'dist/content-bundle.js'],
+      run_at: 'document_idle',
+      all_frames: false,
+      css: [
+        'content/top-panel.css',
+        'chatbackup/injected.css',
+        'modules/modules.css',
+      ],
+    },
+  ];
+  if (manifest.web_accessible_resources?.[0]?.resources) {
+    if (!manifest.web_accessible_resources[0].resources.includes('injected/wa-page-bridge.js')) {
+      manifest.web_accessible_resources[0].resources.push('injected/wa-page-bridge.js');
+    }
+  }
   if (manifest.web_accessible_resources?.[0]?.resources) {
     if (!manifest.web_accessible_resources[0].resources.includes('dist/*')) {
       manifest.web_accessible_resources[0].resources.push('dist/*');

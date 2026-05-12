@@ -280,7 +280,7 @@ function showView(viewName) {
       startBackupInterval();
     } else if (safeView === 'grupos' || safeView === 'groups') {
       // UI do v6 já tem seu próprio JS (sidepanel.js). Nada a fazer aqui.
-    } else if (safeView === 'crm' || safeView === 'analytics' || safeView === 'tasks' || safeView === 'ai' || safeView === 'autopilot' || safeView === 'backend' || safeView === 'backend') {
+    } else if (safeView === 'crm' || safeView === 'tasks' || safeView === 'ai' || safeView === 'autopilot' || safeView === 'backend') {
       // Novas views de módulos - renderizadas pelo script inline no sidepanel.html
       if (typeof window.renderModuleViews === 'function') {
         window.renderModuleViews();

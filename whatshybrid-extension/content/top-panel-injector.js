@@ -131,10 +131,6 @@
                             <span class="tab-icon">💼</span>
                             <span class="tab-label">CRM</span>
                         </button>
-                        <button class="top-panel-tab" data-view="analytics" title="Analytics">
-                            <span class="tab-icon">📊</span>
-                            <span class="tab-label">Analytics</span>
-                        </button>
                         <button class="top-panel-tab" data-view="tasks" title="Tarefas">
                             <span class="tab-icon">📋</span>
                             <span class="tab-label">Tarefas</span>

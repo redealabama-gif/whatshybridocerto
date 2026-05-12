@@ -368,33 +368,16 @@
     let api = checkWhatsAppAPI();
     if (api.Store) return api;
 
-    // Método 2: Injetar script para expor módulos
+    // Método 2: a injeção de script inline foi removida (violava o CSP do
+    // WhatsApp Web). Agora confiamos no page bridge oficial em
+    // injected/wa-page-bridge.js — esperamos ele expor window.WHL_Store e
+    // só então checamos a API.
     try {
-      const script = document.createElement('script');
-      script.textContent = `
-        (function() {
-          const modules = {};
-          if (window.require) {
-            const orig = window.require;
-            window.require = function(id) {
-              const mod = orig(id);
-              if (mod && mod.default) {
-                modules[id] = mod;
-              }
-              return mod;
-            };
-          }
-          window.__whl_modules = modules;
-        })();
-      `;
-      document.body.appendChild(script);
-      script.remove();
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       api = checkWhatsAppAPI();
       if (api.Store) return api;
     } catch (e) {
-      console.error('[AntiBreak] Erro injetando script:', e);
+      console.error('[AntiBreak] Erro aguardando page bridge:', e);
     }
 
     // Método 3: Buscar no escopo global

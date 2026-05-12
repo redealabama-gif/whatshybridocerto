@@ -1,108 +1,137 @@
 /**
  * WA Bridge Defensive — v9.5.9
  *
- * Wrapper resiliente sobre acesso a window.Store / window.WAModule.
- * Quando o WhatsApp Web atualiza e renomeia / remove uma key, este
- * wrapper:
- *   1. Tenta múltiplos caminhos (path principal + fallbacks conhecidos)
- *   2. Se nenhum funciona, registra telemetria pro backend
- *   3. Retorna null (caller decide entre tentar de novo, ativar modo
- *      manual, ou exibir banner)
+ * Isolated-world half of the bridge. The page-world half lives in
+ * injected/wa-page-bridge.js and is injected by content-scripts/page-bridge-injector.js
+ * at document_start.
  *
- * Uso:
- *   const Chat = WHL_WaBridge.get('chat');         // null se quebrar
- *   const msg  = WHL_WaBridge.get('msg', { critical: true }); // alerta
- *   if (!Chat) WHL_WaBridge.fallbackBanner('Modo manual ativo');
+ * Architecture:
+ *   - Page world (injected/wa-page-bridge.js): has real window.require, resolves
+ *     WAWebChatCollection / WAWebContactCollection / etc and exposes window.WHL_Store.
+ *   - Isolated world (this file): listens via window.postMessage for
+ *     { source: 'WHL_PAGE_BRIDGE' } events, mirrors the state locally
+ *     (modulesLoaded, version, ready), and provides a Promise-based command
+ *     channel for callers needing live data (getChats, sendMessage, openChat).
  *
- * Como adicionar/atualizar caminhos:
- *   Edita SELECTORS abaixo. Cada entry é uma lista de funções, em ordem
- *   de preferência. Primeiro que retornar truthy ganha.
+ * Public API (unchanged shape):
+ *   WHL_WaBridge.get(name, opts)       — legacy: returns null in isolated world;
+ *                                        prefer WHL_WaBridge.call(...) instead.
+ *   WHL_WaBridge.getWithRetry(name)    — legacy: same as get with timeout.
+ *   WHL_WaBridge.healthCheck()         — returns mirrored state.
+ *   WHL_WaBridge.detectVersion()       — last seen WA version.
+ *   WHL_WaBridge.showFallbackBanner()  — UI banner.
+ *   WHL_WaBridge.reportFailure(name, opts) — telemetry to backend.
+ *   WHL_WaBridge.call(cmd, payload, opts) — NEW: async call into page bridge.
+ *   WHL_WaBridge.onReady(cb)           — NEW: callback when STORE_READY fires.
  */
-
-(function() {
+(function () {
   'use strict';
   if (window.WHL_WaBridge) return;
 
-  // ── Configuração de seletores com fallbacks ─────────────────────────
-  // Cada chave aceita um array de funções. Ordem importa.
-  const SELECTORS = {
-    // Store raiz
-    store: [
-      () => window.Store,
-      () => window.WWebJS?.Store,
-      () => window.WAModule?.default,
-    ],
+  const SOURCE_OUT = 'WHL_ISOLATED';
+  const SOURCE_IN = 'WHL_PAGE_BRIDGE';
+  const PAGE_READY_TIMEOUT_MS = 15_000;
 
-    // NOTA: WhatsApp Web 2.3000.x+ usa require() em vez de window.Store
-    // Caminhos via window.require() são primários; window.Store é fallback legado.
-    chat: [
-      // Caminho novo: WAWebChatCollection (WA 2.3000.x+)
-      () => { try { const CC = window.require?.('WAWebChatCollection'); return CC?.ChatCollection || CC?.default?.ChatCollection || null; } catch (_) { return null; } },
-      // Fallback legado
-      () => window.Store?.Chat,
-      () => window.Store?.ChatCollection,
-      () => window.WAModule?.ChatCollection,
-    ],
-
-    msg: [
-      () => { try { const M = window.require?.('WAWebMsgCollection'); return M?.MsgCollection || M?.default?.MsgCollection || null; } catch (_) { return null; } },
-      () => window.Store?.Msg,
-      () => window.Store?.MsgCollection,
-      () => window.WAModule?.MsgCollection,
-    ],
-
-    contact: [
-      () => { try { const CC = window.require?.('WAWebContactCollection'); return CC?.ContactCollection || CC?.default?.ContactCollection || null; } catch (_) { return null; } },
-      () => window.Store?.Contact,
-      () => window.Store?.ContactCollection,
-    ],
-
-    blocklist: [
-      () => { try { const BL = window.require?.('WAWebBlocklistCollection'); return BL?.BlocklistCollection || BL?.default?.BlocklistCollection || null; } catch (_) { return null; } },
-      () => window.Store?.Blocklist,
-    ],
-
-    wid: [
-      () => { try { const W = window.require?.('WAWebWidFactory'); return W?.WidFactory || W?.default?.WidFactory || null; } catch (_) { return null; } },
-      () => window.Store?.Wid,
-      () => window.Store?.WidFactory,
-    ],
-
-    sendMessage: [
-      () => window.Store?.SendTextMsgToChat,
-      () => window.Store?.SendMessage,
-      () => window.Store?.WapQuery?.sendChatstateComposing,
-    ],
-
-    chatModel: [
-      () => window.Store?.ChatModel,
-    ],
-
-    // Detecção de versão do WhatsApp Web
-    version: [
-      () => document.querySelector('meta[name="version"]')?.content,
-      () => window.Debug?.VERSION,
-      () => window.localStorage?.getItem('WAVersion'),
-    ],
+  // ── Mirrored state of the page bridge ─────────────────────────────────
+  const state = {
+    ready: false,
+    version: 'unknown',
+    modulesLoaded: [],
+    missing: [],
+    readyAt: 0,
+    lastError: null,
   };
 
-  // ── State ────────────────────────────────────────────────────────────
-  const _failed = new Set();        // selectors que já falharam (evita retelemetria)
+  const readyCallbacks = [];
+  const pendingRequests = new Map(); // requestId -> { resolve, reject, timer }
+  const _failed = new Set();
   let _bannerShown = false;
-  let _waVersion = null;
 
-  // ── Telemetria ───────────────────────────────────────────────────────
+  function genRequestId() {
+    return 'r_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ── Inbound page-bridge messages ──────────────────────────────────────
+  window.addEventListener('message', (ev) => {
+    const data = ev?.data;
+    if (!data || data.source !== SOURCE_IN || !data.type) return;
+
+    if (data.type === 'STORE_READY') {
+      state.ready = true;
+      state.version = data.version || state.version;
+      state.modulesLoaded = data.modules || [];
+      state.missing = data.missing || [];
+      state.readyAt = data.readyAt || Date.now();
+      console.log('[WHL Bridge] Health OK', {
+        version: state.version,
+        loaded: state.modulesLoaded.length,
+        missing: state.missing.length,
+      });
+      if (!data.rebroadcast) {
+        const cbs = readyCallbacks.splice(0);
+        cbs.forEach(cb => { try { cb(state); } catch (_) {} });
+      }
+      hideFallbackBanner();
+      return;
+    }
+
+    if (data.type === 'STORE_FAILED') {
+      state.lastError = data.reason || 'unknown';
+      console.warn('[WHL Bridge] Page bridge reported STORE_FAILED:', state.lastError);
+      reportFailure('page-bridge-boot', { metadata: { reason: state.lastError } });
+      showFallbackBanner('Não conseguimos conectar ao WhatsApp Web — modo manual ativo.');
+      return;
+    }
+
+    if (data.type === 'RESPONSE' && data.requestId) {
+      const pending = pendingRequests.get(data.requestId);
+      if (!pending) return;
+      pendingRequests.delete(data.requestId);
+      clearTimeout(pending.timer);
+      if (data.error) pending.reject(new Error(data.error));
+      else pending.resolve(data.data);
+      return;
+    }
+  });
+
+  // ── Public: command channel into the page bridge ──────────────────────
+  function call(cmd, payload = {}, opts = {}) {
+    const timeoutMs = opts.timeoutMs || 10_000;
+    return new Promise((resolve, reject) => {
+      const requestId = genRequestId();
+      const timer = setTimeout(() => {
+        pendingRequests.delete(requestId);
+        reject(new Error(`page-bridge timeout: ${cmd}`));
+      }, timeoutMs);
+      pendingRequests.set(requestId, { resolve, reject, timer });
+      try {
+        window.postMessage({ source: SOURCE_OUT, type: cmd, requestId, payload }, '*');
+      } catch (e) {
+        clearTimeout(timer);
+        pendingRequests.delete(requestId);
+        reject(e);
+      }
+    });
+  }
+
+  function onReady(cb) {
+    if (state.ready) { try { cb(state); } catch (_) {} return; }
+    readyCallbacks.push(cb);
+  }
+
+  function detectVersion() {
+    return state.version || 'unknown';
+  }
+
+  // ── Telemetry ─────────────────────────────────────────────────────────
   function reportFailure(selectorName, opts = {}) {
     const key = `${selectorName}|${detectVersion()}`;
     if (_failed.has(key)) return;
     _failed.add(key);
-
     try {
       const config = window.WHL_CONFIG || {};
       const apiUrl = config.API_URL || 'https://api.whatshybrid.com.br';
       const token = window.WHL_authToken || localStorage.getItem('whl_token');
-
-      // Best-effort: não bloqueia se falhar
       fetch(`${apiUrl}/api/v1/telemetry/selector-failure`, {
         method: 'POST',
         headers: {
@@ -115,87 +144,59 @@
           extension_version: chrome?.runtime?.getManifest?.()?.version || 'unknown',
           metadata: opts.metadata || {},
         }),
-        keepalive: true, // sobrevive page unload
-      }).catch(() => {/* swallow */});
+        keepalive: true,
+      }).catch(() => {});
     } catch (_) {}
-
-    console.warn(`[WHL Bridge] Selector failure: ${selectorName} (WA ${detectVersion()})`);
-
     if (opts.critical) {
       showFallbackBanner(`WhatsApp atualizou. Modo manual ativo (recurso: ${selectorName})`);
     }
   }
 
-  // ── API principal ────────────────────────────────────────────────────
-  function get(selectorName, opts = {}) {
-    const candidates = SELECTORS[selectorName];
-    if (!candidates) {
-      console.error(`[WHL Bridge] Selector desconhecido: ${selectorName}`);
-      return null;
+  // ── Legacy compatibility shims ────────────────────────────────────────
+  // The old API returned page-world objects synchronously. We can't do that
+  // from the isolated world, so we return null and recommend `call()` instead.
+  // Any consumer that mutates Chat/Contact directly must be migrated, but at
+  // least it won't throw on `WHL_WaBridge.get('chat')`.
+  function get(selectorName) {
+    if (!state.ready) return null;
+    // If a module of that name is loaded in the page world, signal availability
+    // via a sentinel object; callers that only check truthiness keep working.
+    const name = String(selectorName || '').toLowerCase();
+    const canonical = {
+      chat: 'Chat', msg: 'Msg', contact: 'Contact', blocklist: 'Blocklist',
+      wid: 'Wid', sendmessage: 'SendTextMsg', sendmsg: 'SendTextMsg',
+    }[name] || selectorName;
+    if (state.modulesLoaded.includes(canonical)) {
+      return { __isolated_shim: true, name: canonical, note: 'use WHL_WaBridge.call() instead' };
     }
-
-    for (const candidate of candidates) {
-      try {
-        const result = candidate();
-        if (result !== undefined && result !== null) {
-          return result;
-        }
-      } catch (_) {
-        // Silent — cada candidate pode lançar (ex: window.Store undefined)
-      }
-    }
-
-    reportFailure(selectorName, opts);
     return null;
   }
 
-  function detectVersion() {
-    if (_waVersion) return _waVersion;
-    for (const candidate of SELECTORS.version) {
-      try {
-        const v = candidate();
-        if (v) { _waVersion = String(v); return _waVersion; }
-      } catch (_) {}
-    }
-    return 'unknown';
-  }
-
-  /**
-   * Tenta obter um seletor com retry exponencial.
-   * Útil pra esperar Store estar pronto após page load.
-   */
   async function getWithRetry(selectorName, { maxAttempts = 5, baseDelay = 500, critical = false } = {}) {
     for (let i = 0; i < maxAttempts; i++) {
-      const result = get(selectorName, { critical: false });
-      if (result) return result;
-      await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, i)));
+      const r = get(selectorName);
+      if (r) return r;
+      await new Promise(r2 => setTimeout(r2, baseDelay * Math.pow(2, i)));
     }
-    // Esgotou retries
     reportFailure(selectorName, { critical });
     return null;
   }
 
-  /**
-   * Verifica saúde geral. Roda no boot.
-   */
   function healthCheck() {
-    const required = ['chat', 'msg', 'contact', 'blocklist'];
-    const missing = required.filter(s => !get(s));
     return {
-      ok: missing.length === 0,
-      missing,
-      version: detectVersion(),
+      ok: state.ready && state.modulesLoaded.length > 0,
+      missing: state.missing,
+      version: state.version,
+      modulesLoaded: state.modulesLoaded,
+      readyAt: state.readyAt,
       timestamp: Date.now(),
     };
   }
 
-  /**
-   * Banner de fallback no topo do WhatsApp Web
-   */
+  // ── Fallback banner ───────────────────────────────────────────────────
   function showFallbackBanner(message = 'WhatsApp atualizou — modo manual ativo') {
     if (_bannerShown) return;
     _bannerShown = true;
-
     try {
       const banner = document.createElement('div');
       banner.id = 'whl-fallback-banner';
@@ -209,20 +210,19 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       `;
       banner.textContent = '⚠️ ' + message + ' — sugestões funcionam, envio é manual.';
-      document.body.appendChild(banner);
-
-      // Auto-dismiss em 30s
+      (document.body || document.documentElement).appendChild(banner);
       setTimeout(() => banner.remove(), 30000);
     } catch (_) {}
   }
-
   function hideFallbackBanner() {
     document.getElementById('whl-fallback-banner')?.remove();
     _bannerShown = false;
   }
 
-  // ── Expor API pública ────────────────────────────────────────────────
+  // ── Boot ──────────────────────────────────────────────────────────────
   window.WHL_WaBridge = {
+    call,
+    onReady,
     get,
     getWithRetry,
     healthCheck,
@@ -230,22 +230,23 @@
     showFallbackBanner,
     hideFallbackBanner,
     reportFailure,
-    // Para tests / debug
     _failed,
-    SELECTORS,
+    _state: state,
   };
 
-  // ── Health check inicial após load ───────────────────────────────────
-  // Boot delayed: WhatsApp Web demora a injetar Store
-  if (typeof window !== 'undefined' && window.location?.hostname?.includes('web.whatsapp.com')) {
+  // Ping the page bridge in case it became ready before this script loaded.
+  try {
+    window.postMessage({ source: SOURCE_OUT, type: 'ping' }, '*');
+  } catch (_) {}
+
+  // Health watchdog: if we haven't heard STORE_READY within 15s, warn the user.
+  if (window.location?.hostname?.includes('web.whatsapp.com')) {
     setTimeout(() => {
-      const health = healthCheck();
-      if (!health.ok) {
-        console.warn('[WHL Bridge] Health check failed:', health);
+      if (!state.ready) {
+        console.warn('[WHL Bridge] Page bridge never reached STORE_READY in 15s');
+        reportFailure('page-bridge-timeout');
         showFallbackBanner('Algumas integrações com WhatsApp não carregaram');
-      } else {
-        console.log('[WHL Bridge] Health OK', health);
       }
-    }, 8000); // espera 8s pelo WhatsApp Web inicializar Store
+    }, PAGE_READY_TIMEOUT_MS);
   }
 })();

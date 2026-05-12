@@ -322,10 +322,11 @@
         state = { ...state, ...sanitized };
       }
 
-      // Migração/compat: se não houver token no schema novo, tentar recuperar do legado
-      if (!state.accessToken) {
+      // Migração/compat: sempre tentar recuperar do schema legado, para que a
+      // URL persista mesmo antes do usuário fazer login. Token só é recuperado
+      // se ainda não houver um no schema novo.
+      {
         const legacy = await chrome.storage.local.get(['whl_backend_config', 'backend_url', 'backend_token', 'whl_backend_url']);
-        // SECURITY FIX P0-038: Sanitize legacy config to prevent Prototype Pollution
         const sanitizedLegacy = sanitizeObject(legacy);
         const legacyCfg = sanitizedLegacy?.whl_backend_config;
 
@@ -336,8 +337,8 @@
           '';
         const legacyToken = legacyCfg?.token || sanitizedLegacy?.backend_token || null;
 
-        if (legacyUrl) state.baseUrl = legacyUrl;
-        if (legacyToken) state.accessToken = legacyToken;
+        if (legacyUrl && !state.baseUrl) state.baseUrl = legacyUrl;
+        if (legacyToken && !state.accessToken) state.accessToken = legacyToken;
       }
     } catch (e) {
       console.warn('[BackendClient] Falha ao carregar estado:', e);
@@ -1010,13 +1011,6 @@
     delete: (id) => del(`/api/v1/templates/${id}`)
   };
 
-  // Analytics
-  const analytics = {
-    dashboard: (period) => get('/api/v1/analytics/dashboard', { period }),
-    trackEvent: (event_type, event_data) => post('/api/v1/analytics/events', { event_type, event_data }),
-    getEvents: (params) => get('/api/v1/analytics/events', params)
-  };
-
   // AI
   const ai = {
     complete: (messages, options = {}) => post('/api/v1/ai/complete', { messages, ...options }),
@@ -1246,7 +1240,6 @@
     crm,
     tasks,
     templates,
-    analytics,
     ai,
     autopilotMaturity, // v9.3.0
     webhooks,

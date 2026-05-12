@@ -98,25 +98,50 @@
   // ===== HELPER FUNCTIONS FOR WHATSAPP STORE =====
   function waitForWA() {
     return new Promise(resolve => {
-      // Wait for WHL_Store from bridge (not window.Store directly due to CSP)
-      if (window.WHL_Store) return resolve();
-      
-      // Listen for bridge ready event
+      if (window.WHL_Store?._readyAt) return resolve();
+
       const handleBridgeReady = () => {
         window.removeEventListener('WHL_STORE_READY', handleBridgeReady);
         resolve();
       };
       window.addEventListener('WHL_STORE_READY', handleBridgeReady);
-      
-      // Fallback timeout
-      setTimeout(resolve, 10000);
+
+      // Poll fallback in case the event fired before this listener attached
+      const pollStart = Date.now();
+      const poll = setInterval(() => {
+        if (window.WHL_Store?._readyAt) {
+          clearInterval(poll);
+          window.removeEventListener('WHL_STORE_READY', handleBridgeReady);
+          resolve();
+        } else if (Date.now() - pollStart > 20000) {
+          clearInterval(poll);
+          resolve();
+        }
+      }, 250);
     });
   }
 
   function initStore() {
-    // Store is initialized by store-bridge.js
-    // Just check if WHL_Store is available
     return !!window.WHL_Store;
+  }
+
+  // Pull the model array out of a Collection regardless of internal shape.
+  function modelsOf(collection) {
+    if (!collection) return [];
+    if (typeof collection.getModelsArray === 'function') {
+      try { return collection.getModelsArray() || []; } catch (_) {}
+    }
+    if (Array.isArray(collection._models)) return collection._models;
+    if (Array.isArray(collection.models)) return collection.models;
+    return [];
+  }
+
+  // The post-2.3000.x WhatsApp Web mangles property names with __x_ prefix.
+  // Read either form so we work across versions.
+  function readProp(obj, name) {
+    if (!obj) return undefined;
+    const prefixed = obj['__x_' + name];
+    return (prefixed !== undefined) ? prefixed : obj[name];
   }
 
   // ===== VALIDAÇÃO ULTRA-RIGOROSA =====
@@ -358,13 +383,13 @@
     
     // APENAS padrões de alta confiança
     
-    // @c.us (ID WhatsApp)
-    const waIdRe = /(\d{10,15})@c\.us/g;
+    // @c.us / @s.whatsapp.net / @lid (1-on-1 IDs)
+    const waIdRe = /(\d{10,15})@(?:c\.us|s\.whatsapp\.net|lid)/g;
     let match;
     while ((match = waIdRe.exec(text)) !== null) {
       if (PhoneStore.add(match[1], 'cus', text)) count++;
     }
-    
+
     // @g.us (grupos)
     const groupRe = /(\d{10,15})@g\.us/g;
     while ((match = groupRe.exec(text)) !== null) {
@@ -439,37 +464,62 @@
     return count;
   }
   
+  // ===== EXTRAIR CONTATOS NORMAIS DA STORE (via bridge) =====
+  // Iterates window.WHL_Store.Chat (WAWebChatCollection) and pulls every
+  // non-archived 1-on-1 chat. Supports both @c.us and the newer @lid IDs.
+  function extractNormalContactsFromStore() {
+    let count = 0;
+    try {
+      const chats = modelsOf(window.WHL_Store?.Chat);
+      chats.forEach(chat => {
+        try {
+          const isArchived = readProp(chat, 'archive') === true;
+          if (isArchived) return;
+          const id = chat.id?._serialized;
+          if (!id) return;
+          if (id.endsWith('@g.us')) return; // groups handled elsewhere
+          // Accept @c.us and the newer @lid IDs.
+          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
+          if (m && PhoneStore.add(m[1], 'cus', id, 'normal')) count++;
+        } catch (_) {}
+      });
+      // Augment with the address book too — covers contacts you've never chatted with.
+      const book = modelsOf(window.WHL_Store?.Contact);
+      book.forEach(c => {
+        try {
+          const id = c.id?._serialized;
+          if (!id) return;
+          if (id.endsWith('@g.us')) return;
+          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
+          if (m && PhoneStore.add(m[1], 'cus', id, 'normal')) count++;
+        } catch (_) {}
+      });
+      console.log(`[WHL] 👥 Contatos normais (Store): ${count}`);
+    } catch (e) {
+      console.error('[WHL] Erro ao extrair normais via Store:', e);
+    }
+    return count;
+  }
+
   // ===== EXTRAIR CONTATOS ARQUIVADOS =====
   function extractArchivedContacts() {
     let count = 0;
-    
+
     try {
-      // Método 1: Usar window.WHL_Store para pegar chats arquivados (via bridge)
-      if (window.WHL_Store?.Chat?.models) {
-        const chats = window.WHL_Store.Chat.models;
-        chats.forEach(chat => {
-          try {
-            // Verificar se é arquivado
-            // WA 2.3000.x+: propriedade renomeada para __x_archive
-            const isArchived = chat.__x_archive === true || chat.archived === true ||
-                              chat.archive === true || chat.isArchive === true;
-            
-            if (isArchived && chat.id?._serialized) {
-              const id = chat.id._serialized;
-              if (id.endsWith('@c.us')) {
-                const match = id.match(/(\d{10,15})@c\.us/);
-                if (match) {
-                  if (PhoneStore.add(match[1], 'cus', id, 'archived')) {
-                    count++;
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            // Ignorar erros individuais
-          }
-        });
-      }
+      // Método 1: Usar window.WHL_Store.Chat (WAWebChatCollection) — propriedade
+      // __x_archive na 2.3000.x+, fallback para `archive` em versões antigas.
+      const chats = modelsOf(window.WHL_Store?.Chat);
+      chats.forEach(chat => {
+        try {
+          const isArchived = readProp(chat, 'archive') === true ||
+                             chat.archived === true || chat.isArchive === true;
+          if (!isArchived) return;
+          const id = chat.id?._serialized;
+          if (!id) return;
+          const m = id.match(/(\d{10,15})@(c\.us|lid|s\.whatsapp\.net)/);
+          if (m && PhoneStore.add(m[1], 'cus', id, 'archived')) count++;
+        } catch (_) {}
+      });
       
       // Método 2: Procurar pela seção de arquivados no DOM
       const archivedSection = document.querySelector('[data-testid="archived"]') ||
@@ -522,25 +572,16 @@
     let count = 0;
     
     try {
-      // Método 1: Usar window.WHL_Store.Blocklist (via bridge)
-      if (window.WHL_Store?.Blocklist?.models) {
-        const blocked = window.WHL_Store.Blocklist.models;
-        blocked.forEach(contact => {
-          try {
-            const id = contact.id?._serialized || contact.id?.user;
-            if (id) {
-              const match = String(id).match(/(\d{10,15})/);
-              if (match) {
-                if (PhoneStore.add(match[1], 'cus', String(id), 'blocked')) {
-                  count++;
-                }
-              }
-            }
-          } catch (e) {
-            // Ignorar erros individuais
-          }
-        });
-      }
+      // Método 1: Usar window.WHL_Store.Blocklist (WAWebBlocklistCollection)
+      const blocked = modelsOf(window.WHL_Store?.Blocklist);
+      blocked.forEach(contact => {
+        try {
+          const id = contact.id?._serialized || contact.id?.user;
+          if (!id) return;
+          const match = String(id).match(/(\d{10,15})/);
+          if (match && PhoneStore.add(match[1], 'cus', String(id), 'blocked')) count++;
+        } catch (_) {}
+      });
       
       // Método 2: Procurar no localStorage por chaves relacionadas a "block"
       for (let i = 0; i < localStorage.length; i++) {
@@ -823,6 +864,10 @@
     await extractFromIndexedDB();
     window.postMessage({ type: 'WHL_EXTRACT_PROGRESS', progress: 18, count: PhoneStore.getFiltered().length }, window.location.origin);
     
+    // Fase 3.4: Normais via Store (caminho rápido — não precisa de scroll)
+    console.log('[WHL] 👥 Fase 3.4: Contatos normais via Store (Chat+Contact collections)...');
+    extractNormalContactsFromStore();
+
     // Fase 3.5: Arquivados e Bloqueados
     console.log('[WHL] 📁 Fase 3.5: Contatos arquivados e bloqueados...');
     extractArchivedContacts();
