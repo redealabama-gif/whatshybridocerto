@@ -269,84 +269,50 @@ async function handleOpenChat(message, sender, sendResponse) {
 }
 
 // ===== UI ROUTING: OPEN SIDE PANEL + SET ACTIVE VIEW =====
-async function handleOpenSidePanelView(message, sender, sendResponse) {
-  console.log('[WHL Background] ▶️ handleOpenSidePanelView called with view:', message.view);
+// v9.5.9: chrome.sidePanel.open() requires a user gesture and the gesture is
+// only valid for ONE async hop. The previous version did `await chrome.storage.local.set(...)`
+// before calling `chrome.sidePanel.open(...)`, which consumed the gesture and
+// caused every open to fail with "must be called in response to a user gesture".
+// Fix: call sidePanel.open() FIRST (kicked off synchronously after we have a
+// tabId), and persist storage after.
+function handleOpenSidePanelView(message, sender, sendResponse) {
+  const view = String(message.view || 'principal');
+  const tabId = sender?.tab?.id ?? message.tabId;
+  const windowId = sender?.tab?.windowId;
+
+  // 1. Kick off sidePanel.open synchronously so we don't lose the user gesture.
+  let openPromise = null;
   try {
-    const view = String(message.view || 'principal');
-    console.log('[WHL Background] Processing view:', view);
-
-    // Try to open the side panel for the current WhatsApp tab/window
-    const tabId = sender?.tab?.id ?? message.tabId;
-    const windowId = sender?.tab?.windowId;
-
-    // Persist view + tab association so the Side Panel can talk to the right tab
-    await chrome.storage.local.set({
-      whl_active_view: view,
-      whl_active_tabId: (typeof tabId === 'number') ? tabId : null,
-      whl_active_windowId: (typeof windowId === 'number') ? windowId : null
-    });
-    console.log('[WHL Background] ✅ Saved to storage: whl_active_view =', view);
-
-    // BUG FIX 2: Always try to open the side panel with proper error handling
-    if (chrome.sidePanel && chrome.sidePanel.open) {
-      let openSuccess = false;
-      
-      // Try 1: Open with specific tabId if available
+    if (chrome.sidePanel?.open) {
       if (typeof tabId === 'number') {
-        try {
-          await chrome.sidePanel.open({ tabId });
-          openSuccess = true;
-          console.log('[WHL Background] Side panel opened for tab:', tabId);
-        } catch (e1) {
-          console.warn('[WHL Background] Failed to open side panel with tabId:', e1.message);
-        }
+        openPromise = chrome.sidePanel.open({ tabId });
+      } else if (typeof windowId === 'number') {
+        openPromise = chrome.sidePanel.open({ windowId });
       }
-      
-      // Try 2: Open with windowId if tabId failed
-      if (!openSuccess && typeof windowId === 'number') {
-        try {
-          await chrome.sidePanel.open({ windowId });
-          openSuccess = true;
-          console.log('[WHL Background] Side panel opened for window:', windowId);
-        } catch (e2) {
-          console.warn('[WHL Background] Failed to open side panel with windowId:', e2.message);
-        }
-      }
-      
-      // Try 3: Query active tab and try again
-      if (!openSuccess) {
-        try {
-          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (tabs?.[0]?.id != null) {
-            await chrome.sidePanel.open({ tabId: tabs[0].id });
-            openSuccess = true;
-            console.log('[WHL Background] Side panel opened for queried tab:', tabs[0].id);
-          }
-        } catch (e3) {
-          console.warn('[WHL Background] Failed to open side panel with queried tab:', e3.message);
-        }
-      }
-      
-      if (!openSuccess) {
-        console.error('[WHL Background] All attempts to open side panel failed');
-        sendResponse({ success: false, error: 'Failed to open side panel after multiple attempts' });
-        return;
-      }
-    } else {
-      console.warn('[WHL Background] chrome.sidePanel.open is not available');
     }
-
-    // Também enviar mensagem direta para o sidepanel (se estiver aberto)
-    try {
-      chrome.runtime.sendMessage({ action: 'WHL_CHANGE_VIEW', view })
-        .catch(() => {}); // Ignore if no receiver
-    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
-    
-    sendResponse({ success: true, view });
   } catch (e) {
-    console.error('[WHL Background] Error in handleOpenSidePanelView:', e);
-    sendResponse({ success: false, error: e?.message || String(e) });
+    console.warn('[WHL Background] sidePanel.open sync throw:', e?.message);
   }
+
+  // 2. Persist + broadcast in parallel.
+  const persistPromise = chrome.storage.local.set({
+    whl_active_view: view,
+    whl_active_tabId: (typeof tabId === 'number') ? tabId : null,
+    whl_active_windowId: (typeof windowId === 'number') ? windowId : null,
+  }).catch((e) => console.warn('[WHL Background] storage.set failed:', e?.message));
+
+  try {
+    chrome.runtime.sendMessage({ action: 'WHL_CHANGE_VIEW', view }).catch(() => {});
+  } catch (_) {}
+
+  Promise.all([openPromise, persistPromise]).then(() => {
+    sendResponse({ success: true, view });
+  }, (err) => {
+    console.error('[WHL Background] Side panel open failed:', err?.message || err);
+    sendResponse({ success: false, view, error: err?.message || String(err) });
+  });
+  // Return true since sendResponse will be called asynchronously.
+  return true;
 }
 
 // Enable/disable Side Panel for the current tab (used to keep Top Panel + Side Panel in sync)

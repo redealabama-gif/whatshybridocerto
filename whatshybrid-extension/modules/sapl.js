@@ -159,33 +159,15 @@
    * O wpp-hooks.js envolve a função original — se o WA recarregar ou navegar,
    * o módulo pode perder o patch.
    */
-  function probeHookAlive(moduleName) {
+  function probeHookAlive(_moduleName) {
+    // The isolated content-script world has no access to page-world `require`
+    // or to `window.whl_hooks_loaded` (set inside the page world). Probing
+    // here always returned false and triggered endless re-init attempts.
+    // Instead, treat WHL_WaBridge readiness as the canonical "alive" signal.
     try {
-      switch (moduleName) {
-        case 'renderableMessages': {
-          if (typeof require !== 'function') return false;
-          const mod = require('WAWebMessageProcessRenderable');
-          // Se o toString não contém nossa assinatura ([WHL Hooks]), o hook foi perdido
-          const fn = mod?.processRenderableMessages;
-          if (!fn) return false;
-          // Verificar se whl_hooks_loaded ainda está ativo
-          return window.whl_hooks_loaded === true;
-        }
-        case 'editMessages': {
-          if (typeof require !== 'function') return false;
-          const mod = require('WAWebDBProcessEditProtocolMsgs');
-          return !!mod?.processEditProtocolMsgs;
-        }
-        case 'messageCreated':
-          return window.whl_hooks_loaded === true;
-        case 'statusUpdates':
-          return window.whl_hooks_loaded === true;
-        default:
-          return true;
-      }
-    } catch {
-      return false;
-    }
+      const health = window.WHL_WaBridge?.healthCheck?.();
+      return !!(health && health.ok);
+    } catch (_) { return false; }
   }
 
   async function runHookWatchdog() {
@@ -204,9 +186,8 @@
       }
     }
 
-    if (!window.whl_hooks_loaded) {
-      anyBroken = true;
-    }
+    // Note: whl_hooks_loaded lives in the page world and is not visible here.
+    // The bridge readiness (probed above) is the canonical signal.
 
     if (anyBroken) {
       await attemptHookReinit();
@@ -234,21 +215,20 @@
     await new Promise(r => safeTimeout(r, CFG.HOOK_REINIT_DELAY_MS));
 
     try {
-      // Resetar flag para permitir re-execução
-      window.whl_hooks_loaded = false;
-
-      // Re-executar a função principal dos hooks se disponível
-      if (typeof window.whl_hooks_main === 'function') {
-        window.whl_hooks_main();
-        log('✅ whl_hooks_main() re-executado.');
+      // whl_hooks_main lives in the page world and isn't reachable from the
+      // isolated content-script. We instead ping the page bridge and wait
+      // for STORE_READY to fire again.
+      try { window.postMessage({ source: 'WHL_ISOLATED', type: 'ping' }, '*'); } catch (_) {}
+      // Give the page bridge a moment, then re-check health.
+      await new Promise(r => safeTimeout(r, 1500));
+      const health = window.WHL_WaBridge?.healthCheck?.();
+      if (health?.ok) {
+        log('✅ Page bridge reanunciou STORE_READY.');
         state.hookReinitCount = 0;
         emitEvent('sapl:hook_reinitialized', { ts: Date.now() });
-        // Atualizar status
-        for (const k of Object.keys(state.hookStatus)) {
-          state.hookStatus[k] = true;
-        }
+        for (const k of Object.keys(state.hookStatus)) state.hookStatus[k] = true;
       } else {
-        warn('whl_hooks_main não disponível — não é possível reinicializar.');
+        warn('Page bridge ainda não pronto — bridge não respondeu ao ping.');
       }
     } catch (e) {
       error('Erro ao reinicializar hooks:', e.message);
@@ -573,10 +553,12 @@
 
   function testModule(modId) {
     switch (modId) {
-      case 'whl_hooks':
-        return window.whl_hooks_loaded
+      case 'whl_hooks': {
+        const health = window.WHL_WaBridge?.healthCheck?.();
+        return (health && health.ok)
           ? { ok: true }
-          : { ok: false, reason: 'whl_hooks_loaded = false', severity: 'critical' };
+          : { ok: false, reason: 'WHL_WaBridge não pronto', severity: 'critical' };
+      }
 
       case 'recover':
         return window.RecoverAdvanced
@@ -626,7 +608,8 @@
     // 2. Reinicializar hooks se necessário
     if (selfTestReport?.modules?.whl_hooks?.ok === false) {
       await attemptHookReinit();
-      if (window.whl_hooks_loaded) {
+      const health = window.WHL_WaBridge?.healthCheck?.();
+      if (health && health.ok) {
         healed.push('whl_hooks');
       } else {
         failed.push('whl_hooks');
@@ -737,11 +720,8 @@
   async function waitForHooksReady(maxWaitMs = 30_000) {
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
-      if (window.whl_hooks_loaded && typeof require === 'function') {
-        try {
-          if (require('WAWebMessageProcessRenderable')) return true;
-        } catch { /* ainda carregando */ }
-      }
+      const health = window.WHL_WaBridge?.healthCheck?.();
+      if (health && health.ok) return true;
       await new Promise(r => setTimeout(r, 500));
     }
     warn('Timeout aguardando hooks do WA. Continuando mesmo assim.');

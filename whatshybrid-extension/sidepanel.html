@@ -1028,25 +1028,6 @@
   </div>
 </section>
 
-            <!-- ============ VIEW: ANALYTICS ============ -->
-            <section id="whlViewAnalytics" class="whl-view hidden">
-  <div class="sp-card">
-    <div class="sp-title">📊 Analytics & Métricas</div>
-    <div class="sp-muted">Acompanhe o desempenho das suas campanhas e mensagens.</div>
-
-    <div class="sp-row" style="margin-top:12px">
-      <button id="analytics_refresh" class="sp-btn sp-btn-secondary">🔄 Atualizar</button>
-      <button id="analytics_export" class="sp-btn sp-btn-secondary">📤 Exportar</button>
-      <button id="analytics_reset" class="sp-btn sp-btn-danger">🗑️ Resetar</button>
-    </div>
-  </div>
-
-  <div id="analytics_dashboard_container">
-    <!-- Dashboard será renderizado aqui pelo módulo -->
-    <div class="whl-empty">Carregando métricas...</div>
-  </div>
-</section>
-
             <!-- ============ VIEW: TASKS ============ -->
             <section id="whlViewTasks" class="whl-view hidden">
   <div class="sp-card">
@@ -1600,7 +1581,12 @@
 
     <!-- URL do backend -->
     <label class="sp-label">URL do Servidor</label>
-    <input type="url" id="backend_url" class="sp-input" placeholder="http://localhost:3000" style="margin-bottom:12px;" />
+    <input type="url" id="backend_url" class="sp-input" placeholder="http://localhost:3000" style="margin-bottom:8px;" />
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="backend_url_save" class="sp-btn" style="flex:1;">💾 Salvar URL</button>
+      <button id="backend_url_test" class="sp-btn" style="flex:1;">🔌 Testar Conexão</button>
+    </div>
+    <div id="backend_url_test_result" style="display:none;font-size:12px;margin-bottom:12px;padding:8px;border-radius:6px;"></div>
 
     <!-- Formulários de autenticação (wrapper para o ai-backend-handlers.js) -->
     <div id="backend_auth_form">
@@ -1935,7 +1921,6 @@
     <!-- Modules -->
     <script src="modules/chart-engine.js"></script>
     <script src="modules/notifications.js"></script>
-    <script src="modules/analytics.js"></script>
     <script src="modules/crm.js"></script>
     <script src="modules/tasks.js"></script>
     <script src="modules/smart-replies.js"></script>

@@ -497,6 +497,22 @@
       disconnectBtn.addEventListener('click', handleBackendDisconnect);
     }
 
+    // v9.5.9: Save URL + Test connection buttons.
+    // Previously the URL was only persisted as a side-effect of login, which
+    // meant module like CRM/Tasks reported "Backend não configurado" until
+    // the user actually logged in. Now we persist it on its own.
+    const saveUrlBtn = document.getElementById('backend_url_save');
+    const testUrlBtn = document.getElementById('backend_url_test');
+    const urlInput = document.getElementById('backend_url');
+
+    // Hydrate the input from storage on first paint.
+    chrome.storage.local.get(['whl_backend_url']).then((r) => {
+      if (urlInput && r?.whl_backend_url) urlInput.value = r.whl_backend_url;
+    }).catch(() => {});
+
+    if (saveUrlBtn) saveUrlBtn.addEventListener('click', handleSaveBackendUrl);
+    if (testUrlBtn) testUrlBtn.addEventListener('click', handleTestBackendConnection);
+
     // Sync buttons
     document.getElementById('backend_sync_contacts')?.addEventListener('click', () => syncData('contacts'));
     document.getElementById('backend_sync_deals')?.addEventListener('click', () => syncData('deals'));
@@ -629,6 +645,71 @@
         btn.textContent = '📝 Criar Conta';
       }
     }
+  }
+
+  // v9.5.9: persist backend URL independently of login flow.
+  function normalizeBackendUrl(url) {
+    const v = String(url || '').trim();
+    return v ? v.replace(/\/+$/, '') : '';
+  }
+
+  async function handleSaveBackendUrl() {
+    const urlInput = document.getElementById('backend_url');
+    const url = normalizeBackendUrl(urlInput?.value);
+    if (!url) {
+      showUrlTestResult('URL vazia — digite http://localhost:3000 ou seu servidor.', 'error');
+      return;
+    }
+    try {
+      // Persist under every key the codebase reads from, so CRM/Tasks/etc see it.
+      await chrome.storage.local.set({
+        whl_backend_url: url,
+        backend_url: url,
+        whl_backend_config: { url, token: null },
+      });
+      if (window.BackendClient?.setBaseUrl) {
+        try { window.BackendClient.setBaseUrl(url); } catch (_) {}
+      }
+      showUrlTestResult('URL salva: ' + url, 'success');
+    } catch (e) {
+      showUrlTestResult('Erro ao salvar: ' + (e?.message || e), 'error');
+    }
+  }
+
+  async function handleTestBackendConnection() {
+    const urlInput = document.getElementById('backend_url');
+    const url = normalizeBackendUrl(urlInput?.value);
+    const btn = document.getElementById('backend_url_test');
+    if (!url) {
+      showUrlTestResult('URL vazia — digite a URL antes de testar.', 'error');
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Testando...'; }
+    showUrlTestResult('Testando ' + url + '/api/health …', 'info');
+    try {
+      const resp = await fetch(url + '/api/health', { method: 'GET', cache: 'no-store' });
+      if (resp.ok) {
+        let body = '';
+        try { body = (await resp.text()).slice(0, 120); } catch (_) {}
+        showUrlTestResult('✅ Conectado (' + resp.status + ')' + (body ? ' — ' + body : ''), 'success');
+      } else {
+        showUrlTestResult('⚠️ Servidor respondeu ' + resp.status + ' — verifique a URL.', 'error');
+      }
+    } catch (e) {
+      showUrlTestResult('❌ Falha de conexão: ' + (e?.message || e), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔌 Testar Conexão'; }
+    }
+  }
+
+  function showUrlTestResult(message, kind) {
+    const el = document.getElementById('backend_url_test_result');
+    if (!el) return;
+    el.textContent = message;
+    el.style.display = 'block';
+    if (kind === 'success') { el.style.background = 'rgba(16,185,129,0.15)'; el.style.color = '#10b981'; }
+    else if (kind === 'error') { el.style.background = 'rgba(239,68,68,0.15)'; el.style.color = '#ef4444'; }
+    else { el.style.background = 'rgba(59,130,246,0.15)'; el.style.color = '#3b82f6'; }
   }
 
   async function handleBackendDisconnect() {
