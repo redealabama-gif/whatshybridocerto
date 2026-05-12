@@ -300,39 +300,48 @@ class WhatsAppDOMMonitor {
    */
   async sendTelemetry(results) {
     try {
-      // FIX PEND-MED-010: Check user consent before sending telemetry
+      // Check user consent before sending telemetry.
       const consentData = await chrome.storage.local.get('whl_telemetry_consent');
-      if (consentData.whl_telemetry_consent !== true) {
-        return; // User has not consented
-      }
+      if (consentData.whl_telemetry_consent !== true) return;
 
       const config = await chrome.storage.local.get(['whl_backend_url', 'whl_auth_token']);
+      if (!config.whl_backend_url) return;
 
-      if (!config.whl_backend_url || !config.whl_auth_token) {
-        return; // Backend não configurado
-      }
+      // Each missing element becomes its own selector-failure report so the
+      // dashboard aggregator (`/api/v1/telemetry/dashboard`) can show which
+      // specific selector broke. The endpoint accepts unauthenticated
+      // posts; we forward the bearer token when available so the report
+      // can be attributed to a workspace.
+      const waVersion = document.querySelector('meta[name="version"]')?.content ||
+                        window.Debug?.VERSION ||
+                        localStorage.getItem('WAVersion') ||
+                        'unknown';
+      const extensionVersion = chrome?.runtime?.getManifest?.()?.version || 'unknown';
 
-      await fetch(`${config.whl_backend_url}/api/v1/analytics/telemetry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.whl_auth_token}`
+      const reports = (results.missing || []).map(name => ({
+        selector_name: 'dom:' + name,
+        wa_version: String(waVersion),
+        extension_version: String(extensionVersion),
+        metadata: {
+          source: 'dom-monitor',
+          changed: results.changed || [],
+          chat_open: !!results.chatOpen,
+          // Browser name only — never the full UA.
+          browser: navigator.userAgent.match(/(Chrome|Firefox|Safari|Edge)\/[\d.]+/)?.[0] || 'unknown',
         },
-        body: JSON.stringify({
-          type: 'dom_monitor',
-          event: 'health_check',
-          data: {
-            healthy: results.healthy,
-            missing: results.missing,
-            changed: results.changed,
-            // Anonymized: only send domain, not full URL with chat IDs
-            domain: window.location.hostname,
-            // Anonymized: only browser name/version, not full UA string
-            browser: navigator.userAgent.match(/(Chrome|Firefox|Safari|Edge)\/[\d.]+/)?.[0] || 'unknown',
-            timestamp: results.timestamp
-          }
-        })
-      });
+      }));
+      if (reports.length === 0) return;
+
+      const url = `${config.whl_backend_url}/api/v1/telemetry/selector-failure`;
+      const headers = { 'Content-Type': 'application/json' };
+      if (config.whl_auth_token) headers.Authorization = `Bearer ${config.whl_auth_token}`;
+
+      await Promise.allSettled(reports.map(r => fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(r),
+        keepalive: true,
+      })));
     } catch (error) {
       console.warn('[DOM Monitor] Erro ao enviar telemetria:', error);
     }
