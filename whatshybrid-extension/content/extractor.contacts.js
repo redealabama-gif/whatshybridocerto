@@ -499,49 +499,59 @@
     return count;
   }
   
-  // Resolve a chat/contact entity to a phone-number string by trying every
-  // shape the post-2.3000.x WhatsApp Web model exposes. Returns null when
-  // there's genuinely no phone (some @lid contacts are linked-device-only and
-  // never had a phone exposed to the page world).
+  // Resolve a chat/contact entity to a real phone-number string.
+  // A @lid id is NOT a phone — its digits are a routing identifier (e.g.
+  // "155757190365423"). We accept digits only when they came from a
+  // phone-shaped server (c.us / s.whatsapp.net) or from an explicit
+  // __x_phoneNumber / pnh / pn field. opts.acceptLid is honored only by the
+  // Blocklist path, where the user may genuinely want the lid id surfaced
+  // so they can identify which lid contact was blocked.
   function resolvePhoneFromEntity(entity, opts = {}) {
     if (!entity) return null;
-    const tryIdString = (s) => {
+
+    const fromSerialized = (s) => {
       if (!s) return null;
-      const str = String(s);
-      // Phone-shaped serialized id
-      let m = str.match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
-      if (m) return m[1];
-      // Bare digits (typical of contact.id.user)
-      m = str.match(/^(\d{8,15})$/);
-      if (m) return m[1];
-      // @lid: NOT a phone, but capture so caller can decide to store it raw.
-      m = str.match(/^(\d{8,20})@lid$/);
-      if (m) return opts.acceptLid ? m[1] : null;
-      return null;
+      const m = String(s).match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
+      return m ? m[1] : null;
+    };
+    const userIfPhoneServer = (idObj) => {
+      if (!idObj) return null;
+      const server = idObj.server;
+      if (server !== 'c.us' && server !== 's.whatsapp.net') return null;
+      const u = idObj.user;
+      return (typeof u === 'string' && /^\d{8,15}$/.test(u)) ? u : null;
+    };
+    const fromBareField = (v) => {
+      if (v === undefined || v === null) return null;
+      const d = String(v).replace(/\D/g, '');
+      return /^\d{8,15}$/.test(d) ? d : null;
     };
 
-    // 1. Direct id
-    let phone = tryIdString(entity.id?._serialized);
-    if (phone) return phone;
-    phone = tryIdString(entity.id?.user);
+    // 1) Direct id
+    let phone = fromSerialized(entity.id?._serialized) || userIfPhoneServer(entity.id);
     if (phone) return phone;
 
-    // 2. Explicit phone-number fields on chat/contact
-    const directFields = [
-      entity.__x_phoneNumber, entity.phoneNumber,
-      entity.__x_pnh, entity.pnh,
-      entity.__x_pn, entity.pn,
-    ];
-    for (const f of directFields) {
-      const p = tryIdString(f);
+    // 2) Explicit phone-number fields
+    for (const f of [entity.__x_phoneNumber, entity.phoneNumber,
+                     entity.__x_pnh, entity.pnh,
+                     entity.__x_pn, entity.pn]) {
+      const p = fromBareField(f);
       if (p) return p;
     }
 
-    // 3. Chat → Contact link
+    // 3) Chat → Contact link
     const contact = entity.__x_contact || entity.contact;
     if (contact && contact !== entity) {
       const p = resolvePhoneFromEntity(contact, { acceptLid: opts.acceptLid });
       if (p) return p;
+    }
+
+    // 4) Optional fallback for blocked list: surface the @lid digits so the
+    //    user at least knows *something* was blocked even if WhatsApp never
+    //    leaked the phone to the page world.
+    if (opts.acceptLid) {
+      const m = String(entity.id?._serialized || '').match(/^(\d{8,20})@lid$/);
+      if (m) return m[1];
     }
     return null;
   }
