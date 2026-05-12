@@ -25,48 +25,68 @@
 
   // ============================================
   // SELETORES COM MÚLTIPLOS FALLBACKS
+  //
+  // Ordem dentro de cada array = preferência. Convenção (após refactor
+  // v9.5.9 para WA 2.3000.x):
+  //   1. ID/âncoras estruturais  (#main, #pane-side, #side, #app)
+  //   2. aria-label / role       (semântica, sobrevive ofuscação CSS)
+  //   3. span[data-icon=…]       (icones ainda usam essa convenção)
+  //   4. data-lexical-editor /   (composer atual)
+  //      [contenteditable] +
+  //      role=textbox
+  //   5. data-id em mensagens    (sobrevive rebuild de classes)
+  //   6. data-testid (LEGACY)    (a maioria morreu; mantemos como último
+  //                               fallback para builds 2.2000.x)
   // ============================================
   const SELECTORS = {
     // ===== HEADER DO CHAT =====
     chatHeader: [
-      'header[data-testid="conversation-header"]',
-      '[data-testid="conversation-info-header"]',
       '#main header',
       '#main > div > header',
       'header[role="banner"]',
-      '.copyable-area header'
+      '.copyable-area header',
+      // legacy
+      'header[data-testid="conversation-header"]',
+      '[data-testid="conversation-info-header"]',
     ],
 
     // ===== TÍTULO DO CHAT (nome do contato/grupo) =====
     chatTitle: [
-      '[data-testid="conversation-info-header-chat-title"]',
-      'header span[dir="auto"][title]',
       '#main header span[title]',
+      '#main header span[dir="auto"][title]',
+      'header span[dir="auto"][title]',
+      // legacy
+      '[data-testid="conversation-info-header-chat-title"]',
       'header[data-testid="conversation-header"] span[title]',
       '.copyable-area header span[title]',
       'header ._amig span'
     ],
 
-    // ===== INPUT DE MENSAGEM =====
-    // data-tab values são índices internos do WhatsApp para navegação por teclado
+    // ===== INPUT DE MENSAGEM (composer) =====
+    // WA 2.3000.x usa lexical editor; data-tab era da era 2.2000.x.
     messageInput: [
+      'footer div[contenteditable="true"][role="textbox"]',
+      'footer div[contenteditable="true"][data-lexical-editor="true"]',
+      '[data-lexical-editor="true"][contenteditable="true"]',
+      '#main footer [contenteditable="true"]',
+      'footer [contenteditable="true"]',
+      'div[role="textbox"][contenteditable="true"]',
+      '.copyable-text.selectable-text[contenteditable="true"]',
+      // legacy
       '[data-testid="conversation-compose-box-input"]',
       '[contenteditable="true"][data-tab="10"]',
       '[contenteditable="true"][data-tab="6"]',
       '[contenteditable="true"][data-tab="1"]',
-      'footer [contenteditable="true"]',
-      'div[role="textbox"][contenteditable="true"]',
-      '[data-lexical-editor="true"]',
-      '.copyable-text.selectable-text[contenteditable="true"]',
-      '#main footer [contenteditable="true"]'
     ],
 
     // ===== BOTÃO DE ENVIAR =====
     sendButton: [
-      '[data-testid="send"]',
-      'button[aria-label*="Enviar"]',
-      'button[aria-label*="Send"]',
       'span[data-icon="send"]',
+      'span[data-icon="wds-ic-send-filled"]',
+      'footer button[aria-label*="Enviar" i]',
+      'footer button[aria-label*="Send" i]',
+      // legacy
+      '[data-testid="send"]',
       'footer button[data-tab="11"]',
       'button[data-testid="compose-btn-send"]',
       '.copyable-area button[aria-label*="Enviar"]'
@@ -74,44 +94,56 @@
 
     // ===== LISTA DE CHATS =====
     chatList: [
-      '[data-testid="chat-list"]',
-      '[aria-label="Lista de conversas"]',
-      '[aria-label*="Chat list"]',
-      'div#pane-side > div > div > div',
       '#pane-side',
+      '[aria-label="Lista de conversas"]',
+      '[aria-label="Chat list"]',
+      'div[aria-label*="conversa" i]',
+      // legacy
+      '[data-testid="chat-list"]',
+      'div#pane-side > div > div > div',
       '[data-testid="chatlist"]'
     ],
 
     // ===== ITEM DE CHAT INDIVIDUAL =====
     chatItem: [
-      '[data-testid="cell-frame-container"]',
-      '[data-testid="list-item-content"]',
       '#pane-side [role="listitem"]',
       'div[role="listitem"]',
+      // legacy
+      '[data-testid="cell-frame-container"]',
+      '[data-testid="list-item-content"]',
       '[data-testid="chat-list"] > div > div'
     ],
 
     // ===== CONTAINER DE MENSAGENS =====
     messageContainer: [
+      '#main [data-id]',
+      '#main [role="row"]',
       'div[data-id]',
       'div[data-message-id]',
       'div[data-msg-id]',
+      'div[role="row"]',
+      '.copyable-text',
+      // legacy class-based (offuscado em 2.3000.x mas pode reaparecer)
       'div.message-in',
       'div.message-out',
-      'div[role="row"]',
-      '.copyable-text'
     ],
 
     // ===== MENSAGEM RECEBIDA =====
     messageIn: [
+      // WA 2.3000.x: ofuscou as classes; usar atributo data-id + ARIA
+      '#main [role="row"]:not([data-pre-plain-text=""])',
+      '[data-id^="false_"]',
       '.message-in',
+      // legacy
       'div[data-testid="msg-container"].message-in',
       '[data-testid="conversation-panel-messages"] .message-in'
     ],
 
     // ===== MENSAGEM ENVIADA =====
     messageOut: [
+      '[data-id^="true_"]',
       '.message-out',
+      // legacy
       'div[data-testid="msg-container"].message-out',
       '[data-testid="conversation-panel-messages"] .message-out'
     ],
@@ -127,16 +159,21 @@
 
     // ===== CAMPO DE BUSCA =====
     searchInput: [
+      '#side [contenteditable="true"]',
+      '#side [role="textbox"]',
+      'div[role="textbox"][title*="Pesquis" i]',
+      'div[role="textbox"][title*="Search" i]',
+      // legacy
       '[data-testid="chat-list-search"]',
       '[data-testid="search-input"]',
       '[contenteditable="true"][data-tab="3"]',
       'div[role="textbox"][data-tab="3"]',
-      '#side [contenteditable="true"]'
     ],
 
     // ===== PAINEL PRINCIPAL =====
     mainPanel: [
       '#main',
+      // legacy
       '[data-testid="conversation-panel-wrapper"]',
       '.two._aigs',
       '[data-testid="conversation-panel"]'
@@ -146,97 +183,114 @@
     sidebar: [
       '#side',
       'div#pane-side',
+      // legacy
       '[data-testid="pane-side"]',
       '.app-wrapper-web .two > div:first-child'
     ],
 
     // ===== APP WRAPPER (verificar se WhatsApp carregou) =====
     appWrapper: [
+      '#app',
       '.app-wrapper .app',
       '#app .app',
-      '#app',
       '.app-wrapper-web',
+      // legacy
       '[data-testid="wa-web-app"]'
     ],
 
     // ===== BOTÃO DE ANEXAR =====
     attachButton: [
-      '[data-testid="attach-menu-plus"]',
-      'button[aria-label*="Anexar"]',
-      'button[aria-label*="Attach"]',
       'span[data-icon="plus"]',
+      'span[data-icon="attach-menu-plus"]',
+      'span[data-icon="clip"]',
+      'footer button[aria-label*="Anexar" i]',
+      'footer button[aria-label*="Attach" i]',
+      // legacy
+      '[data-testid="attach-menu-plus"]',
       'footer button[data-testid="compose-btn-attach"]'
     ],
 
     // ===== BOTÃO DE EMOJI =====
     emojiButton: [
-      '[data-testid="compose-btn-emoji"]',
-      'button[aria-label*="Emoji"]',
       'span[data-icon="smiley"]',
-      'footer button[aria-label*="emoji"]'
+      'span[data-icon="smiley-blank"]',
+      'footer button[aria-label*="Emoji" i]',
+      'footer button[aria-label*="emoji" i]',
+      // legacy
+      '[data-testid="compose-btn-emoji"]',
     ],
 
     // ===== BOTÃO DE ÁUDIO =====
     audioButton: [
-      '[data-testid="ptt-button"]',
-      'button[aria-label*="Gravar"]',
-      'button[aria-label*="Record"]',
       'span[data-icon="ptt"]',
-      'footer button[data-testid="ptt"]'
+      'span[data-icon="ptt-button"]',
+      'footer button[aria-label*="Gravar" i]',
+      'footer button[aria-label*="Record" i]',
+      // legacy
+      '[data-testid="ptt-button"]',
+      'footer button[data-testid="ptt"]',
     ],
 
     // ===== PAINEL DE CONVERSAÇÃO =====
     conversationPanel: [
-      '[data-testid="conversation-panel-messages"]',
       '#main [role="application"]',
+      '#main .copyable-area',
       '.copyable-area > div[tabindex="-1"]',
-      '#main .copyable-area'
+      // legacy
+      '[data-testid="conversation-panel-messages"]',
     ],
 
     // ===== HORÁRIO DA MENSAGEM =====
     messageTime: [
-      '[data-testid="msg-time"]',
       '.copyable-text span[dir="auto"]:last-child',
+      '.message-time',
+      // legacy
+      '[data-testid="msg-time"]',
       'span._amk6',
-      '.message-time'
     ],
 
     // ===== STATUS DE ENTREGA =====
     messageStatus: [
-      '[data-testid="msg-dblcheck"]',
-      '[data-testid="msg-check"]',
       'span[data-icon="msg-dblcheck"]',
       'span[data-icon="msg-check"]',
-      'span[data-icon="msg-time"]'
+      'span[data-icon="msg-time"]',
+      // legacy
+      '[data-testid="msg-dblcheck"]',
+      '[data-testid="msg-check"]',
     ],
 
     // ===== MENU DE CONTEXTO =====
     contextMenu: [
-      '[data-testid="context-menu"]',
       'div[role="application"] > span > div',
-      '.context-menu'
+      '.context-menu',
+      // legacy
+      '[data-testid="context-menu"]',
     ],
 
     // ===== FOTO DE PERFIL =====
     profilePicture: [
+      '#main header img[draggable="false"]',
+      'header img[draggable="false"]',
+      '.avatar-image img',
+      // legacy
       'img[data-testid="image-avatar"]',
       'img[data-testid="user-avatar"]',
-      'header img[draggable="false"]',
-      '.avatar-image img'
     ],
 
     // ===== INDICADOR DE DIGITANDO =====
     typingIndicator: [
-      '[data-testid="typing"]',
       'span[data-icon="typing"]',
-      '.typing-indicator'
+      '.typing-indicator',
+      // legacy
+      '[data-testid="typing"]',
     ],
 
     // ===== BOTÃO DE MENU (3 pontos) =====
     menuButton: [
-      '[data-testid="menu"]',
       'span[data-icon="menu"]',
-      'header button[aria-label*="Menu"]'
+      'header button[aria-label*="Menu" i]',
+      // legacy
+      '[data-testid="menu"]',
     ]
   };
 

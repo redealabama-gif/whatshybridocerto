@@ -19,54 +19,107 @@ class WhatsAppDOMMonitor {
     this.checkInterval = null;
     this.telemetryEnabled = true;
 
-    // Estruturas críticas do WhatsApp Web
+    // Estruturas críticas do WhatsApp Web.
+    //
+    // Ordem dentro de cada `selectors` = preferência. Em WA 2.3000.x quase
+    // todos os `data-testid` foram removidos; mantemos como último recurso
+    // pra builds antigos, mas as âncoras estáveis (ID #app/#pane-side/#main,
+    // aria-label, role=textbox, data-lexical-editor, span[data-icon])
+    // vêm primeiro.
+    //
+    // `needsChat: true` significa "esse elemento só existe quando o
+    // usuário tem um chat aberto" — a checagem só reporta missing se
+    // detectarmos um chat aberto (`#main [role="row"]` ou `#main header`).
     this.criticalElements = {
       chatList: {
         selectors: [
           '#pane-side',
+          '#side',
+          '[aria-label="Lista de conversas"]',
+          '[aria-label="Chat list"]',
+          'div[aria-label*="conversa" i]',
           '[data-testid="chat-list"]',
-          'div[aria-label*="conversa"]'
+          '[data-testid="chatlist"]',
         ],
         required: true,
+        needsChat: false,
         lastFound: null
       },
       messageInput: {
         selectors: [
-          'div[contenteditable="true"][data-tab="10"]',
+          'footer div[contenteditable="true"][role="textbox"]',
+          'footer div[contenteditable="true"][data-lexical-editor="true"]',
+          '[data-lexical-editor="true"][contenteditable="true"]',
+          '#main footer div[contenteditable="true"]',
           'footer div[contenteditable="true"]',
-          '[data-testid="conversation-compose-box-input"]'
+          // legacy
+          'div[contenteditable="true"][data-tab="10"]',
+          'div[contenteditable="true"][data-tab="1"]',
+          '[data-testid="conversation-compose-box-input"]',
         ],
         required: true,
+        needsChat: true,
         lastFound: null
       },
       sendButton: {
         selectors: [
-          'button[data-testid="compose-btn-send"]',
+          // span[data-icon] sobreviveu na 2.3000.x
           'span[data-icon="send"]',
-          'footer button[aria-label*="Enviar"]'
+          'span[data-icon="wds-ic-send-filled"]',
+          'footer button[aria-label*="Enviar" i]',
+          'footer button[aria-label*="Send" i]',
+          'footer button[aria-label*="enviar" i]',
+          // legacy
+          'button[data-testid="compose-btn-send"]',
+          '[data-testid="send"]',
         ],
         required: true,
+        needsChat: true,
         lastFound: null
       },
       contactName: {
         selectors: [
-          'header span[dir="auto"]',
+          '#main header span[title]',
+          '#main header span[dir="auto"]',
+          '#main header h1',
+          // legacy
+          '[data-testid="conversation-info-header-chat-title"]',
           '[data-testid="conversation-header"] span',
-          'header h1'
         ],
         required: false,
+        needsChat: true,
         lastFound: null
       },
       messageContainer: {
         selectors: [
+          '#main [role="row"]',
+          '#main [data-id]',
+          '#main .copyable-area',
+          '#main [role="application"]',
+          // legacy
           'div[data-testid="conversation-panel-messages"]',
-          'div[role="application"]',
-          'div.copyable-area'
+          'div.copyable-area',
         ],
         required: true,
+        needsChat: true,
         lastFound: null
       }
     };
+  }
+
+  /**
+   * Detecta se o usuário tem um chat aberto. Usado pra suprimir os
+   * "elemento crítico ausente: messageInput/sendButton/messageContainer"
+   * quando o usuário ainda não clicou em nenhum chat — eles realmente
+   * não existem ali, e gritar todo polling era ruído puro.
+   */
+  hasChatOpen() {
+    try {
+      const main = document.querySelector('#main');
+      if (!main) return false;
+      // #main fica no DOM com header preenchido quando há chat ativo.
+      return !!(main.querySelector('header') || main.querySelector('[role="row"]'));
+    } catch (_) { return false; }
   }
 
   /**
@@ -118,10 +171,18 @@ class WhatsAppDOMMonitor {
       healthy: true
     };
 
+    const chatOpen = this.hasChatOpen();
+    results.chatOpen = chatOpen;
+
     for (const [name, config] of Object.entries(this.criticalElements)) {
       const found = this.findElement(config.selectors);
 
-      if (!found && config.required) {
+      // Skip "missing" reports for elements that legitimately don't exist
+      // when no chat is open (messageInput, sendButton, messageContainer,
+      // contactName). They are not really critical until the user picks
+      // a chat — reporting them every poll just spams the console.
+      const isMissingAndCritical = !found && config.required && (!config.needsChat || chatOpen);
+      if (isMissingAndCritical) {
         results.missing.push(name);
         results.healthy = false;
 
@@ -129,6 +190,7 @@ class WhatsAppDOMMonitor {
           type: 'MISSING_CRITICAL',
           element: name,
           selectors: config.selectors,
+          chatOpen,
           timestamp: Date.now()
         });
       } else if (found && config.lastFound !== found) {
@@ -293,17 +355,23 @@ class WhatsAppDOMMonitor {
       lastCheck: Date.now()
     };
 
+    const chatOpen = this.hasChatOpen();
+    status.chatOpen = chatOpen;
+
     for (const [name, config] of Object.entries(this.criticalElements)) {
       const available = !!config.lastFound;
       status.elements[name] = {
         available,
         required: config.required,
+        needsChat: !!config.needsChat,
         currentSelector: config.lastFound
       };
 
-      if (config.required && !available) {
-        status.healthy = false;
-      }
+      // Apenas marca a saúde geral como ruim se o elemento é realmente
+      // necessário no contexto atual (chatList sempre; messageInput etc.
+      // só quando há chat aberto).
+      const isBlocking = config.required && !available && (!config.needsChat || chatOpen);
+      if (isBlocking) status.healthy = false;
     }
 
     return status;
