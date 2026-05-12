@@ -34,7 +34,15 @@ if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
 (function rebuildWppHooks() {
   const partsDir = path.join(projectRoot, 'content', 'wpp-hooks-parts');
   if (!fs.existsSync(partsDir)) return;
-  const parts = fs.readdirSync(partsDir).filter(f => f.endsWith('.js')).sort();
+  // Skip macOS AppleDouble files ("._foo.js" resource forks). They look like
+  // valid filenames to readdir but contain binary metadata, and when
+  // concatenated into wpp-hooks.js they produce
+  // SyntaxError: Invalid or unexpected token at the page-world load —
+  // which silently breaks every require()-based feature that depends on
+  // window.whl_hooks_* (extrairContatos, presence hooks, view-once, etc).
+  const parts = fs.readdirSync(partsDir)
+    .filter(f => f.endsWith('.js') && !f.startsWith('._'))
+    .sort();
   if (!parts.length) return;
   let out = `/**
  * wpp-hooks.js — concatenado de wpp-hooks-parts/*.js (gerado por build.js).
