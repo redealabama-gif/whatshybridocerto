@@ -698,16 +698,16 @@
 
     try {
       // Método 1: Usar window.WHL_Store.Blocklist (WAWebBlocklistCollection).
-      // Entradas bloqueadas costumam ser @c.us, mas em algumas contas vêm @lid;
-      // por isso resolvemos via resolvePhoneFromEntity (com fallback aceitando lid).
+      // We never surface @lid digits as phones — the user reported them
+      // showing up as "números grandes aleatórios". If a blocked entry is
+      // @lid-only and has no resolvable phone via __x_contact, we drop it
+      // silently and rely on the localStorage scan (Method 2) which still
+      // finds the real @c.us blocks WhatsApp keeps in IndexedDB/localStorage.
       const blocked = modelsOf(window.WHL_Store?.Blocklist);
       blocked.forEach(entry => {
         try {
-          // Some Blocklist entries are { id: Wid } not full contacts; if so look
-          // up the corresponding Contact for a richer phone field.
           const fullContact = window.WHL_Store?.Contact?.get?.(entry?.id?._serialized) || entry;
-          const phone = resolvePhoneFromEntity(fullContact, { acceptLid: true })
-            || resolvePhoneFromEntity(entry, { acceptLid: true });
+          const phone = resolvePhoneFromEntity(fullContact) || resolvePhoneFromEntity(entry);
           if (phone) {
             if (PhoneStore.addTrusted(phone, 'blocked', 'store_blocklist')) count++;
           }

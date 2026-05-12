@@ -881,71 +881,33 @@
     }
     
     /**
-     * Extração instantânea via API interna (método alternativo)
-     * Tenta múltiplos métodos para garantir compatibilidade
+     * Extração instantânea via API interna (caminho legado).
+     *
+     * A versão original deste arquivo chamava `contact.id.user` direto, o
+     * que para a 2.3000.x emite os dígitos do @lid como se fossem telefone
+     * (foi exatamente o bug reportado: "números grandes aleatórios").
+     * Aqui delegamos para extrairContatos() (definido em 01-init-debug.js)
+     * que usa o resolver estrito resolvePhoneFromChat — ele recusa @lid e
+     * só aceita id.user quando id.server é c.us/s.whatsapp.net.
      */
     function extrairContatosInstantaneo() {
         try {
-            // Método 1: via ContactCollection require
-            try {
-                const ContactC = require('WAWebContactCollection');
-                const contacts = ContactC?.ContactCollection?.getModelsArray?.() || [];
-                if (contacts.length > 0) {
-                    const contatos = contacts.map(contact => contact.id.user || contact.id._serialized?.replace('@c.us', ''));
-                    console.log('[WHL] ✅ Extração via WAWebContactCollection:', contatos.length);
-                    return { success: true, contacts: contatos, method: 'WAWebContactCollection' };
-                }
-            } catch(e) {
-                console.log('[WHL] Método ContactCollection falhou:', e.message);
+            const r = extrairContatos();
+            if (r && r.success) {
+                return { success: true, contacts: r.contacts, method: 'extrairContatos(strict)' };
             }
-            
-            // Método 2: via ChatCollection require
-            try {
-                const CC = require('WAWebChatCollection');
-                const chats = CC?.ChatCollection?.getModelsArray?.() || MODULES.CHAT_COLLECTION?.models || [];
-                if (chats.length > 0) {
-                    const contatos = chats
-                        .filter(c => c?.id?.server !== 'g.us' && (c.id._serialized?.endsWith('@c.us') || c.id?.user))
-                        .map(c => c.id.user || c.id._serialized?.replace('@c.us', ''));
-                    console.log('[WHL] ✅ Extração via WAWebChatCollection:', contatos.length);
-                    return { success: true, contacts: contatos, method: 'WAWebChatCollection' };
-                }
-            } catch(e) {
-                console.log('[WHL] Método ChatCollection falhou:', e.message);
-            }
-            
-            return { success: false, error: 'Nenhum método disponível' };
+            return r || { success: false, error: 'Nenhum método disponível' };
         } catch (error) {
             console.error('[WHL] Erro na extração instantânea:', error);
             return { success: false, error: error.message };
         }
     }
-    
-    
-    /**
-     * Extração de bloqueados
-     */
-    function extrairBloqueados() {
-        try {
-            // Usar WAWebBlocklistCollection
-            try {
-                const BC = require('WAWebBlocklistCollection');
-                const blocklist = BC?.BlocklistCollection?.getModelsArray?.() || [];
-                if (blocklist.length > 0) {
-                    const bloqueados = blocklist.map(c => c.id.user || c.id._serialized?.replace('@c.us', ''));
-                    console.log('[WHL] ✅ Bloqueados via WAWebBlocklistCollection:', bloqueados.length);
-                    return { success: true, blocked: bloqueados };
-                }
-            } catch(e) {
-                console.log('[WHL] Método BlocklistCollection falhou:', e.message);
-            }
-            
-            return { success: false, error: 'Blocklist não disponível' };
-        } catch (error) {
-            console.error('[WHL] Erro ao extrair bloqueados:', error);
-            return { success: false, error: error.message };
-        }
-    }
+
+    // NB: a função extrairBloqueados duplicada que vivia aqui foi removida.
+    // A 01-init-debug.js já define uma versão correta (usa resolvePhoneFromChat
+    // estrito + lookup em ContactCollection para entradas @lid). A duplicata
+    // legada sobrescrevia aquela na concat order, leakando os dígitos do @lid
+    // como se fossem números bloqueados — foi o que o usuário viu.
     
     /**
      * PR #76 ULTRA: Helper para obter nome do grupo
