@@ -297,7 +297,16 @@
   // ============================================
 
   /**
-   * Verifica disponibilidade da API interna
+   * Verifica disponibilidade da API interna.
+   *
+   * Em WhatsApp Web 2.3000.x+ `window.Store` não existe mais (CSP impede
+   * o legado `webpackChunk` shim, e o WA não expõe a Store global). A
+   * autoridade agora é o page-world bridge em `injected/wa-page-bridge.js`,
+   * que resolve `WAWebChatCollection`/`WAWebContactCollection`/etc via
+   * `window.require` e publica o estado para o isolated world via
+   * `WHL_WaBridge.healthCheck()`. Esta função lê DALI; o velho objeto
+   * `window.Store` é mantido apenas como último fallback porque alguns
+   * módulos legados (não-críticos) ainda o consultam diretamente.
    */
   function checkWhatsAppAPI() {
     const results = {
@@ -307,16 +316,29 @@
       msg: false,
       contact: false,
       sendMessage: false,
-      version: null
+      version: null,
+      via: null,
     };
 
     try {
-      // Store principal
-      if (window.Store) {
+      const health = window.WHL_WaBridge?.healthCheck?.();
+      if (health && health.ok) {
+        const loaded = health.modulesLoaded || [];
+        results.Store = true;             // bridge counts as "Store equivalente"
+        results.via = 'WHL_WaBridge';
+        results.version = health.version || 'unknown';
+        results.chat = loaded.includes('Chat');
+        results.msg = loaded.includes('Msg');
+        results.contact = loaded.includes('Contact');
+        // Either explicit SendTextMsg module OR the legacy SendMessage alias.
+        results.sendMessage = loaded.includes('SendTextMsg') || loaded.includes('SendMessage');
+        // Conn isn't exposed by the bridge — derive from overall ok.
+        results.conn = true;
+      } else if (window.Store) {
+        // Fallback para builds antigas do WhatsApp Web (pré-2.3000.x).
         results.Store = true;
+        results.via = 'window.Store(legacy)';
         results.version = window.Store.AppState?.state?.version || 'unknown';
-        
-        // Submódulos
         results.conn = !!window.Store.Conn;
         results.chat = !!window.Store.Chat;
         results.msg = !!window.Store.Msg;
@@ -324,11 +346,11 @@
         results.sendMessage = typeof window.Store.SendMessage?.sendTextMsgToChat === 'function';
       }
 
-      // Verificar require do WhatsApp
+      // Verificar require do WhatsApp (apenas informativo — só funciona no page world,
+      // que isolated não acessa; aqui serve só pra log)
       if (window.require && typeof window.require === 'function') {
         results.requireAvailable = true;
       }
-
     } catch (e) {
       console.error('[AntiBreak] Erro verificando API WA:', e);
     }
@@ -336,12 +358,12 @@
     // Atualizar estado
     state.waApiStatus = results;
 
-    // Reportar problemas
+    // Reportar problemas — somente quando NEM o bridge NEM o Store legado responderam.
     if (!results.Store) {
       reportIssue({
         type: 'api_unavailable',
         module: 'Store',
-        description: 'API interna do WhatsApp não disponível'
+        description: 'API interna do WhatsApp não disponível (bridge ainda não pronto)'
       });
     }
 
@@ -349,7 +371,7 @@
       reportIssue({
         type: 'api_method_missing',
         module: 'SendMessage',
-        description: 'Método sendTextMsgToChat não encontrado'
+        description: 'Módulo de envio não localizado'
       });
     }
 
@@ -357,45 +379,32 @@
   }
 
   /**
-   * Tenta recuperar a API interna
+   * Tenta recuperar a API interna.
+   *
+   * Não tenta mais escanear `window.*` ou substituir `window.Store` —
+   * a única fonte legítima é o page bridge. Damos um tempo para ele
+   * sinalizar `STORE_READY` (até ~10s) e re-checamos.
    */
   async function tryRecoverAPI() {
-    console.log('[AntiBreak] Tentando recuperar API do WhatsApp...');
+    console.log('[AntiBreak] Aguardando page bridge (WHL_WaBridge)...');
 
-    // Método 1: Aguardar carregamento
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    let api = checkWhatsAppAPI();
-    if (api.Store) return api;
-
-    // Método 2: a injeção de script inline foi removida (violava o CSP do
-    // WhatsApp Web). Agora confiamos no page bridge oficial em
-    // injected/wa-page-bridge.js — esperamos ele expor window.WHL_Store e
-    // só então checamos a API.
+    // Re-ping o bridge no caso de a página ter recarregado parcialmente.
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      api = checkWhatsAppAPI();
+      window.postMessage({ source: 'WHL_ISOLATED', type: 'ping' }, '*');
+    } catch (_) {}
+
+    const POLL_MS = 500;
+    const MAX_WAIT_MS = 10000;
+    const start = Date.now();
+    while (Date.now() - start < MAX_WAIT_MS) {
+      const api = checkWhatsAppAPI();
       if (api.Store) return api;
-    } catch (e) {
-      console.error('[AntiBreak] Erro aguardando page bridge:', e);
+      await new Promise(r => setTimeout(r, POLL_MS));
     }
 
-    // Método 3: Buscar no escopo global
-    try {
-      for (const key of Object.keys(window)) {
-        if (key.includes('Store') || key.includes('WAPI')) {
-          const obj = window[key];
-          if (obj && obj.Chat && obj.Msg) {
-            window.Store = obj;
-            return checkWhatsAppAPI();
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[AntiBreak] Erro buscando Store:', e);
-    }
-
-    return api;
+    console.warn('[AntiBreak] Page bridge não respondeu em 10s — modo manual ativo.');
+    try { window.WHL_WaBridge?.showFallbackBanner?.('AntiBreak: bridge indisponível'); } catch (_) {}
+    return checkWhatsAppAPI();
   }
 
   // ============================================
