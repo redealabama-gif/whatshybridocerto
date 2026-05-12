@@ -634,51 +634,63 @@ window.whl_hooks_main = () => {
         }
     }
 
-    // Resolve a chat/contact model to a phone-number string.
-    // WhatsApp Web 2.3000.x+ migrated many 1-on-1 chats to @lid (Linked
-    // Device IDs) which are NOT phone numbers. To reach the real phone we
-    // walk __x_contact (the Contact model attached to the chat) and try
-    // every shape we know — id._serialized@c.us, id.user, __x_phoneNumber,
-    // pnh, pn. Returns null only when the chat genuinely has no phone we
-    // can surface (rare, basically anonymous lid-only chats).
+    // Resolve a chat/contact model to a real phone-number string.
+    //
+    // CRITICAL: WhatsApp Web 2.3000.x migrated 1-on-1 chats to @lid (Linked
+    // Device IDs). A @lid id is NOT a phone number — its digits are an
+    // opaque routing identifier (e.g. "155757190365423"). Returning those as
+    // if they were phones produced the "números grandes e aleatórios" the
+    // user reported. We therefore ONLY accept digit strings that came from
+    // a phone-shaped server (c.us / s.whatsapp.net), or from an explicit
+    // __x_phoneNumber / pnh / pn field. If a @lid chat has no resolvable
+    // phone, we return null and the caller skips it.
     function resolvePhoneFromChat(chat) {
         if (!chat || !chat.id) return null;
-        const fromStr = (s) => {
+
+        // From a fully serialized id like "5521991639989@c.us".
+        const fromSerialized = (s) => {
             if (!s) return null;
-            const str = String(s);
-            let m = str.match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
-            if (m) return m[1];
-            m = str.match(/^(\d{8,15})$/);
-            if (m) return m[1];
-            return null;
+            const m = String(s).match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
+            return m ? m[1] : null;
         };
-        // 1) Direct id (works for @c.us / @s.whatsapp.net)
-        let p = fromStr(chat.id._serialized);
+        // From an id object — only when its server is phone-shaped.
+        const userIfPhoneServer = (idObj) => {
+            if (!idObj) return null;
+            const server = idObj.server;
+            if (server !== 'c.us' && server !== 's.whatsapp.net') return null;
+            const u = idObj.user;
+            return (typeof u === 'string' && /^\d{8,15}$/.test(u)) ? u : null;
+        };
+        // From a "bare" phone-number-ish field. Strips non-digits; rejects
+        // anything that doesn't end up 8–15 digits long.
+        const fromBareField = (v) => {
+            if (v === undefined || v === null) return null;
+            const d = String(v).replace(/\D/g, '');
+            return /^\d{8,15}$/.test(d) ? d : null;
+        };
+
+        // 1) Direct id: works for @c.us / @s.whatsapp.net chats and contacts.
+        let p = fromSerialized(chat.id._serialized) || userIfPhoneServer(chat.id);
         if (p) return p;
-        p = fromStr(chat.id.user);
-        if (p) return p;
-        // 2) Phone-number fields on the chat
-        const direct = [
-            chat.__x_phoneNumber, chat.phoneNumber,
-            chat.__x_pnh, chat.pnh,
-            chat.__x_pn, chat.pn,
-        ];
-        for (const v of direct) {
-            const r = fromStr(v);
+
+        // 2) Explicit phone-number fields on the chat model.
+        for (const v of [chat.__x_phoneNumber, chat.phoneNumber,
+                         chat.__x_pnh, chat.pnh,
+                         chat.__x_pn, chat.pn]) {
+            const r = fromBareField(v);
             if (r) return r;
         }
-        // 3) Walk to Contact model (lid chats keep their @c.us contact)
+
+        // 3) Walk to Contact model. A @lid chat usually still has a Contact
+        //    model whose own id is @c.us — that's the real phone.
         const contact = chat.__x_contact || chat.contact;
         if (contact && contact !== chat) {
-            p = fromStr(contact.id?._serialized) || fromStr(contact.id?.user);
+            p = fromSerialized(contact.id?._serialized) || userIfPhoneServer(contact.id);
             if (p) return p;
-            const cdirect = [
-                contact.__x_phoneNumber, contact.phoneNumber,
-                contact.__x_pnh, contact.pnh,
-                contact.__x_pn, contact.pn,
-            ];
-            for (const v of cdirect) {
-                const r = fromStr(v);
+            for (const v of [contact.__x_phoneNumber, contact.phoneNumber,
+                             contact.__x_pnh, contact.pnh,
+                             contact.__x_pn, contact.pn]) {
+                const r = fromBareField(v);
                 if (r) return r;
             }
         }
