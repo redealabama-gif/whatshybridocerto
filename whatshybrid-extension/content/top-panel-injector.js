@@ -119,10 +119,6 @@
                             <span class="tab-icon">📥</span>
                             <span class="tab-label">Extrator</span>
                         </button>
-                        <button class="top-panel-tab" data-view="groups" title="Grupos">
-                            <span class="tab-icon">👥</span>
-                            <span class="tab-label">Grupos</span>
-                        </button>
                         <button class="top-panel-tab" data-view="recover" title="Recover - Mensagens apagadas/editadas">
                             <span class="tab-icon">🔄</span>
                             <span class="tab-label">Recover</span>
@@ -146,10 +142,6 @@
                         <button class="top-panel-tab top-panel-tab-popup" data-action="open-training" title="Treinamento de IA - Abre em nova aba">
                             <span class="tab-icon">🎓</span>
                             <span class="tab-label">Treinamento IA</span>
-                        </button>
-                        <button class="top-panel-tab" data-view="quickreplies" title="Respostas Rápidas">
-                            <span class="tab-icon">⚡</span>
-                            <span class="tab-label">Quick Replies</span>
                         </button>
                         <button class="top-panel-tab" data-view="team" title="Sistema de Equipe">
                             <span class="tab-icon">👥</span>

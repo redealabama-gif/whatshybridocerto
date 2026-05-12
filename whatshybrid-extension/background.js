@@ -4,14 +4,6 @@
 // Load centralized endpoints
 try { importScripts('constants/endpoints.js'); } catch (e) { /* optional */ }
 
-// ===== FUSION: Load Group Extractor v6 background module =====
-try {
-  importScripts('background/extractor-v6.js');
-  console.log('[Fusion] Loaded extractor-v6 background module');
-} catch (e) {
-  console.warn('[Fusion] Failed to load extractor-v6 background module', e);
-}
-
 // ===== LOAD: Modular background handlers =====
 // CORREÇÃO MÉDIO: Carregar cada script individualmente para detectar qual falhou
 // e notificar o usuário em vez de silenciar o erro
