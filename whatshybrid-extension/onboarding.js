@@ -99,30 +99,6 @@ class OnboardingSystem {
                 targetElement: '#whlViewExtrator'
             },
             
-            // ========== GRUPOS ==========
-            {
-                id: 'grupos',
-                type: 'feature',
-                buttonIndex: 2,
-                title: '👥 Extrator de Grupos',
-                subtitle: 'Extraia membros de qualquer grupo',
-                description: 'Selecione um grupo e extraia todos os membros com nome e número. Funciona até com grupos de 1000+ membros.',
-                icon: '👥',
-                color: '#10b981',
-                howTo: [
-                    { step: '1', text: 'Clique em "Carregar Grupos"' },
-                    { step: '2', text: 'Selecione o grupo desejado' },
-                    { step: '3', text: 'Clique em "Extrair Membros"' },
-                    { step: '4', text: 'Exporte para CSV ou Google Sheets' }
-                ],
-                tips: [
-                    { icon: '🔍', text: 'Filtre entre grupos ativos e arquivados' },
-                    { icon: '⚡', text: 'Funciona com grupos muito grandes' },
-                    { icon: '📊', text: 'Exporta com nome e número formatados' }
-                ],
-                targetElement: '#whlViewGroups'
-            },
-            
             // ========== RECOVER ==========
             {
                 id: 'recover',

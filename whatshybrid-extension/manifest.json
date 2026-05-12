@@ -77,7 +77,6 @@
       "resources": [
         "i18n/locales/*.json",
         "content/extractor.contacts.js",
-        "content/inject.js",
         "content/wpp-hooks.js",
         "injected/wa-page-bridge.js",
         "chatbackup/extractor.js",

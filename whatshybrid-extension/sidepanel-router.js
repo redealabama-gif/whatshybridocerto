@@ -22,23 +22,18 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     principal: 'whlViewPrincipal',
     extrator: 'whlViewExtrator',
 
-    // Grupos / Group Extractor v6
-    groups: 'whlViewGroups',
-    grupos: 'whlViewGroups',
-
     recover: 'whlViewRecover',
     config: 'whlViewConfig',
     backup: 'whlViewBackup',
-    
+
     // Novos módulos
     crm: 'whlViewCrm',
     tasks: 'whlViewTasks',
     ai: 'whlViewAi',
     autopilot: 'whlViewAutoPilot',
     backend: 'whlViewBackend',
-    
-    // Quick Replies e Team System
-    quickreplies: 'whlViewQuickReplies',
+
+    // Team System
     team: 'whlViewTeam',
 
     // System Auto-Protection Layer
@@ -277,8 +272,6 @@ function showView(viewName) {
       backupInit();
       backupRefresh(true);
       startBackupInterval();
-    } else if (safeView === 'grupos' || safeView === 'groups') {
-      // UI do v6 já tem seu próprio JS (sidepanel.js). Nada a fazer aqui.
     } else if (safeView === 'crm' || safeView === 'tasks' || safeView === 'ai' || safeView === 'autopilot' || safeView === 'backend') {
       // Novas views de módulos - renderizadas pelo script inline no sidepanel.html
       if (typeof window.renderModuleViews === 'function') {
@@ -300,11 +293,6 @@ function showView(viewName) {
       // Emitir evento de view changed
       if (window.EventBus) {
         window.EventBus.emit('view:changed', { view: safeView });
-      }
-    } else if (safeView === 'quickreplies') {
-      // Quick Replies view
-      if (typeof window.renderQuickRepliesList === 'function') {
-        window.renderQuickRepliesList();
       }
     } else if (safeView === 'team') {
       // Team view
