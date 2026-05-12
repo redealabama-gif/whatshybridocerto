@@ -104,23 +104,35 @@
 
   /**
    * Verifica se um nó IMG ou VIDEO faz parte de um status/story.
-   * O WhatsApp marca o container do visualizador de status com
-   * data-animate-status-viewer (mesma heurística do WAIncognito).
+   *
+   * WA 2.3000.x removeu a maioria dos `data-testid` que a v1.0 usava
+   * (`status-viewer`, `story-viewer`). Mantemos a heurística antiga
+   * como primeiro check (cobre clientes em builds mais velhos), e
+   * adicionamos âncoras durables: `data-animate-status-viewer` (set
+   * pelo CSS de animação) + `aria-label` em pt-BR/en/es contendo
+   * "status", e o seletor de URL `#status_viewer` que WA usa.
    */
   function isStatusNode(node) {
     if (!node) return false;
-    // Subir até 15 níveis procurando o atributo de status viewer
     let el = node;
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
       if (!el || !el.parentElement) break;
       el = el.parentElement;
-      if (el.hasAttribute && (
-        el.hasAttribute('data-animate-status-viewer') ||
-        el.getAttribute('data-testid') === 'status-viewer' ||
-        el.getAttribute('data-testid') === 'story-viewer'
-      )) {
-        return true;
-      }
+      try {
+        if (!el.hasAttribute) continue;
+        // 1) Heurística clássica (mais durável — vem do CSS).
+        if (el.hasAttribute('data-animate-status-viewer')) return true;
+        // 2) data-testid (pode estar morto, mas custa nada).
+        const tid = el.getAttribute('data-testid');
+        if (tid === 'status-viewer' || tid === 'story-viewer' ||
+            tid === 'status-v3-viewer' || tid === 'status-overlay') return true;
+        // 3) aria-label que contenha "status" (pt-BR e en cobrem >95%).
+        const aria = el.getAttribute('aria-label') || '';
+        if (/status/i.test(aria) && /(visualizador|viewer)/i.test(aria)) return true;
+        // 4) Estrutura: pai com role=dialog dentro do hash #status
+        if (el.getAttribute('role') === 'dialog' &&
+            (location.hash || '').toLowerCase().includes('status')) return true;
+      } catch (_) {}
     }
     return false;
   }
