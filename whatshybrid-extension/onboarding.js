@@ -171,30 +171,6 @@ class OnboardingSystem {
                 targetElement: '#whlViewCrm'
             },
             
-            // ========== ANALYTICS ==========
-            {
-                id: 'analytics',
-                type: 'feature',
-                buttonIndex: 5,
-                title: '📊 Analytics',
-                subtitle: 'Métricas e estatísticas',
-                description: 'Acompanhe o desempenho das suas campanhas com gráficos interativos. Veja taxas de entrega, horários de pico e muito mais.',
-                icon: '📊',
-                color: '#6366f1',
-                howTo: [
-                    { step: '1', text: 'Envie campanhas normalmente' },
-                    { step: '2', text: 'Acesse a aba Analytics' },
-                    { step: '3', text: 'Visualize gráficos e métricas' },
-                    { step: '4', text: 'Otimize suas estratégias' }
-                ],
-                tips: [
-                    { icon: '📈', text: 'Gráficos interativos de desempenho' },
-                    { icon: '⏰', text: 'Análise de melhores horários' },
-                    { icon: '📉', text: 'Taxa de sucesso vs falha' }
-                ],
-                targetElement: '#whlViewAnalytics'
-            },
-            
             // ========== TAREFAS ==========
             {
                 id: 'tasks',

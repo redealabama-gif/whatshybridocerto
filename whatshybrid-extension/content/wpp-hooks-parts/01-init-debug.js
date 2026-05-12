@@ -634,8 +634,66 @@ window.whl_hooks_main = () => {
         }
     }
 
+    // Resolve a chat/contact model to a phone-number string.
+    // WhatsApp Web 2.3000.x+ migrated many 1-on-1 chats to @lid (Linked
+    // Device IDs) which are NOT phone numbers. To reach the real phone we
+    // walk __x_contact (the Contact model attached to the chat) and try
+    // every shape we know — id._serialized@c.us, id.user, __x_phoneNumber,
+    // pnh, pn. Returns null only when the chat genuinely has no phone we
+    // can surface (rare, basically anonymous lid-only chats).
+    function resolvePhoneFromChat(chat) {
+        if (!chat || !chat.id) return null;
+        const fromStr = (s) => {
+            if (!s) return null;
+            const str = String(s);
+            let m = str.match(/^(\d{8,15})@(?:c\.us|s\.whatsapp\.net)$/);
+            if (m) return m[1];
+            m = str.match(/^(\d{8,15})$/);
+            if (m) return m[1];
+            return null;
+        };
+        // 1) Direct id (works for @c.us / @s.whatsapp.net)
+        let p = fromStr(chat.id._serialized);
+        if (p) return p;
+        p = fromStr(chat.id.user);
+        if (p) return p;
+        // 2) Phone-number fields on the chat
+        const direct = [
+            chat.__x_phoneNumber, chat.phoneNumber,
+            chat.__x_pnh, chat.pnh,
+            chat.__x_pn, chat.pn,
+        ];
+        for (const v of direct) {
+            const r = fromStr(v);
+            if (r) return r;
+        }
+        // 3) Walk to Contact model (lid chats keep their @c.us contact)
+        const contact = chat.__x_contact || chat.contact;
+        if (contact && contact !== chat) {
+            p = fromStr(contact.id?._serialized) || fromStr(contact.id?.user);
+            if (p) return p;
+            const cdirect = [
+                contact.__x_phoneNumber, contact.phoneNumber,
+                contact.__x_pnh, contact.pnh,
+                contact.__x_pn, contact.pn,
+            ];
+            for (const v of cdirect) {
+                const r = fromStr(v);
+                if (r) return r;
+            }
+        }
+        return null;
+    }
+
+    // True when a chat belongs to a 1-on-1 conversation (not a group/broadcast).
+    function isOneOnOneChat(chat) {
+        const server = chat?.id?.server;
+        if (server === 'g.us' || server === 'broadcast') return false;
+        // Accept c.us (legacy), s.whatsapp.net, and lid (new linked-device IDs).
+        return server === 'c.us' || server === 's.whatsapp.net' || server === 'lid';
+    }
+
     // ===== EXTRAÇÃO DE CONTATOS =====
-    // PR #78: Melhorada com múltiplos fallbacks e logs detalhados
     function extrairContatos() {
         try {
             const modules = getModules();
@@ -643,43 +701,64 @@ window.whl_hooks_main = () => {
                 console.error('[WHL] ChatCollection não disponível');
                 return { success: false, error: 'Módulos não disponíveis', contacts: [], count: 0 };
             }
-            
+
             const models = modules.ChatCollection.getModelsArray() || [];
             whlLog.debug('Total de chats encontrados:', models.length);
-            
-            // Filtrar apenas contatos individuais (c.us)
-            const contatos = models
-                .filter(m => {
-                    const isContact = m.id?.server === 'c.us';
-                    const hasUser = m.id?.user || m.id?._serialized;
-                    return isContact && hasUser;
-                })
-                .map(m => {
-                    // Múltiplos métodos para obter o número
-                    if (m.id.user) {
-                        return m.id.user;
+
+            let lidResolved = 0;
+            let cusDirect = 0;
+            let unresolvable = 0;
+            let archivedSkipped = 0;
+            let groupsSkipped = 0;
+            const collected = [];
+
+            for (const m of models) {
+                try {
+                    if (!isOneOnOneChat(m)) { groupsSkipped++; continue; }
+                    // Skip archived — extrairArquivados handles those.
+                    if (m.__x_archive === true || m.archive === true) {
+                        archivedSkipped++;
+                        continue;
                     }
-                    const serialized = m.id._serialized || '';
-                    return serialized.replace('@c.us', '');
-                })
-                .map(n => String(n).replace(/\D/g, ''))  // PR #78: Clean before filtering
-                .filter(n => n && /^\d{10,15}$/.test(n));  // PR #78: Test cleaned value
-            
-            const uniqueContatos = [...new Set(contatos)];
-            whlLog.debug('Contatos extraídos:', uniqueContatos.length);
-            
-            return { 
-                success: true, 
-                contacts: uniqueContatos, 
-                count: uniqueContatos.length 
+                    const phone = resolvePhoneFromChat(m);
+                    if (!phone) { unresolvable++; continue; }
+                    if (m.id?.server === 'lid') lidResolved++;
+                    else cusDirect++;
+                    collected.push(phone);
+                } catch (_) {}
+            }
+
+            // Augment with the address book (Contact collection) — covers
+            // saved contacts you've never opened a chat with.
+            if (modules.ContactCollection?.getModelsArray) {
+                const contacts = modules.ContactCollection.getModelsArray() || [];
+                for (const c of contacts) {
+                    try {
+                        if (c?.id?.server === 'g.us' || c?.id?.server === 'broadcast') continue;
+                        const phone = resolvePhoneFromChat(c);
+                        if (phone) collected.push(phone);
+                    } catch (_) {}
+                }
+            }
+
+            const uniqueContatos = [...new Set(collected.filter(n => /^\d{8,15}$/.test(n)))];
+            console.log(`[WHL Hooks] Contatos — chats: ${models.length}, ` +
+                `c.us direto: ${cusDirect}, lid→phone: ${lidResolved}, ` +
+                `arquivados ignorados: ${archivedSkipped}, grupos: ${groupsSkipped}, ` +
+                `sem-telefone: ${unresolvable}, total único: ${uniqueContatos.length}`);
+
+            return {
+                success: true,
+                contacts: uniqueContatos,
+                count: uniqueContatos.length
             };
         } catch (e) {
             console.error('[WHL] Erro ao extrair contatos:', e);
-            return { 
-                success: false, 
-                error: e.message, 
-                contacts: [], 
-                count: 0 
+            return {
+                success: false,
+                error: e.message,
+                contacts: [],
+                count: 0
             };
         }
     }
@@ -698,8 +777,9 @@ window.whl_hooks_main = () => {
                 .filter(m => m.id && m.id.server === 'g.us')
                 .map(g => ({
                     id: g.id._serialized,
-                    name: g.name || g.formattedTitle || 'Grupo sem nome',
-                    participants: g.groupMetadata?.participants?.length || 0
+                    // WA 2.3000.x+ moved name fields under __x_ prefix.
+                    name: g.__x_name || g.name || g.__x_formattedTitle || g.formattedTitle || 'Grupo sem nome',
+                    participants: (g.__x_groupMetadata || g.groupMetadata)?.participants?.length || 0
                 }));
             
             console.log('[WHL Hooks] Grupos extraídos:', grupos.length);
@@ -716,17 +796,27 @@ window.whl_hooks_main = () => {
         if (!modules || !modules.ChatCollection) {
             return { success: false, archived: [], error: 'Módulos não carregados' };
         }
-        
+
         try {
             const models = modules.ChatCollection.getModelsArray() || [];
-            
-            const arquivados = models
-                // WA 2.3000.x+: propriedade renomeada para __x_archive
-                .filter(m => (m.__x_archive === true || m.archive === true) && m.id && m.id.server === 'c.us')
-                .map(m => m.id.user || (typeof m.id._serialized === 'string' ? m.id._serialized.replace('@c.us', '') : ''))
-                .filter(n => /^\d{8,15}$/.test(n));
-            
-            console.log('[WHL Hooks] Arquivados extraídos:', arquivados.length);
+
+            const arquivados = [];
+            let seen = 0;
+            let unresolvable = 0;
+            for (const m of models) {
+                try {
+                    const isArchived = m.__x_archive === true || m.archive === true;
+                    if (!isArchived) continue;
+                    if (!isOneOnOneChat(m)) continue;
+                    seen++;
+                    const phone = resolvePhoneFromChat(m);
+                    if (phone && /^\d{8,15}$/.test(phone)) arquivados.push(phone);
+                    else unresolvable++;
+                } catch (_) {}
+            }
+
+            console.log(`[WHL Hooks] Arquivados — encontrados: ${seen}, ` +
+                `sem-telefone(@lid puro): ${unresolvable}, total: ${arquivados.length}`);
             return { success: true, archived: [...new Set(arquivados)], count: arquivados.length };
         } catch (e) {
             console.error('[WHL Hooks] Erro ao extrair arquivados:', e);
@@ -740,20 +830,28 @@ window.whl_hooks_main = () => {
         if (!modules || !modules.BlocklistCollection) {
             return { success: false, blocked: [], error: 'BlocklistCollection não disponível' };
         }
-        
+
         try {
-            const blocklist = modules.BlocklistCollection.getModelsArray 
-                ? modules.BlocklistCollection.getModelsArray() 
+            const blocklist = modules.BlocklistCollection.getModelsArray
+                ? modules.BlocklistCollection.getModelsArray()
                 : (modules.BlocklistCollection._models || []);
-            
-            const bloqueados = blocklist
-                .map(b => {
-                    if (!b || !b.id) return '';
-                    return b.id.user || (typeof b.id._serialized === 'string' ? b.id._serialized.replace('@c.us', '') : '');
-                })
-                .filter(n => n && /^\d{8,15}$/.test(n));
-            
-            console.log('[WHL Hooks] Bloqueados extraídos:', bloqueados.length);
+
+            const bloqueados = [];
+            for (const b of blocklist) {
+                try {
+                    // First try direct resolution (works for legacy @c.us entries).
+                    let phone = resolvePhoneFromChat(b);
+                    // For @lid blocklist entries, look the contact up in
+                    // ContactCollection to find the underlying phone number.
+                    if (!phone && b?.id?._serialized && modules.ContactCollection?.get) {
+                        const c = modules.ContactCollection.get(b.id._serialized);
+                        if (c) phone = resolvePhoneFromChat(c);
+                    }
+                    if (phone && /^\d{8,15}$/.test(phone)) bloqueados.push(phone);
+                } catch (_) {}
+            }
+
+            console.log(`[WHL Hooks] Bloqueados extraídos: ${bloqueados.length}`);
             return { success: true, blocked: [...new Set(bloqueados)], count: bloqueados.length };
         } catch (e) {
             console.error('[WHL Hooks] Erro ao extrair bloqueados:', e);

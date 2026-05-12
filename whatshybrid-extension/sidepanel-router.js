@@ -32,7 +32,6 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     
     // Novos módulos
     crm: 'whlViewCrm',
-    analytics: 'whlViewAnalytics',
     tasks: 'whlViewTasks',
     ai: 'whlViewAi',
     autopilot: 'whlViewAutoPilot',
