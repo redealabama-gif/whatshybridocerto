@@ -959,57 +959,105 @@ window.whl_hooks_main = () => {
      */
     async function enviarMensagemAPI(phone, mensagem) {
         console.log('[WHL] 📨 Enviando TEXTO para', phone);
-        
+
+        // Resilient module pick: returns the first non-falsy candidate found
+        // in (mod[name], mod.default?.[name], or — when name is omitted —
+        // mod itself / mod.default). Returns null when nothing matches.
+        const pickAny = (mod, ...names) => {
+            if (!mod) return null;
+            const candidates = names.length ? names : ['__SELF__'];
+            for (const n of candidates) {
+                if (n === '__SELF__') {
+                    if (mod) return mod;
+                    if (mod.default) return mod.default;
+                    continue;
+                }
+                if (mod[n]) return mod[n];
+                if (mod.default && mod.default[n]) return mod.default[n];
+            }
+            return null;
+        };
+        const safeRequire = (name) => {
+            try { return typeof require === 'function' ? require(name) : null; }
+            catch (_) { return null; }
+        };
+
         try {
-            var WF = require('WAWebWidFactory');
-            var ChatModel = require('WAWebChatModel');
-            var MsgModel = require('WAWebMsgModel');
-            var MsgKey = require('WAWebMsgKey');
-            var CC = require('WAWebChatCollection');
-            var SMRA = require('WAWebSendMsgRecordAction');
+            // ── Resolve WA modules with multiple shape candidates ──────────
+            // WhatsApp Web 2.3000.x renamed/restructured several exports.
+            // Each pickAny() call probes legacy AND modern names so the same
+            // codebase works across builds.
+            const WFmod  = safeRequire('WAWebWidFactory');
+            const CCmod  = safeRequire('WAWebChatCollection');
+            const SCAmod = safeRequire('WAWebSendMsgChatAction');     // modern path
+            const SMRA   = safeRequire('WAWebSendMsgRecordAction');   // legacy path
+            const CMmod  = safeRequire('WAWebChatModel');
+            const MMmod  = safeRequire('WAWebMsgModel');
+            const MKmod  = safeRequire('WAWebMsgKey');
 
-            // CORREÇÃO BUG 1: Preservar quebras de linha exatamente como estão
-            // Não fazer nenhuma sanitização no texto
-            var textoOriginal = mensagem; // Manter \n intacto
-            
-            console.log('[WHL] Texto com quebras:', JSON.stringify(textoOriginal));
+            const createWid       = pickAny(WFmod, 'createWid');
+            const ChatCollection  = pickAny(CCmod, 'ChatCollection');
+            const sendTextMsgToChat = pickAny(SCAmod, 'sendTextMsgToChat');
+            // ChatModel / MsgModel / MsgKey are only used by the legacy path.
+            const ChatCtor        = pickAny(CMmod, 'Chat', 'ChatModel');
+            const MsgCtor         = pickAny(MMmod, 'Msg', 'MsgModel');
+            const newMsgId        = pickAny(MKmod, 'newId');
+            const sendMsgRecord   = pickAny(SMRA, 'sendMsgRecord', 'addAndSendMsgToChat');
 
-            var wid = WF.createWid(phone + '@c.us');
-            var chat = CC.ChatCollection.get(wid);
-            if (!chat) { 
-                chat = new ChatModel.Chat({ id: wid }); 
-                CC.ChatCollection.add(chat); 
+            if (!createWid) throw new Error('createWid not available');
+            if (!ChatCollection) throw new Error('ChatCollection not available');
+
+            const textoOriginal = mensagem; // preserve \n
+            const wid = createWid(phone + '@c.us');
+
+            let chat = ChatCollection.get(wid);
+            if (!chat) {
+                if (ChatCtor) {
+                    chat = new ChatCtor({ id: wid });
+                    ChatCollection.add(chat);
+                } else if (typeof ChatCollection.find === 'function') {
+                    chat = await ChatCollection.find(wid);
+                }
+                if (!chat) throw new Error('Could not create/find chat');
             }
 
-            var msgId = await MsgKey.newId();
-            var msg = new MsgModel.Msg({
-                id: { fromMe: true, remote: wid, id: msgId, _serialized: 'true_' + wid._serialized + '_' + msgId },
-                body: textoOriginal,  // CORREÇÃO BUG 1: Texto COM quebras de linha preservadas
-                type: 'chat',
-                t: Math.floor(Date.now() / 1000),
-                from: wid, to: wid, self: 'out', isNewMsg: true, local: true
-            });
-
-            var result = await SMRA.sendMsgRecord(msg);
-            
-            // NOVO: Forçar atualização do chat para renderizar a mensagem
-            try {
-                if (chat.msgs && chat.msgs.sync) {
-                    await chat.msgs.sync();
-                }
-                // Tentar também recarregar o chat
-                if (chat.reload) {
-                    await chat.reload();
-                }
-            } catch (e) {
-                console.warn('[WHL] Não foi possível sincronizar chat:', e);
+            // ── Path A (modern): sendTextMsgToChat(chat, text, extra) ──────
+            // Available in WA 2.3000.x. Single call; no need to build a Msg
+            // model by hand. Use this whenever possible.
+            if (typeof sendTextMsgToChat === 'function') {
+                console.log('[WHL] ✅ Using modern sendTextMsgToChat');
+                const result = await sendTextMsgToChat(chat, textoOriginal, {});
+                console.log('[WHL] ✅ TEXTO enviado (modern):', result);
+                return { success: true, result };
             }
-            
-            console.log('[WHL] ✅ TEXTO enviado:', result);
-            return { success: true, result: result };
+
+            // ── Path B (legacy): sendMsgRecord / addAndSendMsgToChat ───────
+            // Requires building a Msg object — only works when MsgModel/MsgKey
+            // are still exported with the legacy shape.
+            if (sendMsgRecord && MsgCtor && newMsgId) {
+                console.log('[WHL] ⚠️ Falling back to legacy sendMsgRecord');
+                const msgId = await newMsgId();
+                const msg = new MsgCtor({
+                    id: { fromMe: true, remote: wid, id: msgId,
+                          _serialized: 'true_' + wid._serialized + '_' + msgId },
+                    body: textoOriginal,
+                    type: 'chat',
+                    t: Math.floor(Date.now() / 1000),
+                    from: wid, to: wid, self: 'out', isNewMsg: true, local: true
+                });
+                const result = await sendMsgRecord(msg);
+                try {
+                    if (chat.msgs?.sync) await chat.msgs.sync();
+                    if (chat.reload) await chat.reload();
+                } catch (_) {}
+                console.log('[WHL] ✅ TEXTO enviado (legacy):', result);
+                return { success: true, result };
+            }
+
+            throw new Error('No send path available — both modern and legacy missing');
         } catch (error) {
-            console.error('[WHL] ❌ Erro ao enviar TEXTO:', error);
-            return { success: false, error: error.message };
+            console.error('[WHL] ❌ Erro ao enviar TEXTO:', error?.message || error);
+            return { success: false, error: error?.message || String(error) };
         }
     }
 
