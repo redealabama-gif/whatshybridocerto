@@ -87,22 +87,55 @@ router.post('/selector-failure',
           ]
         );
 
-        // Primeiro report da combinação — pode ser break novo. Alerta.
+        // Primeiro report dessa combinação — pode ser regressão recém-chegada.
         if (waVer !== 'unknown') {
           logger.warn(`[SelectorTelemetry] First failure: ${selector_name} (WA ${waVer}, ext ${extVer})`);
-          // Alert se acontecer 5+ failures distintas em 1h
+
+          // Alerta A) ≥5 seletores distintos quebrando na MESMA wa_version
+          //           dentro da última hora — sinal forte de update do WA.
+          let alertManagerRef = null;
+          try { alertManagerRef = require('../observability/alertManager'); } catch (_) {}
+
           const recentDistinct = db.get(
             `SELECT COUNT(DISTINCT selector_name) AS c FROM selector_telemetry
              WHERE wa_version = ? AND last_seen >= datetime('now', '-1 hour')`,
             [waVer]
           );
-          if (recentDistinct?.c >= 5) {
-            try {
-              const alertManager = require('../observability/alertManager');
-              alertManager?.send?.('warning',
-                `⚠️ ${recentDistinct.c} seletores quebrando na WA ${waVer}`,
-                { hint: 'Possível update do WhatsApp Web', wa_version: waVer });
-            } catch (_) {}
+          if (recentDistinct?.c >= 5 && alertManagerRef?.send) {
+            alertManagerRef.send('warn',
+              `${recentDistinct.c} seletores quebrando na WA ${waVer}`,
+              {
+                hint: 'Possível update do WhatsApp Web',
+                wa_version: waVer,
+                dashboard: '/admin/telemetry.html',
+              });
+          }
+
+          // Alerta B) ≥5 combinações NOVAS (first_seen na última hora) no
+          //           total, independente da wa_version. Pega o caso em que
+          //           o WA fragmenta a build entre clientes e diferentes
+          //           wa_versions sobem regressão ao mesmo tempo.
+          const newInLastHour = db.get(
+            `SELECT COUNT(*) AS c FROM selector_telemetry
+             WHERE first_seen >= datetime('now', '-1 hour')`
+          );
+          if (newInLastHour?.c >= 5 && alertManagerRef?.send) {
+            // Sample das 5 mais recentes pra dar contexto no Slack/Discord.
+            const sample = db.all(
+              `SELECT selector_name, wa_version, extension_version, first_seen
+               FROM selector_telemetry
+               WHERE first_seen >= datetime('now', '-1 hour')
+               ORDER BY first_seen DESC LIMIT 5`
+            );
+            alertManagerRef.send('warn',
+              `${newInLastHour.c} combinações novas seletor×WA×ext em 1h`,
+              {
+                hint: 'WhatsApp Web pode ter atualizado em produção. Verifique o painel.',
+                dashboard: '/admin/telemetry.html',
+                sample: sample?.map(s =>
+                  `${s.selector_name} @ WA ${s.wa_version} / ext ${s.extension_version}`
+                ),
+              });
           }
         }
       }
