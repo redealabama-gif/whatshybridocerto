@@ -352,18 +352,65 @@ Em caso de incidente: documente sempre em `/docs/incidents/INCIDENT-YYYY-MM-DD.m
 
 ---
 
-## 🟢 (v9.2.0) WhatsApp atualizou e quebrou os seletores
+## 🟢 (v9.5.9+) Como diagnosticar quando o WhatsApp Web quebra
 
 **Sintomas:**
+- Alerta no canal Slack/Discord: *"X combinações novas seletor×WA×ext em 1h"*
 - Spike em `selector_telemetry` para uma `wa_version` específica
 - Banner "Modo manual ativo" aparecendo na extensão dos clientes
-- Alertas Discord do canary (vide abaixo)
 - Reclamações de cliente "não está respondendo automaticamente"
+- `[WHL Bridge] Selector failure: …` no console dos clientes
+- `[WHL Page Bridge] Missing modules: …` (algum nome `WAWeb*` mudou)
 
-### Triagem rápida
+### Triagem rápida (2 minutos, sem SQL)
+
+Acesse o painel:
+
+```
+https://api.whatshybrid.com.br/admin/telemetry.html
+```
+
+(Cole seu JWT admin no primeiro carregamento — fica salvo em `localStorage`.)
+
+Quatro coisas pra olhar nessa ordem:
+
+1. **Card "Novas em 24h"** no topo. Se ≥ 5 → fundo amarelo, é regressão fresca.
+2. **Tabela "🆕 Novas falhas em 24h"** — cada linha é uma combinação
+   `(selector, wa_version, extension_version)` que nunca tinha aparecido antes.
+   A coluna `Seletor` te diz exatamente o que quebrou:
+   - `chat`, `msg`, `contact`, `blocklist` → o page-bridge não achou o módulo
+     `WAWebChatCollection` (ou equivalente). WhatsApp renomeou.
+   - `dom:messageInput`, `dom:sendButton`, `dom:messageContainer` → o
+     DOM Monitor não achou o elemento. WhatsApp mudou a estrutura HTML.
+   - `dom:chatList` → mais grave, atinge tudo (o pane lateral mudou).
+3. **Tabela "🧬 Versões do WhatsApp Web vistas"** — se uma `wa_version`
+   nova aparecer no topo com `first_seen` recente, é o deploy do WA.
+4. **Timeline (falhas por dia)** — confirma se foi pico súbito (= update do WA)
+   ou subida gradual (= adoção lenta dum cliente bugado).
+
+### Triagem via API (alternativa)
 
 ```bash
-# 1. Quais seletores estão falhando?
+JWT='eyJhbGc...'   # JWT do seu user admin
+BACKEND='https://api.whatshybrid.com.br'
+
+# Resumo geral
+curl -s -H "Authorization: Bearer $JWT" \
+  "$BACKEND/api/v1/telemetry/dashboard?days=7" | jq .summary
+
+# Novidades em 24h (early-warning)
+curl -s -H "Authorization: Bearer $JWT" \
+  "$BACKEND/api/v1/telemetry/dashboard?days=1" | jq .new_failures_24h
+
+# Top quebras na semana
+curl -s -H "Authorization: Bearer $JWT" \
+  "$BACKEND/api/v1/telemetry/dashboard?days=7&limit=10" | jq .top_offenders
+```
+
+### Triagem via SQL (último recurso, ou pra investigação profunda)
+
+```bash
+# Quais seletores estão falhando nas últimas 2h?
 docker compose exec backend sqlite3 /app/data/whatshybrid.db \
   "SELECT selector_name, wa_version, COUNT(DISTINCT workspace_id) AS afetados,
           MAX(failure_count) AS picos
@@ -371,7 +418,29 @@ docker compose exec backend sqlite3 /app/data/whatshybrid.db \
    WHERE last_seen >= datetime('now', '-2 hours')
    GROUP BY selector_name, wa_version
    ORDER BY afetados DESC LIMIT 20;"
+
+# Combinações totalmente novas (first_seen na última hora)
+docker compose exec backend sqlite3 /app/data/whatshybrid.db \
+  "SELECT selector_name, wa_version, extension_version, first_seen
+   FROM selector_telemetry
+   WHERE first_seen >= datetime('now', '-1 hour')
+   ORDER BY first_seen DESC;"
 ```
+
+### Configurar o alerta de webhook (uma vez)
+
+O `alertManager` dispara automaticamente quando ≥ 5 combinações novas
+aparecem em 1h. Pra receber em Slack/Discord:
+
+```bash
+# .env (backend)
+ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../X...
+# OU
+ALERT_WEBHOOK_URL=https://discord.com/api/webhooks/.../...
+```
+
+Rate limit: máx 5 alertas/hora do MESMO `level:title` — não vai te encher
+o canal se o WA quebrar muito.
 
 ### Decisão
 
