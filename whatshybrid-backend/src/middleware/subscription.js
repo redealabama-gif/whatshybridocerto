@@ -43,7 +43,10 @@ const FEATURE_PLANS = {
   'autopilot_unlimited': ['pro', 'enterprise'],
 
   // IA
-  'ai_basic': ['free', 'starter', 'pro', 'enterprise'],
+  // 'free' REMOVIDO de ai_basic e ai_advanced. Plano free não consome
+  // tokens de IA por padrão; o trial de 7 dias passa a ser o caminho oficial
+  // pra experimentar a IA sem assinatura paga.
+  'ai_basic': ['starter', 'pro', 'enterprise'],
   'ai_advanced': ['pro', 'enterprise'],
   'ai_custom_models': ['enterprise'],
 
@@ -116,6 +119,40 @@ function checkSubscription(feature) {
       }
 
       const currentPlan = workspace.plan || 'free';
+
+      // Trial expirado: workspace.status='trialing' MAS trial_end_at < now.
+      // Antes só o plano era checado, então um workspace 'pro' em trial expirado
+      // continuava liberado.
+      const now = Date.now();
+      const status = workspace.subscription_status || 'trialing';
+      const trialEndAt = workspace.trial_end_at ? new Date(workspace.trial_end_at).getTime() : null;
+      const nextBillingAt = workspace.next_billing_at ? new Date(workspace.next_billing_at).getTime() : null;
+
+      let subscriptionLive = false;
+      let subscriptionReason = null;
+      if (status === 'active') {
+        subscriptionLive = true;
+      } else if (status === 'trialing') {
+        subscriptionLive = !!(trialEndAt && trialEndAt > now);
+        if (!subscriptionLive) subscriptionReason = 'trial_expired';
+      } else if (status === 'canceling' || status === 'cancelled' || status === 'canceled') {
+        subscriptionLive = !!(nextBillingAt && nextBillingAt > now);
+        if (!subscriptionLive) subscriptionReason = 'subscription_cancelled';
+      } else {
+        subscriptionReason = `status_${status}`;
+      }
+
+      if (!subscriptionLive) {
+        logger.warn(`[Subscription] Acesso negado por status: feature=${feature}, status=${status}, reason=${subscriptionReason}, workspace=${workspaceId}`);
+        return res.status(402).json({
+          error: 'Subscription not active',
+          code: 'SUBSCRIPTION_INACTIVE',
+          reason: subscriptionReason,
+          feature,
+          currentPlan,
+          upgradeUrl: '/upgrade'
+        });
+      }
 
       // Verificar se a feature requer validação
       const allowedPlans = FEATURE_PLANS[feature];

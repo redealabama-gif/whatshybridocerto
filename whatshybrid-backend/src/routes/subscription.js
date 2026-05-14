@@ -8,6 +8,7 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 
 const db = require('../utils/database');
@@ -15,7 +16,51 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
-router.use(authenticate);
+// ─────────────────────────────────────────────────────────────────────
+// Helpers — assinatura via código + device fingerprint
+// ─────────────────────────────────────────────────────────────────────
+
+function generateSubscriptionCode() {
+  // Formato: WHL-XXXX-XXXX-XXXX (12 chars A-Z2-9, evita 0/O/1/I para legibilidade)
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const pick = (n) => {
+    const bytes = crypto.randomBytes(n);
+    let out = '';
+    for (let i = 0; i < n; i++) out += alphabet[bytes[i] % alphabet.length];
+    return out;
+  };
+  return `WHL-${pick(4)}-${pick(4)}-${pick(4)}`;
+}
+
+function deviceIdHash(req) {
+  // Hash estável da combinação que identifica um "dispositivo" sem coletar PII.
+  // Antes não havia binding → mesmo código rodava em N navegadores.
+  const ua = String(req.headers['user-agent'] || '').slice(0, 256);
+  const lang = String(req.headers['accept-language'] || '').slice(0, 64);
+  const headerFp = String(req.headers['x-whl-device'] || '').slice(0, 128);
+  return crypto.createHash('sha256')
+    .update(`${ua}\n${lang}\n${headerFp}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+// Mapeia código → workspace + plano, retorna { code, workspaceId, plan } ou null.
+function lookupCode(code) {
+  if (!code || typeof code !== 'string') return null;
+  return db.get(
+    `SELECT code, workspace_id, plan, status, device_id_hash, activated_at, expires_at
+     FROM subscription_codes WHERE code = ? LIMIT 1`,
+    [code.trim()]
+  );
+}
+
+// Rotas administrativas (geração de códigos) precisam de JWT + role admin.
+// Demais rotas: /validate e /sync passam a aceitar auth-via-código também.
+router.use((req, res, next) => {
+  // Rotas que aceitam auth-via-código (extensão) — autenticam manualmente abaixo.
+  if (req.path === '/validate' || req.path === '/sync') return next();
+  return authenticate(req, res, next);
+});
 
 /**
  * GET /api/v1/subscription
@@ -170,17 +215,97 @@ router.post('/change-plan',
 /**
  * POST /api/v1/subscription/validate
  *
- * Body: { code? (legado, ignorado se workspace já autenticado) }
- * Retorna: { valid, plan, status, credits, expires_at, features }
+ * Body: { code? }
  *
- * Chamado pela extensão a cada 5min para garantir que workspace ainda
- * tem assinatura ativa e créditos pra uso de IA.
+ * Dois modos de auth:
+ *   (a) JWT no header (fluxo SaaS web): usa req.workspaceId.
+ *   (b) `code` no body (fluxo extensão sem JWT): resolve workspace_id pelo
+ *       código, registra device fingerprint no primeiro uso, e nas próximas
+ *       chamadas retorna 423 LOCKED se outro dispositivo tentar usar.
+ *
+ * Retorna 200 com { valid, reason, plan, status, credits, expires_at,
+ *                   trial_days_left, code_status }
+ * ou     423 LOCKED com { code: 'CODE_IN_USE_ELSEWHERE' }
+ * ou     404 com       { code: 'CODE_NOT_FOUND' }
  */
 router.post('/validate', asyncHandler(async (req, res) => {
+  const { code: bodyCode } = req.body || {};
+  let workspaceId = null;
+  let codeRow = null;
+
+  // Caminho A: JWT presente → usa workspace do token
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    await new Promise((resolve) => authenticate(req, res, (err) => {
+      if (err) return resolve();
+      workspaceId = req.workspaceId;
+      resolve();
+    }));
+  }
+
+  // Caminho B: sem JWT mas com code → resolver e fazer device binding
+  if (!workspaceId && bodyCode) {
+    codeRow = lookupCode(bodyCode);
+    if (!codeRow) {
+      return res.status(404).json({
+        valid: false,
+        code: 'CODE_NOT_FOUND',
+        reason: 'invalid_code',
+        message: 'Código de assinatura inválido.'
+      });
+    }
+    if (codeRow.status === 'revoked') {
+      return res.status(403).json({
+        valid: false,
+        code: 'CODE_REVOKED',
+        reason: 'code_revoked',
+        message: 'Este código foi revogado pelo administrador.'
+      });
+    }
+    const codeExpires = codeRow.expires_at ? new Date(codeRow.expires_at).getTime() : null;
+    if (codeExpires && codeExpires < Date.now()) {
+      return res.status(403).json({
+        valid: false,
+        code: 'CODE_EXPIRED',
+        reason: 'code_expired',
+        message: 'Código de assinatura expirou.'
+      });
+    }
+
+    // Device binding — primeira ativação grava fingerprint; demais validam.
+    const fp = deviceIdHash(req);
+    if (!codeRow.device_id_hash) {
+      db.run(
+        `UPDATE subscription_codes
+            SET device_id_hash = ?, activated_at = datetime('now'), status = 'active'
+          WHERE code = ?`,
+        [fp, codeRow.code]
+      );
+      logger.info(`[Subscription] Code ${codeRow.code} bound to first device`);
+    } else if (codeRow.device_id_hash !== fp) {
+      return res.status(423).json({
+        valid: false,
+        code: 'CODE_IN_USE_ELSEWHERE',
+        reason: 'in_use_elsewhere',
+        message: 'Este código já está em uso em outro dispositivo. Acesse o painel da assinatura para desvincular antes de usar aqui.'
+      });
+    }
+    workspaceId = codeRow.workspace_id;
+  }
+
+  if (!workspaceId) {
+    return res.status(401).json({
+      valid: false,
+      code: 'NO_AUTH',
+      reason: 'missing_auth',
+      message: 'Forneça um token de login OU um código de assinatura.'
+    });
+  }
+
   const ws = db.get(
     `SELECT id, plan, subscription_status, trial_end_at, next_billing_at, credits
      FROM workspaces WHERE id = ?`,
-    [req.workspaceId]
+    [workspaceId]
   );
 
   if (!ws) throw new AppError('Workspace not found', 404);
@@ -195,15 +320,21 @@ router.post('/validate', asyncHandler(async (req, res) => {
   if (ws.subscription_status === 'active') {
     valid = true;
   } else if (ws.subscription_status === 'trialing') {
-    valid = trialEndAt && trialEndAt > now;
+    valid = !!(trialEndAt && trialEndAt > now);
     if (!valid) reason = 'trial_expired';
-  } else if (ws.subscription_status === 'cancelled') {
+  } else if (ws.subscription_status === 'canceling' ||
+             ws.subscription_status === 'cancelled' ||
+             ws.subscription_status === 'canceled') {
     // Mantém acesso até fim do período pago
-    valid = nextBillingAt && nextBillingAt > now;
+    valid = !!(nextBillingAt && nextBillingAt > now);
     if (!valid) reason = 'subscription_cancelled';
   } else {
     reason = `status_${ws.subscription_status}`;
   }
+
+  const trialDaysLeft = (trialEndAt && trialEndAt > now)
+    ? Math.ceil((trialEndAt - now) / 86400000)
+    : 0;
 
   res.json({
     valid,
@@ -212,6 +343,8 @@ router.post('/validate', asyncHandler(async (req, res) => {
     status: ws.subscription_status,
     credits: ws.credits || 0,
     expires_at: nextBillingAt || trialEndAt || null,
+    trial_days_left: trialDaysLeft,
+    code_status: codeRow ? codeRow.status : null,
   });
 }));
 
@@ -225,12 +358,38 @@ router.post('/validate', asyncHandler(async (req, res) => {
  * Retorna estado consolidado do servidor.
  */
 router.post('/sync', asyncHandler(async (req, res) => {
-  const { usage = {}, credits: clientCredits } = req.body;
+  const { code: bodyCode, usage = {}, credits: clientCredits } = req.body || {};
+  let workspaceId = null;
+
+  // Auth: JWT OU código (mesmo critério de /validate)
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    await new Promise((resolve) => authenticate(req, res, (err) => {
+      if (err) return resolve();
+      workspaceId = req.workspaceId;
+      resolve();
+    }));
+  }
+  if (!workspaceId && bodyCode) {
+    const codeRow = lookupCode(bodyCode);
+    if (!codeRow) return res.status(404).json({ success: false, code: 'CODE_NOT_FOUND' });
+    if (codeRow.status === 'revoked') {
+      return res.status(403).json({ success: false, code: 'CODE_REVOKED' });
+    }
+    const fp = deviceIdHash(req);
+    if (codeRow.device_id_hash && codeRow.device_id_hash !== fp) {
+      return res.status(423).json({ success: false, code: 'CODE_IN_USE_ELSEWHERE' });
+    }
+    workspaceId = codeRow.workspace_id;
+  }
+  if (!workspaceId) {
+    return res.status(401).json({ success: false, code: 'NO_AUTH' });
+  }
 
   const ws = db.get(
     `SELECT id, plan, subscription_status, credits, trial_end_at, next_billing_at
      FROM workspaces WHERE id = ?`,
-    [req.workspaceId]
+    [workspaceId]
   );
 
   if (!ws) throw new AppError('Workspace not found', 404);
@@ -246,8 +405,8 @@ router.post('/sync', asyncHandler(async (req, res) => {
         `INSERT INTO analytics_events (id, workspace_id, event_type, event_data, created_at)
          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
-          require('crypto').randomUUID(),
-          req.workspaceId,
+          crypto.randomUUID(),
+          workspaceId,
           'subscription.usage_sync',
           JSON.stringify({ usage, client_credits: clientCredits })
         ]
@@ -267,6 +426,120 @@ router.post('/sync', asyncHandler(async (req, res) => {
     next_billing_at: ws.next_billing_at,
     server_authoritative: true,
   });
+}));
+
+// ─────────────────────────────────────────────────────────────────────
+// Códigos de assinatura — geração, listagem, revogação, desbind
+// Todas exigem JWT + role admin (autorizado pelo router.use(authenticate)
+// e pelo authorize('admin') em cada rota).
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/subscription/codes
+ * Body: { workspace_id, plan?, expires_at?, notes? }
+ * Cria um novo código de assinatura. Disparado após cobrança bem-sucedida
+ * (ex: webhook de pagamento) — depois enviado por email ao cliente.
+ */
+router.post('/codes', authorize('admin'), asyncHandler(async (req, res) => {
+  const { workspace_id, plan = 'starter', expires_at = null, notes = null } = req.body || {};
+  if (!workspace_id) throw new AppError('workspace_id obrigatório', 400);
+  if (!['starter', 'pro', 'enterprise'].includes(plan)) {
+    throw new AppError('Plano inválido', 400);
+  }
+  const ws = db.get('SELECT id FROM workspaces WHERE id = ?', [workspace_id]);
+  if (!ws) throw new AppError('Workspace não encontrado', 404);
+
+  // Tenta até 3x evitar colisão (probabilidade ínfima mas defensivo)
+  let code = null;
+  for (let i = 0; i < 3; i++) {
+    const candidate = generateSubscriptionCode();
+    const existing = db.get('SELECT code FROM subscription_codes WHERE code = ?', [candidate]);
+    if (!existing) { code = candidate; break; }
+  }
+  if (!code) throw new AppError('Falha ao gerar código único', 500);
+
+  db.run(
+    `INSERT INTO subscription_codes (code, workspace_id, plan, status, expires_at, notes)
+     VALUES (?, ?, ?, 'unused', ?, ?)`,
+    [code, workspace_id, plan, expires_at, notes]
+  );
+  logger.info(`[Subscription] Code generated: ${code} → workspace=${workspace_id} plan=${plan}`);
+
+  res.status(201).json({ success: true, code, plan, workspace_id, status: 'unused' });
+}));
+
+/**
+ * GET /api/v1/subscription/codes?workspace_id=...
+ * Lista códigos de um workspace (admin only).
+ */
+router.get('/codes', authorize('admin'), asyncHandler(async (req, res) => {
+  const { workspace_id } = req.query || {};
+  let rows;
+  if (workspace_id) {
+    rows = db.all(
+      `SELECT code, workspace_id, plan, status, device_id_hash, activated_at,
+              revoked_at, created_at, expires_at, notes
+       FROM subscription_codes WHERE workspace_id = ? ORDER BY created_at DESC`,
+      [workspace_id]
+    );
+  } else {
+    rows = db.all(
+      `SELECT code, workspace_id, plan, status, device_id_hash, activated_at,
+              revoked_at, created_at, expires_at, notes
+       FROM subscription_codes ORDER BY created_at DESC LIMIT 200`
+    );
+  }
+  res.json({ codes: rows || [] });
+}));
+
+/**
+ * POST /api/v1/subscription/codes/:code/revoke
+ * Marca código como revogado. Próximo /validate retorna 403 CODE_REVOKED.
+ */
+router.post('/codes/:code/revoke', authorize('admin'), asyncHandler(async (req, res) => {
+  const code = String(req.params.code || '').trim();
+  const row = db.get('SELECT code FROM subscription_codes WHERE code = ?', [code]);
+  if (!row) throw new AppError('Código não encontrado', 404);
+  db.run(
+    `UPDATE subscription_codes SET status = 'revoked', revoked_at = datetime('now') WHERE code = ?`,
+    [code]
+  );
+  logger.info(`[Subscription] Code revoked: ${code} by user=${req.userId}`);
+  res.json({ success: true });
+}));
+
+/**
+ * POST /api/v1/subscription/codes/:code/unbind
+ * Zera o device_id_hash do código pra que ele possa ser usado em um novo
+ * dispositivo. Usado quando o usuário troca de máquina — chama do painel web.
+ */
+router.post('/codes/:code/unbind', asyncHandler(async (req, res) => {
+  // Autenticação por JWT do dono OU por role admin.
+  await new Promise((resolve) => authenticate(req, res, () => resolve()));
+  if (!req.userId) return res.status(401).json({ error: 'NO_AUTH' });
+
+  const code = String(req.params.code || '').trim();
+  const row = db.get(
+    'SELECT code, workspace_id FROM subscription_codes WHERE code = ?',
+    [code]
+  );
+  if (!row) throw new AppError('Código não encontrado', 404);
+
+  const isAdmin = req.user?.role === 'admin';
+  const ownsWorkspace = req.workspaceId === row.workspace_id;
+  if (!isAdmin && !ownsWorkspace) {
+    return res.status(403).json({ error: 'FORBIDDEN' });
+  }
+
+  db.run(
+    `UPDATE subscription_codes
+        SET device_id_hash = NULL,
+            status = CASE WHEN status='revoked' THEN status ELSE 'unused' END
+      WHERE code = ?`,
+    [code]
+  );
+  logger.info(`[Subscription] Code unbound: ${code} by user=${req.userId}`);
+  res.json({ success: true });
 }));
 
 module.exports = router;
