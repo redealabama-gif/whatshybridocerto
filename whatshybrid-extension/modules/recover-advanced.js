@@ -217,16 +217,16 @@
     STATUS_DELETED: 'status_deleted'
   };
 
-  // Estados que compõem o "Universo Revogado"
+  // Estados que compõem o "Universo Revogado" — apenas eventos REAIS de
+  // deleção/edição/falha. Estados como CACHED_ONLY / SNAPSHOT_INITIAL /
+  // SNAPSHOT_LOADED são apenas marcações de "temos cópia local da mensagem"
+  // e NÃO devem causar marca de "Apagada" no DOM.
   const REVOKED_UNIVERSE_STATES = [
     MESSAGE_STATES.DELETED_LOCAL,
     MESSAGE_STATES.REVOKED_GLOBAL,
     MESSAGE_STATES.EDITED,
     MESSAGE_STATES.FAILED,
-    MESSAGE_STATES.CACHED_ONLY,
     MESSAGE_STATES.STATUS_DELETED,
-    MESSAGE_STATES.SNAPSHOT_INITIAL,
-    MESSAGE_STATES.SNAPSHOT_LOADED,
     MESSAGE_STATES.REMOVED
   ];
 
@@ -1214,13 +1214,9 @@
           }
         }
 
-        // Método 2: Via mediaData direto
-        if (msg.mediaData && msg.mediaData !== '__HAS_MEDIA__') {
-          mediaCache.set(cacheKey, msg.mediaData);
-          return { success: true, data: msg.mediaData, method: 'mediaData' };
-        }
-
-        // Método 3: Via backend
+        // Método 2: Backend (qualidade ORIGINAL via mediaKey + directPath).
+        // Tem prioridade sobre msg.mediaData porque mediaData costuma ser
+        // apenas o thumbnail in-line, não a mídia original.
         if (msg.mediaKey) {
           try {
             const data = await backendPost('/api/v1/recover/media/download', {
@@ -1236,6 +1232,12 @@
             const errorMsg = e?.message || String(e);
             errors.push({ method: 'backend', attempt, error: errorMsg });
           }
+        }
+
+        // Método 3 (último recurso): mediaData inline — geralmente thumbnail.
+        if (msg.mediaData && msg.mediaData !== '__HAS_MEDIA__') {
+          mediaCache.set(cacheKey, msg.mediaData);
+          return { success: true, data: msg.mediaData, method: 'mediaData' };
         }
       } catch (e) {
         const errorMsg = e?.message || String(e);

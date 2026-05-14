@@ -1600,6 +1600,42 @@ function showView(viewName) {
     });
 
     $('sp_download_all_recover')?.addEventListener('click', downloadAllRecover);
+
+    // Filtros do Recover (.recover-filter[data-filter=...])
+    // Encaminha para RecoverAdvanced.setFilter('type', value) e re-renderiza.
+    document.querySelectorAll('.recover-filter').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const value = btn.dataset.filter || 'all';
+        try {
+          if (window.RecoverAdvanced?.setFilter) {
+            window.RecoverAdvanced.setFilter('type', value);
+          }
+        } catch (e) { console.warn('[Recover] setFilter falhou:', e); }
+        document.querySelectorAll('.recover-filter').forEach(b => b.classList.toggle('active', b === btn));
+        await recoverRefresh(false);
+      });
+    });
+
+    // Busca por número
+    let _recoverSearchTimer = null;
+    $('recover_search')?.addEventListener('input', (e) => {
+      clearTimeout(_recoverSearchTimer);
+      _recoverSearchTimer = setTimeout(async () => {
+        const val = (e.target.value || '').trim();
+        try {
+          window.RecoverAdvanced?.setFilter?.('chat', val);
+        } catch (_) {}
+        await recoverRefresh(false);
+      }, 250);
+    });
+
+    // Seletor de chat
+    $('recover_chat_filter')?.addEventListener('change', async (e) => {
+      try {
+        window.RecoverAdvanced?.setFilter?.('chat', e.target.value || '');
+      } catch (_) {}
+      await recoverRefresh(false);
+    });
     
     // FASE 4: Snapshot button
     $('recover_snapshot')?.addEventListener('click', async () => {
@@ -2176,44 +2212,35 @@ function showView(viewName) {
     }
   }
 
-  // Função para baixar todos os recovers como CSV
+  // Exporta todo o histórico do Recover como JSON (estrutura preservada,
+  // sem perda de campos como mediaData, ack, edits etc.). Os formatos
+  // CSV/TXT/PDF foram removidos por instabilidade entre versões da WA.
   async function downloadAllRecover() {
     try {
-      const resp = await motor('GET_RECOVER_HISTORY');
-      const history = resp?.history || [];
-      
+      let history = [];
+      if (window.RecoverAdvanced?.getFilteredMessages) {
+        history = window.RecoverAdvanced.getFilteredMessages() || [];
+      }
+      if (!history.length) {
+        const resp = await motor('GET_RECOVER_HISTORY');
+        history = resp?.history || [];
+      }
+
       if (history.length === 0) {
         $('sp_recover_status').textContent = '⚠️ Nenhuma mensagem para baixar';
         return;
       }
-      
-      // Criar CSV
-      const headers = ['Número', 'Mensagem', 'Tipo', 'Data', 'Hora'];
-      const rows = history.map(h => {
-        const ts = new Date(h?.timestamp || Date.now());
-        const from = normalizeFromId(h?.from || h?.chat || '', h);
-        const body = String(h?.body || h?.message || h?.text || '').replace(/"/g, '""');
-        const type = h?.type === 'deleted' ? 'Apagada' : (h?.type === 'edited' ? 'Editada' : 'Outro');
-        return [
-          `"${from}"`,
-          `"${body}"`,
-          `"${type}"`,
-          `"${ts.toLocaleDateString()}"`,
-          `"${ts.toLocaleTimeString()}"`
-        ].join(',');
-      });
-      
-      const csv = [headers.join(','), ...rows].join('\n');
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+
+      const csv = JSON.stringify(history, null, 2);
+      const blob = new Blob([csv], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mensagens_recuperadas_${Date.now()}.csv`;
+      a.download = `mensagens_recuperadas_${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      
-      $('sp_recover_status').textContent = `✅ ${history.length} mensagens exportadas`;
+
+      $('sp_recover_status').textContent = `✅ ${history.length} mensagens exportadas (JSON)`;
     } catch (e) {
       $('sp_recover_status').textContent = `❌ ${e.message || e}`;
     }
