@@ -1,6 +1,6 @@
 {
   "version": "9.5.8",
-  "built_at": "2026-05-14T00:44:49.470Z",
+  "built_at": "2026-05-14T02:01:29.629Z",
   "minifier": "manual",
   "bundles": [
     {
@@ -10,15 +10,15 @@
     },
     {
       "name": "content-bundle",
-      "size": 1296759,
-      "raw": 2031949
+      "size": 1281471,
+      "raw": 2007354
     },
     {
       "name": "advanced-bundle",
-      "size": 384310,
-      "raw": 606912
+      "size": 386049,
+      "raw": 610949
     }
   ],
-  "total_size": 1774958,
-  "total_raw": 2792721
+  "total_size": 1761409,
+  "total_raw": 2772163
 }
