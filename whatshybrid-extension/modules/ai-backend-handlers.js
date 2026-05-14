@@ -14,7 +14,16 @@
   // AI VIEW HANDLERS
   // ============================================
 
+  let _aiViewInitialized = false;
+
   function initAIView() {
+    // Idempotente: a função é disparada por DOMContentLoaded + setTimeout(1s)
+    // + view:changed + chrome.storage.onChanged + click no nav. Sem este gate,
+    // cada chamada anexava um NOVO listener ao botão "Analisar Mensagem" e o
+    // toast "Análise concluída" aparecia N vezes (uma por listener acumulado).
+    if (_aiViewInitialized) return;
+    _aiViewInitialized = true;
+
     // Tab switching
     document.querySelectorAll('[data-ai-tab]').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -94,10 +103,12 @@
           }
 
           // STATE: generating → applied (success)
+          // Sem toast separado: o próprio botão sinaliza com cor+texto por 2s.
+          // Antes existia um showToast aqui que, somado às múltiplas iniciali-
+          // zações de initAIView, produzia "Análise concluída" 5x.
           analyzeBtn.innerHTML = '✅ Análise concluída';
           analyzeBtn.style.background = 'rgba(16,185,129,0.2)';
           analyzeBtn.style.borderColor = '#10b981';
-          showToast('✅ Análise concluída com sucesso!', 'success');
 
           // Reset to idle after 2 seconds
           setTimeout(() => {
@@ -912,11 +923,23 @@
     // que lê o índice via data-suggestion-index e busca o conteúdo do array em memória.
     container.innerHTML = suggestions.map((sug, i) => `
       <div class="suggestion-item mod-card" style="padding: 10px; margin-bottom: 8px; transition: all 0.2s;" data-suggestion-index="${i}">
-        <div class="suggestion-use" style="font-size: 13px; cursor: pointer;" data-idx="${i}">${escapeHtml(sug.content)}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 10px; color: var(--mod-text-muted);">
-          <span>${sug.source === 'ai' ? '🤖 IA' : sug.source === 'knowledge' ? '📚 KB' : sug.source === 'learned' ? '🧠 Aprendido' : '📝 Template'}</span>
-          <div style="display: flex; gap: 8px; align-items: center;">
+        <div class="suggestion-text" data-idx="${i}" style="font-size: 13px; line-height: 1.4;">${escapeHtml(sug.content)}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px;">
+          <div style="font-size: 10px; color: var(--mod-text-muted); display: flex; gap: 6px; align-items: center;">
+            <span>${sug.source === 'ai' ? '🤖 IA' : sug.source === 'knowledge' ? '📚 KB' : sug.source === 'learned' ? '🧠 Aprendido' : '📝 Template'}</span>
+            <span>·</span>
             <span>${Math.round(sug.confidence * 100)}%</span>
+          </div>
+          <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+            <button class="suggestion-use-btn" data-idx="${i}"
+                    style="background: rgba(139,92,246,0.25); border: none; border-radius: 4px; padding: 4px 10px; cursor: pointer; color: #a78bfa; font-size: 11px; font-weight:600;"
+                    title="Usar resposta no chat">Usar</button>
+            <button class="suggestion-edit-btn" data-idx="${i}"
+                    style="background: rgba(251,146,60,0.2); border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; color: #fb923c; font-size: 12px;"
+                    title="Editar antes de enviar — sua versão é gravada como resposta ideal">✏️</button>
+            <button class="suggestion-next-btn" data-idx="${i}"
+                    style="background: rgba(59,130,246,0.2); border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; color: #3b82f6; font-size: 12px;"
+                    title="Gerar outra variação com mesmo contexto">🔄</button>
             <button class="suggestion-rate-up" data-idx="${i}"
                     style="background: rgba(16,185,129,0.2); border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; color: #10b981; font-size: 12px;"
                     title="Boa sugestão">👍</button>
@@ -928,14 +951,26 @@
       </div>
     `).join('');
 
-    // FIX: handlers delegados via data-idx — sem injeção de string em onclick
+    // Handlers delegados via data-idx — sem injeção de string em onclick.
     window._currentSuggestions = suggestions;
 
-    container.querySelectorAll('.suggestion-use').forEach(el => {
+    container.querySelectorAll('.suggestion-use-btn').forEach(el => {
       el.addEventListener('click', (e) => {
         const idx = parseInt(e.currentTarget.dataset.idx, 10);
         const s = window._currentSuggestions?.[idx];
         if (s && typeof window.useSuggestion === 'function') window.useSuggestion(s.content);
+      });
+    });
+    container.querySelectorAll('.suggestion-edit-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.idx, 10);
+        if (typeof window.editSuggestion === 'function') window.editSuggestion(idx);
+      });
+    });
+    container.querySelectorAll('.suggestion-next-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.idx, 10);
+        if (typeof window.nextSuggestion === 'function') window.nextSuggestion(idx);
       });
     });
     container.querySelectorAll('.suggestion-rate-up').forEach(el => {
@@ -952,42 +987,151 @@
         if (s && typeof window.rateSuggestion === 'function') window.rateSuggestion(idx, 1, s.content);
       });
     });
-    showToast(`💡 ${suggestions.length} sugestões geradas!`, 'success');
   }
   
-  // Função para dar rating nas sugestões - HABILITA APRENDIZADO CONTÍNUO
-  window.rateSuggestion = function(index, rating, suggestionText) {
-    const suggestions = window._currentSuggestions || [];
-    const suggestion = suggestions[index];
-    if (!suggestion) return;
-    
-    const lastInput = window._lastAnalyzedMessage || '';
-    
-    if (window.EventBus) {
-      window.EventBus.emit('copilot:feedback', {
-        input: lastInput,
-        response: suggestionText,
-        rating: rating,
-        context: { intent: suggestion.intent || 'unknown', source: suggestion.source, confidence: suggestion.confidence }
-      });
+  // Helper: notifica confidence-system + ai-feedback-system + smartBot.
+  // Emite `feedback:received` (esperado pelo ConfidenceSystem para mexer o
+  // score) E `copilot:feedback` (legado, ainda escutado por alguns módulos).
+  function _emitFeedback({ type, input, response, rating, context, correction }) {
+    if (!window.EventBus) return;
+    window.EventBus.emit('feedback:received', { type, input, response, rating, context, correction });
+    window.EventBus.emit('copilot:feedback', { type, input, response, rating, context, correction });
+    if (rating >= 4) window.EventBus.emit('successfulInteraction', { input, response });
+    if (window.smartBot?.learningSystem?.recordFeedback) {
+      window.smartBot.learningSystem.recordFeedback({ input, response, rating, context, correction });
     }
-    
+  }
+
+  // Botão 👍 / 👎 — fecha o card visualmente e alimenta o sistema de confiança.
+  window.rateSuggestion = function(index, rating, suggestionText) {
+    const suggestion = window._currentSuggestions?.[index];
+    if (!suggestion) return;
+    const lastInput = window._lastAnalyzedMessage || '';
+
+    _emitFeedback({
+      type: rating >= 4 ? 'positive' : 'negative',
+      input: lastInput,
+      response: suggestionText,
+      rating,
+      context: { intent: suggestion.intent || 'unknown', source: suggestion.source, confidence: suggestion.confidence }
+    });
+
     const item = document.querySelector(`[data-suggestion-index="${index}"]`);
     if (item) {
       if (rating >= 4) {
         item.style.borderColor = '#10b981';
-        item.style.background = 'rgba(16,185,129,0.1)';
-        showToast('✅ Obrigado! Aprendizado registrado.', 'success');
+        item.style.background = 'rgba(16,185,129,0.08)';
       } else {
         item.style.borderColor = '#ef4444';
-        item.style.background = 'rgba(239,68,68,0.1)';
-        showToast('📝 Feedback registrado. Vamos melhorar!', 'info');
+        item.style.background = 'rgba(239,68,68,0.08)';
       }
       item.querySelectorAll('button').forEach(btn => { btn.disabled = true; btn.style.opacity = '0.5'; });
     }
-    
-    if (window.smartBot && window.smartBot.learningSystem) {
-      window.smartBot.learningSystem.recordFeedback({ input: lastInput, response: suggestionText, rating: rating, context: { source: suggestion.source } });
+  };
+
+  // ✏️ Edita a sugestão antes de enviar. A versão editada é registrada como
+  // resposta IDEAL (feedback supervisionado) — alimenta few-shot learning e
+  // dispara `feedback:received` com type='correction' pra mover o score.
+  window.editSuggestion = function(index) {
+    const suggestion = window._currentSuggestions?.[index];
+    if (!suggestion) return;
+    const lastInput = window._lastAnalyzedMessage || '';
+
+    const item = document.querySelector(`[data-suggestion-index="${index}"]`);
+    const textEl = item?.querySelector('.suggestion-text');
+    if (!textEl) return;
+
+    // Substitui o <div> de texto por um <textarea> editável + botões salvar/cancelar.
+    const originalText = suggestion.content;
+    const ta = document.createElement('textarea');
+    ta.value = originalText;
+    ta.style.cssText = 'width:100%;min-height:80px;padding:8px;border-radius:6px;border:1px solid rgba(251,146,60,0.4);background:rgba(0,0,0,0.2);color:inherit;font:inherit;font-size:13px;line-height:1.4;resize:vertical;';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
+    actions.innerHTML = `
+      <button class="whl-edit-save mod-btn mod-btn-primary" style="padding:4px 12px;font-size:11px;">Salvar como ideal</button>
+      <button class="whl-edit-cancel mod-btn" style="padding:4px 12px;font-size:11px;background:rgba(255,255,255,0.08);">Cancelar</button>
+    `;
+
+    textEl.replaceWith(ta);
+    ta.parentNode.insertBefore(actions, ta.nextSibling);
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+
+    actions.querySelector('.whl-edit-cancel').addEventListener('click', () => {
+      ta.replaceWith(textEl);
+      actions.remove();
+    });
+    actions.querySelector('.whl-edit-save').addEventListener('click', () => {
+      const edited = ta.value.trim();
+      if (!edited) return;
+      // Grava a versão editada — feedback supervisionado.
+      _emitFeedback({
+        type: 'correction',
+        input: lastInput,
+        response: originalText,
+        correction: edited,
+        rating: 3,
+        context: { intent: suggestion.intent || 'unknown', source: suggestion.source }
+      });
+      // few-shot learning recebe o par (mensagem, resposta ideal).
+      if (window.fewShotLearning?.addExample) {
+        try {
+          window.fewShotLearning.addExample({
+            input: lastInput,
+            output: edited,
+            intent: suggestion.intent || 'unknown',
+            origin: 'user-correction'
+          });
+        } catch (_) {}
+      }
+      // Atualiza o card pro estado salvo e envia direto ao chat.
+      textEl.textContent = edited;
+      textEl.style.background = 'rgba(251,146,60,0.08)';
+      ta.replaceWith(textEl);
+      actions.remove();
+      if (typeof window.useSuggestion === 'function') window.useSuggestion(edited);
+    });
+  };
+
+  // 🔄 Gera outra variação da resposta — mesmo contexto/intenção, fraseado
+  // diferente. Pede ao CopilotEngine pra regenerar com temperatura alta e
+  // sem cache.
+  window.nextSuggestion = async function(index) {
+    const suggestion = window._currentSuggestions?.[index];
+    if (!suggestion) return;
+    const item = document.querySelector(`[data-suggestion-index="${index}"]`);
+    const textEl = item?.querySelector('.suggestion-text');
+    const nextBtn = item?.querySelector('.suggestion-next-btn');
+    if (!textEl) return;
+
+    const lastInput = window._lastAnalyzedMessage || suggestion.content;
+    const previousText = textEl.textContent;
+
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '⏳'; }
+    try {
+      if (!window.CopilotEngine?.analyzeMessage || !window.CopilotEngine?.generateResponse) {
+        showToast('CopilotEngine indisponível', 'warning');
+        return;
+      }
+      const analysis = await window.CopilotEngine.analyzeMessage(lastInput, 'test-chat');
+      const result = await window.CopilotEngine.generateResponse('test-chat', analysis, {
+        skipCache: true,
+        temperature: 0.85,
+        avoidPhrase: previousText
+      });
+      const newText = result?.content?.trim();
+      if (newText && newText !== previousText) {
+        textEl.textContent = newText;
+        suggestion.content = newText;
+      } else {
+        showToast('Não gerou variação nova', 'info');
+      }
+    } catch (e) {
+      showToast(`Erro ao gerar variação: ${e.message}`, 'error');
+    } finally {
+      if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = '🔄'; }
     }
   };
 

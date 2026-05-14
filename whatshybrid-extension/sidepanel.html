@@ -967,27 +967,10 @@
       </div>
     </div>
 
-    <div class="sp-card">
-      <div class="sp-title">📊 Métricas do Copilot</div>
-      <div id="copilot_metrics" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-        <div class="mod-card" style="padding: 8px; text-align: center;">
-          <div style="font-size: 20px; font-weight: 600;" id="metric_total_responses">0</div>
-          <div style="font-size: 11px; color: var(--mod-text-muted);">Respostas</div>
-        </div>
-        <div class="mod-card" style="padding: 8px; text-align: center;">
-          <div style="font-size: 20px; font-weight: 600;" id="metric_auto_responses">0</div>
-          <div style="font-size: 11px; color: var(--mod-text-muted);">Automáticas</div>
-        </div>
-        <div class="mod-card" style="padding: 8px; text-align: center;">
-          <div style="font-size: 20px; font-weight: 600;" id="metric_avg_confidence">0%</div>
-          <div style="font-size: 11px; color: var(--mod-text-muted);">Confiança Média</div>
-        </div>
-        <div class="mod-card" style="padding: 8px; text-align: center;">
-          <div style="font-size: 20px; font-weight: 600;" id="metric_feedback_score">-</div>
-          <div style="font-size: 11px; color: var(--mod-text-muted);">Feedback</div>
-        </div>
-      </div>
-    </div>
+    <!-- Métricas do Copilot foram unificadas no card "Sistema de Confiança" acima
+         (👍 Bom / 👎 Ruim / ✏️ Correções). O card duplicado mostrava os mesmos
+         dados sob nomes diferentes e ficava em zero até haver tráfego real,
+         dando impressão de "feature fake". -->
 
     <!-- Trust System Widget -->
     <div class="sp-card">
