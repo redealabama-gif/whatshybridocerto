@@ -95,7 +95,18 @@
         remoteState.blacklist = Array.isArray(res.blacklist) ? res.blacklist : [];
         lastError = null;
       } else {
-        lastError = res?.error || 'Falha ao conectar com WhatsApp';
+        // Mensagens mais úteis que "Desconectado" cru. O erro nativo do Chrome
+        // costuma ser "The message port closed before a response was received"
+        // ou "Could not establish connection" — ambos indicam que a aba do WA
+        // ainda não carregou o content script ou está numa URL diferente.
+        const raw = String(res?.error || '');
+        if (!res || raw.includes('port closed') || raw.includes('Could not establish')) {
+          lastError = 'Aguardando WhatsApp Web carregar (abra a aba e tente novamente)';
+        } else if (raw.includes('não encontrado') || raw.includes('not found')) {
+          lastError = 'Abra https://web.whatsapp.com numa aba';
+        } else {
+          lastError = raw || 'Sem resposta do WhatsApp Web';
+        }
         remoteState.stats = null;
       }
     } catch (e) {
@@ -182,17 +193,27 @@
     if (addBlacklistBtn) {
       addBlacklistBtn.addEventListener('click', async () => {
         const activeRes = await autopilotCmd('getActiveChat');
-        const active = activeRes?.activeChat || null;
-        const chatId = active?.chatId;
-        const label = active?.name || active?.phone || chatId || 'Chat atual';
 
         if (!activeRes?.success) {
-          addLogEntry('error', activeRes?.error || 'Falha ao obter chat ativo');
+          // Mensagem de erro contextual — antes mostrava o erro cru do Chrome
+          // ("port closed...") que confunde o usuário.
+          const raw = String(activeRes?.error || '');
+          if (raw.includes('port closed') || raw.includes('Could not establish')) {
+            addLogEntry('error', 'Aguarde o WhatsApp Web terminar de carregar e tente novamente');
+          } else if (raw.includes('WhatsApp Web não encontrado')) {
+            addLogEntry('error', 'Abra https://web.whatsapp.com numa aba para usar esta função');
+          } else {
+            addLogEntry('error', raw || 'Falha ao obter chat ativo');
+          }
           return;
         }
 
+        const active = activeRes.activeChat || null;
+        const chatId = active?.chatId;
+        const label = active?.name || active?.phone || chatId || 'Chat atual';
+
         if (!chatId) {
-          addLogEntry('error', 'Nenhum chat ativo detectado no WhatsApp');
+          addLogEntry('error', 'Abra uma conversa no WhatsApp antes de adicionar à blacklist');
           return;
         }
 

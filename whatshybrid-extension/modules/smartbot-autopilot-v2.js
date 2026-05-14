@@ -1464,21 +1464,65 @@
   // RPC (Sidepanel/UI -> Content Script)
   // Permite que o sidepanel controle o Autopilot que roda em web.whatsapp.com
   // ============================================
-  function getActiveChatInfo() {
+  // Cache curto do active chat resolvido via bridge. Antes lia
+  // window.Store.Chat.getActive() — esse objeto sumiu em WA 2.3000.x. Resultado:
+  // "Adicionar chat atual" sempre retornava null e o sidepanel mostrava
+  // "Nenhum chat ativo detectado" mesmo com chat aberto.
+  let _activeChatCache = { id: null, ts: 0 };
+
+  function _bridgeRequestActiveChat() {
+    return new Promise((resolve) => {
+      const requestId = `whl_ap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const onMsg = (e) => {
+        if (e.source !== window) return;
+        const d = e.data;
+        if (!d || d.source !== 'WHL_PAGE_BRIDGE' || d.type !== 'RESPONSE' || d.requestId !== requestId) return;
+        window.removeEventListener('message', onMsg);
+        clearTimeout(timer);
+        resolve(d.data || null);
+      };
+      const timer = setTimeout(() => {
+        window.removeEventListener('message', onMsg);
+        resolve(null);
+      }, 2000);
+      window.addEventListener('message', onMsg);
+      try {
+        window.postMessage({ source: 'WHL_ISOLATED', type: 'getActiveChat', requestId, payload: {} }, window.location.origin);
+      } catch (_) {
+        window.removeEventListener('message', onMsg);
+        clearTimeout(timer);
+        resolve(null);
+      }
+    });
+  }
+
+  async function getActiveChatInfo() {
     let chatId = null;
-    try {
-      chatId = window.Store?.Chat?.getActive?.()?.id?._serialized || null;
-    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
+    // Caminho moderno: bridge.
+    const fresh = (Date.now() - _activeChatCache.ts) < 1500;
+    if (fresh && _activeChatCache.id) {
+      chatId = _activeChatCache.id;
+    } else {
+      try {
+        const resp = await _bridgeRequestActiveChat();
+        if (resp?.id) {
+          chatId = resp.id;
+          _activeChatCache = { id: chatId, ts: Date.now() };
+        }
+      } catch (_) {}
+    }
+    // Fallback legado (pré-2.3000.x).
+    if (!chatId) {
+      try { chatId = window.Store?.Chat?.getActive?.()?.id?._serialized || null; } catch (_) {}
+    }
 
     let name = '';
     try {
-      const headerSpan = document.querySelector('header span[title]');
-      const headerDiv = document.querySelector('[data-testid="conversation-info-header"] span');
-      const mainHeader = document.querySelector('#main header');
+      // Cabeçalho do chat aberto. WA 2.3000.x: span[title] em #main header.
+      const headerSpan = document.querySelector('#main header span[title]')
+        || document.querySelector('header span[title]');
       if (headerSpan) name = headerSpan.getAttribute('title') || headerSpan.textContent || '';
-      else if (headerDiv) name = headerDiv.textContent || '';
-      else if (mainHeader) name = mainHeader.querySelector('span[dir="auto"]')?.textContent || '';
-    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
+    } catch (_) {}
 
     const phone = chatId ? extractPhoneFromChatId(chatId) : '';
     return { chatId, phone, name: safeText(name) };
@@ -1543,7 +1587,7 @@
               return { stats: window.AutopilotV2.getStats(), queueSize: window.AutopilotV2.getQueue().length };
 
             case 'getActiveChat':
-              return { activeChat: getActiveChatInfo() };
+              return { activeChat: await getActiveChatInfo() };
 
             default:
               return { error: 'Comando desconhecido' };

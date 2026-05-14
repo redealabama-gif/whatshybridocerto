@@ -49,11 +49,10 @@
         priority: 'medium'
       },
       
-      // Automação
-      'smartbot-autopilot-v2': {
-        trigger: ['autopilotToggled'],
-        priority: 'high'
-      },
+      // Automação — smartbot-autopilot-v2 foi promovido ao content-bundle
+      // (carregado no boot da página). O RPC listener precisa existir antes
+      // do sidepanel mandar comandos; lazy-load aqui causava "message port
+      // closed before a response was received".
       'campaign-manager': {
         trigger: ['campaignOpened', 'scheduleMessage'],
         priority: 'medium'
