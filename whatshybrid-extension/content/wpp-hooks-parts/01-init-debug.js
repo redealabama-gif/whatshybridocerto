@@ -988,9 +988,17 @@ window.whl_hooks_main = () => {
             const MMmod  = safeRequire('WAWebMsgModel');
             const MKmod  = safeRequire('WAWebMsgKey');
 
-            const createWid       = pickAny(WFmod, 'createWid');
-            const ChatCollection  = pickAny(CCmod, 'ChatCollection');
-            const sendTextMsgToChat = pickAny(SCAmod, 'sendTextMsgToChat');
+            // WAWebWidFactory can be either the namespace (with .createWid /
+            // .WidFactory.createWid) or expose createWid directly on default.
+            const WFns = pickAny(WFmod, 'WidFactory') || WFmod?.default || WFmod;
+            const createWid =
+                pickAny(WFmod, 'createWid')
+                || (typeof WFns === 'function' ? WFns : null)
+                || pickAny(WFns, 'createWid');
+            const ChatCollection  = pickAny(CCmod, 'ChatCollection') || CCmod?.default || CCmod;
+            const sendTextMsgToChat =
+                pickAny(SCAmod, 'sendTextMsgToChat', 'sendTextMessageToChat')
+                || (typeof (SCAmod?.default) === 'function' ? SCAmod.default : null);
             // ChatModel / MsgModel / MsgKey are only used by the legacy path.
             const ChatCtor        = pickAny(CMmod, 'Chat', 'ChatModel');
             const MsgCtor         = pickAny(MMmod, 'Msg', 'MsgModel');
@@ -1174,30 +1182,52 @@ window.whl_hooks_main = () => {
      */
     async function abrirChatPorNumero(phone) {
         console.log('[WHL] 📱 Abrindo chat para:', phone);
-        
+
         try {
-            const WF = require('WAWebWidFactory');
-            const CC = require('WAWebChatCollection');
-            
-            const wid = WF.createWid(phone + '@c.us');
-            let chat = CC.ChatCollection.get(wid);
-            
-            if (!chat) {
-                const ChatModel = require('WAWebChatModel');
-                chat = new ChatModel.Chat({ id: wid });
-                CC.ChatCollection.add(chat);
+            // Multi-shape module pickers (mirrors enviarMensagemAPI).
+            const _pickAny = (mod, ...names) => {
+                if (!mod) return null;
+                for (const n of names) {
+                    if (mod[n] != null) return mod[n];
+                    if (mod.default && mod.default[n] != null) return mod.default[n];
+                }
+                return null;
+            };
+            const _safeReq = (n) => { try { return typeof require === 'function' ? require(n) : null; } catch (_) { return null; } };
+
+            const WFmod = _safeReq('WAWebWidFactory');
+            const CCmod = _safeReq('WAWebChatCollection');
+            const CMmod = _safeReq('WAWebChatModel');
+            const Cmdmod = _safeReq('WAWebCmd');
+
+            const WFns = _pickAny(WFmod, 'WidFactory') || WFmod?.default || WFmod;
+            const createWid =
+                _pickAny(WFmod, 'createWid')
+                || (typeof WFns === 'function' ? WFns : null)
+                || _pickAny(WFns, 'createWid');
+            const ChatCollection = _pickAny(CCmod, 'ChatCollection') || CCmod?.default || CCmod;
+            const ChatCtor = _pickAny(CMmod, 'Chat', 'ChatModel');
+            const openChatAt = _pickAny(Cmdmod, 'openChatAt') || _pickAny(_pickAny(Cmdmod, 'Cmd'), 'openChatAt');
+
+            if (!createWid || !ChatCollection) throw new Error('WidFactory/ChatCollection unavailable');
+
+            const wid = createWid(phone + '@c.us');
+            let chat = ChatCollection.get?.(wid);
+
+            if (!chat && ChatCtor) {
+                chat = new ChatCtor({ id: wid });
+                ChatCollection.add?.(chat);
             }
-            
+
             // MÉTODO CORRETO: Usar openChat do CMD
-            try {
-                const CMD = require('WAWebCmd');
-                if (CMD && CMD.openChatAt) {
-                    await CMD.openChatAt(chat);
+            if (chat && typeof openChatAt === 'function') {
+                try {
+                    await openChatAt(chat);
                     await new Promise(r => setTimeout(r, 2000));
                     return true;
+                } catch (e) {
+                    console.log('[WHL] openChatAt falhou, tentando URL...');
                 }
-            } catch (e) {
-                console.log('[WHL] CMD não disponível, tentando método alternativo...');
             }
             
             // FALLBACK: Simular clique no contato ou usar URL
@@ -1292,12 +1322,14 @@ window.whl_hooks_main = () => {
         
         while (Date.now() - startTime < timeout) {
             try {
-                // Seletores para mensagens no chat
+                // Seletores para mensagens no chat (WA 2.3000.x + legados)
                 const mensagensNoChat = document.querySelectorAll(
                     '[data-testid="msg-container"], ' +
                     '.message-out, ' +
                     '[class*="message-out"], ' +
-                    '[data-testid="conversation-panel-messages"] [role="row"]'
+                    '[data-testid="conversation-panel-messages"] [role="row"], ' +
+                    '#main [role="row"]:has(div.message-out), ' +
+                    '#main div[data-id^="true_"]'
                 );
                 
                 for (const msgEl of mensagensNoChat) {

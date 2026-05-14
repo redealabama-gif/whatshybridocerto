@@ -47,9 +47,15 @@
   // Resolve a member from a module accepting both shapes:
   //   require('Foo') -> { Foo: ... }     (new)
   //   require('Foo') -> { default: { Foo: ... } }   (older webpack)
-  function pick(mod, name) {
+  // Accepts an array of candidate names — first hit wins.
+  function pick(mod, names) {
     if (!mod) return null;
-    return mod[name] || mod.default?.[name] || null;
+    const list = Array.isArray(names) ? names : [names];
+    for (const n of list) {
+      if (n && mod[n] != null) return mod[n];
+      if (n && mod.default && mod.default[n] != null) return mod.default[n];
+    }
+    return null;
   }
 
   // ── Module resolution map ─────────────────────────────────────────────
@@ -59,26 +65,37 @@
     const found = {};
     const missing = [];
 
-    function tryModule(label, modName, exportName) {
+    // tryModule supports multiple candidate export names so WA renames
+    // (2.3000.x dropped legacy member names) don't break resolution.
+    function tryModule(label, modName, exportNames) {
       const mod = safeRequire(modName);
       if (!mod) { missing.push(`${label}(${modName})`); return null; }
-      const val = exportName ? pick(mod, exportName) : (mod.default || mod);
-      if (!val) { missing.push(`${label}(${modName}.${exportName || 'default'})`); return null; }
+      const names = exportNames == null ? [] : (Array.isArray(exportNames) ? exportNames : [exportNames]);
+      let val = null;
+      if (names.length) {
+        val = pick(mod, names);
+      } else {
+        val = mod.default || mod;
+      }
+      // Last-resort: accept the module itself if it looks usable
+      if (!val) val = mod.default || mod;
+      if (!val) { missing.push(`${label}(${modName}.${names.join('|') || 'default'})`); return null; }
       found[label] = val;
       return val;
     }
 
-    tryModule('Chat',           'WAWebChatCollection',          'ChatCollection');
-    tryModule('Contact',        'WAWebContactCollection',       'ContactCollection');
-    tryModule('Blocklist',      'WAWebBlocklistCollection',     'BlocklistCollection');
-    tryModule('Msg',            'WAWebMsgCollection',           'MsgCollection');
-    tryModule('Wid',            'WAWebWidFactory',              'WidFactory');
-    tryModule('SendTextMsg',    'WAWebSendMsgChatAction',       'sendTextMsgToChat');
-    tryModule('Cmd',            'WAWebCmd',                     'Cmd') || tryModule('Cmd', 'WAWebCmd');
-    tryModule('ChatModel',      'WAWebChatModel',               'ChatModel');
-    tryModule('MsgModel',       'WAWebMsgModel',                'MsgModel');
-    tryModule('MsgKey',         'WAWebMsgKey',                  'MsgKey');
-    tryModule('SendMsgRecord',  'WAWebSendMsgRecordAction',     'addAndSendMsgToChat')
+    tryModule('Chat',           'WAWebChatCollection',          ['ChatCollection']);
+    tryModule('Contact',        'WAWebContactCollection',       ['ContactCollection']);
+    tryModule('Blocklist',      'WAWebBlocklistCollection',     ['BlocklistCollection']);
+    tryModule('Msg',            'WAWebMsgCollection',           ['MsgCollection']);
+    // WidFactory: accept either the namespace or just createWid
+    tryModule('Wid',            'WAWebWidFactory',              ['WidFactory', 'createWid']);
+    tryModule('SendTextMsg',    'WAWebSendMsgChatAction',       ['sendTextMsgToChat', 'sendTextMessageToChat']);
+    tryModule('Cmd',            'WAWebCmd',                     ['Cmd']) || tryModule('Cmd', 'WAWebCmd');
+    tryModule('ChatModel',      'WAWebChatModel',               ['ChatModel', 'Chat']);
+    tryModule('MsgModel',       'WAWebMsgModel',                ['MsgModel', 'Msg']);
+    tryModule('MsgKey',         'WAWebMsgKey',                  ['MsgKey', 'newId']);
+    tryModule('SendMsgRecord',  'WAWebSendMsgRecordAction',     ['addAndSendMsgToChat', 'sendMsgRecord'])
       || tryModule('SendMsgRecord', 'WAWebSendMsgRecordAction');
     tryModule('ContactGetters', 'WAWebContactGetters');
     tryModule('ContactMethods', 'WAWebContactMethods');
@@ -258,8 +275,12 @@
     if (!Chat) throw new Error('Chat collection not available');
     const chat = Chat.get?.(chatId) || (Chat._index && Chat._index[chatId]);
     if (!chat) throw new Error('CHAT_NOT_FOUND');
-    if (typeof sendText === 'function') {
-      const r = await sendText(chat, text, {});
+    // SendTextMsg may be the function itself OR a namespace containing it.
+    const sendFn = typeof sendText === 'function'
+      ? sendText
+      : (sendText?.sendTextMsgToChat || sendText?.sendTextMessageToChat || null);
+    if (typeof sendFn === 'function') {
+      const r = await sendFn(chat, text, {});
       return { sent: true, via: 'sendTextMsgToChat', result: !!r };
     }
     throw new Error('NO_SEND_METHOD');
