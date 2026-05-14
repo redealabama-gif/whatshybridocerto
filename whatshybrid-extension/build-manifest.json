@@ -114,6 +114,7 @@
     "modules/features/behavioral-analysis.js",
     "modules/features/smart-templates.js",
     "modules/init.js",
+    "content/top-panel-injector.js",
     "content/label-button-injector.js",
     "chatbackup/content.js",
     "content-scripts/dom-monitor-init.js"

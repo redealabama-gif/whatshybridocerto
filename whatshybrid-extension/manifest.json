@@ -66,6 +66,7 @@
       "run_at": "document_idle",
       "all_frames": false,
       "css": [
+        "content/top-panel.css",
         "chatbackup/injected.css",
         "modules/modules.css"
       ]
