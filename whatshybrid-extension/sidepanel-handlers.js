@@ -10,16 +10,10 @@ window.addEventListener('load', async function() {
     // Aguarda módulos estarem carregados via init.js
     // O init.js já faz a inicialização automática
     
-    // Onboarding
-    setTimeout(function() {
-        if (typeof OnboardingSystem !== 'undefined') {
-            const onboarding = new OnboardingSystem();
-            if (onboarding.shouldShow()) {
-                onboarding.start();
-            }
-            window.whlOnboarding = onboarding;
-        }
-    }, 500);
+    // Tour de onboarding removido — usuário pediu para não aparecer em
+    // toda inicialização. O script `onboarding.js` continua carregado
+    // (mantém handlers de reset e estado em chrome.storage para versões
+    // futuras), mas não é mais auto-iniciado.
 
     // Garantir renderização após 1 segundo
     setTimeout(function() {
