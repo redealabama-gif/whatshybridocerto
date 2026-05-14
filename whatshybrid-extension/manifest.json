@@ -108,9 +108,6 @@
         "training/simulation-engine.js",
         "training/modules/document-importer.js",
         "training/modules/conversation-analyzer.js",
-        "training/modules/voice-recorder.js",
-        "training/modules/speech-to-text.js",
-        "training/modules/interactive-training.js",
         "training/modules/ai-client.js",
         "dist/*"
       ],

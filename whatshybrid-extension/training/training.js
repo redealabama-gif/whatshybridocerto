@@ -259,9 +259,6 @@ class TrainingApp {
       case 'import':
         this.renderImportTab();
         break;
-      case 'voice':
-        this.initVoiceTraining();
-        break;
     }
   }
 
@@ -1106,57 +1103,34 @@ class TrainingApp {
     console.log('[TrainingApp] ✅ Simulação inicializada');
   }
 
-  // ============================================
-  // TREINAMENTO POR VOZ
-  // ============================================
+  // Treinamento por voz removido — a aba dependia de um endpoint de
+  // transcrição (`/api/v1/speech/transcribe`) instável e duplicava a entrada
+  // de texto da aba de Simulação. Veja git log para histórico.
 
-  async initVoiceTraining() {
-    if (this.voiceTraining) return;
+  // ── Simulação Usuário↔IA ─────────────────────────────────────────────────
+  // Versão anterior: dois robôs conversando entre si por tema selecionável
+  // ("venda_abordagem", etc). Gerava diálogos genéricos e sem valor prático.
+  // Versão atual: usuário escreve livremente como se fosse um cliente real,
+  // a IA responde via CopilotEngine.generateResponse(), e cada resposta
+  // recebe os 3 botões já existentes (Aprovar / Editar / Rejeitar) que
+  // alimentam o aprendizado supervisionado (fewShotLearning + feedback bus).
+  setupSimulationButtons() {
+    const input = document.getElementById('simUserInput');
+    const sendBtn = document.getElementById('btnSendUserMsg');
+    const clearBtn = document.getElementById('btnClearChat');
 
-    if (typeof WHLInteractiveTraining === 'undefined') {
-      console.warn('[TrainingApp] WHLInteractiveTraining não disponível');
-      const container = document.getElementById('voiceTrainingContainer');
-      if (container) {
-        container.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#9CA3AF;">
-            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-            <p>Módulo de treinamento por voz não carregado.</p>
-            <p>Recarregue a página para tentar novamente.</p>
-          </div>
-        `;
-      }
-      return;
-    }
+    if (sendBtn) sendBtn.addEventListener('click', () => this.sendUserMessage());
+    if (clearBtn) clearBtn.addEventListener('click', () => this.resetUserSimulation());
 
-    try {
-      this.voiceTraining = new WHLInteractiveTraining({
-        language: 'pt-BR',
-        onExampleAdded: (example) => {
-          this.examples.push({
-            id: example.id,
-            userMessage: example.user,
-            aiResponse: example.assistant,
-            source: 'voice_training',
-            createdAt: example.createdAt
-          });
-          this.saveExamples();
-          this.updateStats();
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.sendUserMessage();
         }
       });
-
-      await this.voiceTraining.init('voiceTrainingContainer');
-
-    } catch (error) {
-      console.error('[TrainingApp] Erro ao inicializar Voice Training:', error);
-      this.showToast('Erro ao inicializar treinamento por voz', 'error');
     }
-  }
 
-  setupSimulationButtons() {
-    document.getElementById('btnStartSim')?.addEventListener('click', () => this.startSimulation());
-    document.getElementById('btnPauseSim')?.addEventListener('click', () => this.pauseSimulation());
-    document.getElementById('btnStopSim')?.addEventListener('click', () => this.stopSimulation());
-    document.getElementById('btnNextTurn')?.addEventListener('click', () => this.nextTurn());
     document.getElementById('btnSaveApproved')?.addEventListener('click', () => this.saveApprovedResponses());
     document.getElementById('btnQuickTest')?.addEventListener('click', () => this.runQuickTest());
 
@@ -1167,78 +1141,95 @@ class TrainingApp {
     });
   }
 
-  async startSimulation() {
-    if (!this.simulation) {
-      this.showToast('Motor de simulação não disponível', 'error');
-      return;
+  resetUserSimulation() {
+    this._userSimHistory = [];
+    if (this.simulation?.state) {
+      this.simulation.state.conversation = [];
+      this.simulation.state.approvedResponses = [];
+      this.simulation.state.rejectedResponses = [];
     }
+    this.clearChat();
+    this.updateCurationStats();
+  }
 
-    const theme = document.getElementById('simTheme')?.value || 'venda_abordagem';
-    const executorProfile = document.getElementById('executorProfile')?.value || 'vendedor_senior';
-    const simulatorProfile = document.getElementById('simulatorProfile')?.value || 'cliente_simulado';
+  async sendUserMessage() {
+    const input = document.getElementById('simUserInput');
+    const sendBtn = document.getElementById('btnSendUserMsg');
+    if (!input) return;
 
+    const userText = input.value.trim();
+    if (!userText) return;
+
+    // Limpa o estado vazio e adiciona bolha do usuário.
+    const userMsgId = `user_${Date.now()}`;
+    this.addChatMessage({ id: userMsgId, content: userText }, 'simulator');
+    input.value = '';
+
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Pensando...'; }
+
+    const t0 = performance.now();
+    let aiText = '';
+    let providerInfo = null;
     try {
-      this.clearChat();
+      aiText = await this._generateAiReply(userText);
+    } catch (err) {
+      console.warn('[TrainingApp] Falha gerando resposta:', err);
+      aiText = '⚠️ Não foi possível gerar resposta. Verifique se há provedor de IA configurado em Configurações.';
+    } finally {
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '📤 Enviar'; }
+    }
 
-      await this.simulation.start({
-        theme,
-        executorProfile,
-        simulatorProfile
+    const latency = performance.now() - t0;
+    const aiMsgId = `ai_${Date.now()}`;
+    const aiMsg = {
+      id: aiMsgId,
+      role: 'executor',
+      content: aiText,
+      latency,
+      userInput: userText,
+      providerInfo
+    };
+
+    // Mantém um histórico local + alimenta o state.conversation que o
+    // saveApprovedResponses/edit/reject já espera.
+    this._userSimHistory = this._userSimHistory || [];
+    this._userSimHistory.push({ id: userMsgId, role: 'user', content: userText });
+    this._userSimHistory.push(aiMsg);
+    if (this.simulation?.state) {
+      this.simulation.state.conversation = this._userSimHistory.slice();
+    }
+
+    this.addChatMessage(aiMsg, 'executor');
+    this.updateLatencyDisplay(latency);
+  }
+
+  async _generateAiReply(userText) {
+    // 1ª opção: CopilotEngine no contexto da página (carregado se existir).
+    if (window.CopilotEngine?.generateResponse && window.CopilotEngine?.analyzeMessage) {
+      try {
+        const analysis = await window.CopilotEngine.analyzeMessage(userText, 'training-sim');
+        const r = await window.CopilotEngine.generateResponse('training-sim', analysis, {
+          skipCache: true,
+          maxTokens: 350
+        });
+        if (r?.content) return r.content;
+      } catch (err) {
+        console.warn('[TrainingApp] CopilotEngine falhou, tentando AIClient:', err);
+      }
+    }
+    // 2ª opção: AIClient direto no backend.
+    if (window.WHLAiClient?.complete) {
+      const r = await window.WHLAiClient.complete({
+        messages: [
+          { role: 'system', content: 'Você é um assistente de atendimento. Responda em pt-BR, curto e útil.' },
+          { role: 'user', content: userText }
+        ],
+        temperature: 0.7,
+        maxTokens: 350
       });
-
-      this.isSimulationRunning = true;
-      this.updateSimulationButtons(true, false);
-      this.showToast('Simulação iniciada!', 'success');
-
-    } catch (error) {
-      console.error('[TrainingApp] Erro ao iniciar simulação:', error);
-      this.showToast('Erro ao iniciar simulação', 'error');
+      if (r?.content) return r.content;
     }
-  }
-
-  pauseSimulation() {
-    if (!this.simulation || !this.isSimulationRunning) return;
-
-    if (this.simulation.isPaused()) {
-      this.simulation.resume();
-      this.updateSimulationButtons(true, false);
-      this.showToast('Simulação retomada', 'info');
-    } else {
-      this.simulation.pause();
-      this.updateSimulationButtons(true, true);
-      this.showToast('Simulação pausada', 'info');
-    }
-  }
-
-  stopSimulation() {
-    if (!this.simulation) return;
-
-    this.simulation.stop();
-    this.isSimulationRunning = false;
-    this.updateSimulationButtons(false, false);
-    this.showToast('Simulação encerrada', 'info');
-  }
-
-  async nextTurn() {
-    if (!this.simulation || !this.isSimulationRunning) return;
-    await this.simulation.nextTurn();
-  }
-
-  updateSimulationButtons(running, paused) {
-    const btnStart = document.getElementById('btnStartSim');
-    const btnPause = document.getElementById('btnPauseSim');
-    const btnStop = document.getElementById('btnStopSim');
-    const btnNext = document.getElementById('btnNextTurn');
-    const themeSelect = document.getElementById('simTheme');
-
-    if (btnStart) btnStart.disabled = running;
-    if (btnPause) {
-      btnPause.disabled = !running;
-      btnPause.textContent = paused ? '▶️ Continuar' : '⏸️ Pausar';
-    }
-    if (btnStop) btnStop.disabled = !running;
-    if (btnNext) btnNext.disabled = !running || paused;
-    if (themeSelect) themeSelect.disabled = running;
+    throw new Error('Nenhum provedor de IA disponível');
   }
 
   onSimulationStarted(data) {
@@ -1325,6 +1316,8 @@ class TrainingApp {
   approveMessage(messageId) {
     if (!this.simulation) return;
     this.simulation.approve(messageId);
+    const msg = this.simulation.state.conversation.find(m => m.id === messageId);
+    if (msg) this._recordSupervisedSample(msg, 'approved');
     this.showToast('Resposta aprovada!', 'success');
   }
 
@@ -1332,7 +1325,61 @@ class TrainingApp {
     if (!this.simulation) return;
     const reason = prompt('Motivo da rejeição (opcional):');
     this.simulation.reject(messageId, reason || '');
+    const msg = this.simulation.state.conversation.find(m => m.id === messageId);
+    if (msg) this._recordSupervisedSample(msg, 'rejected', reason);
     this.showToast('Resposta rejeitada', 'info');
+  }
+
+  // Envia o par (input do usuário, resposta da IA) imediatamente aos sistemas
+  // de aprendizado em vez de esperar o botão "Salvar". Garante que confidence
+  // / few-shot / backend sync acompanhem cada interação.
+  _recordSupervisedSample(message, kind, reason = '') {
+    try {
+      const userInput = message.userInput || this._previousUserContent(message.id) || '';
+      if (!userInput) return;
+
+      // 1) Few-shot learning local (e sincroniza pro backend via knowledge-sync-manager).
+      if (kind !== 'rejected' && window.fewShotLearning?.addExample) {
+        window.fewShotLearning.addExample({
+          input: userInput,
+          output: message.content,
+          category: 'training',
+          intent: 'user_simulation',
+          quality: message.edited ? 10 : 9,
+          edited: !!message.edited,
+          source: message.edited ? 'training_edited' : 'training_approved',
+          tags: ['training', 'user_sim', kind, ...(message.edited ? ['edited'] : [])]
+        }).catch(() => {});
+      }
+
+      // 2) Event bus → ConfidenceSystem + ai-feedback-system.
+      if (window.EventBus) {
+        const type = kind === 'approved' ? 'positive'
+                   : kind === 'rejected' ? 'negative'
+                   : 'correction';
+        window.EventBus.emit('feedback:received', {
+          type,
+          input: userInput,
+          response: message.content,
+          rating: kind === 'approved' ? 5 : kind === 'rejected' ? 1 : 4,
+          context: { source: 'training', edited: !!message.edited },
+          correction: message.edited ? message.content : undefined,
+          reason
+        });
+        if (kind === 'approved') {
+          window.EventBus.emit('successfulInteraction', { input: userInput, response: message.content });
+        }
+      }
+    } catch (e) {
+      console.warn('[TrainingApp] Falha ao registrar amostra supervisionada:', e);
+    }
+  }
+
+  _previousUserContent(messageId) {
+    const conv = this.simulation?.state?.conversation || [];
+    const idx = conv.findIndex(m => m.id === messageId);
+    if (idx <= 0) return null;
+    return conv[idx - 1]?.content || null;
   }
 
   editMessage(messageId) {
@@ -1392,6 +1439,8 @@ class TrainingApp {
       }
 
       this.simulation.approve(messageId);
+      // Aprendizado supervisionado: versão editada vira a resposta IDEAL.
+      this._recordSupervisedSample(message, 'edited');
 
       cleanup();
       this.showToast('Resposta editada e aprovada!', 'success');
