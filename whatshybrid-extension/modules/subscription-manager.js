@@ -318,14 +318,13 @@
         state.subscription = {
           code,
           planId: validation.planId || 'starter',
-          status: 'active',
+          status: validation.status === 'trialing' ? 'trial' : 'active',
           expiresAt: validation.expiresAt || null,
-          trialEndsAt: null,
+          trialEndsAt: validation.status === 'trialing' ? validation.expiresAt : null,
+          trialDaysLeft: validation.trialDaysLeft || 0,
           activatedAt: new Date().toISOString(),
           lastSync: new Date().toISOString(),
           isMasterKey: validation.isMasterKey === true,
-          // FIX CRÍTICO: confirma que master key foi validada pelo servidor —
-          // sem esta flag, isMasterKey=true sozinho não garante acesso eterno
           _serverConfirmedMasterKey: validation.isMasterKey === true
         };
 
@@ -340,9 +339,21 @@
         await saveState();
         emit('subscription_activated', getStatus());
 
-        return { success: true, plan: getPlan() };
+        return { success: true, plan: getPlan(), reason: validation.reason };
       } else {
-        return { success: false, error: validation.error || 'Código inválido' };
+        // Propaga errorCode/reason para a UI escolher mensagem específica.
+        emit('activation_error', {
+          type: validation.errorCode || 'INVALID_CODE',
+          reason: validation.reason,
+          message: validation.error || 'Código inválido',
+          retryable: false
+        });
+        return {
+          success: false,
+          error: validation.error || 'Código inválido',
+          reason: validation.reason,
+          errorCode: validation.errorCode
+        };
       }
     } catch (error) {
       console.error('[SubscriptionManager] Erro na ativação:', error);
@@ -391,20 +402,86 @@
       throw new Error('Backend não configurado');
     }
 
+    // Device fingerprint client-side — o servidor recombina com user-agent +
+    // language pra derivar device_id_hash. Persiste em chrome.storage para
+    // ser estável entre reloads.
+    const deviceHeader = await _getOrCreateDeviceFingerprint();
+
     const response = await fetch(`${backendUrl}${CONFIG.validationEndpoint}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-WHL-Device': deviceHeader
       },
       body: JSON.stringify({ code })
     });
 
+    // Mapeia status HTTP para feedback estruturado entendível pela UI.
+    // O backend devolve { valid, reason, code, message, plan, status,
+    // trial_days_left, ... }. Reações distintas para cada motivo.
+    if (response.status === 423) {
+      const j = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: j.message || 'Este código já está em uso em outro dispositivo.',
+        reason: 'in_use_elsewhere',
+        errorCode: 'CODE_IN_USE_ELSEWHERE'
+      };
+    }
+    if (response.status === 403) {
+      const j = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: j.message || 'Código revogado ou expirado.',
+        reason: j.reason || 'code_revoked',
+        errorCode: j.code || 'CODE_REVOKED'
+      };
+    }
+    if (response.status === 404) {
+      const j = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: j.message || 'Código de assinatura inválido.',
+        reason: 'invalid_code',
+        errorCode: 'CODE_NOT_FOUND'
+      };
+    }
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const j = await response.json().catch(() => ({}));
+      throw new Error(j.message || `HTTP ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    // Resposta de sucesso: { valid, plan, status, credits, expires_at,
+    //                        trial_days_left, code_status, reason? }
+    return {
+      success: !!data.valid,
+      planId: data.plan,
+      status: data.status,
+      credits: data.credits,
+      expiresAt: data.expires_at,
+      trialDaysLeft: data.trial_days_left || 0,
+      reason: data.reason || null,
+      error: data.valid ? null : (data.reason || 'subscription_not_active')
+    };
+  }
+
+  async function _getOrCreateDeviceFingerprint() {
+    const KEY = 'whl_device_fp';
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get([KEY], (got) => {
+          if (got && got[KEY]) return resolve(got[KEY]);
+          // Gera um fingerprint aleatório estável (não é PII).
+          const buf = new Uint8Array(16);
+          crypto.getRandomValues(buf);
+          const fp = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+          chrome.storage.local.set({ [KEY]: fp }, () => resolve(fp));
+        });
+      } catch (_) {
+        resolve('fallback-' + Date.now());
+      }
+    });
   }
 
   /**
@@ -858,15 +935,34 @@
       const backendUrl = await getBackendUrl();
       if (!backendUrl) return;
 
+      const deviceHeader = await _getOrCreateDeviceFingerprint();
       const response = await fetch(`${backendUrl}/api/v1/subscription/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-WHL-Device': deviceHeader },
         body: JSON.stringify({
           code: state.subscription.code,
           usage: state.usage,
           credits: state.credits
         })
       });
+
+      // Códigos de "assinatura revogada/em outro dispositivo" detectados via
+      // sync periódico: desativa local e notifica UI pra mostrar "Em uso em
+      // outra máquina" / "Revogado" sem precisar usuário tentar usar feature.
+      if (response.status === 423 || response.status === 403) {
+        const j = await response.json().catch(() => ({}));
+        const reason = response.status === 423 ? 'in_use_elsewhere' : (j.code || 'revoked');
+        state.subscription.status = reason === 'in_use_elsewhere' ? 'in_use_elsewhere' : 'revoked';
+        await saveState();
+        emit('subscription_revoked', { reason, code: state.subscription.code });
+        return;
+      }
+      if (response.status === 404) {
+        state.subscription.status = 'invalid';
+        await saveState();
+        emit('subscription_revoked', { reason: 'invalid_code' });
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

@@ -397,6 +397,29 @@
             window.EventBus.on('subscription:initialized', updateSubscriptionUI);
             window.EventBus.on('subscription:subscription_activated', updateSubscriptionUI);
             window.EventBus.on('subscription:credits_consumed', updateSubscriptionUI);
+
+            // Códigos revogados, expirados ou em uso em outra máquina —
+            // detectados em sync periódico. Reflete imediatamente no widget.
+            window.EventBus.on('subscription:subscription_revoked', (data) => {
+                updateSubscriptionUI();
+                const msg = data?.reason === 'in_use_elsewhere'
+                  ? 'Sua assinatura está em uso em outro dispositivo. Desvincule no painel para usar aqui.'
+                  : data?.reason === 'invalid_code'
+                    ? 'Código de assinatura inválido.'
+                    : 'Sua assinatura foi revogada.';
+                try {
+                    window.NotificationsModule?.warning?.(`⚠️ ${msg}`);
+                } catch (_) {}
+            });
+
+            // Falhas de ativação — feedback inline no input.
+            window.EventBus.on('subscription:activation_error', (data) => {
+                const input = document.getElementById('whl-subscription-code');
+                if (!input) return;
+                input.classList.add('whl-input-error');
+                input.title = data?.message || 'Erro ao validar código';
+                setTimeout(() => input.classList.remove('whl-input-error'), 5000);
+            });
         }
     }
 
@@ -422,16 +445,32 @@
 
         // Atualizar ícone
         if (iconEl) iconEl.textContent = plan.icon || '🆓';
-        
+
+        // Estados extras que podem ser sinalizados via sync (não pelo getPlan)
+        const rawStatus = SM.getStatus?.()?.subscription?.status || SM.getStatus?.()?.status || null;
+        const isInUseElsewhere = rawStatus === 'in_use_elsewhere';
+        const isRevoked = rawStatus === 'revoked' || rawStatus === 'invalid';
+        const isExpired = rawStatus === 'expired' || rawStatus === 'trial_expired';
+
         // Atualizar texto do plano baseado no status
         if (planEl) {
-            if (isMasterKey) {
-                // Master Key - Acesso total
+            if (isInUseElsewhere) {
+                planEl.innerHTML = `<span class="plan-active-badge" style="background:rgba(239,68,68,.2);color:#ef4444">🔒 Em outra máquina</span>`;
+                planEl.style.color = '#ef4444';
+                planEl.classList.add('plan-active');
+            } else if (isRevoked) {
+                planEl.innerHTML = `<span class="plan-active-badge" style="background:rgba(239,68,68,.2);color:#ef4444">❌ Revogado</span>`;
+                planEl.style.color = '#ef4444';
+                planEl.classList.add('plan-active');
+            } else if (isExpired) {
+                planEl.innerHTML = `<span class="plan-active-badge" style="background:rgba(245,158,11,.2);color:#f59e0b">⏰ Expirado</span>`;
+                planEl.style.color = '#f59e0b';
+                planEl.classList.add('plan-active');
+            } else if (isMasterKey) {
                 planEl.innerHTML = `<span class="plan-active-badge plan-master">👑 ACESSO TOTAL ∞</span>`;
                 planEl.style.color = '#f59e0b';
                 planEl.classList.add('plan-active', 'plan-master-key');
             } else if (isActive && planId !== 'free') {
-                // Plano ativo - mostrar "Plano X Ativado"
                 if (isTrial) {
                     const daysLeft = SM.getTrialDaysRemaining();
                     planEl.innerHTML = `<span class="plan-active-badge">Plano ${escapeHtml(plan.name)} <small>(Trial: ${daysLeft}d)</small></span>`;
@@ -441,7 +480,6 @@
                 planEl.style.color = plan.color || '#8b5cf6';
                 planEl.classList.add('plan-active');
             } else {
-                // Sem plano ou gratuito
                 planEl.textContent = plan.name;
                 planEl.style.color = plan.color || '#6b7280';
                 planEl.classList.remove('plan-active');
