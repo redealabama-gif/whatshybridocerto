@@ -482,19 +482,29 @@
       
       if (cur) {
         if (e.data.success) {
-          // NOVO: Aguardar confirmação visual antes de avançar
-          console.log('[WHL] 📤 Mensagem enviada, aguardando confirmação visual...');
-          cur.status = 'confirming';
+          // API authoritative: sendTextMsgToChat / sendMsgRecord retornaram
+          // sem erro, então a mensagem está no Store. Pular o probe visual
+          // (10s timeout) — o delay configurado da campanha já espaça envios.
+          console.log('[WHL] ✅ Texto enviado (API).');
+          cur.status = 'sent';
+          st.stats.sent++;
+          st.stats.pending--;
+          st.index++;
+          await incrementAntiBanCounter();
           await setState(st);
           await render();
-          
-          // Solicitar confirmação visual
-          window.postMessage({
-            type: 'WHL_WAIT_VISUAL_CONFIRMATION',
-            message: st.message,
-            timeout: 10000,
-            requestId: Date.now().toString()
-          }, window.location.origin);
+
+          if (st.isRunning && !st.isPaused && st.index < st.queue.length) {
+            const delay = getRandomDelay(st.delayMin, st.delayMax);
+            console.log(`[WHL] ⏳ Aguardando ${(delay/1000).toFixed(1)}s antes do próximo envio...`);
+            setTimeout(() => processCampaignStepDirect(), delay);
+          } else if (st.index >= st.queue.length) {
+            console.log('[WHL] 🎉 Campanha finalizada!');
+            st.isRunning = false;
+            await setState(st);
+            await render();
+          }
+          return;
         } else {
           // Falha - verificar retry
           console.log('[WHL] ❌ Falha ao enviar texto via API para', cur.phone, ':', e.data.error);
@@ -566,22 +576,28 @@
       
       if (cur) {
         if (e.data.success) {
-          // NOVO: Aguardar confirmação visual antes de avançar (para imagens também)
-          console.log('[WHL] 📸 Imagem enviada, aguardando confirmação visual...');
-          cur.status = 'confirming';
+          // Imagem enviada via DOM (paste+enter já confirma a entrega na UI).
+          // Avança direto — o delay da campanha cuida do espaçamento.
+          console.log('[WHL] ✅ Imagem enviada (DOM).');
+          cur.status = 'sent';
+          st.stats.sent++;
+          st.stats.pending--;
+          st.index++;
+          await incrementAntiBanCounter();
           await setState(st);
           await render();
-          
-          // Para imagens, usamos a caption ou um texto padrão para buscar
-          const messageToConfirm = st.message || '[imagem]';
-          
-          // Solicitar confirmação visual
-          window.postMessage({
-            type: 'WHL_WAIT_VISUAL_CONFIRMATION',
-            message: messageToConfirm,
-            timeout: 10000,
-            requestId: Date.now().toString()
-          }, window.location.origin);
+
+          if (st.isRunning && !st.isPaused && st.index < st.queue.length) {
+            const delay = getRandomDelay(st.delayMin, st.delayMax);
+            console.log(`[WHL] ⏳ Aguardando ${(delay/1000).toFixed(1)}s antes do próximo envio...`);
+            setTimeout(() => processCampaignStepDirect(), delay);
+          } else if (st.index >= st.queue.length) {
+            console.log('[WHL] 🎉 Campanha finalizada!');
+            st.isRunning = false;
+            await setState(st);
+            await render();
+          }
+          return;
         } else {
           // Falha - verificar retry
           console.log('[WHL] ❌ Falha ao enviar imagem via DOM para', cur.phone, ':', e.data.error);
@@ -653,22 +669,26 @@
       
       if (cur) {
         if (e.data.success) {
-          // NOVO: Aguardar confirmação visual antes de avançar
-          console.log('[WHL] 📸 Imagem enviada para número específico, aguardando confirmação visual...');
-          cur.status = 'confirming';
+          console.log('[WHL] ✅ Imagem enviada para número.');
+          cur.status = 'sent';
+          st.stats.sent++;
+          st.stats.pending--;
+          st.index++;
+          await incrementAntiBanCounter();
           await setState(st);
           await render();
-          
-          // Para imagens, usamos a caption ou um texto padrão para buscar
-          const messageToConfirm = st.message || '[imagem]';
-          
-          // Solicitar confirmação visual
-          window.postMessage({
-            type: 'WHL_WAIT_VISUAL_CONFIRMATION',
-            message: messageToConfirm,
-            timeout: 10000,
-            requestId: Date.now().toString()
-          }, window.location.origin);
+
+          if (st.isRunning && !st.isPaused && st.index < st.queue.length) {
+            const delay = getRandomDelay(st.delayMin, st.delayMax);
+            console.log(`[WHL] ⏳ Aguardando ${(delay/1000).toFixed(1)}s antes do próximo envio...`);
+            setTimeout(() => processCampaignStepDirect(), delay);
+          } else if (st.index >= st.queue.length) {
+            console.log('[WHL] 🎉 Campanha finalizada!');
+            st.isRunning = false;
+            await setState(st);
+            await render();
+          }
+          return;
         } else {
           // Falha - verificar retry
           console.log('[WHL] ❌ Falha ao enviar imagem para número', cur.phone, ':', e.data.error);
