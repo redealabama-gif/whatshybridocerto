@@ -275,7 +275,7 @@ async function build() {
       run_at: 'document_idle',
       all_frames: false,
       css: [
-        'content/top-panel.css',
+        // content/top-panel.css removido — painel legado deletado
         'chatbackup/injected.css',
         'modules/modules.css',
       ],
