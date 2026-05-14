@@ -122,14 +122,15 @@
         const style = document.createElement('style');
         style.id = 'whl-label-btn-styles';
         style.textContent = `
-            /* Botão de etiqueta */
+            /* Botão de etiqueta — canto superior direito, sobre o timestamp.
+               Antes ficava em right:50px o que o jogava no meio do conteúdo
+               do chat e era escondido por overflow:hidden em algumas versões. */
             .whl-label-btn {
                 position: absolute;
-                right: 50px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 26px;
-                height: 26px;
+                right: 6px;
+                top: 6px;
+                width: 22px;
+                height: 22px;
                 border-radius: 50%;
                 background: linear-gradient(135deg, #8b5cf6, #6366f1);
                 border: none;
@@ -137,20 +138,23 @@
                 display: none;
                 align-items: center;
                 justify-content: center;
-                font-size: 12px;
-                z-index: 100;
+                font-size: 11px;
+                z-index: 9999;
                 box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
-                transition: all 0.2s ease;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+                pointer-events: auto;
             }
 
             .whl-label-btn:hover {
-                transform: translateY(-50%) scale(1.15);
+                transform: scale(1.15);
                 box-shadow: 0 4px 12px rgba(139, 92, 246, 0.6);
             }
 
-            /* Mostrar botão no hover do chat */
+            /* Mostrar botão no hover do chat (cobre WA 2026 + legados) */
+            [role="listitem"]:hover .whl-label-btn,
             [data-testid="cell-frame-container"]:hover .whl-label-btn,
             [data-testid="list-item-container"]:hover .whl-label-btn,
+            div[tabindex="-1"][role="row"]:hover .whl-label-btn,
             ._ak8l:hover .whl-label-btn,
             .x10l6tqk:hover .whl-label-btn {
                 display: flex !important;
@@ -553,10 +557,14 @@
     }
 
     function injectAll() {
-        // Selectors para itens da lista de chats
+        // Selectors para itens da lista de chats — WA 2.3000.x usa role="listitem".
+        // Mantém testid + classes obfuscadas como fallback.
         const selectors = [
+            '#pane-side [role="listitem"]',
+            '[role="listitem"]',
             '[data-testid="cell-frame-container"]',
             '[data-testid="list-item-container"]',
+            'div[tabindex="-1"][role="row"]',
             '._ak8l',
             '.x10l6tqk'
         ];
@@ -573,9 +581,11 @@
     // ==================== OBSERVER ====================
 
     function setupObserver() {
-        const chatList = document.querySelector('[data-testid="chat-list"]') ||
-                        document.querySelector('#pane-side') ||
-                        document.querySelector('[aria-label*="Lista"]');
+        // WA 2.3000.x: #pane-side é o âncora durável; data-testid="chat-list" caiu.
+        const chatList = document.querySelector('#pane-side') ||
+                        document.querySelector('[aria-label*="Lista"]') ||
+                        document.querySelector('[aria-label*="Chat list"]') ||
+                        document.querySelector('[data-testid="chat-list"]');
 
         if (!chatList) {
             setTimeout(setupObserver, 1000);
@@ -632,8 +642,8 @@
 
         // Aguardar WhatsApp carregar
         const waitForWA = () => {
-            const chatList = document.querySelector('[data-testid="chat-list"]') ||
-                            document.querySelector('#pane-side');
+            const chatList = document.querySelector('#pane-side') ||
+                            document.querySelector('[data-testid="chat-list"]');
             if (chatList) {
                 setupObserver();
             } else {

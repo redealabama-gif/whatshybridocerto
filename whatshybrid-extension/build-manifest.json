@@ -82,7 +82,6 @@
     "modules/tasks.js",
     "modules/campaign-manager.js",
     "modules/task-markers-injector.js",
-    "modules/quick-actions-injector.js",
     "modules/escalation-system.js",
     "modules/escalation-integration.js",
     "modules/human-typing.js",

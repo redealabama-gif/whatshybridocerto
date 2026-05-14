@@ -441,13 +441,62 @@
         return [];
     }
 
+    // Cache nome-de-contato → chatId resolvido pelo WHL_WaBridge.
+    // Para chats com contato salvo no celular, o WhatsApp Web mostra o NOME no
+    // título da row — sem data-id ou href com @c.us. Sem este map, o badge
+    // injector não conseguia ligar a etiqueta do CRM (gravada por telefone) à
+    // row correspondente. Atualizado a cada 30s ou quando o storage muda.
+    let _nameToChatId = {};
+    let _nameMapLastFetch = 0;
+    const NAME_MAP_TTL_MS = 30000;
+
+    async function refreshNameMap(force = false) {
+        const now = Date.now();
+        if (!force && (now - _nameMapLastFetch) < NAME_MAP_TTL_MS) return;
+        _nameMapLastFetch = now;
+        try {
+            const chats = await bridgeRequest('getChats', {});
+            if (!Array.isArray(chats)) return;
+            const next = {};
+            for (const c of chats) {
+                if (!c?.id || !c?.name) continue;
+                const nm = String(c.name).trim().toLowerCase();
+                if (nm) next[nm] = c.id;
+            }
+            _nameToChatId = next;
+        } catch (e) {
+            // Bridge ainda não pronta? Silencioso — tenta de novo em 30s.
+        }
+    }
+
+    function bridgeRequest(type, payload, timeoutMs = 5000) {
+        return new Promise((resolve, reject) => {
+            const requestId = `whl_crm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const onMsg = (e) => {
+                if (e.source !== window) return;
+                const d = e.data;
+                if (!d || d.source !== 'WHL_PAGE_BRIDGE' || d.type !== 'RESPONSE' || d.requestId !== requestId) return;
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timer);
+                if (d.error) reject(new Error(d.error));
+                else resolve(d.data);
+            };
+            const timer = setTimeout(() => {
+                window.removeEventListener('message', onMsg);
+                reject(new Error('Bridge timeout'));
+            }, timeoutMs);
+            window.addEventListener('message', onMsg);
+            window.postMessage({ source: 'WHL_ISOLATED', type, requestId, payload }, window.location.origin);
+        });
+    }
+
     function extractChatId(element) {
         // Verificar se já tem ID
         const existing = element.getAttribute('data-whl-chat-id');
         if (existing) return existing;
 
         // 1. Tentar data-id no próprio elemento ou filhos
-        const dataId = element.getAttribute('data-id') || 
+        const dataId = element.getAttribute('data-id') ||
                        element.querySelector('[data-id]')?.getAttribute('data-id');
         if (dataId) {
             const match = dataId.match(/(\d+)@([cg])\.us/);
@@ -462,12 +511,12 @@
             if (match) return `${match[1]}@${match[2]}.us`;
         }
 
-        // 3. Tentar do título (número de telefone)
+        // 3. Tentar do título (número de telefone) — só funciona quando
+        // o contato NÃO está salvo (WA exibe o número cru).
         for (const sel of TITLE_SELECTORS) {
             const titleEl = element.querySelector(sel);
             const title = titleEl?.getAttribute('title') || titleEl?.textContent;
             if (title) {
-                // Número com formato: +55 11 99999-9999 ou similar
                 const phoneMatch = title.match(/\+?(\d[\d\s\-().]{8,})/);
                 if (phoneMatch) {
                     const digits = phoneMatch[1].replace(/\D/g, '');
@@ -488,6 +537,21 @@
                     return `${phoneMatch[1]}@c.us`;
                 }
             }
+        }
+
+        // 5. Fallback: contato salvo (WA mostra o nome). Resolve via map
+        // construído a partir do WHL_WaBridge.getChats. Atualiza em background
+        // se o cache estiver vazio.
+        for (const sel of TITLE_SELECTORS) {
+            const titleEl = element.querySelector(sel);
+            const name = (titleEl?.getAttribute('title') || titleEl?.textContent || '').trim().toLowerCase();
+            if (!name) continue;
+            const cid = _nameToChatId[name];
+            if (cid) return cid;
+        }
+        // Cache miss: dispara refresh assíncrono para a próxima chamada.
+        if (Object.keys(_nameToChatId).length === 0 || (Date.now() - _nameMapLastFetch) > NAME_MAP_TTL_MS) {
+            refreshNameMap();
         }
 
         return null;
@@ -818,6 +882,11 @@
         await loadData();
         injectStyles();
         setupStorageListener();
+
+        // Pré-carrega o mapa nome→chatId via WHL_WaBridge para que rows com
+        // contato salvo (sem data-id legível) consigam casar com etiquetas
+        // do CRM gravadas por telefone. Sem await — não bloqueia init.
+        refreshNameMap(true);
 
         // Aguardar WhatsApp carregar
         waitForWhatsApp();

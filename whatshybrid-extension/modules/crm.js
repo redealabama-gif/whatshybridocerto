@@ -241,6 +241,10 @@
             updatedAt: d.updatedAt
           })),
           pipeline: state.pipeline,
+          // Sincroniza também o storage de etiquetas (whl_labels_v2) — sem isto,
+          // labels aplicadas no painel lateral / chat list não chegavam ao backend
+          // e o usuário perdia tudo ao logar em outra máquina.
+          labels: (await new Promise(r => chrome.storage.local.get(['whl_labels_v2'], r))).whl_labels_v2 || null,
           lastSync: new Date().toISOString()
         };
 
@@ -266,6 +270,10 @@
           state.deals = data.data.deals || state.deals;
           if (data.data.pipeline) {
             state.pipeline = data.data.pipeline;
+          }
+          // Persistir labels recebidas do backend para sobrescrever local stale.
+          if (data.data.labels) {
+            await chrome.storage.local.set({ whl_labels_v2: data.data.labels });
           }
         }
 
@@ -561,11 +569,17 @@
     const lostContacts = state.contacts.filter(c => c.stage === 'lost');
     const totalContacts = state.contacts.length;
     
-    // Valores
-    const dealValue = openDeals.reduce((sum, d) => sum + (d.value || 0), 0);
-    const contactValue = state.contacts.reduce((sum, c) => sum + (c.value || 0), 0);
-    const totalValue = dealValue + contactValue;
-    
+    // Valores — totalValue = receita projetada + realizada (exclui apenas perdidos).
+    // Esta é a definição canônica usada também por crm/crm.js#updateStats,
+    // pra que painel lateral e aba CRM mostrem o mesmo número.
+    const openContactsValue = state.contacts
+      .filter(c => c.stage !== 'lost')
+      .reduce((sum, c) => sum + (c.value || 0), 0);
+    const openDealsValue = deals
+      .filter(d => d.status !== 'lost')
+      .reduce((sum, d) => sum + (d.value || 0), 0);
+    const totalValue = openContactsValue + openDealsValue;
+
     const wonValue = wonDeals.reduce((sum, d) => sum + (d.value || 0), 0) +
                      wonContacts.reduce((sum, c) => sum + (c.value || 0), 0);
     
@@ -646,7 +660,7 @@
         </div>
 
         <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;" id="kanban-board">
-          ${stages.filter(s => !['won', 'lost'].includes(s.id)).map(stage => {
+          ${stages.map(stage => {
             // v9.3.8 SECURITY FIX: stage.name/icon/color/id vêm do backend, podem ter sido criados pelo user.
             // Sem escape, atacante poderia criar stage `name="<img onerror=...>"` e XSS o painel CRM.
             const sId = escapeHtml(stage.id || '');

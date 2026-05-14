@@ -162,10 +162,52 @@
                     contactLabels: state.contactLabels
                 }
             });
-            console.log('[CRM] 💾 Dados salvos com sucesso');
+            console.log('[CRM] 💾 Dados salvos localmente');
+            // Sincronização com backend em background (não bloqueia a UI).
+            // Sem isso, dados ficavam apenas em chrome.storage.local — perdiam
+            // no troca de máquina / novo login.
+            syncWithBackend().catch(err => {
+                console.warn('[CRM] ⚠️ Sync backend falhou (dados preservados localmente):', err.message);
+            });
         } catch (error) {
             console.error('[CRM] ❌ Erro ao salvar:', error);
             showToast('error', 'Erro ao salvar dados');
+        }
+    }
+
+    async function syncWithBackend() {
+        const stored = await new Promise(r => chrome.storage.local.get(
+            ['whl_backend_url', 'backend_url', 'whl_backend_config', 'whl_auth_token', 'backend_token'], r
+        ));
+        const backendUrl = stored.whl_backend_url || stored.backend_url || stored.whl_backend_config?.url;
+        const token = stored.whl_auth_token || stored.backend_token || stored.whl_backend_config?.token;
+        if (!backendUrl || !token) {
+            throw new Error('Backend não configurado');
+        }
+
+        const payload = {
+            contacts: state.contacts,
+            deals: state.deals,
+            pipeline: state.pipeline,
+            labels: state.labels,
+            contactLabels: state.contactLabels,
+            lastSync: new Date().toISOString()
+        };
+
+        const response = await fetch(`${backendUrl}/api/v1/crm/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data?.success && data.data) {
+            // Backend é fonte da verdade — mescla resposta para refletir merges remotos.
+            state.contacts = data.data.contacts || state.contacts;
+            state.deals = data.data.deals || state.deals;
+            if (data.data.pipeline) state.pipeline = data.data.pipeline;
+            if (data.data.labels) state.labels = data.data.labels;
+            if (data.data.contactLabels) state.contactLabels = data.data.contactLabels;
         }
     }
 
@@ -638,8 +680,13 @@
         const leads = state.contacts.filter(c => c.stage === 'lead').length;
         const negotiation = state.contacts.filter(c => c.stage === 'negotiation').length;
         const won = state.contacts.filter(c => c.stage === 'won').length;
-        const totalValue = state.contacts.filter(c => c.stage === 'won').reduce((s, c) => s + (c.value || 0), 0);
-        
+        // Mesma definição usada pelo sidepanel (modules/crm.js getPipelineMetrics):
+        // valor total acumula em todas as etapas exceto "perdido". Antes só somava
+        // 'won', então o número não atualizava ao mover pra negociação/proposta etc.
+        const totalValue = state.contacts
+            .filter(c => c.stage !== 'lost')
+            .reduce((s, c) => s + (c.value || 0), 0);
+
         if (elements.statTotal) elements.statTotal.textContent = total;
         if (elements.statLeads) elements.statLeads.textContent = leads;
         if (elements.statNegotiation) elements.statNegotiation.textContent = negotiation;
