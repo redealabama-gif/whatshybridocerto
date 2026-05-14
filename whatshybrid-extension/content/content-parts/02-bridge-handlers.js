@@ -114,7 +114,9 @@
     const style = document.createElement('style');
     style.id = 'whlStyle';
     style.textContent = `
-      #whlPanel{position:fixed;top:80px;right:16px;width:480px;max-height:78vh;overflow:auto;
+      /* #whlPanel nasce escondido — só render() exibe quando state.panelVisible=true.
+         Antes default era display:block e o painel piscava entre o append e a 1ª render(). */
+      #whlPanel{display:none;position:fixed;top:80px;right:16px;width:480px;max-height:78vh;overflow:auto;
         background:rgba(8,6,20,.96);color:#fff;border-radius:18px;padding:12px;z-index:999999;
         font-family:system-ui;box-shadow:0 22px 55px rgba(0,0,0,.6);border:1px solid rgba(111,0,255,.35)}
       #whlPanel .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
