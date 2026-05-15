@@ -1179,8 +1179,21 @@
   async function openChatByPhone(phone) {
     const cleanPhone = String(phone).replace(/\D/g, '');
     const chatId = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@c.us`;
-    
+
     console.log('[WHL] Abrindo chat:', chatId);
+
+    // Método 0 (NOVO): WPP.chat.openChatFromId — quando o WPP global está
+    // carregado, é o método mais estável em WA 2.3000.x. Tenta antes de tudo.
+    try {
+      if (window.WPP?.chat?.openChatFromId) {
+        await window.WPP.chat.openChatFromId(chatId);
+        await new Promise(r => setTimeout(r, 400));
+        console.log('[WHL] ✅ Chat aberto via WPP.chat.openChatFromId');
+        return true;
+      }
+    } catch (e) {
+      console.warn('[WHL] Método 0 (WPP) falhou:', e?.message || e);
+    }
 
     // Método 1: Usar WAWebCmd.openChatAt via Store
     if (window.Store?.Chat?.find && window.Store?.Cmd?.openChatAt) {
@@ -1225,11 +1238,16 @@
       }
     }
 
-    // Método 4: Clicar no contato na lista de chats (DOM)
+    // Método 4: Clicar no contato na lista de chats (DOM).
+    // Seletores atualizados para WA 2024-2026 — antes só tinha 3 e nenhum
+    // pegava builds recentes onde data-testid e data-id sumiram da row.
     const chatSelectors = [
       '[data-testid="cell-frame-container"]',
       '[role="listitem"]',
-      '[data-id]'
+      '[data-id]',
+      'div[role="row"][tabindex]',
+      '#pane-side div[role="listitem"]',
+      'div[aria-label*="conversa" i]'
     ];
     
     for (const selector of chatSelectors) {
@@ -1299,6 +1317,19 @@
       }
     } catch (e) {
       // Silencioso
+    }
+
+    // Método 7 (NOVO, último recurso): mudar o location.hash. WA Web faz
+    // roteamento via hash interno; alterar #/send?phone=... aciona o router
+    // sem reload da página. Mais robusto que window.open(...) que abria nova
+    // aba.
+    try {
+      window.location.hash = `#/send?phone=${cleanPhone}`;
+      await new Promise(r => setTimeout(r, 2000));
+      console.log('[WHL] ✅ Chat aberto via location.hash (#/send)');
+      return true;
+    } catch (e) {
+      console.warn('[WHL] Método 7 (hash) falhou:', e?.message || e);
     }
 
     console.warn('[WHL] ❌ Nenhum método de abertura de chat funcionou');

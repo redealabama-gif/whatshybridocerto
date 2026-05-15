@@ -752,13 +752,88 @@
     function updateAllBadges() {
         const chatItems = getChatItems();
         log('Atualizando', chatItems.length, 'chats');
-        
+
         for (const chatItem of chatItems) {
             try {
                 updateChatBadge(chatItem);
             } catch (error) {
                 console.error('[BadgeInjector v53] Erro ao atualizar chat:', error);
             }
+        }
+        // v9.6.0: badge também aparece no header do chat aberto (ao lado do
+        // nome do contato). Antes só aparecia na lista lateral.
+        try {
+            updateActiveChatHeaderBadge();
+        } catch (error) {
+            console.error('[BadgeInjector v53] Erro ao atualizar header:', error);
+        }
+    }
+
+    function updateActiveChatHeaderBadge() {
+        // Seletores cobrindo WA 2024-2026
+        const headerSelectors = [
+            'header[data-testid="conversation-header"]',
+            '#main header',
+            'div[role="region"] header',
+            'header.copyable-area'
+        ];
+        let header = null;
+        for (const sel of headerSelectors) {
+            header = document.querySelector(sel);
+            if (header) break;
+        }
+        if (!header) return;
+
+        // Limpa badges anteriores do header
+        header.querySelectorAll('.whl-header-badge-wrapper').forEach(el => el.remove());
+
+        // Resolve chatId ativo: bridge → data-id no header → primeiro [data-id] em #main
+        let chatId = null;
+        try {
+            if (window.WHL_WaBridge?.getActiveChatId) {
+                chatId = window.WHL_WaBridge.getActiveChatId();
+            }
+        } catch (_) {}
+        if (!chatId) {
+            const idEl = header.querySelector('[data-id]') ||
+                         document.querySelector('#main [data-id]');
+            const dataId = idEl?.getAttribute('data-id') || '';
+            const m = dataId.match(/(\d+)@([cg])\.us/);
+            if (m) chatId = `${m[1]}@${m[2]}.us`;
+        }
+        if (!chatId) return;
+
+        const contact = findContactByChatId(chatId);
+        const labels = findLabelsByChatId(chatId);
+        if (!contact && labels.length === 0) return;
+
+        // Acha o span do nome para inserir o badge logo depois
+        const nameEl = header.querySelector('span[dir="auto"][title]') ||
+                       header.querySelector('div[role="button"] span[title]') ||
+                       header.querySelector('span[title]');
+        if (!nameEl) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'whl-header-badge-wrapper whl-badge-wrapper-v53';
+        wrapper.style.cssText = 'display:inline-flex;gap:6px;align-items:center;margin-left:8px;';
+
+        if (contact?.stage) {
+            const stage = stageMap[contact.stage];
+            if (stage) wrapper.appendChild(createStageBadge(stage, contact));
+        }
+        if (settings.showLabel && labels.length > 0) {
+            const max = Math.min(labels.length, 2);
+            for (let i = 0; i < max; i++) {
+                wrapper.appendChild(createLabelBadge(labels[i]));
+            }
+        }
+        if (wrapper.children.length > 0) {
+            const parent = nameEl.parentElement;
+            if (parent) {
+                parent.style.display = 'flex';
+                parent.style.alignItems = 'center';
+            }
+            nameEl.after(wrapper);
         }
     }
 

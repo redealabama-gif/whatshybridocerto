@@ -2,15 +2,12 @@
  * @file content/wpp-hooks-parts/03-message-handlers.js
  * @description Slice 3001-4500 do wpp-hooks.js (refactor v9)
  * @lines 1500
+ *
+ * v9.6.0: o cabeçalho deste arquivo tinha 6 linhas órfãs que fechavam a
+ * antiga função sendImageDirect (truncada em 02). Agora 02 fecha a função
+ * sozinho, então removemos o trecho órfão para o concat não ficar com
+ * }  } catch... duplicados.
  */
-
-            }
-        } catch (error) {
-            console.error('[WHL Hooks] Erro ao enviar imagem:', error);
-            return false;
-        }
-    }
-    
 
     /**
      * Aguarda módulos essenciais do WhatsApp estarem disponíveis
