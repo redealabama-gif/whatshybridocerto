@@ -662,12 +662,26 @@
   // ============================================
 
   let currentTasksFilter = 'all';
+  let _tasksBusBound = false;
 
   /**
    * Inicializa a view de Tasks
    */
   function tasksInit() {
     console.log('[WHL Fixes] Initializing Tasks view...');
+
+    // v9.6.x — re-render automático ao criar/editar/concluir/remover.
+    // Antes nada escutava os eventos do TasksModule e a UI ficava parada
+    // depois do "Salvar" no modal. _tasksBusBound garante idempotência caso
+    // tasksInit seja chamado múltiplas vezes.
+    if (!_tasksBusBound && window.EventBus) {
+      window.EventBus.on('tasks:changed', () => {
+        const open = document.getElementById('tasks_container');
+        if (!open || open.offsetParent === null) return; // view não está visível
+        renderTasksView();
+      });
+      _tasksBusBound = true;
+    }
 
     if (window.TasksModule) {
       window.TasksModule.init();

@@ -224,6 +224,11 @@
 
     if (window.EventBus) {
       window.EventBus.emit(window.WHL_EVENTS?.TASK_CREATED, task);
+      // v9.6.x — evento agregado pra UI re-renderizar (sidepanel-fixes escuta).
+      // Antes o re-render no submit handler procurava .whl-tasks-container que
+      // o sidepanel-fixes nunca cria (ele usa #tasks-list-container), então a
+      // tarefa salva nunca aparecia até reload.
+      window.EventBus.emit('tasks:changed', { kind: 'created', task });
     }
 
     console.log('[Tasks] Tarefa criada:', task.title);
@@ -245,13 +250,16 @@
 
     if (updates.status === TASK_STATUS.COMPLETED) {
       state.tasks[index].completedAt = new Date().toISOString();
-      
+
       if (window.EventBus) {
         window.EventBus.emit(window.WHL_EVENTS?.TASK_COMPLETED, state.tasks[index]);
       }
     }
 
     await saveTasks();
+    if (window.EventBus) {
+      window.EventBus.emit('tasks:changed', { kind: 'updated', task: state.tasks[index] });
+    }
     return state.tasks[index];
   }
 
@@ -268,6 +276,9 @@
   async function deleteTask(id) {
     state.tasks = state.tasks.filter(t => t.id !== id);
     await saveTasks();
+    if (window.EventBus) {
+      window.EventBus.emit('tasks:changed', { kind: 'deleted', id });
+    }
   }
 
   /**
@@ -908,11 +919,11 @@
 
       modal.remove();
 
-      // Re-renderizar lista
-      const container = document.querySelector('.whl-tasks-container')?.parentElement;
-      if (container) {
-        renderTaskList(container);
-      }
+      // v9.6.x — re-render é responsabilidade de quem montou a view. Antes
+      // procurávamos .whl-tasks-container?.parentElement, mas o sidepanel-fixes
+      // monta a view com #tasks-list-container — a query devolvia null e a
+      // tarefa criada nunca aparecia. Agora cada mutador emite 'tasks:changed'
+      // (em createTask/updateTask/deleteTask) e a view escuta.
 
       if (window.NotificationsModule) {
         window.NotificationsModule.success(isEdit ? 'Tarefa atualizada!' : 'Tarefa criada!');
