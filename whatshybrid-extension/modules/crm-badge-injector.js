@@ -58,6 +58,7 @@
     let stageMap = {};
     let labelMap = {};
     let contactByPhone = {};  // Mapa phone -> contact
+    let contactByName = {};   // Mapa nome-normalizado -> contact (match das rows @lid)
     
     let settings = {
         showBadge: true,
@@ -151,8 +152,11 @@
             }
         }
 
-        // Mapa de contatos por phone (normalizado)
+        // Mapa de contatos por phone (normalizado) e por nome (normalizado).
+        // O mapa por nome é o elo principal: WA 2.3000.x usa @lid nas rows da
+        // lista (sem telefone visível), então só o nome exibido casa com o CRM.
         contactByPhone = {};
+        contactByName = {};
         if (crmData.contacts) {
             for (const contact of crmData.contacts) {
                 if (contact.phone) {
@@ -161,10 +165,13 @@
                         contactByPhone[normalizedPhone] = contact;
                     }
                 }
+                const nk = normalizeName(contact.name);
+                if (nk) contactByName[nk] = contact;
             }
         }
 
-        log('Maps construídos:', Object.keys(contactByPhone).length, 'phones mapeados');
+        log('Maps construídos:', Object.keys(contactByPhone).length, 'phones,',
+            Object.keys(contactByName).length, 'nomes mapeados');
     }
 
     // ============================================
@@ -189,6 +196,43 @@
     function chatIdToPhone(chatId) {
         if (!chatId) return null;
         return normalizePhone(chatId.replace(/@[cg]\.us$/, ''));
+    }
+
+    // Normaliza um nome para casar row do WhatsApp ↔ contato do CRM.
+    // Remove emojis/símbolos decorativos (ex: "Mãe ❤️" → "mãe"), colapsa
+    // espaços e baixa a caixa — o WA costuma exibir o nome do contato salvo
+    // com emojis que o usuário não digitou ao criar o contato no CRM.
+    function normalizeName(s) {
+        if (!s) return '';
+        return String(s)
+            .normalize('NFKC')
+            .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    // Lê o nome exibido numa row da lista de chats (primeiro span[title] útil).
+    function getRowDisplayName(row) {
+        for (const sel of TITLE_SELECTORS) {
+            const el = row.querySelector(sel);
+            const t = (el?.getAttribute('title') || el?.textContent || '').trim();
+            if (t) return t;
+        }
+        return '';
+    }
+
+    // Resolve as etiquetas de um contato do CRM (labels gravadas por telefone).
+    function getLabelsForContact(contact) {
+        if (!contact || !labelsData.contactLabels) return [];
+        const phone = normalizePhone(contact.phone);
+        if (!phone) return [];
+        const variations = [phone, phone.replace(/^55/, ''), `55${phone}`];
+        for (const v of variations) {
+            const ids = labelsData.contactLabels[v];
+            if (ids && ids.length) return ids.map(id => labelMap[id]).filter(Boolean);
+        }
+        return [];
     }
 
     // ============================================
@@ -665,23 +709,33 @@
     // ============================================
 
     function updateChatBadge(chatItem) {
-        const chatId = extractChatId(chatItem);
-        if (!chatId) return;
-
-        chatItem.setAttribute('data-whl-chat-id', chatId);
-        chatItem.style.position = 'relative';
-
-        // Remover badges existentes
+        // Limpa badges antigos primeiro — garante que remover etiqueta/contato
+        // do CRM faça o badge sumir da row no próximo ciclo.
         chatItem.querySelectorAll('.whl-badge-wrapper-v53, .whl-stage-indicator-v53').forEach(el => el.remove());
 
         if (!settings.showBadge) return;
 
-        // Buscar contato
-        const contact = findContactByChatId(chatId);
-        const labels = findLabelsByChatId(chatId);
+        // Match primário: nome exibido na row ↔ contato do CRM (por nome).
+        // WA 2.3000.x usa @lid nas rows (sem telefone/data-id), então o nome
+        // é o único elo confiável com o CRM (que guarda nome + telefone).
+        const displayName = getRowDisplayName(chatItem);
+        let contact = displayName ? contactByName[normalizeName(displayName)] : null;
+        let labels;
+
+        if (contact) {
+            labels = getLabelsForContact(contact);
+        } else {
+            // Fallback: contato não salvo — WA mostra o número cru na row.
+            const chatId = extractChatId(chatItem);
+            contact = findContactByChatId(chatId);
+            labels = findLabelsByChatId(chatId);
+        }
 
         // Se não tem contato nem labels, sair
         if (!contact && labels.length === 0) return;
+
+        chatItem.setAttribute('data-whl-chat-id', contact?.phone || displayName || '1');
+        chatItem.style.position = 'relative';
 
         // Encontrar onde inserir
         let titleContainer = null;
@@ -787,31 +841,38 @@
         // Limpa badges anteriores do header
         header.querySelectorAll('.whl-header-badge-wrapper').forEach(el => el.remove());
 
-        // Resolve chatId ativo: bridge → data-id no header → primeiro [data-id] em #main
-        let chatId = null;
-        try {
-            if (window.WHL_WaBridge?.getActiveChatId) {
-                chatId = window.WHL_WaBridge.getActiveChatId();
-            }
-        } catch (_) {}
-        if (!chatId) {
-            const idEl = header.querySelector('[data-id]') ||
-                         document.querySelector('#main [data-id]');
-            const dataId = idEl?.getAttribute('data-id') || '';
-            const m = dataId.match(/(\d+)@([cg])\.us/);
-            if (m) chatId = `${m[1]}@${m[2]}.us`;
-        }
-        if (!chatId) return;
-
-        const contact = findContactByChatId(chatId);
-        const labels = findLabelsByChatId(chatId);
-        if (!contact && labels.length === 0) return;
-
-        // Acha o span do nome para inserir o badge logo depois
+        // Acha o span do nome do contato no header (onde o badge é inserido)
         const nameEl = header.querySelector('span[dir="auto"][title]') ||
                        header.querySelector('div[role="button"] span[title]') ||
                        header.querySelector('span[title]');
         if (!nameEl) return;
+
+        // Match primário por nome — mesma estratégia das rows da lista.
+        const displayName = (nameEl.getAttribute('title') || nameEl.textContent || '').trim();
+        let contact = displayName ? contactByName[normalizeName(displayName)] : null;
+        let labels;
+
+        if (contact) {
+            labels = getLabelsForContact(contact);
+        } else {
+            // Fallback: resolve chatId (contato não salvo / número visível).
+            let chatId = null;
+            try {
+                if (window.WHL_WaBridge?.getActiveChatId) {
+                    chatId = window.WHL_WaBridge.getActiveChatId();
+                }
+            } catch (_) {}
+            if (!chatId) {
+                const idEl = header.querySelector('[data-id]') ||
+                             document.querySelector('#main [data-id]');
+                const dataId = idEl?.getAttribute('data-id') || '';
+                const m = dataId.match(/(\d+)@([cg])\.us/);
+                if (m) chatId = `${m[1]}@${m[2]}.us`;
+            }
+            contact = findContactByChatId(chatId);
+            labels = findLabelsByChatId(chatId);
+        }
+        if (!contact && labels.length === 0) return;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'whl-header-badge-wrapper whl-badge-wrapper-v53';

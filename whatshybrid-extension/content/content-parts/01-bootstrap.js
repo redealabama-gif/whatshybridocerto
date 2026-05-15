@@ -1176,13 +1176,52 @@
    * Baseado em: Mapa de Seletores e API Interna WhatsApp Web v3
    * FIX: Adicionados métodos mais robustos para abrir chats que não estão visíveis
    */
+  // Abre o chat delegando ao page-world (abrirChatPorNumero nos wpp-hooks).
+  // O content script roda em mundo isolado e NÃO enxerga window.WPP/Store —
+  // por isso os métodos baseados neles abaixo nunca funcionam aqui. Este é o
+  // mesmo caminho do Disparo, robusto em WA 2.3000.x (chats em @lid).
+  function openChatViaPageBridge(phone) {
+    return new Promise((resolve) => {
+      const requestId = 'whl_oc_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      let settled = false;
+      const finish = (val) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('message', onMsg);
+        clearTimeout(timer);
+        resolve(val);
+      };
+      const onMsg = (e) => {
+        if (e.source !== window) return;
+        const d = e.data;
+        if (!d || d.type !== 'WHL_OPEN_CHAT_DIRECT_RESULT' || d.requestId !== requestId) return;
+        finish(!!d.success);
+      };
+      const timer = setTimeout(() => finish(false), 8000);
+      window.addEventListener('message', onMsg);
+      window.postMessage({ type: 'WHL_OPEN_CHAT_DIRECT', phone, requestId }, window.location.origin);
+    });
+  }
+
   async function openChatByPhone(phone) {
     const cleanPhone = String(phone).replace(/\D/g, '');
     const chatId = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@c.us`;
 
     console.log('[WHL] Abrindo chat:', chatId);
 
-    // Método 0 (NOVO): WPP.chat.openChatFromId — quando o WPP global está
+    // Método 0: delega ao page-world (abrirChatPorNumero) — mesmo caminho do
+    // Disparo. Único método confiável a partir do content script.
+    try {
+      const okBridge = await openChatViaPageBridge(cleanPhone);
+      if (okBridge) {
+        console.log('[WHL] ✅ Chat aberto via page-bridge (abrirChatPorNumero)');
+        return true;
+      }
+    } catch (e) {
+      console.warn('[WHL] page-bridge openChat falhou:', e?.message || e);
+    }
+
+    // Método 1 (legado): WPP.chat.openChatFromId — quando o WPP global está
     // carregado, é o método mais estável em WA 2.3000.x. Tenta antes de tudo.
     try {
       if (window.WPP?.chat?.openChatFromId) {

@@ -26,7 +26,7 @@ if (!JWT_SECRET) {
   // eslint-disable-next-line no-console
   logger.error('Defina a variável de ambiente JWT_SECRET antes de iniciar o servidor.');
   // eslint-disable-next-line no-console
-  logger.error('Ex.: export JWT_SECRET="sua-chave-segura-com-32+ caracteres"');
+  logger.error('Ex.: export JWT_SECRET=<sua-chave-secreta-de-32-caracteres-ou-mais>');
   // eslint-disable-next-line no-console
   logger.error('═══════════════════════════════════════════════════════════');
   process.exit(1);
