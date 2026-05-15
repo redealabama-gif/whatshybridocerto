@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WhatsHybrid Pro",
-  "version": "9.5.9",
+  "version": "9.6.0",
   "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo.",
   "icons": {
     "16": "icons/16.png",

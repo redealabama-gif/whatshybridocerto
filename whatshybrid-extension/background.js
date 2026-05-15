@@ -702,11 +702,39 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   // demais alarms são tratados por campaign-handler.js
 });
 
-// Ao instalar/atualizar — configura keepAlive
+// Ao instalar/atualizar — configura keepAlive + defaults de configuração.
+// v9.6.0: antes a extensão exigia que o usuário rodasse comando no console pra
+// setar `whl_backend_url`. Agora a URL padrão é gravada automaticamente; o
+// usuário só precisa trocar se rodar o backend em outra porta.
+async function initDefaultConfig() {
+  const DEFAULT_CONFIG = {
+    whl_backend_url: 'http://localhost:3000',
+    whl_auto_sync_enabled: true
+  };
+  try {
+    const got = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
+    const toSet = {};
+    for (const [k, v] of Object.entries(DEFAULT_CONFIG)) {
+      if (got[k] === undefined || got[k] === null || got[k] === '') toSet[k] = v;
+    }
+    if (Object.keys(toSet).length) {
+      await chrome.storage.local.set(toSet);
+      console.log('[WHL SW] ✅ Defaults aplicados:', Object.keys(toSet).join(', '));
+    }
+  } catch (e) {
+    console.warn('[WHL SW] ⚠️ Falha ao aplicar defaults:', e?.message || e);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
+  await initDefaultConfig();
   await ensureKeepAliveAlarm();
-  console.log('[WHL SW] ✅ onInstalled: keepAlive configurado');
+  console.log('[WHL SW] ✅ onInstalled: keepAlive + defaults configurados');
 });
+
+// Também aplica defaults no startup pra cobrir o caso de o usuário já ter
+// instalado antes desta versão e nunca ter um `whl_backend_url` setado.
+initDefaultConfig();
 
 // Ao iniciar o SW (wakeup ou primeira vez) — restaura estado e garante alarm
 chrome.runtime.onStartup.addListener(async () => {

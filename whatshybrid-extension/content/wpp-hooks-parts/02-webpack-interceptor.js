@@ -1462,45 +1462,89 @@
      * @returns {Promise<boolean>} - true se imagem foi enviada
      */
     async function sendImageDirect(phoneNumber, imageDataUrl, caption = '') {
+        // v9.6.0: 4 camadas de fallback. Versão anterior estava truncada no
+        // 'else' e o else nem chamava nada — só retornava false. Resultado:
+        // Disparo com imagem nunca funcionava em WA 2.3000.x porque MEDIA_PREP
+        // foi renomeado/removido.
+        const phoneClean = String(phoneNumber || '').replace(/\D/g, '');
+
+        // CAMADA 1: API interna do WhatsApp (chat.sendMessage com mediaData
+        // pré-processada). Funciona quando WAWebMediaPrep está disponível.
         try {
-            if (!MODULES.WID_FACTORY || !MODULES.CHAT_COLLECTION) {
-                console.warn('[WHL Hooks] Módulos necessários não disponíveis para sendImageDirect');
-                return false;
-            }
-            
-            const wid = MODULES.WID_FACTORY.createWid(phoneNumber + '@c.us');
-            let chat = MODULES.CHAT_COLLECTION?.ChatCollection?.get?.(wid);
-            
-            if (!chat) {
-                console.log('[WHL Hooks] Chat não encontrado para envio de imagem');
-                return false;
-            }
-            
-            // Converter data URL para blob
-            const response = await fetch(imageDataUrl);
-            const blob = await response.blob();
-            const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
-            
-            // Preparar mídia usando API interna
-            if (MODULES.MEDIA_PREP && typeof MODULES.MEDIA_PREP.prepareMedia === 'function') {
-                const mediaData = await MODULES.MEDIA_PREP.prepareMedia(file);
-                
-                // Validar que sendMessage aceita mídia
-                if (!chat.sendMessage || typeof chat.sendMessage !== 'function') {
-                    console.warn('[WHL Hooks] chat.sendMessage não disponível');
-                    return false;
-                }
-                
-                // Enviar com caption
-                try {
-                    await chat.sendMessage(mediaData, { caption });
-                    console.log('[WHL Hooks] ✅ Imagem enviada via API para', phoneNumber);
+            if (MODULES.WID_FACTORY && MODULES.CHAT_COLLECTION && MODULES.MEDIA_PREP) {
+                const wid = MODULES.WID_FACTORY.createWid(phoneClean + '@c.us');
+                const chat = MODULES.CHAT_COLLECTION?.ChatCollection?.get?.(wid);
+                if (chat && typeof chat.sendMessage === 'function' && typeof MODULES.MEDIA_PREP.prepareMedia === 'function') {
+                    const blob = await (await fetch(imageDataUrl)).blob();
+                    const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+                    const mediaData = await MODULES.MEDIA_PREP.prepareMedia(file);
+                    await chat.sendMessage(mediaData, { caption: caption || '' });
+                    console.log('[WHL Hooks] ✅ Imagem enviada via API interna para', phoneClean);
                     return true;
-                } catch (sendError) {
-                    console.error('[WHL Hooks] Erro ao chamar sendMessage com mídia:', sendError);
-                    return false;
                 }
-            } else {
-                // Fallback: tentar envio simples se MEDIA_PREP não disponível
-                console.log('[WHL Hooks] MEDIA_PREP não disponível, usando fallback');
-                return false;
+            }
+        } catch (e) {
+            console.warn('[WHL Hooks] ⚠️ Camada 1 (API interna) falhou:', e?.message || e);
+        }
+
+        // CAMADA 2: WPP.js global (window.WPP.chat.sendFileMessage) — disponível
+        // se o usuário tiver o WPP injetado. Suporta imagem/vídeo/áudio/doc com
+        // o mesmo método.
+        try {
+            if (window.WPP?.chat?.sendFileMessage) {
+                await window.WPP.chat.sendFileMessage(phoneClean + '@c.us', imageDataUrl, {
+                    type: 'image', caption: caption || '', isViewOnce: false
+                });
+                console.log('[WHL Hooks] ✅ Imagem enviada via WPP.js para', phoneClean);
+                return true;
+            }
+        } catch (e) {
+            console.warn('[WHL Hooks] ⚠️ Camada 2 (WPP.js) falhou:', e?.message || e);
+        }
+
+        // CAMADA 3: fluxo via DOM paste (enviarImagemParaNumero). Funciona em
+        // qualquer versão recente porque depende só do paste + caption + Enter.
+        // É o fallback testado de fato em produção.
+        try {
+            if (typeof enviarImagemParaNumero === 'function') {
+                const r = await enviarImagemParaNumero(phoneClean, imageDataUrl, caption);
+                if (r?.success) {
+                    console.log('[WHL Hooks] ✅ Imagem enviada via DOM paste para', phoneClean);
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.warn('[WHL Hooks] ⚠️ Camada 3 (DOM paste) falhou:', e?.message || e);
+        }
+
+        // CAMADA 4 (último recurso): abrir chat e tentar via input[type=file]
+        // do attach menu. Mais frágil porque depende do DOM do menu de anexos.
+        try {
+            if (typeof abrirChatPorNumero === 'function') {
+                await abrirChatPorNumero(phoneClean);
+                await new Promise(r => setTimeout(r, 1200));
+                const fileInput = document.querySelector('input[type="file"][accept*="image"]')
+                              || document.querySelector('input[type="file"]');
+                if (fileInput) {
+                    const blob = await (await fetch(imageDataUrl)).blob();
+                    const dt = new DataTransfer();
+                    dt.items.add(new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' }));
+                    fileInput.files = dt.files;
+                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    await new Promise(r => setTimeout(r, 800));
+                    const sendBtn = document.querySelector('[aria-label*="Enviar" i]')
+                                || document.querySelector('span[data-icon="send"]')?.closest('button');
+                    if (sendBtn) {
+                        sendBtn.click();
+                        console.log('[WHL Hooks] ✅ Imagem enviada via input[type=file] para', phoneClean);
+                        return true;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[WHL Hooks] ⚠️ Camada 4 (file input) falhou:', e?.message || e);
+        }
+
+        console.error('[WHL Hooks] ❌ Todas as 4 camadas falharam para', phoneClean);
+        return false;
+    };

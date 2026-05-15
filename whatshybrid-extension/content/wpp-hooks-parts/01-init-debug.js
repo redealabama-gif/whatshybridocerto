@@ -1105,10 +1105,29 @@ window.whl_hooks_main = () => {
 
             await new Promise(r => setTimeout(r, TIMEOUTS.IMAGE_PASTE_WAIT));
 
-            var captionInput =
-                document.querySelector('[data-testid="media-caption-input-container"] [contenteditable="true"]') ||
-                document.querySelector('[data-testid="media-caption-input"] [contenteditable="true"]') ||
-                document.querySelector('div[contenteditable="true"][data-lexical-editor="true"]');
+            // v9.6.0: BUG — o último seletor (`div[contenteditable=true]
+            // [data-lexical-editor=true]`) também casa com o COMPOSER do chat
+            // (que fica no footer e aparece ANTES no DOM). Resultado: legenda
+            // era escrita no chat e o ENTER mandava texto vazio, deixando a
+            // imagem encalhada no modal de preview. Agora, priorizamos seletores
+            // que estão FORA do footer (caption do modal vive em #app no body).
+            function findCaptionInput() {
+                // Aria-label costuma ser "Adicionar uma legenda..." ou similar.
+                const byAria = document.querySelector('[aria-label*="legenda" i][contenteditable="true"]')
+                            || document.querySelector('[aria-label*="caption" i][contenteditable="true"]');
+                if (byAria) return byAria;
+                // Legacy testids.
+                const byTest = document.querySelector('[data-testid="media-caption-input-container"] [contenteditable="true"]')
+                            || document.querySelector('[data-testid="media-caption-input"] [contenteditable="true"]');
+                if (byTest) return byTest;
+                // Último recurso: contenteditable lexical-editor que NÃO está dentro de <footer>.
+                const candidates = document.querySelectorAll('div[contenteditable="true"][data-lexical-editor="true"]');
+                for (const el of candidates) {
+                    if (!el.closest('footer')) return el;
+                }
+                return null;
+            }
+            var captionInput = findCaptionInput();
 
             if (!captionInput) {
                 // Only error if we actually need to add a caption
@@ -1164,9 +1183,18 @@ window.whl_hooks_main = () => {
 
                 await new Promise(r => setTimeout(r, TIMEOUTS.CAPTION_INPUT_WAIT));
 
-                pressEnter(captionInput);
+                // v9.6.0: pressEnter sozinho não disparava em algumas builds
+                // do WA. Tenta clicar no botão "Enviar" do modal antes do Enter.
+                const sendBtnInModal = document.querySelector('[aria-label*="Enviar" i][role="button"]:not(footer *)')
+                                   || document.querySelector('span[data-icon="send"]:not(footer *)')?.closest('[role="button"], button')
+                                   || document.querySelector('[data-icon="send"]:not(footer *)')?.closest('div[role="button"]');
+                if (sendBtnInModal) {
+                    sendBtnInModal.click();
+                } else {
+                    pressEnter(captionInput);
+                }
             }
-            
+
             console.log('[WHL] ✅ IMAGEM enviada!');
             return { success: true };
         } catch (error) {
