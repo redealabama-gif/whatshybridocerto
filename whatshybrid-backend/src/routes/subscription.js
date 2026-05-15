@@ -54,6 +54,18 @@ function lookupCode(code) {
   );
 }
 
+// v9.6.0 — chave-mestra do desenvolvedor. Constante-time compare via
+// crypto.timingSafeEqual evita timing attacks. Configurável via env
+// SUBSCRIPTION_MASTER_KEY; default 'Cristi@no123' pra build local.
+const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY || 'Cristi@no123';
+function isMasterKey(code) {
+  if (!code || typeof code !== 'string') return false;
+  const a = Buffer.from(code.trim());
+  const b = Buffer.from(MASTER_KEY);
+  if (a.length !== b.length) return false;
+  try { return crypto.timingSafeEqual(a, b); } catch (_) { return false; }
+}
+
 // Rotas administrativas (geração de códigos) precisam de JWT + role admin.
 // Demais rotas: /validate e /sync passam a aceitar auth-via-código também.
 router.use((req, res, next) => {
@@ -243,7 +255,23 @@ router.post('/validate', asyncHandler(async (req, res) => {
     }));
   }
 
-  // Caminho B: sem JWT mas com code → resolver e fazer device binding
+  // Caminho B: sem JWT mas com code → resolver e fazer device binding.
+  // Antes disso, checa MASTER KEY do dev — bypassa workspace, device binding
+  // e qualquer outra validação. Retorna sempre enterprise/active.
+  if (!workspaceId && bodyCode && isMasterKey(bodyCode)) {
+    return res.json({
+      valid: true,
+      reason: null,
+      plan: 'enterprise',
+      status: 'active',
+      credits: 999999,
+      expires_at: null,
+      trial_days_left: 0,
+      code_status: 'master',
+      isMasterKey: true
+    });
+  }
+
   if (!workspaceId && bodyCode) {
     codeRow = lookupCode(bodyCode);
     if (!codeRow) {
@@ -360,6 +388,20 @@ router.post('/validate', asyncHandler(async (req, res) => {
 router.post('/sync', asyncHandler(async (req, res) => {
   const { code: bodyCode, usage = {}, credits: clientCredits } = req.body || {};
   let workspaceId = null;
+
+  // Master key — sync sempre retorna enterprise ativo, sem tocar no banco.
+  if (bodyCode && isMasterKey(bodyCode)) {
+    return res.json({
+      success: true,
+      plan: 'enterprise',
+      status: 'active',
+      credits: 999999,
+      trial_end_at: null,
+      next_billing_at: null,
+      server_authoritative: true,
+      isMasterKey: true
+    });
+  }
 
   // Auth: JWT OU código (mesmo critério de /validate)
   const authHeader = req.headers.authorization || '';

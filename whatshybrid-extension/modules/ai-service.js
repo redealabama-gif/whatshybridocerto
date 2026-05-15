@@ -678,6 +678,20 @@
   async function complete(messages, options = {}) {
     const startTime = Date.now();
 
+    // v9.6.0 — GATE de assinatura no PONTO DE ENTRADA. Antes só o caminho via
+    // AIGateway/CopilotEngine validava; quando complete() caía no fallback
+    // direto pra provider, o gate não rodava e usuários sem assinatura ativa
+    // conseguiam usar IA. Agora é checagem única, no único lugar que importa.
+    if (window.SubscriptionManager) {
+      const sm = window.SubscriptionManager;
+      if (typeof sm.canUseAI === 'function' && !sm.canUseAI()) {
+        if (window.EventBus) {
+          window.EventBus.emit('ai:blocked', { reason: 'subscription_required' });
+        }
+        throw new Error('Assinatura inativa. Ative seu plano para usar a IA.');
+      }
+    }
+
     // Normalizar mensagens e sanitizar para evitar prompt injection
     if (!Array.isArray(messages)) {
       messages = [{ role: 'user', content: String(messages) }];
