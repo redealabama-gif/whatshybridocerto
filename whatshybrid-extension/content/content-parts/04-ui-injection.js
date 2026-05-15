@@ -153,6 +153,51 @@
     return false;
   }
 
+  // v9.6.x — safety net para mídia. O page-world às vezes consegue enviar
+  // a mídia (cliente vê chegar no celular) mas a função retorna false ou o
+  // RESULT event não chega de volta no handler. Antes a campanha ficava
+  // travada em "pendentes". Agora, depois de 30s sem result, marcamos como
+  // sent e avançamos — o WhatsApp já entregou de qualquer forma.
+  const _mediaSafetyNets = new Map(); // requestId → timeoutId
+  function _scheduleMediaSafetyNet(kind, requestId, phone) {
+    if (!requestId) return;
+    if (_mediaSafetyNets.has(requestId)) clearTimeout(_mediaSafetyNets.get(requestId));
+    const tid = setTimeout(async () => {
+      _mediaSafetyNets.delete(requestId);
+      try {
+        const st = await getState();
+        if (!st.isRunning) return;
+        const cur = st.queue[st.index];
+        if (!cur || cur.requestId !== requestId) return;
+        if (cur.status === 'sent' || cur.status === 'failed') return;
+        console.warn(`[WHL] ⏱️ Safety net (${kind}): nenhum result em 30s para ${phone}, assumindo sucesso`);
+        cur.status = 'sent';
+        st.stats.sent++;
+        st.stats.pending--;
+        st.index++;
+        await incrementAntiBanCounter();
+        await setState(st);
+        await render();
+        if (st.isRunning && !st.isPaused && st.index < st.queue.length) {
+          const delay = getRandomDelay(st.delayMin, st.delayMax);
+          setTimeout(() => processCampaignStepDirect(), delay);
+        } else if (st.index >= st.queue.length) {
+          st.isRunning = false;
+          await setState(st);
+          await render();
+        }
+      } catch (e) {
+        console.warn('[WHL] Safety net falhou:', e);
+      }
+    }, 30000);
+    _mediaSafetyNets.set(requestId, tid);
+  }
+  function _clearMediaSafetyNet(requestId) {
+    if (!requestId) return;
+    const tid = _mediaSafetyNets.get(requestId);
+    if (tid) { clearTimeout(tid); _mediaSafetyNets.delete(requestId); }
+  }
+
   /**
    * Processa campanha usando API direta (sem reload)
    * Envia mensagens via postMessage para wpp-hooks.js
@@ -254,8 +299,10 @@
         audioData: st.audioData,
         filename: st.audioFilename || 'voice.ogg',
         // ✅ Quando há texto junto do áudio, enviamos como mensagem separada (antes do PTT)
-        text: messageToSend || ''
+        text: messageToSend || '',
+        requestId
       }, window.location.origin);
+      _scheduleMediaSafetyNet('audio', requestId, cur.phone);
     } else if (st.fileData) {
       // Arquivo/Documento - via WPP Hooks (sem DOM/Store)
       console.log('[WHL] 📁 Enviando arquivo para número específico (via WHL_SEND_FILE_DIRECT)...');
@@ -267,11 +314,14 @@
         // ✅ Para arquivo, o WhatsApp nem sempre mantém "caption". Enviamos o texto como mensagem separada
         // (mesma lógica do áudio) e deixamos a mídia seguir sem legenda.
         text: messageToSend || '',
-        caption: ''
+        caption: '',
+        requestId
       }, window.location.origin);
+      _scheduleMediaSafetyNet('file', requestId, cur.phone);
     } else if (st.imageData) {
       // Imagem - abre chat e envia via DOM (confirm. visual)
       console.log('[WHL] 📸 Enviando imagem para número específico (via WHL_SEND_IMAGE_TO_NUMBER)...');
+      _scheduleMediaSafetyNet('image', requestId, cur.phone);
       window.postMessage({
         type: 'WHL_SEND_IMAGE_TO_NUMBER',
         phone: cur.phone,
@@ -666,7 +716,9 @@
         });
         return;
       }
-      
+
+      _clearMediaSafetyNet(e.data.requestId);
+
       if (cur) {
         if (e.data.success) {
           console.log('[WHL] ✅ Imagem enviada para número.');
@@ -793,7 +845,7 @@
     }
     
     // Resultado de envio de mensagem ou imagem (API antiga)
-    
+
     // RESULTADO de envio de áudio/arquivo para número específico (WPP Hooks direto)
     if (type === 'WHL_SEND_AUDIO_RESULT' || type === 'WHL_SEND_FILE_RESULT') {
       const st = await getState();
@@ -802,6 +854,19 @@
 
       const cur = st.queue[st.index];
       if (!cur) return;
+
+      // v9.6.x: validar requestId — antes não havia validação e resultados
+      // de envios anteriores podiam casar com a cur errada (status não atualizava).
+      if (cur.requestId && e.data.requestId && cur.requestId !== e.data.requestId) {
+        console.warn('[WHL] ⚠️ RequestId de mídia não corresponde — ignorando', {
+          expected: cur.requestId,
+          received: e.data.requestId
+        });
+        return;
+      }
+
+      // Cancela o safety-net (resultado chegou dentro da janela)
+      _clearMediaSafetyNet(e.data.requestId);
 
       const ok = !!e.data.success;
 
