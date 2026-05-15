@@ -203,6 +203,67 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     return resp;
   }
 
+  // ========= Seletor de arquivos (workaround p/ Chrome Side Panel) =========
+  // O painel lateral do Chrome (chrome.sidePanel) NÃO abre o seletor de arquivos
+  // nativo do SO — nem via input.click(), nem com clique direto num <input
+  // type=file> visível. A seleção é delegada a uma janela popup (filepicker.html),
+  // que é uma página normal onde o seletor funciona, e que devolve o anexo aqui.
+  function openFilePickerPopup(accept, kind) {
+    return new Promise((resolve, reject) => {
+      const requestId = 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      let popupWinId = null;
+      let settled = false;
+
+      function finish(fn, val) {
+        if (settled) return;
+        settled = true;
+        chrome.runtime.onMessage.removeListener(onMsg);
+        chrome.windows.onRemoved.removeListener(onClosed);
+        if (popupWinId != null) { try { chrome.windows.remove(popupWinId); } catch (_) {} }
+        fn(val);
+      }
+      function onMsg(msg) {
+        if (!msg || msg.action !== 'WHL_FILEPICKER_RESULT' || msg.requestId !== requestId) return;
+        if (msg.ok) finish(resolve, { name: msg.name, type: msg.type, size: msg.size, dataUrl: msg.dataUrl });
+        else finish(reject, new Error(msg.error || 'Falha ao selecionar arquivo'));
+      }
+      function onClosed(winId) {
+        if (winId === popupWinId) finish(resolve, null); // usuário fechou sem escolher
+      }
+
+      chrome.runtime.onMessage.addListener(onMsg);
+      chrome.windows.onRemoved.addListener(onClosed);
+
+      const url = chrome.runtime.getURL('filepicker.html')
+        + '?requestId=' + encodeURIComponent(requestId)
+        + '&accept=' + encodeURIComponent(accept || '')
+        + '&kind=' + encodeURIComponent(kind || 'file');
+
+      chrome.windows.create({ url, type: 'popup', width: 480, height: 340, focused: true }, (win) => {
+        if (chrome.runtime.lastError || !win) {
+          finish(reject, new Error((chrome.runtime.lastError && chrome.runtime.lastError.message) || 'Não foi possível abrir o seletor de arquivos'));
+          return;
+        }
+        popupWinId = win.id;
+      });
+    });
+  }
+
+  async function dataUrlToFile(dataUrl, name, type) {
+    const blob = await (await fetch(dataUrl)).blob();
+    return new File([blob], name || 'arquivo', { type: type || blob.type || 'application/octet-stream' });
+  }
+
+  // Entrega o arquivo escolhido no popup a um <input type=file> existente e
+  // dispara 'change' — assim os handlers de change originais rodam sem alteração.
+  async function deliverFileToInput(inputEl, picked) {
+    const file = await dataUrlToFile(picked.dataUrl, picked.name, picked.type);
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    inputEl.files = dt.files;
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   // ========= View Router =========
   
   // ========= CONFIG VIEW =========
@@ -444,7 +505,16 @@ function showView(viewName) {
     const csvBtn = $('sp_select_csv');
     const csvClear = $('sp_clear_csv');
     if (csvBtn && csvInput) {
-      csvBtn.addEventListener('click', () => csvInput.click());
+      csvBtn.addEventListener('click', async () => {
+        try {
+          const picked = await openFilePickerPopup('.csv,text/csv', 'csv');
+          if (!picked) return;
+          await deliverFileToInput(csvInput, picked);
+        } catch (e) {
+          const h = $('sp_csv_hint');
+          if (h) h.textContent = `❌ ${e.message || e}`;
+        }
+      });
     }
     if (csvInput) {
       csvInput.addEventListener('change', async () => {
@@ -486,7 +556,16 @@ function showView(viewName) {
     const imgBtn = $('sp_select_image');
     const imgClear = $('sp_clear_image');
     if (imgBtn && imgInput) {
-      imgBtn.addEventListener('click', () => imgInput.click());
+      imgBtn.addEventListener('click', async () => {
+        try {
+          const picked = await openFilePickerPopup('image/*', 'image');
+          if (!picked) return;
+          await deliverFileToInput(imgInput, picked);
+        } catch (e) {
+          const hint = $('sp_image_hint');
+          if (hint) hint.textContent = `❌ ${e.message || e}`;
+        }
+      });
     }
     if (imgInput) {
       imgInput.addEventListener('change', async () => {
@@ -590,7 +669,16 @@ function showView(viewName) {
     const audioFileInput = $('sp_audio_file');
     const audioBtn = $('sp_attach_audio');
     if (audioBtn && audioFileInput) {
-      audioBtn.addEventListener('click', () => audioFileInput.click());
+      audioBtn.addEventListener('click', async () => {
+        try {
+          const picked = await openFilePickerPopup('audio/*,.mp3,.ogg,.wav,.m4a', 'audio');
+          if (!picked) return;
+          await deliverFileToInput(audioFileInput, picked);
+        } catch (e) {
+          const hint = $('sp_image_hint');
+          if (hint) hint.textContent = `❌ ${e.message || e}`;
+        }
+      });
     }
     if (audioFileInput) {
       audioFileInput.addEventListener('change', async () => {
@@ -714,76 +802,56 @@ function showView(viewName) {
 
 
 
-    // File Attachment (para disparo em massa) - seleciona e salva no estado (sem enviar imediatamente)
+    // File Attachment (disparo em massa) — seleção via popup (Side Panel não abre seletor)
     const fileBtn = $('sp_select_file');
     if (fileBtn) {
       fileBtn.addEventListener('click', async () => {
         console.log('[SidePanel Router] 📁 File button clicked!');
+        try {
+          const picked = await openFilePickerPopup('*/*', 'file');
+          if (!picked) return;
 
-        // Sempre abrir seletor (evita depender de métodos inexistentes)
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '*/*';
-        input.style.display = 'none';
-        document.body.appendChild(input);
-
-        input.onchange = async (e) => {
-          try {
-            const file = e.target.files?.[0];
-            document.body.removeChild(input);
-            if (!file) return;
-
-            // Limite de tamanho (chrome.storage.local). Ajuste se você trocar para IndexedDB.
-            const MAX_BYTES = 3 * 1024 * 1024; // 3MB
-            if (file.size > MAX_BYTES) {
-              const hint = $('sp_image_hint');
-              if (hint) hint.textContent = `❌ Arquivo muito grande (${Math.round(file.size/1024)}KB). Limite atual: ${Math.round(MAX_BYTES/1024)}KB`;
-              return;
-            }
-
-            const dataUrl = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result || ''));
-              reader.onerror = () => reject(new Error('Falha ao ler arquivo.'));
-              reader.readAsDataURL(file);
-            });
-
-            // Salva em memória do painel
-            principalFileData = dataUrl;
-            principalFileName = file.name;
-            principalFileMime = file.type || 'application/octet-stream';
-
-            // Ao anexar arquivo, removemos imagem/áudio para evitar conflito (1 anexo por disparo)
-            principalImageData = null;
-            principalAudioData = null;
-            principalAudioName = null;
-            principalAudioMime = null;
-            principalAudioDuration = null;
-
-            // Atualiza UI
+          // Limite de tamanho (chrome.storage.local). Ajuste se trocar para IndexedDB.
+          const MAX_BYTES = 3 * 1024 * 1024; // 3MB
+          if (picked.size > MAX_BYTES) {
             const hint = $('sp_image_hint');
-            if (hint) hint.textContent = `✅ Arquivo anexado — ${file.name}`;
-            const clearBtn = $('sp_clear_image');
-            if (clearBtn) clearBtn.style.display = '';
-            fileBtn.textContent = '📁 Trocar arquivo';
-            const imgBtn = $('sp_select_image');
-            if (imgBtn) imgBtn.textContent = '📎 Anexar imagem';
-            const audioBtn = $('sp_attach_audio');
-            if (audioBtn) audioBtn.textContent = '🎵 Anexar Áudio';
-
-            // Sincroniza no content script (estado global da campanha)
-            await motor('SET_IMAGE_DATA', { imageData: null });
-            await motor('SET_AUDIO_DATA', { audioData: null, filename: null, mimeType: null, duration: 0 });
-            await motor('SET_FILE_DATA', { fileData: dataUrl, filename: file.name, mimeType: principalFileMime });
-
-            principalUpdatePreview();
-          } catch (err) {
-            const hint = $('sp_image_hint');
-            if (hint) hint.textContent = `❌ ${err.message || err}`;
+            if (hint) hint.textContent = `❌ Arquivo muito grande (${Math.round(picked.size/1024)}KB). Limite atual: ${Math.round(MAX_BYTES/1024)}KB`;
+            return;
           }
-        };
 
-        input.click();
+          // Salva em memória do painel
+          principalFileData = picked.dataUrl;
+          principalFileName = picked.name;
+          principalFileMime = picked.type || 'application/octet-stream';
+
+          // Ao anexar arquivo, removemos imagem/áudio para evitar conflito (1 anexo por disparo)
+          principalImageData = null;
+          principalAudioData = null;
+          principalAudioName = null;
+          principalAudioMime = null;
+          principalAudioDuration = null;
+
+          // Atualiza UI
+          const hint = $('sp_image_hint');
+          if (hint) hint.textContent = `✅ Arquivo anexado — ${picked.name}`;
+          const clearBtn = $('sp_clear_image');
+          if (clearBtn) clearBtn.style.display = '';
+          fileBtn.textContent = '📁 Trocar arquivo';
+          const imgBtn = $('sp_select_image');
+          if (imgBtn) imgBtn.textContent = '📎 Anexar imagem';
+          const audioBtn = $('sp_attach_audio');
+          if (audioBtn) audioBtn.textContent = '🎵 Anexar Áudio';
+
+          // Sincroniza no content script (estado global da campanha)
+          await motor('SET_IMAGE_DATA', { imageData: null });
+          await motor('SET_AUDIO_DATA', { audioData: null, filename: null, mimeType: null, duration: 0 });
+          await motor('SET_FILE_DATA', { fileData: picked.dataUrl, filename: picked.name, mimeType: principalFileMime });
+
+          principalUpdatePreview();
+        } catch (err) {
+          const hint = $('sp_image_hint');
+          if (hint) hint.textContent = `❌ ${err.message || err}`;
+        }
       });
     }
 
