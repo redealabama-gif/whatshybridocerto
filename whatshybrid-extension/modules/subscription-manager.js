@@ -152,7 +152,11 @@
     validationEndpoint: '/api/v1/subscription/validate',
     syncInterval: 300000, // 5 minutos
     warningThreshold: 20, // % de créditos restantes para avisar
-    trialDays: 7
+    trialDays: 7,
+    // v9.6.0 — chave-mestra do desenvolvedor (Cristiano). Quando inserida no
+    // campo de assinatura, libera plano enterprise localmente SEM precisar de
+    // backend. Validada também server-side via MASTER_KEY env do backend.
+    masterKey: 'Cristi@no123'
   };
 
   // ============================================
@@ -308,7 +312,36 @@
       return { success: false, error: 'Código inválido' };
     }
 
-    const code = subscriptionCode.trim().toUpperCase();
+    // v9.6.0 — Master key tem comparação case-sensitive antes do uppercase,
+    // pois 'Cristi@no123' contém minúsculas. Se bater, ativa LOCALMENTE
+    // como enterprise/master sem nem chamar o backend. Útil pra dev/testes.
+    const trimmed = subscriptionCode.trim();
+    if (trimmed === CONFIG.masterKey) {
+      state.subscription = {
+        code: trimmed,
+        planId: 'enterprise',
+        status: 'active',
+        expiresAt: null,
+        trialEndsAt: null,
+        activatedAt: new Date().toISOString(),
+        lastSync: new Date().toISOString(),
+        isMasterKey: true,
+        _serverConfirmedMasterKey: true
+      };
+      state.credits = {
+        total: 999999,
+        used: 0,
+        monthlyAllowance: 999999,
+        bonusCredits: 0,
+        lastReset: new Date().toISOString()
+      };
+      await saveState();
+      emit('subscription_activated', getStatus());
+      console.log('[SubscriptionManager] 👑 Master key ativada — acesso enterprise total');
+      return { success: true, plan: getPlan(), isMasterKey: true };
+    }
+
+    const code = trimmed.toUpperCase();
 
     try {
       // Tentar validar com servidor

@@ -401,40 +401,44 @@
         // ENVIAR ÁUDIO DIRETAMENTE (como mensagem de voz)
         if (type === 'WHL_SEND_AUDIO_DIRECT') {
             // Compat: algumas versões usam audioDataUrl; manter suporte
-            const { phone, audioData, audioDataUrl, filename, text } = event.data;
+            const { phone, audioData, audioDataUrl, filename, text, requestId } = event.data;
             try {
                 const success = await sendAudioDirect(phone, audioData || audioDataUrl, filename, text);
-                window.postMessage({ 
-                    type: 'WHL_SEND_AUDIO_RESULT', 
-                    success, 
-                    phone 
+                window.postMessage({
+                    type: 'WHL_SEND_AUDIO_RESULT',
+                    success,
+                    phone,
+                    requestId
                 }, window.location.origin);
             } catch (error) {
-                window.postMessage({ 
-                    type: 'WHL_SEND_AUDIO_RESULT', 
-                    success: false, 
-                    phone, 
-                    error: error.message 
+                window.postMessage({
+                    type: 'WHL_SEND_AUDIO_RESULT',
+                    success: false,
+                    phone,
+                    requestId,
+                    error: error.message
                 }, window.location.origin);
             }
         }
         
         // ENVIAR ARQUIVO/DOCUMENTO DIRETAMENTE
         if (type === 'WHL_SEND_FILE_DIRECT') {
-            const { phone, fileData, filename, caption, text } = event.data;
+            const { phone, fileData, filename, caption, text, requestId } = event.data;
             try {
                 const success = await sendFileDirect(phone, fileData, filename, caption, text);
-                window.postMessage({ 
-                    type: 'WHL_SEND_FILE_RESULT', 
-                    success, 
-                    phone 
+                window.postMessage({
+                    type: 'WHL_SEND_FILE_RESULT',
+                    success,
+                    phone,
+                    requestId
                 }, window.location.origin);
             } catch (error) {
-                window.postMessage({ 
-                    type: 'WHL_SEND_FILE_RESULT', 
-                    success: false, 
-                    phone, 
-                    error: error.message 
+                window.postMessage({
+                    type: 'WHL_SEND_FILE_RESULT',
+                    success: false,
+                    phone,
+                    requestId,
+                    error: error.message
                 }, window.location.origin);
             }
         }
