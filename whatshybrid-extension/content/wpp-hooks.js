@@ -5178,6 +5178,26 @@ window.whl_hooks_main = () => {
             }
         }
         
+        // ABRIR CHAT (sem enviar) — usado pelo botão "Mensagem" do CRM.
+        // Reusa abrirChatPorNumero (mesmo caminho do Disparo), que roda no
+        // page-world e enxerga WPP/Store — diferente do content script.
+        if (type === 'WHL_OPEN_CHAT_DIRECT') {
+            const { phone, requestId } = event.data;
+            (async () => {
+                let success = false;
+                try {
+                    success = await abrirChatPorNumero(String(phone || '').replace(/\D/g, ''));
+                } catch (error) {
+                    console.warn('[WHL Hooks] WHL_OPEN_CHAT_DIRECT falhou:', error?.message);
+                }
+                window.postMessage({
+                    type: 'WHL_OPEN_CHAT_DIRECT_RESULT',
+                    requestId,
+                    success: !!success
+                }, window.location.origin);
+            })();
+        }
+
         // ENVIAR ARQUIVO/DOCUMENTO DIRETAMENTE
         if (type === 'WHL_SEND_FILE_DIRECT') {
             const { phone, fileData, filename, caption, text } = event.data;
