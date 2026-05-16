@@ -885,7 +885,19 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
     })();
     workspace = { id: workspaceId, name: 'Master Workspace', owner_id: userId, plan: 'enterprise', credits: 999999 };
     user = { id: userId, email: 'master@whatshybrid.local', name: 'Master', role: 'owner', workspace_id: workspaceId };
-    logger.info('[Auth] Master workspace + user created');
+
+    // Sem isso, /ai/complete rejeita com 402 INSUFFICIENT_CREDITS porque
+    // workspaces.credits (legado) ≠ workspace_credits (TokenService = fonte
+    // da verdade). Crédito 999M = praticamente ilimitado pra dev/master.
+    try {
+      const tokenService = require('../services/TokenService');
+      tokenService.credit(workspaceId, 999_000_000, 'plan_grant', {
+        description: 'Master workspace bootstrap (enterprise)'
+      });
+    } catch (e) {
+      logger.warn('[Auth] master-token: falha ao alocar tokens (continua):', e?.message || e);
+    }
+    logger.info('[Auth] Master workspace + user created (enterprise tokens credited)');
   }
 
   const tokens = generateTokens(user.id);

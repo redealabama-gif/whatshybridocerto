@@ -27,10 +27,11 @@ const logger = require('../utils/logger');
 // Custo real estimado: gpt-4o input ~$2.50/M, output ~$10/M.
 // 50k tokens vendidos ≈ $0.40 custo real → markup ~10x sobre tokens premium
 const PLAN_TOKENS = {
-  free:     0,           // sem IA no plano free
-  starter:  50_000,      // 50k tokens/mês (cobre ~250 mensagens médias)
-  pro:      500_000,     // 500k tokens/mês (cobre ~2500 mensagens médias)
-  agency:   5_000_000,   // 5M tokens/mês
+  free:       0,           // sem IA no plano free
+  starter:    50_000,      // 50k tokens/mês (cobre ~250 mensagens médias)
+  pro:        500_000,     // 500k tokens/mês (cobre ~2500 mensagens médias)
+  agency:     5_000_000,   // 5M tokens/mês
+  enterprise: 999_000_000, // efetivamente ilimitado (usado por master workspaces internos)
 };
 
 // ── Pacotes avulsos para topup (em centavos BRL para precisão) ───
