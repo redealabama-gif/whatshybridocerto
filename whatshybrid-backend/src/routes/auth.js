@@ -817,4 +817,98 @@ router.post('/reset-password',
   })
 );
 
+/**
+ * POST /api/v1/auth/master-token
+ *
+ * Troca a master key (env SUBSCRIPTION_MASTER_KEY, default 'Cristi@no123')
+ * por um JWT enterprise. Não exige email/senha — destinado a uso pelo dono
+ * do app pra destravar a extensão sem fluxo de signup.
+ *
+ * Cria (ou reutiliza) uma workspace "dev" e um user "owner" associado.
+ * Idempotente: chamadas subsequentes retornam o JWT pro mesmo user.
+ *
+ * Body: { code: string }
+ * Retorna: { accessToken, refreshToken, user, workspace }
+ *
+ * Segurança: a master key vive em env. Em produção, defina algo forte
+ * em SUBSCRIPTION_MASTER_KEY ou setando MASTER_TOKEN_ENABLED=false desabilita.
+ */
+router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
+  if (process.env.MASTER_TOKEN_ENABLED === 'false') {
+    throw new AppError('Master token desabilitado', 403, 'MASTER_DISABLED');
+  }
+  const code = String(req.body?.code || '').trim();
+  if (!code) throw new AppError('code obrigatório', 400);
+
+  const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY || 'Cristi@no123';
+  // Constant-time compare
+  const a = Buffer.from(code);
+  const b = Buffer.from(MASTER_KEY);
+  const ok = a.length === b.length && (() => {
+    try { return crypto.timingSafeEqual(a, b); } catch (_) { return false; }
+  })();
+  if (!ok) {
+    // Pausa pra desencorajar brute-force (authLimiter já cobre via rate-limit).
+    await new Promise(r => setTimeout(r, 500));
+    throw new AppError('Master key inválida', 401, 'MASTER_INVALID');
+  }
+
+  // Verifica se workspace "dev" já existe
+  let workspace = db.get(
+    `SELECT id, name, owner_id, plan, credits FROM workspaces WHERE name = ? LIMIT 1`,
+    ['Master Workspace']
+  );
+  let user;
+  if (workspace) {
+    user = db.get('SELECT id, email, name, role, workspace_id FROM users WHERE id = ?', [workspace.owner_id]);
+  }
+
+  if (!workspace || !user) {
+    // Criação idempotente: cria workspace+user enterprise
+    const userId = uuidv4();
+    const workspaceId = uuidv4();
+    // Senha aleatória — não é usada (login é via master-token, não senha)
+    const randomPwd = crypto.randomBytes(32).toString('hex');
+    const hashedPwd = await bcrypt.hash(randomPwd, 12);
+
+    db.transaction(() => {
+      db.run(
+        `INSERT INTO users (id, email, password, name, role, workspace_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId, 'master@whatshybrid.local', hashedPwd, 'Master', 'owner', workspaceId]
+      );
+      db.run(
+        `INSERT INTO workspaces (id, name, owner_id, plan, subscription_status, credits)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [workspaceId, 'Master Workspace', userId, 'enterprise', 'active', 999999]
+      );
+    })();
+    workspace = { id: workspaceId, name: 'Master Workspace', owner_id: userId, plan: 'enterprise', credits: 999999 };
+    user = { id: userId, email: 'master@whatshybrid.local', name: 'Master', role: 'owner', workspace_id: workspaceId };
+
+    // Sem isso, /ai/complete rejeita com 402 INSUFFICIENT_CREDITS porque
+    // workspaces.credits (legado) ≠ workspace_credits (TokenService = fonte
+    // da verdade). Crédito 999M = praticamente ilimitado pra dev/master.
+    try {
+      const tokenService = require('../services/TokenService');
+      tokenService.credit(workspaceId, 999_000_000, 'plan_grant', {
+        description: 'Master workspace bootstrap (enterprise)'
+      });
+    } catch (e) {
+      logger.warn('[Auth] master-token: falha ao alocar tokens (continua):', e?.message || e);
+    }
+    logger.info('[Auth] Master workspace + user created (enterprise tokens credited)');
+  }
+
+  const tokens = generateTokens(user.id);
+  logger.info(`[Auth] Master token issued for user=${user.id}`);
+  res.json({
+    success: true,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    user,
+    workspace: { id: workspace.id, plan: workspace.plan || 'enterprise', credits: workspace.credits || 999999 }
+  });
+}));
+
 module.exports = router;
