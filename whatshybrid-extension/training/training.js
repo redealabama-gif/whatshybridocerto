@@ -1217,17 +1217,23 @@ class TrainingApp {
         console.warn('[TrainingApp] CopilotEngine falhou, tentando AIClient:', err);
       }
     }
-    // 2ª opção: AIClient direto no backend.
-    if (window.WHLAiClient?.complete) {
-      const r = await window.WHLAiClient.complete({
+    // 2ª opção: AIClient direto no backend — exposto por training/modules/ai-client.js
+    // como window.AIService (.complete) e window.TrainingAIClient (.generateResponse).
+    // Antes este código procurava window.WHLAiClient, que nenhum arquivo cria —
+    // por isso caía sempre em "Nenhum provedor de IA disponível".
+    const aiClient = window.AIService || window.WHLAiClient || window.TrainingAIClient;
+    const aiCall = aiClient && (aiClient.complete || aiClient.generateResponse);
+    if (aiCall) {
+      const r = await aiCall.call(aiClient, {
         messages: [
-          { role: 'system', content: 'Você é um assistente de atendimento. Responda em pt-BR, curto e útil.' },
-          { role: 'user', content: userText }
+          { role: 'system', content: 'Você é um assistente de atendimento. Responda em pt-BR, curto e útil.' }
         ],
+        lastMessage: userText,
         temperature: 0.7,
         maxTokens: 350
       });
-      if (r?.content) return r.content;
+      const content = (typeof r === 'string') ? r : (r && (r.content || r.text));
+      if (content) return content;
     }
     throw new Error('Nenhum provedor de IA disponível');
   }
