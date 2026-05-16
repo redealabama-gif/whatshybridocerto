@@ -314,7 +314,8 @@
 
     // v9.6.0 — Master key tem comparação case-sensitive antes do uppercase,
     // pois 'Cristi@no123' contém minúsculas. Se bater, ativa LOCALMENTE
-    // como enterprise/master sem nem chamar o backend. Útil pra dev/testes.
+    // como enterprise/master + tenta obter JWT do backend pra destravar
+    // sync de CRM/Tasks/Training/AI sem fluxo de login.
     const trimmed = subscriptionCode.trim();
     if (trimmed === CONFIG.masterKey) {
       state.subscription = {
@@ -336,6 +337,17 @@
         lastReset: new Date().toISOString()
       };
       await saveState();
+
+      // v9.6.x — Tenta obter JWT pra que CRM/Tasks/Training conectem ao
+      // backend sem signup/login manual. Backend só emite se o code bater
+      // com SUBSCRIPTION_MASTER_KEY env (ou o default 'Cristi@no123').
+      // Falha de rede aqui não derruba a ativação — features locais seguem.
+      try {
+        await _fetchMasterJWT(trimmed);
+      } catch (e) {
+        console.warn('[SubscriptionManager] Master key ativada local, mas backend JWT falhou:', e?.message || e);
+      }
+
       emit('subscription_activated', getStatus());
       console.log('[SubscriptionManager] 👑 Master key ativada — acesso enterprise total');
       return { success: true, plan: getPlan(), isMasterKey: true };
@@ -515,6 +527,42 @@
         resolve('fallback-' + Date.now());
       }
     });
+  }
+
+  // v9.6.x — Troca a master key por um JWT real do backend. Grava o token
+  // em TODAS as chaves que módulos legados consultam (`whl_auth_token`,
+  // `backend_token`, `whl_backend_config.token`) pra que CRM/Tasks/Training
+  // passem a sincronizar sem precisar de signup/login.
+  async function _fetchMasterJWT(masterCode) {
+    const backendUrl = await getBackendUrl();
+    if (!backendUrl) throw new Error('Backend URL não configurada');
+
+    const response = await fetch(`${backendUrl}/api/v1/auth/master-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: masterCode })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const token = data.accessToken;
+    if (!token) throw new Error('Backend não retornou accessToken');
+
+    await new Promise(r => chrome.storage.local.set({
+      whl_auth_token: token,
+      backend_token: token,
+      whl_backend_config: { url: backendUrl, token },
+      whl_backend_user: data.user || null,
+      whl_backend_workspace: data.workspace || null
+    }, r));
+
+    console.log('[SubscriptionManager] 🔐 Master JWT obtido do backend (workspace=enterprise)');
+    if (window.EventBus) {
+      window.EventBus.emit('backend:connected', { master: true, workspace: data.workspace });
+    }
+    return token;
   }
 
   /**
