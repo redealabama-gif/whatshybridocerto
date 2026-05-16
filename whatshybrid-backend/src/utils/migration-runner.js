@@ -160,13 +160,21 @@ module.exports = { runVersionedMigrations, getStatus, ensureMigrationsTable };
 
 // CLI
 if (require.main === module) {
+  // Carrega o .env — rodado standalone (npm run migrate), o .env não é
+  // carregado por ninguém (só o server.js o faz). database/config exigem
+  // JWT_SECRET, que vive no .env.
+  try { require('dotenv').config(); } catch (_) { /* dotenv opcional */ }
   const cmd = process.argv[2] || 'up';
 
   (async () => {
     const driver = require('./db');
     if (cmd === 'up') {
-      const r = await runVersionedMigrations(driver);
-      console.log(`\n✅ Migrations: ${r.applied} new, ${r.skipped} already applied`);
+      // Não rodar só runVersionedMigrations: num banco novo isso falha com
+      // "no such table: users" — não existe 001_initial.sql; o schema base
+      // (users, workspaces, …) vive em database-legacy. database.runMigrations()
+      // aplica schema base + migrations legadas + versionadas, na ordem certa.
+      await require('./database').runMigrations();
+      console.log('\n✅ Migrations aplicadas (schema base + legadas + versionadas)');
     } else if (cmd === 'status') {
       const status = await getStatus(driver);
       console.log('\nMigration status:\n');
