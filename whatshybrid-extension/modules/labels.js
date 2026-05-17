@@ -59,6 +59,10 @@
     }
 
     async function saveState() {
+        // Carimba o write — usado pelo crm.js#syncWithBackend pra decidir
+        // se aceita a versão do backend ou mantém a local (timestamp merge).
+        // Sem isto, sync devolvia versão estale e apagava etiquetas recém-criadas.
+        state.lastUpdated = Date.now();
         return new Promise(resolve => {
             chrome.storage.local.set({ [STORAGE_KEY]: state }, resolve);
         });
