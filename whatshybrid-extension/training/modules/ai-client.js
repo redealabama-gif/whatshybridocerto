@@ -82,9 +82,17 @@
 
       // Recarrega a base de conhecimento a cada chamada — o usuário pode ter
       // editado FAQs/produtos depois do init() e queremos refletir isso.
+      // Também propaga pro window.knowledgeBase quando carregado, senão o
+      // buildSystemPromptRAG/checkCannedReply ficam com snapshot estale do
+      // init() inicial enquanto o training.js já gravou versão nova.
       try {
         const fresh = await this._getStorage(['whl_knowledge_base']);
-        if (fresh.whl_knowledge_base) this.knowledgeBase = fresh.whl_knowledge_base;
+        if (fresh.whl_knowledge_base) {
+          this.knowledgeBase = fresh.whl_knowledge_base;
+          if (typeof window !== 'undefined' && window.knowledgeBase) {
+            window.knowledgeBase.knowledge = fresh.whl_knowledge_base;
+          }
+        }
       } catch (_) { /* mantém o cache */ }
 
       // STEP 0: Canned reply (match exato por trigger). Cobre saudações
@@ -229,6 +237,16 @@
 
         // Preferência 1: módulo carregado com picker keyword/quality/recency.
         if (typeof window !== 'undefined' && window.fewShotLearning) {
+          // O training UI grava direto em whl_few_shot_examples (storage),
+          // mas o módulo fica com snapshot do init(). Força reload pra pegar
+          // os exemplos novos antes de pickRelevantExamples rodar.
+          try {
+            if (typeof window.fewShotLearning.init === 'function') {
+              window.fewShotLearning.initialized = false;
+              await window.fewShotLearning.init();
+            }
+          } catch (_) { /* segue com snapshot */ }
+
           if (typeof window.fewShotLearning.pickRelevantExamples === 'function') {
             const scored = window.fewShotLearning.pickRelevantExamples(query || '', max);
             examples = scored.map(s => (s && s.example) ? s.example : s).filter(Boolean);
