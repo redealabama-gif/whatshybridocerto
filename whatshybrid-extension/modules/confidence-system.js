@@ -355,10 +355,27 @@
       const autoScore = Math.min(15, this.metrics.autoSent * 0.5);
 
       // Total (max 100)
+      const prevScore = this.score;
       this.score = Math.min(100, Math.round(feedbackScore + knowledgeScore + usageScore + autoScore));
 
-      // Atualiza nível
+      // Atualiza nível (só emite confidence:level-changed quando muda de nível)
       this.updateLevel();
+
+      // Emite confidence:score-changed em qualquer variação de score, mesmo
+      // dentro do mesmo nível. Sem isto a UI da sidebar só atualizava quando
+      // cruzava threshold (30/50/70/90) — então de 0 → 25 com 1 aprovação não
+      // disparava nada e o usuário via "0%" pra sempre apesar do score real
+      // estar subindo. (O polling de 5s em sidepanel-ai-handlers#updateStats
+      // ajudava, mas só se window.confidenceSystem estivesse pronto na hora.)
+      if (window.EventBus && prevScore !== this.score) {
+        try {
+          window.EventBus.emit('confidence:score-changed', {
+            oldScore: prevScore,
+            newScore: this.score,
+            level: this.level
+          });
+        } catch (_) { /* ignore */ }
+      }
 
       return this.score;
     }
