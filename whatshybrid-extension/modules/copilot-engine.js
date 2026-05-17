@@ -1486,8 +1486,8 @@ Diretrizes:
       }
     }
     
-    // Construir prompt com contexto enriquecido
-    const messages = buildPromptMessages(chatId, context, analysis, adaptedPersona, clientContext);
+    // Construir prompt com contexto enriquecido (await pois agora é RAG-aware async)
+    const messages = await buildPromptMessages(chatId, context, analysis, adaptedPersona, clientContext);
 
     // v7.9.12: Verificar créditos ANTES de chamar IA
     if (window.SubscriptionManager && !window.SubscriptionManager.canUseAI()) {
@@ -1955,7 +1955,7 @@ Diretrizes:
     return null;
   }
 
-  function buildPromptMessages(chatId, context, analysis, persona, clientContext = '') {
+  async function buildPromptMessages(chatId, context, analysis, persona, clientContext = '') {
     const messages = [];
 
     const baseRules = `Você é um assistente de atendimento no WhatsApp.
@@ -1980,10 +1980,25 @@ Regras:
       systemParts.push(`CONTEXTO DO CLIENTE (importante para personalização):\n${clientContext}`);
     }
 
-    // Contexto robusto do negócio (treinamento/KB)
+    // Contexto robusto do negócio (treinamento/KB) — RAG-aware quando
+    // WHLLocalRAG já indexou, senão prompt estático com top-N FAQs/produtos.
+    // O builder async chama buildSystemPromptRAG(query) que escolhe trechos
+    // semanticamente relevantes; fallback automático para buildSystemPrompt().
     try {
-      if (window.knowledgeBase && typeof window.knowledgeBase.buildSystemPrompt === 'function') {
-        const kbPrompt = safeText(window.knowledgeBase.buildSystemPrompt({ persona: persona?.id || 'professional', businessContext: true }));
+      if (window.knowledgeBase) {
+        const personaId = persona?.id || 'professional';
+        const userQuery = (analysis?.originalMessage || analysis?.text || '').toString();
+        let kbPrompt = '';
+        if (userQuery && typeof window.knowledgeBase.buildSystemPromptRAG === 'function') {
+          kbPrompt = safeText(await window.knowledgeBase.buildSystemPromptRAG(userQuery, {
+            topK: 5,
+            persona: personaId,
+            businessContext: true
+          }));
+        }
+        if (!kbPrompt && typeof window.knowledgeBase.buildSystemPrompt === 'function') {
+          kbPrompt = safeText(window.knowledgeBase.buildSystemPrompt({ persona: personaId, businessContext: true }));
+        }
         if (kbPrompt) systemParts.push(`CONTEXTO DO NEGÓCIO (use como verdade):\n${kbPrompt}`);
       }
     } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }

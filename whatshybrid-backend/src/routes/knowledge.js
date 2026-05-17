@@ -8,7 +8,7 @@ const { authenticate, apiKeyAuth } = require('../middleware/auth');
 const { makeLikeTerm } = require('../utils/sql-helpers');
 const database = require('../utils/database');
 const logger = require('../utils/logger');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('../utils/uuid-wrapper');
 
 /**
  * POST /api/v1/knowledge/sync
