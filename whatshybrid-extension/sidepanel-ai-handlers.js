@@ -494,6 +494,44 @@
   if (statsInterval) clearInterval(statsInterval);
   statsInterval = setInterval(updateStats, 5000);
 
+  // ── Sincronização cross-contexto do card de Confiança ───────────────────
+  // O confidenceSystem que REGISTRA feedback roda no content script (página do
+  // WhatsApp) — um contexto JS separado deste painel. O EventBus não cruza
+  // contextos, então `confidence:score-changed` emitido lá nunca chega aqui e
+  // o card ficava travado em 0%. Os dois contextos compartilham
+  // chrome.storage.local: reidratamos a instância local a partir da chave
+  // persistida sempre que o content script a atualiza.
+  function hydrateConfidenceFromStorage() {
+    try {
+      chrome.storage.local.get('whl_confidence_system', (data) => {
+        if (chrome.runtime?.lastError || !window.confidenceSystem) return;
+        if (!document.getElementById('confidence_score')) return; // card não montado
+        let stored = data && data.whl_confidence_system;
+        if (typeof stored === 'string') {
+          try { stored = JSON.parse(stored); } catch (_) { return; }
+        }
+        if (!stored || typeof stored !== 'object') return;
+        const cs = window.confidenceSystem;
+        if (stored.metrics && typeof stored.metrics === 'object') cs.metrics = stored.metrics;
+        if (typeof stored.score === 'number') cs.score = stored.score;
+        if (typeof stored.level === 'string') cs.level = stored.level;
+        if (typeof stored.threshold === 'number') cs.threshold = stored.threshold;
+        if (typeof stored.copilotEnabled === 'boolean') cs.copilotEnabled = stored.copilotEnabled;
+        updateConfidenceUI();
+      });
+    } catch (_) { /* ignore */ }
+  }
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.whl_confidence_system) {
+        hydrateConfidenceFromStorage();
+      }
+    });
+  } catch (_) { /* ignore */ }
+  // O init() do confidenceSystem é async; reidrata logo após o painel montar
+  // pra não renderizar o card antes do storage carregar.
+  setTimeout(hydrateConfidenceFromStorage, 1800);
+
   // Escuta eventos do sistema
   if (window.EventBus) {
     // level-changed só dispara quando o score cruza threshold (30/50/70/90).

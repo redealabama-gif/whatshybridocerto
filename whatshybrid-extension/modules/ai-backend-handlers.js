@@ -1263,12 +1263,6 @@
         }
       });
       
-      // Listener para sugestões do CopilotEngine
-      window.EventBus.on('copilot:suggestions', (data) => {
-        console.log('[AIBackendHandlers] 💡 Novas sugestões recebidas:', data.suggestions?.length);
-        renderSuggestions(data.suggestions);
-      });
-      
       // Listener para análise do CopilotEngine
       window.EventBus.on('copilot:analysis', (data) => {
         console.log('[AIBackendHandlers] 🔍 Análise recebida:', data.analysis?.intent?.id);
