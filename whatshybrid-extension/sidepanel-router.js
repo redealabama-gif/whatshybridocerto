@@ -1704,7 +1704,29 @@ function showView(viewName) {
       } catch (_) {}
       await recoverRefresh(false);
     });
-    
+
+    // Paginação — antes os botões existiam no HTML (recover_prev_page /
+    // recover_next_page) mas estavam órfãos, sem listener. RecoverAdvanced
+    // já expõe nextPage()/prevPage(); só faltava conectar.
+    const bindPaging = (btnId, action) => {
+      const btn = $(btnId);
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        try {
+          if (action === 'next' && window.RecoverAdvanced?.nextPage) {
+            window.RecoverAdvanced.nextPage();
+          } else if (action === 'prev' && window.RecoverAdvanced?.prevPage) {
+            window.RecoverAdvanced.prevPage();
+          }
+        } catch (_) {}
+        await recoverRefresh(false);
+      });
+    };
+    bindPaging('recover_prev_page', 'prev');
+    bindPaging('recover_next_page', 'next');
+    bindPaging('recover_prev_page_2', 'prev');
+    bindPaging('recover_next_page_2', 'next');
+
     // FASE 4: Snapshot button
     $('recover_snapshot')?.addEventListener('click', async () => {
       const btn = $('recover_snapshot');
@@ -2354,18 +2376,11 @@ function showView(viewName) {
           statMedia.textContent = mediaCount;
         }
         if (statFavorites) statFavorites.textContent = stats.favorites || 0;
-        // View Once: contar via IndexedDB do módulo se disponível
-        if (statViewOnce) {
-          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (!tabs[0]?.id) return;
-            chrome.scripting.executeScript({
-              target: { tabId: tabs[0].id },
-              func: () => window.WHL_ViewOnceSaver?.getSaved?.().then(r => r.length) ?? Promise.resolve(0)
-            }, (results) => {
-              statViewOnce.textContent = results?.[0]?.result || 0;
-            });
-          });
-        }
+        // Ver Uma Vez: agora vem síncrono em stats.ver1x. A versão antiga
+        // tentava ler via chrome.scripting.executeScript do WHL_ViewOnceSaver,
+        // mas o resultado era async e o usuário via "0" piscando antes de
+        // atualizar (e falhava silenciosamente em tabs sem WhatsApp aberto).
+        if (statViewOnce) statViewOnce.textContent = stats.ver1x || 0;
         
         // Total
         const totalEl = $('sp_recover_total');
@@ -2381,11 +2396,22 @@ function showView(viewName) {
           chatFilter.value = currentValue;
         }
         
-        // Paginação
-        const pageResult = window.RecoverAdvanced.getPage?.() || { page: 0, totalPages: 1 };
+        // Paginação — atualiza info + estado disabled/enabled dos botões.
+        // Sem isso o usuário não tem feedback visual quando chega no fim
+        // (botão "Próxima ▶" continuava aparentemente clicável e sem efeito).
+        const pageResult = window.RecoverAdvanced.getPage?.() || { page: 0, totalPages: 1, hasNext: false, hasPrev: false };
         const pageInfo = $('recover_page_info');
         if (pageInfo) pageInfo.textContent = `Página ${pageResult.page + 1} de ${pageResult.totalPages || 1}`;
-        
+        ['recover_prev_page', 'recover_prev_page_2'].forEach(id => {
+          const btn = $(id);
+          if (btn) btn.disabled = !pageResult.hasPrev;
+        });
+        ['recover_next_page', 'recover_next_page_2'].forEach(id => {
+          const btn = $(id);
+          if (btn) btn.disabled = !pageResult.hasNext;
+        });
+
+
       } else {
         // Fallback: motor tradicional
         const resp = await motor('GET_RECOVER_HISTORY');
@@ -2806,7 +2832,7 @@ function showView(viewName) {
             <!-- Header: De → Para + Badge -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
               <span style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9);">
-                ${escapeHtml(from)}${to ? ` → ${escapeHtml(to)}` : ''}${h?.deviceIcon ? ` <span title="${h.deviceType === 'phone' ? 'Enviado pelo celular' : 'Enviado pelo computador'}" style="font-size:11px;opacity:0.75">${h.deviceIcon}</span>` : ''}
+                ${escapeHtml(from)}${to ? ` → ${escapeHtml(to)}` : ''}
               </span>
               <span class="${style.badgeClass}" style="font-size: 9px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
                 ${getBadgeText(action)}
