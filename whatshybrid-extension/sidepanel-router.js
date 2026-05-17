@@ -3582,21 +3582,30 @@ function showView(viewName) {
   async function saveDraft() {
     const nameEl = $('sp_draft_name');
     const name = (nameEl?.value || '').trim();
-    
+
     if (!name) {
       alert('⚠️ Informe o nome do template.');
       return;
     }
-    
+
+    // Tenta puxar o estado atual do content script (mensagem, fila, imagem).
+    // Antes: motor() throw fazia o catch geral capturar e o usuário via
+    // "Erro ao salvar template: ...". Se a aba ativa NÃO for WhatsApp Web
+    // (ex.: chrome://newtab, painel aberto em outra página), motor não
+    // responde — mas o usuário ainda quer poder salvar um template vazio
+    // só com o NOME. Agora tratamos o motor como best-effort.
+    let st = {};
     try {
-      // Get current state from motor
       const resp = await motor('GET_STATE', { light: false });
-      const st = resp?.state || resp;
-      
-      // Save template to storage
+      st = resp?.state || resp || {};
+    } catch (e) {
+      console.warn('[Sidepanel] saveDraft: motor() falhou, salvando template só com o nome:', e?.message || e);
+    }
+
+    try {
       const templates = await chrome.storage.local.get('whl_templates') || {};
-      const templatesList = templates.whl_templates || [];
-      
+      const templatesList = Array.isArray(templates.whl_templates) ? templates.whl_templates : [];
+
       const template = {
         name: name,
         message: st.message || '',
@@ -3606,8 +3615,7 @@ function showView(viewName) {
         delayMax: st.delayMax || 6,
         savedAt: new Date().toISOString()
       };
-      
-      // Check if template with same name exists
+
       const existingIndex = templatesList.findIndex(t => t.name === name);
       if (existingIndex >= 0) {
         if (!confirm(`Template "${name}" já existe. Substituir?`)) {
@@ -3617,14 +3625,14 @@ function showView(viewName) {
       } else {
         templatesList.push(template);
       }
-      
+
       await chrome.storage.local.set({ whl_templates: templatesList });
-      
+
       if (nameEl) nameEl.value = '';
       alert('✅ Template salvo com sucesso!');
     } catch (error) {
       console.error('[Sidepanel] Erro ao salvar template:', error);
-      alert('❌ Erro ao salvar template: ' + error.message);
+      alert('❌ Erro ao salvar template: ' + (error?.message || error));
     }
   }
   

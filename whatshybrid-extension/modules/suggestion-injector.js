@@ -358,8 +358,8 @@
               <span>${confidencePercent}%</span>
             </div>
             <div class="whl-sug-actions">
-              <button class="whl-sug-btn whl-sug-btn-edit" data-action="edit" data-index="${i}">✏️</button>
-              <button class="whl-sug-btn whl-sug-btn-use" data-action="use" data-index="${i}">Usar</button>
+              <button class="whl-sug-btn whl-sug-btn-edit" data-action="edit" data-index="${i}" title="Editar antes de enviar (impacto parcial na confiança)">✏️ Editar</button>
+              <button class="whl-sug-btn whl-sug-btn-use" data-action="use" data-index="${i}" title="Aprovar e inserir no campo de mensagem (aumenta confiança)">✅ Aprovar</button>
             </div>
           </div>
         </div>
