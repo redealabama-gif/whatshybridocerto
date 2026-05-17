@@ -368,15 +368,17 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
 );
 
 -- Sync Data
+-- Schema alinhado com routes/sync.js (module / last_modified). Antes este
+-- bloco usava module_key/version e, como roda antes do sync.js, o
+-- CREATE TABLE IF NOT EXISTS do sync.js herdava o schema errado.
 CREATE TABLE IF NOT EXISTS sync_data (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
-  module_key TEXT NOT NULL,
-  data TEXT NOT NULL,
-  version INTEGER DEFAULT 1,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, module_key)
+  module TEXT NOT NULL,
+  data TEXT,
+  last_modified INTEGER DEFAULT 0,
+  created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+  updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
 );
 
 -- System Health

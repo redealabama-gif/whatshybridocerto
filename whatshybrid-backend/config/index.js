@@ -40,8 +40,13 @@ module.exports = {
   },
   
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100
+    // O rate limiter geral (app.use global) usa estes valores. O default
+    // antigo — 100 req / 15 min (~6/min) — era baixo demais: a extensão
+    // sincroniza ~16 módulos a cada 60s (DataSyncManager) + health checks +
+    // CRM/Tasks, e estourava 429 em loop. Janela de 1 min com teto generoso
+    // ainda protege contra abuso real, mas comporta o cliente legítimo.
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 300
   },
   
   cors: {
