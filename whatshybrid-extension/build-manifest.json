@@ -100,7 +100,6 @@
     "modules/recover-dom.js",
     "modules/privacy-shield.js",
     "modules/status-download.js",
-    "modules/view-once-saver.js",
     "modules/data-sync-manager.js",
     "modules/memory-event-queue.js",
     "modules/knowledge-sync-manager.js",

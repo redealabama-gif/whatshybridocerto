@@ -220,18 +220,6 @@
       return false;
     }
 
-    // View Once Saver: toggle
-    if (msg.action === 'whlViewOnceSet') {
-      if (window.WHL_ViewOnceSaver) {
-        msg.enabled ? window.WHL_ViewOnceSaver.enable() : window.WHL_ViewOnceSaver.disable();
-        sendResponse({ ok: true });
-      } else {
-        window.postMessage({ type: 'WHL_VIEW_ONCE_TOGGLE' }, window.location.origin);
-        sendResponse({ ok: true, fallback: true });
-      }
-      return false;
-    }
-
     return false;
   });
 

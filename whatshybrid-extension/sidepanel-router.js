@@ -1795,7 +1795,6 @@ function showView(viewName) {
 
     // PrivacyShield: Inicializar controles de privacidade
     privacyShieldInit();
-    viewOncePanelInit();
   }
 
   // ============================================================
@@ -1831,20 +1830,17 @@ function showView(viewName) {
         func: () => ({
           hideOnline: localStorage.getItem('whl_privacy_hide_online') === 'true',
           hideTyping: localStorage.getItem('whl_privacy_hide_typing') === 'true',
-          statusDl: localStorage.getItem('whl_status_download_enabled') !== 'false',
-          viewOnce: localStorage.getItem('whl_view_once_saver_enabled') !== 'false'
+          statusDl: localStorage.getItem('whl_status_download_enabled') !== 'false'
         })
       }, (results) => {
         const s = results?.[0]?.result || {};
         const onlineChk = document.getElementById('whl_toggle_hide_online');
         const typingChk = document.getElementById('whl_toggle_hide_typing');
         const statusDlChk = document.getElementById('whl_toggle_status_dl');
-        const viewOnceChk = document.getElementById('whl_toggle_view_once');
 
         if (onlineChk) { onlineChk.checked = !!s.hideOnline; updateSlider('whl_toggle_hide_online_slider', !!s.hideOnline); }
         if (typingChk) { typingChk.checked = !!s.hideTyping; updateSlider('whl_toggle_hide_typing_slider', !!s.hideTyping); }
         if (statusDlChk) { statusDlChk.checked = s.statusDl !== false; updateSlider('whl_toggle_status_dl_slider', s.statusDl !== false); }
-        if (viewOnceChk) { viewOnceChk.checked = s.viewOnce !== false; updateSlider('whl_toggle_view_once_slider', s.viewOnce !== false); }
       });
     });
 
@@ -1867,95 +1863,6 @@ function showView(viewName) {
       updateSlider('whl_toggle_status_dl_slider', this.checked);
       sendToTab({ action: 'whlStatusDownloadSet', enabled: this.checked });
       showToast(this.checked ? '📥 Download de status ativado' : '📥 Download de status desativado', 'info');
-    });
-
-    // Bind: View Once Saver
-    document.getElementById('whl_toggle_view_once')?.addEventListener('change', function () {
-      updateSlider('whl_toggle_view_once_slider', this.checked);
-      sendToTab({ action: 'whlViewOnceSet', enabled: this.checked });
-      const card = document.getElementById('whl_view_once_card');
-      if (card) card.style.display = this.checked ? '' : 'none';
-      if (this.checked) loadViewOnceSaved();
-      showToast(this.checked ? '👁️ Salvar "ver uma vez" ativado' : '👁️ Salvar "ver uma vez" desativado', 'info');
-    });
-  }
-
-  // ============================================================
-  // 👁️ VIEW ONCE PANEL UI
-  // ============================================================
-
-  async function loadViewOnceSaved() {
-    const list = document.getElementById('whl_view_once_list');
-    if (!list) return;
-    list.innerHTML = '<div style="color:var(--mod-text-muted);font-size:11px">⏳ Carregando...</div>';
-
-    try {
-      const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
-      if (!tabs[0]?.id) throw new Error('Aba não encontrada');
-
-      const results = await new Promise(r => chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: () => {
-          if (!window.WHL_ViewOnceSaver) return [];
-          return window.WHL_ViewOnceSaver.getSaved();
-        }
-      }, r));
-
-      const records = results?.[0]?.result || [];
-
-      if (records.length === 0) {
-        list.innerHTML = '<div style="color:var(--mod-text-muted);font-size:11px;padding:8px 0">Nenhuma mídia "ver uma vez" salva ainda.</div>';
-        return;
-      }
-
-      list.innerHTML = records.map(r => {
-        const date = new Date(r.timestamp).toLocaleString('pt-BR');
-        const mediaHtml = r.dataUri
-          ? (r.type === 'video'
-            ? `<video src="${r.dataUri}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="this.play()" controls></video>`
-            : `<img src="${r.dataUri}" style="width:80px;height:60px;object-fit:cover;border-radius:6px" alt="view once">`)
-          : r.thumbnailBase64
-            ? `<img src="data:image/jpeg;base64,${r.thumbnailBase64}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;opacity:0.6" alt="thumb">`
-            : `<div style="width:80px;height:60px;background:rgba(0,0,0,0.2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px">${r.type === 'video' ? '🎬' : r.type === 'audio' ? '🎵' : '🖼️'}</div>`;
-
-        const downloadBtn = r.dataUri
-          ? `<a href="${r.dataUri}" download="viewonce_${r.id}.${r.mediaExt || 'jpg'}" style="font-size:10px;color:#00a884;text-decoration:none">💾 Baixar</a>`
-          : '';
-
-        return `
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
-            <div style="flex-shrink:0">${mediaHtml}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:11px;font-weight:600;color:var(--mod-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">De: ${r.from?.replace('@s.whatsapp.net','').replace('@c.us','') || '?'}</div>
-              <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">${date}</div>
-              ${r.caption ? `<div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.caption}</div>` : ''}
-              <div style="margin-top:6px">${downloadBtn}</div>
-            </div>
-          </div>`;
-      }).join('');
-
-    } catch (e) {
-      // v9.4.4: escapeHtml em e.message — se erro vier de response do server,
-      // pode conter HTML/script. Defesa em profundidade.
-      list.innerHTML = `<div style="color:#ef4444;font-size:11px">❌ Erro ao carregar: ${escapeHtml(e.message || String(e))}</div>`;
-    }
-  }
-
-  function viewOncePanelInit() {
-    document.getElementById('whl_view_once_refresh')?.addEventListener('click', loadViewOnceSaved);
-
-    // Mostrar painel se view once estiver ativo
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]?.id) return;
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: () => localStorage.getItem('whl_view_once_saver_enabled') !== 'false'
-      }, (results) => {
-        const active = results?.[0]?.result;
-        const card = document.getElementById('whl_view_once_card');
-        if (card) card.style.display = active ? '' : 'none';
-        if (active) loadViewOnceSaved();
-      });
     });
   }
 
@@ -2193,7 +2100,6 @@ function showView(viewName) {
       recover:         '🔄 Recover',
       privacy_shield:  '🛡️ Privacy Shield',
       status_download: '📥 Status Download',
-      view_once_saver: '👁️ View Once Saver',
     };
 
     list.innerHTML = Object.entries(modules).map(([id, result]) => `
@@ -2364,8 +2270,7 @@ function showView(viewName) {
         const statEdited = $('stat_edited');
         const statMedia = $('stat_media');
         const statFavorites = $('stat_favorites');
-        const statViewOnce = $('stat_view_once');
-        
+
         if (statRevoked) statRevoked.textContent = stats.revoked || 0;
         if (statDeleted) statDeleted.textContent = stats.deleted || 0;
         if (statEdited) statEdited.textContent = stats.edited || 0;
@@ -2376,12 +2281,7 @@ function showView(viewName) {
           statMedia.textContent = mediaCount;
         }
         if (statFavorites) statFavorites.textContent = stats.favorites || 0;
-        // Ver Uma Vez: agora vem síncrono em stats.ver1x. A versão antiga
-        // tentava ler via chrome.scripting.executeScript do WHL_ViewOnceSaver,
-        // mas o resultado era async e o usuário via "0" piscando antes de
-        // atualizar (e falhava silenciosamente em tabs sem WhatsApp aberto).
-        if (statViewOnce) statViewOnce.textContent = stats.ver1x || 0;
-        
+
         // Total
         const totalEl = $('sp_recover_total');
         if (totalEl) totalEl.textContent = stats.total || 0;
