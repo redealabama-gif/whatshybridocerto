@@ -278,6 +278,16 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
   function configLoad() {
     console.log('[SidePanel Router] ⚙️ configLoad() called');
     // Config load é gerenciado por sidepanel-fixes.js
+    renderDraftsFromStorage();
+  }
+
+  async function renderDraftsFromStorage() {
+    try {
+      const data = await chrome.storage.local.get('whl_templates');
+      renderDrafts(Array.isArray(data?.whl_templates) ? data.whl_templates : []);
+    } catch (_) {
+      renderDrafts([]);
+    }
   }
 
 function showView(viewName) {
@@ -2980,21 +2990,29 @@ function showView(viewName) {
   }
 
 
-  function renderDrafts(draftsObj) {
+  function renderDrafts(list) {
     const body = $('sp_drafts_body');
     if (!body) return;
 
-    const entries = Object.entries(draftsObj || {});
-    if (!entries.length) {
+    // saveDraft() grava `whl_templates` como ARRAY de { name, savedAt, queue, ... }.
+    // Aceita também o formato antigo (objeto chaveado por nome) por robustez.
+    const items = Array.isArray(list) ? list : Object.values(list || {});
+    if (!items.length) {
       body.innerHTML = `<tr><td colspan="4" style="opacity:.75">Nenhum template salvo.</td></tr>`;
       return;
     }
 
-    body.innerHTML = entries
-      .sort((a,b) => (b[1]?.savedAt || 0) - (a[1]?.savedAt || 0))
-      .map(([name, d]) => {
+    body.innerHTML = items
+      .slice()
+      .sort((a,b) => {
+        const ta = a?.savedAt ? new Date(a.savedAt).getTime() : 0;
+        const tb = b?.savedAt ? new Date(b.savedAt).getTime() : 0;
+        return tb - ta;
+      })
+      .map((d) => {
+        const name = d?.name || '(sem nome)';
         const savedAt = d?.savedAt ? new Date(d.savedAt) : null;
-        const date = savedAt ? savedAt.toLocaleDateString() : '-';
+        const date = (savedAt && !isNaN(savedAt.getTime())) ? savedAt.toLocaleDateString() : '-';
         const qlen = Array.isArray(d?.queue) ? d.queue.length : (d?.numbersText ? String(d.numbersText).split(/\n+/).filter(Boolean).length : 0);
         const safeName = escapeHtml(name);
         const encodedName = encodeURIComponent(String(name));
@@ -3018,14 +3036,14 @@ function showView(viewName) {
         if (!encoded) return;
         let name = '';
         try { name = decodeURIComponent(encoded); } catch (_) { name = encoded; }
-        $('sp_config_status').textContent = `⏳ Carregando "${name}"...`;
+        const statusEl = $('sp_config_status');
+        if (statusEl) statusEl.textContent = `⏳ Carregando "${name}"...`;
         try {
           await motor('LOAD_DRAFT', { name });
-          $('sp_config_status').textContent = '✅ Template carregado.';
+          if (statusEl) statusEl.textContent = '✅ Template carregado.';
           await principalRefresh(true); // atualiza principal se usuário voltar
-          await configLoad();
         } catch (e) {
-          $('sp_config_status').textContent = `❌ ${e.message || e}`;
+          if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
         }
       });
     });
@@ -3037,13 +3055,18 @@ function showView(viewName) {
         let name = '';
         try { name = decodeURIComponent(encoded); } catch (_) { name = encoded; }
         if (!confirm(`Excluir template "${name}"?`)) return;
-        $('sp_config_status').textContent = `⏳ Excluindo "${name}"...`;
+        const statusEl = $('sp_config_status');
         try {
-          await motor('DELETE_DRAFT', { name });
-          $('sp_config_status').textContent = '✅ Excluído.';
-          await configLoad();
+          const data = await chrome.storage.local.get('whl_templates');
+          const remaining = (Array.isArray(data?.whl_templates) ? data.whl_templates : [])
+            .filter(t => t?.name !== name);
+          await chrome.storage.local.set({ whl_templates: remaining });
+          // Best-effort: remove também do estado do content script (st.drafts).
+          try { await motor('DELETE_DRAFT', { name }); } catch (_) { /* ignora */ }
+          if (statusEl) statusEl.textContent = '✅ Excluído.';
+          renderDrafts(remaining);
         } catch (e) {
-          $('sp_config_status').textContent = `❌ ${e.message || e}`;
+          if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
         }
       });
     });
@@ -3528,7 +3551,14 @@ function showView(viewName) {
 
       await chrome.storage.local.set({ whl_templates: templatesList });
 
+      // Espelha no estado do content script (st.drafts) pra que o botão
+      // "Carregar" — que usa motor('LOAD_DRAFT') — encontre o template.
+      // Best-effort: se a aba do WhatsApp não estiver ativa, o template ainda
+      // fica salvo localmente e aparece na lista.
+      try { await motor('SAVE_DRAFT', { name }); } catch (_) { /* ignora */ }
+
       if (nameEl) nameEl.value = '';
+      renderDrafts(templatesList);
       alert('✅ Template salvo com sucesso!');
     } catch (error) {
       console.error('[Sidepanel] Erro ao salvar template:', error);
