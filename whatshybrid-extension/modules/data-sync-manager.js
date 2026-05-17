@@ -65,11 +65,11 @@
         endpoint: '/api/v1/sync/ai_memory', // Endpoint memory.js
         priority: 'medium'
       },
-      knowledge: {
-        localKey: 'whl_knowledge_base',
-        endpoint: '/api/v1/knowledge/sync', // Endpoint knowledge.js
-        priority: 'medium'
-      },
+      // 'knowledge' NÃO entra aqui de propósito: o KnowledgeSyncManager já
+      // sincroniza whl_knowledge_base via POST /api/v1/knowledge/sync com o
+      // payload { action:'sync', knowledge }. O DataSyncManager manda payload
+      // genérico { module, data }, que esse endpoint rejeita com "Action
+      // inválida". Sincronizar aqui era redundante E quebrado.
       quick_replies: {
         localKey: 'whl_quick_replies',
         endpoint: '/api/v1/sync/templates',
