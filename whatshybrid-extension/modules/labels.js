@@ -593,15 +593,42 @@
     // ==================== SINCRONIZAÇÃO COM STORAGE ====================
     // Escuta mudanças do storage (quando CRM em aba separada salva labels)
     chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName === 'local' && changes[STORAGE_KEY]) {
-            console.log('[Labels] 🔄 Dados alterados externamente, recarregando...');
-            loadState().then(() => {
-                // Re-renderizar se a função existir
-                if (typeof window.renderModuleViews === 'function') {
-                    window.renderModuleViews();
-                }
-            });
+        if (areaName !== 'local' || !changes[STORAGE_KEY]) return;
+
+        const incoming = changes[STORAGE_KEY].newValue;
+        const incomingTs = Number(incoming?.lastUpdated) || 0;
+        const currentTs = Number(state?.lastUpdated) || 0;
+
+        // Guarda 1: se o write é do PRÓPRIO labels.js#saveState (mesmo
+        // timestamp do state atual), ignora — evita loop "salvei →
+        // listener → loadState → re-render → outro listener atrás".
+        if (incomingTs && incomingTs === currentTs) {
+            return;
         }
+
+        // Guarda 2: se o new value é vazio (sem contactLabels e só com
+        // os labels default) MAS o state atual tem dados próprios do
+        // usuário, ignora. Sintoma original do bug: o CRM
+        // syncWithBackend escrevia whl_labels_v2 com payload vazio
+        // (master workspace novo sem dados no backend), o listener
+        // recarregava state vazio, etiquetas sumiam.
+        const incomingHasUserData = !!incoming && (
+            (incoming.contactLabels && Object.keys(incoming.contactLabels).length > 0) ||
+            (Array.isArray(incoming.labels) && incoming.labels.length > DEFAULT_LABELS.length)
+        );
+        const currentHasUserData = (state.contactLabels && Object.keys(state.contactLabels).length > 0) ||
+            (Array.isArray(state.labels) && state.labels.length > DEFAULT_LABELS.length);
+        if (!incomingHasUserData && currentHasUserData) {
+            console.warn('[Labels] 🛡️ Ignorado write externo vazio (state atual tem dados de usuário)');
+            return;
+        }
+
+        console.log('[Labels] 🔄 Dados alterados externamente, recarregando...');
+        loadState().then(() => {
+            if (typeof window.renderModuleViews === 'function') {
+                window.renderModuleViews();
+            }
+        });
     });
 
     console.log('[Labels] Módulo v53 carregado - Sincronização ativada');

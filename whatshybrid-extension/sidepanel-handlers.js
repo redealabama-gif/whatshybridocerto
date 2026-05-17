@@ -112,28 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[Sidepanel] ✅ Handler crm_open_fullscreen configurado');
     }
 
-    // CRM buttons
-    document.getElementById('crm_new_deal')?.addEventListener('click', () => {
-        // Preferir CRMModule (canônico), com fallback legado
-        if (window.CRMModule?.showDealModal) {
-            window.CRMModule.showDealModal();
-        } else if (window.showNewDealModal) {
-            window.showNewDealModal();
-        } else {
-            console.warn('[Sidepanel] Nenhuma função de modal de negócio disponível');
-        }
-    });
-
-    document.getElementById('crm_new_contact')?.addEventListener('click', () => {
-        // Preferir CRMModule (canônico), com fallback legado
-        if (window.CRMModule?.showContactModal) {
-            window.CRMModule.showContactModal();
-        } else if (window.showNewContactModal) {
-            window.showNewContactModal();
-        } else {
-            console.warn('[Sidepanel] Nenhuma função de modal de contato disponível');
-        }
-    });
+    // CRM buttons — desligados aqui. Os botões crm_new_deal e
+    // crm_new_contact já recebem listeners corretos em sidepanel-fixes.js
+    // (setupCRMButtons), que abrem os modais via openNewDealModal /
+    // openNewContactModal. O handler antigo chamava:
+    //   - showDealModal() sem dealId → getDeal(undefined) → toast
+    //     "Negócio não encontrado" toda vez que o usuário clicava + Novo
+    //     Negócio
+    //   - showContactModal() sem contact → throw em contact.stage (linha
+    //     1035 de crm.js)
+    // Removidos pra eliminar a duplicação de listener + erro visível.
 
     document.getElementById('crm_refresh')?.addEventListener('click', async () => {
         if (window.CRMModule?.reloadData) {

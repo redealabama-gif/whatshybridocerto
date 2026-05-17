@@ -88,11 +88,8 @@
       window.LabelsModule.renderLabelManager(labelsContainer);
     }
 
-    // Renderizar Atividades
-    const activitiesContainer = document.getElementById('crm_activities_container');
-    if (activitiesContainer && window.CRMModule) {
-      window.CRMModule.renderActivities(activitiesContainer);
-    }
+    // (Atividades Recentes removidas — UI não agregava valor e
+    // recalculava em cada crmInit, contribuindo pra flicker no kanban.)
 
     // Setup botões principais
     setupCRMButtons();
@@ -101,7 +98,15 @@
   /**
    * Configura os botões do CRM
    */
+  // Flag pra garantir que setupCRMButtons só conecta listeners UMA vez,
+  // independente de quantas vezes crmInit() for chamado. Antes, cada
+  // crmInit registrava +1 listener via addEventListener (o
+  // `onclick = null` só limpava handlers legados); 5 crmInits = botão
+  // Refresh disparava 5x o toast "CRM atualizado".
+  let _crmButtonsBound = false;
   function setupCRMButtons() {
+    if (_crmButtonsBound) return;
+
     // Botão Novo Deal
     const newDealBtn = document.getElementById('crm_new_deal');
     if (newDealBtn) {
@@ -145,6 +150,8 @@
         });
       });
     }
+
+    _crmButtonsBound = true;
   }
 
   /**
