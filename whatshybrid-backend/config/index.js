@@ -45,14 +45,41 @@ module.exports = {
   },
   
   cors: {
+    // Origin pode ser uma função quando precisamos aceitar wildcard
+    // chrome-extension://* — a string "chrome-extension://*" não casa com
+    // o matcher exato do middleware `cors`. Por isso retornamos uma função
+    // que aceita: (a) origins explícitos do .env, (b) qualquer
+    // chrome-extension:// (extensão pode trocar de ID em dev/build),
+    // (c) https://web.whatsapp.com (origin do content script quando
+    // aplicável). Em produção, exigir CORS_ORIGIN explícito sem wildcard.
     origin: (() => {
+      const envList = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean) || [];
+      const allowWildcardExt = envList.length === 0 || envList.includes('chrome-extension://*');
+      const explicitOrigins = envList.filter(o => o !== 'chrome-extension://*' && o !== '*');
+
       if (process.env.CORS_ORIGIN === '*') {
         if (env === 'production') {
           throw new Error('CORS_ORIGIN=* is not allowed in production. Set specific origins.');
         }
         return true;
       }
-      return process.env.CORS_ORIGIN?.split(',').map(s => s.trim()) || ['http://localhost:3000'];
+
+      const fallback = explicitOrigins.length ? explicitOrigins : ['http://localhost:3000'];
+
+      return function corsOriginCheck(origin, callback) {
+        // Sem Origin header (curl, server-to-server, mesma origem) → permitir.
+        if (!origin) return callback(null, true);
+        // Origens explícitas do .env.
+        if (fallback.includes(origin)) return callback(null, true);
+        // Extensões Chrome (e Edge) — IDs variam entre dev/prod/usuários.
+        // Em produção só liberar se o .env explicitamente incluir chrome-extension://*.
+        if (origin.startsWith('chrome-extension://') && (env !== 'production' || allowWildcardExt)) {
+          return callback(null, true);
+        }
+        // web.whatsapp.com aparece como Origin em alguns fetches de content script.
+        if (origin === 'https://web.whatsapp.com') return callback(null, true);
+        return callback(new Error(`CORS bloqueado para origin: ${origin}`));
+      };
     })(),
     credentials: true
   },

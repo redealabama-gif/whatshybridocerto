@@ -10,7 +10,7 @@ const { checkSubscription } = require('../middleware/subscription');
 const { body, validationResult } = require('express-validator');
 const database = require('../utils/database');
 const logger = require('../utils/logger');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('../utils/uuid-wrapper');
 
 /**
  * POST /api/v1/memory/batch

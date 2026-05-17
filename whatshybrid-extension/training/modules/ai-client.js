@@ -177,19 +177,47 @@
       const authToken = freshAuth.whl_auth_token || this.authToken;
       if (freshAuth.whl_backend_url) this.backendUrl = freshAuth.whl_backend_url;
 
-      const response = await fetch(`${this.backendUrl}/api/v1/ai/complete`, {
+      const requestBody = JSON.stringify({
+        messages: finalMessages,
+        temperature: 0.7,
+        maxTokens: 500,
+        context: 'training'
+      });
+
+      const doFetch = (token) => fetch(`${this.backendUrl}/api/v1/ai/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({
-          messages: finalMessages,
-          temperature: 0.7,
-          maxTokens: 500,
-          context: 'training'
-        })
+        body: requestBody
       });
+
+      let response = await doFetch(authToken);
+
+      // 401 = JWT expirado ou ausente. Tenta refresh via SubscriptionManager
+      // (que reativa master key OU usa refresh token) e refaz a chamada uma vez.
+      if (response.status === 401) {
+        let refreshedToken = null;
+        try {
+          if (typeof window !== 'undefined' && window.SubscriptionManager?.refreshBackendJWT) {
+            refreshedToken = await window.SubscriptionManager.refreshBackendJWT();
+          } else if (typeof window !== 'undefined' && window.BackendClient?.refreshToken) {
+            const r = await window.BackendClient.refreshToken();
+            refreshedToken = r?.accessToken || r?.token || null;
+          }
+          if (!refreshedToken) {
+            const data = await this._getStorage(['whl_auth_token']);
+            refreshedToken = data.whl_auth_token || null;
+          }
+        } catch (e) {
+          console.warn('[TrainingAIClient] refresh do JWT falhou:', e?.message || e);
+        }
+        if (refreshedToken && refreshedToken !== authToken) {
+          this.authToken = refreshedToken;
+          response = await doFetch(refreshedToken);
+        }
+      }
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 

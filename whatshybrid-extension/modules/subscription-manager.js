@@ -1142,12 +1142,28 @@
   // EXPORT
   // ============================================
 
+  // Refaz o JWT do backend usando o código atualmente ativo. Útil quando
+  // /ai/complete (ou outra rota autenticada) devolve 401 — o cliente chama
+  // refreshBackendJWT() e tenta de novo com o token novo. Retorna o token
+  // ou null se não há código (ex.: usuário no plano free sem master key).
+  async function refreshBackendJWT() {
+    const code = state?.subscription?.code;
+    if (!code) return null;
+    try {
+      return await _fetchMasterJWT(code);
+    } catch (e) {
+      console.warn('[SubscriptionManager] refreshBackendJWT falhou:', e?.message || e);
+      return null;
+    }
+  }
+
   const api = {
     init,
 
     // Ativação
     activateSubscription,
     deactivateSubscription,
+    refreshBackendJWT,
     startTrial,
 
     // Getters
