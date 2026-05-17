@@ -2215,6 +2215,10 @@
       revoked: all.filter(m => m.action === 'revoked').length,
       deleted: all.filter(m => m.action === 'deleted').length,
       edited: all.filter(m => m.action === 'edited').length,
+      // ver1x (Ver Uma Vez) — antes a sidebar consultava só via
+      // chrome.scripting.executeScript do WHL_ViewOnceSaver, async e
+      // dessincronizado do refresh. Inclui aqui pra sair do stats síncrono.
+      ver1x: all.filter(m => m.action === 'view_once' || m.isViewOnce === true).length,
       favorites: state.favorites.size,
       byType: {
         chat: all.filter(m => m.type === 'chat').length,
