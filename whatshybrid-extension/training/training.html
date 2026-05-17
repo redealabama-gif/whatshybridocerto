@@ -549,6 +549,13 @@
     <script src="../utils/logger.js"></script>
     <script src="../utils/ui-helpers.js"></script>
 
+    <!-- Knowledge sources: equiparam a simulação ao autopilot (picker
+         sinônimo-aware, quality/recency scoring, system prompt completo).
+         Sem IDBStorage carregado de propósito — assim ambos caem no fallback
+         chrome.storage.local, mesmo store onde training.js grava. -->
+    <script src="../modules/knowledge-base.js"></script>
+    <script src="../modules/few-shot-learning.js"></script>
+
     <!-- AI Client (expõe CopilotEngine/AIService para esta página) -->
     <script src="modules/ai-client.js"></script>
 
