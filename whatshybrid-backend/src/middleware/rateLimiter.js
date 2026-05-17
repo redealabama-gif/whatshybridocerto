@@ -102,9 +102,13 @@ const apiLimiter = rateLimit({
 });
 
 // ── AI limiter (operações custosas) ─────────────────────────────────────────
+// O default de 20/min era baixo demais: o CopilotEngine busca contexto do
+// backend por conversa e, somado a sugestões, estourava 429 quase de imediato
+// — derrubando a IA pro fallback genérico local. 120/min ainda limita custo
+// de LLM mas comporta o uso real de um cliente. Override via AI_RATE_LIMIT_MAX.
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max:      parseInt(process.env.AI_RATE_LIMIT_MAX, 10) || 20,
+  max:      parseInt(process.env.AI_RATE_LIMIT_MAX, 10) || 120,
   store:    buildRedisStore('ai'),
   message: {
     error: 'Too Many Requests',
