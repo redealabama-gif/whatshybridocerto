@@ -843,7 +843,11 @@ class TrainingApp {
         const text = await file.text();
         const data = JSON.parse(text);
 
-        if (data.__proto__ || data.constructor || data.prototype) {
+        // Anti prototype-pollution: rejeita chaves PRÓPRIAS perigosas no JSON.
+        // (checar data.__proto__/data.constructor direto sempre dá true — todo
+        //  objeto herda essas props — e travava QUALQUER importação.)
+        const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+        if (hasOwn(data, '__proto__') || hasOwn(data, 'constructor') || hasOwn(data, 'prototype')) {
           throw new Error('Invalid data structure: prototype pollution attempt detected');
         }
 
