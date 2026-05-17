@@ -248,6 +248,10 @@
           lastSync: new Date().toISOString()
         };
 
+        // Captura o lastUpdated local ANTES do round-trip — pra decidir, no
+        // retorno, se aplicamos a versão do backend (timestamp merge).
+        const localLabelsLastUpdated = Number(payload.labels?.lastUpdated) || 0;
+
         const response = await fetch(`${backendUrl}/api/v1/crm/sync`, {
           method: 'POST',
           headers: {
@@ -271,9 +275,43 @@
           if (data.data.pipeline) {
             state.pipeline = data.data.pipeline;
           }
-          // Persistir labels recebidas do backend para sobrescrever local stale.
+          // Merge por timestamp: só aceita a versão do backend se for MAIS
+          // RECENTE que a local. Sem isso, sync devolvia versão estale
+          // (backend não persistiu o POST antes do GET interno OU master
+          // workspace recém-criado sem labels) e apagava etiquetas que o
+          // usuário tinha acabado de criar.
+          //
+          // Local é stamped por labels.js#saveState a cada write. Quando
+          // backend devolve > local, aplicamos e o listener
+          // chrome.storage.onChanged em labels.js recarrega a UI. Quando
+          // local >= backend, ignoramos o eco do backend (próximo sync
+          // periódico vai propagar a versão local correta).
+          //
+          // Caso especial: usuário legado (instalado antes desta versão) tem
+          // local.lastUpdated=0 mas possivelmente já criou etiquetas. Pra
+          // não perder esse trabalho, só aceita o remoto se: (a) local não
+          // tem dados próprios — fresh install puxando do cloud, OU
+          // (b) local tem timestamp válido e o remoto é maior.
           if (data.data.labels) {
-            await chrome.storage.local.set({ whl_labels_v2: data.data.labels });
+            const remoteUpdated = Number(data.data.labels.lastUpdated) || 0;
+            const localLabels = payload.labels;
+            const localHasUserData = !!localLabels && (
+              (localLabels.contactLabels && Object.keys(localLabels.contactLabels).length > 0) ||
+              (Array.isArray(localLabels.labels) && localLabels.labels.length > 6) // > defaults
+            );
+            const localHasTimestamp = localLabelsLastUpdated > 0;
+
+            const acceptRemote = remoteUpdated > 0 && (
+              !localHasUserData ||
+              (localHasTimestamp && remoteUpdated > localLabelsLastUpdated)
+            );
+
+            if (acceptRemote) {
+              await chrome.storage.local.set({ whl_labels_v2: data.data.labels });
+              console.log('[CRM] labels: aplicada versão do backend (remote=' + remoteUpdated + ', local=' + localLabelsLastUpdated + ', localHasUserData=' + localHasUserData + ')');
+            } else {
+              console.log('[CRM] labels: mantida versão local (remote=' + remoteUpdated + ', local=' + localLabelsLastUpdated + ', localHasUserData=' + localHasUserData + ')');
+            }
           }
         }
 
