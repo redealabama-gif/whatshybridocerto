@@ -355,10 +355,11 @@
    * Processa todas as mensagens existentes no chat
    */
   function processExistingMessages() {
-    // Seletores para mensagens do WhatsApp
+    // Apenas seletores seguros — fallback '[data-id]' foi removido porque
+    // casa com elementos que NÃO são mensagens (chat-list, headers, popups)
+    // e isso era a fonte principal do "todas as mensagens viraram apagadas".
     const messageSelectors = [
       '[data-testid="msg-container"]',
-      '[data-id]',
       '.message-in, .message-out'
     ];
 
@@ -366,12 +367,9 @@
       const messages = document.querySelectorAll(selector);
 
       if (messages.length > 0) {
-        // DEBUG: console.log(`[RecoverVisualInjector] 🔍 Processando ${messages.length} mensagens (${selector})`);
-
         for (const msgEl of messages) {
           processMessage(msgEl);
         }
-
         break; // Usar apenas o primeiro seletor que encontrar mensagens
       }
     }
@@ -387,6 +385,16 @@
       return;
     }
 
+    // GUARD: só processa elementos que são MESMO containers de mensagem
+    // individuais. processExistingMessages cai em fallback para [data-id]
+    // quando msg-container não existe — esse seletor casa demais (chat-list,
+    // headers, popups). Sem este guard, qualquer elemento com data-id
+    // recebia badge "apagada" só porque tinha texto "Esta mensagem foi
+    // apagada" em algum filho (ex.: preview do chat-list).
+    if (!isMessageContainer(msgEl)) {
+      return;
+    }
+
     // Tentar extrair ID da mensagem
     const msgId = extractMessageId(msgEl);
     if (!msgId) {
@@ -397,43 +405,77 @@
     let state = null;
     let originalContent = null;
 
+    // Apenas estes 3 estados merecem badge. Estados como "created",
+    // "snapshot_initial", "cached_only" são metadados internos do
+    // RecoverAdvanced e NÃO indicam que a mensagem foi alterada.
+    const BADGE_STATES = ['deleted_local', 'revoked_global', 'edited'];
+
     // Fonte 1: Verificar marcadores persistentes (prioridade - funciona após reload)
     const persistentMarker = getPersistentMarker(msgId);
-    if (persistentMarker) {
+    if (persistentMarker && BADGE_STATES.includes(persistentMarker.state)) {
       state = persistentMarker.state;
       lastEvent = persistentMarker;
       originalContent = persistentMarker.originalContent;
-      console.log('[RecoverVisualInjector] 📍 Marcador persistente encontrado:', msgId, state);
     }
 
     // Fonte 2: Verificar no RecoverAdvanced se há histórico dessa mensagem
     if (!state && window.RecoverAdvanced?.messageVersions) {
       const messageHistory = window.RecoverAdvanced.messageVersions.get(msgId);
       if (messageHistory && messageHistory.history && messageHistory.history.length > 0) {
-        lastEvent = messageHistory.history[messageHistory.history.length - 1];
-        state = lastEvent.state;
-        originalContent = lastEvent.body || lastEvent.previousBody;
-        
-        // Salvar como marcador persistente para próximos reloads
-        addPersistentMarker(msgId, {
-          state: state,
-          originalContent: originalContent,
-          timestamp: lastEvent.timestamp,
-          chatId: messageHistory.chatId,
-          from: messageHistory.from
-        });
+        const candidate = messageHistory.history[messageHistory.history.length - 1];
+        // Só aceita estado se for um dos 3 que geram badge — antes qualquer
+        // 'created'/'cached_only' virava badge nulo mas marcava processado.
+        if (candidate && BADGE_STATES.includes(candidate.state)) {
+          lastEvent = candidate;
+          state = candidate.state;
+          originalContent = candidate.body || candidate.previousBody;
+
+          // Salvar como marcador persistente para próximos reloads
+          addPersistentMarker(msgId, {
+            state: state,
+            originalContent: originalContent,
+            timestamp: candidate.timestamp,
+            chatId: messageHistory.chatId,
+            from: messageHistory.from
+          });
+        }
       }
     }
 
-    // Fonte 3: Verificar se o elemento contém texto de mensagem apagada
+    // Fonte 3: Detectar estado via DOM da própria mensagem.
+    // CRÍTICO: extrair texto APENAS do elemento de texto direto da mensagem
+    // (não do textContent inteiro do container, que inclui replies/quotes que
+    // referenciam mensagens apagadas e causavam falso-positivo em TODAS as
+    // mensagens da conversa).
     if (!state) {
-      const msgText = msgEl.textContent || '';
-      if (msgText.includes('Esta mensagem foi apagada') || 
-          msgText.includes('This message was deleted') ||
-          msgEl.querySelector('[data-testid="recalled-msg"]') ||
-          msgEl.querySelector('span[data-icon="recalled"]')) {
+      const directText = extractDirectMessageText(msgEl);
+      const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
+
+      // Mensagem apagada (revogada globalmente)
+      const isRevoked = hasRecalledIcon || (directText && (
+        directText.includes('Esta mensagem foi apagada') ||
+        directText.includes('This message was deleted') ||
+        directText.includes('Mensagem apagada') ||
+        directText.includes('Message deleted')
+      ));
+
+      // Mensagem editada — WhatsApp anexa "<Editada>" ou "<Edited>" ou
+      // mostra um label "Editada"/"Edited" ao lado do timestamp.
+      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope span[aria-label*="ditad" i], :scope span[aria-label*="dited" i]');
+      const isEdited = !isRevoked && (hasEditedLabel || (directText && (
+        directText.includes('<Editada>') ||
+        directText.includes('<Edited>') ||
+        /\b\(Editada\)\s*$/.test(directText) ||
+        /\b\(Edited\)\s*$/.test(directText)
+      )));
+
+      if (isRevoked) {
         state = 'revoked_global';
-        
+      } else if (isEdited) {
+        state = 'edited';
+      }
+
+      if (state) {
         // Tentar encontrar conteúdo original no RecoverDOM
         if (window.RecoverDOM?.getHistory) {
           const history = window.RecoverDOM.getHistory();
@@ -442,9 +484,9 @@
             originalContent = match.body || match.originalBody;
           }
         }
-        
+
         // Salvar marcador persistente
-        if (!persistentMarker) {
+        if (!persistentMarker || persistentMarker.state !== state) {
           addPersistentMarker(msgId, {
             state: state,
             originalContent: originalContent || null,
@@ -477,6 +519,59 @@
 
     // Marcar como processado
     msgEl.setAttribute(CONFIG.INJECTED_ATTR, 'true');
+  }
+
+  /**
+   * Valida se o elemento é REALMENTE um container de mensagem individual
+   * (não chat-list item, popup de notificação, header do chat etc).
+   * Bug original: processExistingMessages caía em fallback para [data-id]
+   * que casa com muita coisa que não é mensagem.
+   */
+  function isMessageContainer(el) {
+    if (!el || el.nodeType !== 1) return false;
+    // Sinais positivos diretos: data-testid="msg-container"
+    if (el.matches && el.matches('[data-testid="msg-container"]')) return true;
+    // Classes do WhatsApp para bubbles
+    if (el.classList && (el.classList.contains('message-in') || el.classList.contains('message-out'))) return true;
+    // É filho direto de um msg-container?
+    if (el.closest && el.closest('[data-testid="msg-container"]') === el) return true;
+    // Tem data-id formato de mensagem (true_/false_) e está dentro do área de mensagens?
+    const dataId = el.getAttribute && el.getAttribute('data-id');
+    if (dataId && /^(true|false)_/.test(dataId)) {
+      const inMessageArea = !!el.closest('[data-testid="conversation-panel-messages"], #main [role="application"]');
+      if (inMessageArea) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Extrai apenas o texto direto da mensagem (NÃO textContent inteiro).
+   * Sem isto, replies que quotam uma mensagem apagada faziam a mensagem
+   * que respondeu virar "apagada" também — falso-positivo em cascata.
+   */
+  function extractDirectMessageText(msgEl) {
+    if (!msgEl) return '';
+    const textSelectors = [
+      '[data-testid="msg-text"]',
+      'span.selectable-text[data-testid]',
+      '.copyable-text span.selectable-text',
+      '.message-text'
+    ];
+    for (const sel of textSelectors) {
+      try {
+        const el = msgEl.querySelector(sel);
+        if (el) return (el.textContent || '').trim();
+      } catch (_) { /* ignore */ }
+    }
+    // Fallback conservador: textContent direto do bubble SEM quotes/replies.
+    // Remove temporariamente quotes do clone pra extrair só texto do corpo.
+    try {
+      const clone = msgEl.cloneNode(true);
+      clone.querySelectorAll('[data-testid="quoted-mention"], .quoted-mention, [aria-label*="esposta" i], [aria-label*="eply" i]').forEach(n => n.remove());
+      return (clone.textContent || '').trim();
+    } catch (_) {
+      return '';
+    }
   }
 
   /**
@@ -612,13 +707,20 @@
     getPersistentMarker,
     getMarkersCount: () => persistentMarkers.size,
     
-    // Limpeza
+    // Limpeza — agora também remove badges visuais e marca de processado,
+    // pra que usuários afetados pelo bug "todas viraram apagadas" possam
+    // sair da inconsistência sem reinstalar a extensão.
     clearMarkers: async () => {
       persistentMarkers.clear();
       await chrome.storage.local.remove(CONFIG.STORAGE_KEY);
-      console.log('[RecoverVisualInjector] 🧹 Marcadores limpos');
+      document.querySelectorAll(`.${CONFIG.QUOTE_CLASS}`).forEach(q => q.remove());
+      document.querySelectorAll(`[${CONFIG.INJECTED_ATTR}]`).forEach(el => {
+        el.removeAttribute(CONFIG.INJECTED_ATTR);
+        el.style.background = '';
+      });
+      console.log('[RecoverVisualInjector] 🧹 Marcadores limpos (storage + DOM)');
     },
-    
+
     // Forçar reprocessamento
     reprocess: () => {
       // Remover atributos de processamento
@@ -630,6 +732,14 @@
       // Reprocessar
       processExistingMessages();
     }
+  };
+
+  // Atalho de console amigável pra usuários relatando "todas apagadas":
+  // window.WHL_clearRecoverMarkers() limpa tudo e reprocessa.
+  window.WHL_clearRecoverMarkers = async () => {
+    await window.RecoverVisualInjector.clearMarkers();
+    window.RecoverVisualInjector.processExistingMessages();
+    console.log('[RecoverVisualInjector] ✅ Reset completo concluído');
   };
 
   // Auto-inicializar quando RecoverAdvanced estiver pronto

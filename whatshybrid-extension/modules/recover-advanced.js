@@ -2279,33 +2279,40 @@
   // ============================================
   async function refreshMessages() {
     console.log('[RecoverAdvanced] 🔄 Refreshing messages...');
-    
+
     try {
       // Step 1: Clear memory cache
       const processedIds = new Set();
-      console.log('[RecoverAdvanced] Cache cleared');
-      
+
       // Step 2: Reload from storage
       await loadFromStorage();
-      console.log('[RecoverAdvanced] Loaded from storage:', state.messages.length, 'messages');
-      
-      // Step 3: Check for new deleted messages via hooks
+
+      // Step 3: Check for new deleted messages via hooks (Store interno do WA).
+      // Pode retornar vazio se o Store não está disponível — o que é comum.
       const newMessages = await checkForNewDeletedMessages();
-      console.log('[RecoverAdvanced] Found', newMessages.length, 'new messages');
-      
+
+      // Step 3b: Ponte com RecoverDOM — quando os hooks do Store não pegam,
+      // o RecoverDOM ainda captura mensagens apagadas/editadas via DOM scan.
+      // Sem este merge, a sidebar lateral ficava vazia mesmo com badges
+      // injetados nas mensagens dentro do chat.
+      const domMessages = mergeFromRecoverDOM();
+
       // Step 4: Merge without duplicates
-      const allMessages = mergeWithoutDuplicates(state.messages, newMessages);
+      let allMessages = mergeWithoutDuplicates(state.messages, newMessages);
+      if (domMessages.length > 0) {
+        allMessages = mergeWithoutDuplicates(allMessages, domMessages);
+      }
       state.messages = allMessages.slice(0, CONFIG.MAX_MESSAGES);
-      
+
       // Step 5: Save back to storage
       await saveToStorage();
-      
-      console.log('[RecoverAdvanced] ✅ Refresh complete:', state.messages.length, 'total messages');
-      
+
+      console.log('[RecoverAdvanced] ✅ Refresh:', state.messages.length, 'total (', newMessages.length, 'novos via hooks,', domMessages.length, 'via DOM)');
+
       return {
         success: true,
         total: state.messages.length,
-        newCount: newMessages.length
+        newCount: newMessages.length + domMessages.length
       };
     } catch (e) {
       console.error('[RecoverAdvanced] Refresh failed:', e);
@@ -2313,6 +2320,43 @@
         success: false,
         error: e.message
       };
+    }
+  }
+
+  /**
+   * Converte itens de RecoverDOM.getHistory() (formato do scanner DOM)
+   * para o shape de state.messages que a sidebar consome via
+   * getFilteredMessages/getStats. Sem essa ponte, capturas via DOM
+   * (única fonte quando window.Store.Msg é inacessível) ficavam invisíveis
+   * fora do chat.
+   */
+  function mergeFromRecoverDOM() {
+    try {
+      if (!window.RecoverDOM || typeof window.RecoverDOM.getHistory !== 'function') return [];
+      const history = window.RecoverDOM.getHistory();
+      if (!Array.isArray(history) || history.length === 0) return [];
+
+      return history
+        .filter(h => h && (h.action === 'deleted' || h.action === 'revoked' || h.action === 'edited'))
+        .map(h => ({
+          id: String(h.id || h.key || `dom_${h.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+          chatId: h.chatId || '',
+          from: extractPhoneNumber(h.from || h.chatId || ''),
+          to: extractPhoneNumber(h.to || ''),
+          action: h.action === 'deleted' ? 'deleted' : (h.action === 'edited' ? 'edited' : 'revoked'),
+          type: h.mediaType || 'chat',
+          body: h.body || h.originalBody || '',
+          previousBody: h.previousBody || null,
+          mediaUrl: h.mediaUrl || null,
+          isOutgoing: !!h.isOutgoing,
+          direction: h.isOutgoing ? 'sent' : 'received',
+          timestamp: Number(h.timestamp) || Date.now(),
+          recovered: !!h.recovered,
+          origin: 'recover_dom_scanner'
+        }));
+    } catch (e) {
+      console.warn('[RecoverAdvanced] mergeFromRecoverDOM falhou:', e?.message);
+      return [];
     }
   }
   
