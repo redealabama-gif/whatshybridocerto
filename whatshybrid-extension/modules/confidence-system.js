@@ -283,6 +283,18 @@
           window.EventBus.on('successfulInteraction', () => {
             this.sendConfidenceFeedback('good', { source: 'successfulInteraction' }).catch(() => {});
           });
+          // v9.5.8: o botão de IA emite suggestion:used ao aprovar e
+          // suggestion:edited ao editar uma sugestão. Sem estes listeners os
+          // contadores 👍 Bom / ✏️ Correções do card de Confiança ficavam em 0
+          // (só o score subia, via recordSuggestionUsed). Aprovar = "good";
+          // editar = "correction".
+          window.EventBus.on('suggestion:used', (data) => {
+            const type = data?.wasEdited ? 'correction' : 'good';
+            this.sendConfidenceFeedback(type, { source: 'suggestion:used' }).catch(() => {});
+          });
+          window.EventBus.on('suggestion:edited', () => {
+            this.sendConfidenceFeedback('correction', { source: 'suggestion:edited' }).catch(() => {});
+          });
           console.log('[ConfidenceSystem] ✅ EventBus listeners attached (feedback growth wired)');
         }
       } catch (error) {
