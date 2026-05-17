@@ -871,6 +871,10 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
     const randomPwd = crypto.randomBytes(32).toString('hex');
     const hashedPwd = await bcrypt.hash(randomPwd, 12);
 
+    // sqlite-driver.transaction(fn) já executa fn() e retorna o resultado.
+    // Chamar com () de novo dispara "db.transaction(...) is not a function"
+    // e quebra TODO o fluxo do master-token (extensão fica sem JWT, todos
+    // os módulos caem em "Backend não configurado").
     db.transaction(() => {
       db.run(
         `INSERT INTO users (id, email, password, name, role, workspace_id)
@@ -883,10 +887,6 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
         [workspaceId, 'Master Workspace', userId, 'enterprise', 'active', 999999]
       );
     });
-    // v9.6.x: o wrapper sqlite-driver.transaction(fn) já executa fn(); chamar
-    // de novo com () dispara TypeError ("db.transaction(...) is not a function"),
-    // que matava a rota inteira (extensão via "backend JWT falhou" no console).
-    // Padrão majoritário no codebase (TokenService, contacts, ai-ingest, etc).
     workspace = { id: workspaceId, name: 'Master Workspace', owner_id: userId, plan: 'enterprise', credits: 999999 };
     user = { id: userId, email: 'master@whatshybrid.local', name: 'Master', role: 'owner', workspace_id: workspaceId };
 

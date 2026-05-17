@@ -88,8 +88,6 @@
         "icons/48.png",
         "lib/socket.io.min.js",
         "lib/xlsx.mini.min.js",
-        "lib/pdf.min.mjs",
-        "lib/pdf.worker.min.mjs",
         "utils/google-sheets-export.js",
         "utils/storage.js",
         "utils/utils-optimized.js",
@@ -107,7 +105,6 @@
         "training/training.js",
         "training/simulation-engine.js",
         "training/modules/document-importer.js",
-        "training/modules/conversation-analyzer.js",
         "training/modules/ai-client.js",
         "dist/*"
       ],

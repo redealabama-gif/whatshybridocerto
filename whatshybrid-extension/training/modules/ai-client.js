@@ -77,9 +77,40 @@
 
     async generateResponse(options = {}) {
       await this.init();
-      
+
       const { messages = [], lastMessage = '', temperature = 0.7 } = options;
-      
+
+      // Recarrega a base de conhecimento a cada chamada — o usuário pode ter
+      // editado FAQs/produtos depois do init() e queremos refletir isso.
+      try {
+        const fresh = await this._getStorage(['whl_knowledge_base']);
+        if (fresh.whl_knowledge_base) this.knowledgeBase = fresh.whl_knowledge_base;
+      } catch (_) { /* mantém o cache */ }
+
+      // STEP 0: Canned reply (match exato por trigger). Cobre saudações
+      // pré-cadastradas + atalhos fixos do usuário sem consumir IA/tokens.
+      try {
+        if (typeof window !== 'undefined' && window.knowledgeBase?.checkCannedReply) {
+          const canned = window.knowledgeBase.checkCannedReply(lastMessage);
+          if (canned && typeof canned === 'string' && canned.trim()) {
+            return canned;
+          }
+        } else {
+          // Fallback inline quando knowledge-base.js não está carregado nesta página.
+          const cannedReplies = (this.knowledgeBase && this.knowledgeBase.cannedReplies) || [];
+          const msgLower = (lastMessage || '').toLowerCase().trim();
+          for (const c of cannedReplies) {
+            const triggers = Array.isArray(c.triggers) ? c.triggers : (c.trigger ? [c.trigger] : []);
+            if (triggers.some(t => t && msgLower.includes(String(t).toLowerCase()))) {
+              const reply = c.reply || c.response;
+              if (reply) return reply;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[TrainingAIClient] checkCannedReply falhou:', e?.message);
+      }
+
       // Tentar backend primeiro
       try {
         const backendResponse = await this._callBackend(messages, lastMessage);
@@ -102,18 +133,50 @@
 
     async _callBackend(messages, lastMessage) {
       if (!this.backendUrl) return null;
-      
+
       // SECURITY FIX P0-034: Sanitize lastMessage to prevent prompt injection
       const safeLastMessage = this._sanitizeForPrompt(lastMessage, 2000);
+
+      // Sem o system prompt construído da base de conhecimento, a IA
+      // responde genericamente — perdendo FAQs/produtos/business carregados.
+      // RAG-aware: quando knowledgeBase + WHLLocalRAG estão prontos, monta
+      // o prompt usando busca semântica (só os trechos relevantes à pergunta),
+      // o que melhora qualidade e economiza tokens. Fallback automático para
+      // o builder estático quando RAG não tá indexado.
+      const systemPrompt = await this._buildSystemPromptAsync(safeLastMessage);
+
+      // Few-shot: pegamos exemplos aprovados/editados do
+      // whl_few_shot_examples — esses VÊM do feedback de produção
+      // (recordSupervisedSample emite pra fewShotLearning.addExample), então
+      // injetar aqui é o que faz o aprendizado "fechar o ciclo" para a
+      // simulação. Se window.fewShotLearning existir, usa o picker
+      // sinônimo-aware/quality-weighted; caso contrário lê o storage cru.
+      const fewShotPairs = await this._collectFewShotExamples(safeLastMessage, 4);
+
+      const incoming = Array.isArray(messages) ? messages : [];
+      const hasSystem = incoming.some(m => m && m.role === 'system');
+      const finalMessages = [
+        ...(hasSystem || !systemPrompt ? [] : [{ role: 'system', content: systemPrompt }]),
+        ...fewShotPairs,
+        ...incoming,
+        { role: 'user', content: safeLastMessage }
+      ];
+
+      // Recarrega o auth token a cada chamada — o SubscriptionManager grava
+      // o JWT do master-token de forma assíncrona, então o valor que pegamos
+      // no init() pode estar desatualizado.
+      const freshAuth = await this._getStorage(['whl_auth_token', 'whl_backend_url']);
+      const authToken = freshAuth.whl_auth_token || this.authToken;
+      if (freshAuth.whl_backend_url) this.backendUrl = freshAuth.whl_backend_url;
 
       const response = await fetch(`${this.backendUrl}/api/v1/ai/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {})
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
         body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: safeLastMessage }],
+          messages: finalMessages,
           temperature: 0.7,
           maxTokens: 500,
           context: 'training'
@@ -121,12 +184,111 @@
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const data = await response.json();
       return data.content || data.text || data.message;
     }
 
     // v9.4.6: _callOpenAI_LEGACY_DISABLED REMOVIDO. Backend-Only AI.
+
+    /**
+     * RAG-first prompt builder. Quando WHLLocalRAG está pronto, recupera
+     * top-K trechos semanticamente relevantes à query; fallback para o
+     * builder estático/sync.
+     */
+    async _buildSystemPromptAsync(query) {
+      try {
+        if (typeof window !== 'undefined'
+            && window.knowledgeBase
+            && typeof window.knowledgeBase.buildSystemPromptRAG === 'function'
+            && query) {
+          const ragPrompt = await window.knowledgeBase.buildSystemPromptRAG(query, {
+            topK: 5,
+            persona: 'professional',
+            businessContext: true
+          });
+          if (ragPrompt && typeof ragPrompt === 'string' && ragPrompt.length > 0) {
+            return ragPrompt;
+          }
+        }
+      } catch (e) {
+        console.warn('[TrainingAIClient] buildSystemPromptRAG falhou, usando builder síncrono:', e?.message);
+      }
+      return this._buildSystemPrompt();
+    }
+
+    /**
+     * Coleta few-shot examples aprovados/editados do whl_few_shot_examples.
+     * Esses exemplos vêm do feedback supervisionado (training UI + autopilot),
+     * então injetá-los aqui é o que faz o aprendizado retroalimentar a
+     * simulação. Retorna no formato OpenAI messages alternados user/assistant.
+     */
+    async _collectFewShotExamples(query, max = 4) {
+      try {
+        let examples = [];
+
+        // Preferência 1: módulo carregado com picker keyword/quality/recency.
+        if (typeof window !== 'undefined' && window.fewShotLearning) {
+          if (typeof window.fewShotLearning.pickRelevantExamples === 'function') {
+            const scored = window.fewShotLearning.pickRelevantExamples(query || '', max);
+            examples = scored.map(s => (s && s.example) ? s.example : s).filter(Boolean);
+          } else if (typeof window.fewShotLearning.getAll === 'function') {
+            examples = window.fewShotLearning.getAll().slice(0, max);
+          }
+        }
+
+        // Preferência 2: ler direto do storage (módulo não carregado nesta página).
+        if (!examples.length) {
+          const data = await this._getStorage(['whl_few_shot_examples']);
+          let raw = data.whl_few_shot_examples;
+          if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch (_) { raw = []; }
+          }
+          if (Array.isArray(raw) && raw.length) {
+            // Scoring inline: keyword overlap (simples) × recency boost. Sem
+            // depender do módulo full carregado. Pega os mais relevantes —
+            // e na falta de match, os mais recentes.
+            const qLower = (query || '').toLowerCase();
+            const qWords = new Set(qLower.split(/\W+/).filter(w => w.length >= 4));
+            const now = Date.now();
+            const scored = raw.map(ex => {
+              const userText = String(ex.user || ex.input || ex.question || ex.pergunta || '').toLowerCase();
+              const userWords = userText.split(/\W+/).filter(w => w.length >= 4);
+              let overlap = 0;
+              for (const w of userWords) if (qWords.has(w)) overlap++;
+              const ageDays = ex.createdAt ? Math.max(0, (now - ex.createdAt) / 86400000) : 30;
+              const recency = Math.max(0.4, 1 - ageDays / 180);
+              const quality = Number(ex.quality) || 9;
+              return { ex, score: overlap * (quality >= 10 ? 1.5 : 1) * recency };
+            });
+            scored.sort((a, b) => b.score - a.score);
+            const top = scored.slice(0, max).map(s => s.ex);
+            // Se nenhum bateu, ainda assim devolve os mais recentes pra dar
+            // contexto de estilo/persona ao LLM.
+            examples = top.some(t => t) ? top : raw.slice(-max);
+          }
+        }
+
+        if (!examples.length) return [];
+
+        // Converte cada exemplo em par (user, assistant). Suporta os dois
+        // schemas que aparecem no código: { user, assistant } (few-shot-learning)
+        // e { input, output } (training UI).
+        const pairs = [];
+        for (const ex of examples) {
+          if (!ex) continue;
+          const userText = ex.user || ex.input || ex.question || ex.pergunta;
+          const assistantText = ex.assistant || ex.output || ex.answer || ex.resposta;
+          if (!userText || !assistantText) continue;
+          pairs.push({ role: 'user', content: this._sanitizeForPrompt(String(userText), 800) });
+          pairs.push({ role: 'assistant', content: this._sanitizeForPrompt(String(assistantText), 800) });
+        }
+        return pairs;
+      } catch (e) {
+        console.warn('[TrainingAIClient] _collectFewShotExamples falhou:', e?.message);
+        return [];
+      }
+    }
 
     _buildSystemPrompt() {
       // v9.5.2: Prefer the full production prompt builder so simulation matches production behaviour.
