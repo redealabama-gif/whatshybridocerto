@@ -212,16 +212,6 @@ class TrainingApp {
       });
     }
 
-    // WhatsApp conversation upload
-    const uploadZoneWpp = document.getElementById('uploadZoneWpp');
-    const wppFileInput = document.getElementById('wppFileInput');
-
-    if (uploadZoneWpp && wppFileInput) {
-      uploadZoneWpp.addEventListener('click', () => wppFileInput.click());
-      wppFileInput.addEventListener('change', (e) => {
-        this.handleWhatsAppImport(e.target.files[0]);
-      });
-    }
   }
 
   // ============================================
@@ -1204,31 +1194,79 @@ class TrainingApp {
   }
 
   async _generateAiReply(userText) {
-    // 1ª opção: CopilotEngine no contexto da página (carregado se existir).
-    if (window.CopilotEngine?.generateResponse && window.CopilotEngine?.analyzeMessage) {
+    // training/modules/ai-client.js expõe window.AIService (complete),
+    // window.CopilotEngine (generateResponse) e window.TrainingAIClient
+    // (generateResponse). NÃO existe window.WHLAiClient — bater nesse nome
+    // disparava "Nenhum provedor de IA disponível" mesmo com tudo configurado.
+    const buildContext = (extra = {}) => ({
+      systemPrompt: 'Você é um assistente de atendimento. Responda em pt-BR, curto e útil.',
+      examples: Array.isArray(this.examples) ? this.examples.slice(0, 20) : [],
+      faqs: Array.isArray(this.faqs) ? this.faqs.slice(0, 20) : [],
+      products: Array.isArray(this.products) ? this.products.slice(0, 20) : [],
+      business: this.businessInfo || null,
+      history: Array.isArray(this._userSimHistory) ? this._userSimHistory.slice(-8) : [],
+      ...extra
+    });
+
+    // Histórico recente para dar contexto ao provider (últimas 8 trocas).
+    const history = Array.isArray(this._userSimHistory) ? this._userSimHistory.slice(-8) : [];
+    const messages = history
+      .filter(m => m && m.content)
+      .map(m => ({ role: m.role === 'executor' ? 'assistant' : 'user', content: m.content }));
+
+    // 1ª opção: AIService.complete (caminho oficial do backend / provider configurado).
+    // O wrapper em training/modules/ai-client.js espera { messages, lastMessage, temperature }.
+    // Sem `lastMessage` setado, o _callBackend manda content vazio.
+    if (window.AIService?.complete) {
       try {
-        const analysis = await window.CopilotEngine.analyzeMessage(userText, 'training-sim');
-        const r = await window.CopilotEngine.generateResponse('training-sim', analysis, {
-          skipCache: true,
-          maxTokens: 350
+        const r = await window.AIService.complete({
+          messages,
+          lastMessage: userText,
+          temperature: 0.7,
+          maxTokens: 350,
+          context: buildContext()
         });
-        if (r?.content) return r.content;
+        const content = r?.content || r?.text || r?.reply || (typeof r === 'string' ? r : null);
+        if (content) return content;
       } catch (err) {
-        console.warn('[TrainingApp] CopilotEngine falhou, tentando AIClient:', err);
+        console.warn('[TrainingApp] AIService falhou, tentando CopilotEngine:', err);
       }
     }
-    // 2ª opção: AIClient direto no backend.
-    if (window.WHLAiClient?.complete) {
-      const r = await window.WHLAiClient.complete({
-        messages: [
-          { role: 'system', content: 'Você é um assistente de atendimento. Responda em pt-BR, curto e útil.' },
-          { role: 'user', content: userText }
-        ],
-        temperature: 0.7,
-        maxTokens: 350
-      });
-      if (r?.content) return r.content;
+
+    // 2ª opção: CopilotEngine (autopilot/copilot que vive na página WhatsApp).
+    if (window.CopilotEngine?.generateResponse) {
+      try {
+        let analysis = null;
+        if (typeof window.CopilotEngine.analyzeMessage === 'function') {
+          analysis = await window.CopilotEngine.analyzeMessage(userText, 'training-sim');
+        }
+        const r = await window.CopilotEngine.generateResponse('training-sim', analysis || { text: userText }, {
+          skipCache: true,
+          maxTokens: 350,
+          context: buildContext({ userText })
+        });
+        const content = r?.content || r?.text || r?.reply;
+        if (content) return content;
+      } catch (err) {
+        console.warn('[TrainingApp] CopilotEngine falhou, tentando TrainingAIClient:', err);
+      }
     }
+
+    // 3ª opção: TrainingAIClient (cliente embarcado no training).
+    if (window.TrainingAIClient?.generateResponse) {
+      try {
+        const r = await window.TrainingAIClient.generateResponse({
+          messages,
+          lastMessage: userText,
+          temperature: 0.7
+        });
+        const content = typeof r === 'string' ? r : (r?.content || r?.text || r?.reply);
+        if (content) return content;
+      } catch (err) {
+        console.warn('[TrainingApp] TrainingAIClient falhou:', err);
+      }
+    }
+
     throw new Error('Nenhum provedor de IA disponível');
   }
 
@@ -1613,34 +1651,6 @@ class TrainingApp {
             this.examples.push(...result.items);
             await this.saveExamples();
             this.showToast(`${result.items.length} exemplos importados!`, 'success');
-          } else if (result.type === 'documents' && result.items.length > 0) {
-            // v9.5.8: PDF/free-form text chunks. Add to knowledge-base under
-            // `cannedReplies` so the RAG indexer (knowledge-base.js:indexToRAG)
-            // picks them up and they become semantically searchable in suggestions.
-            try {
-              const kbData = await chrome.storage.local.get('whl_knowledge_base');
-              const kb = kbData.whl_knowledge_base || {};
-              if (!Array.isArray(kb.cannedReplies)) kb.cannedReplies = [];
-              for (const doc of result.items) {
-                kb.cannedReplies.push({
-                  triggers: [doc.title || 'documento'],
-                  reply: doc.content,
-                  source: doc.source || 'pdf',
-                  sourceFile: doc.sourceFile || null,
-                  importedAt: Date.now(),
-                });
-              }
-              kb.lastUpdated = Date.now();
-              await chrome.storage.local.set({ whl_knowledge_base: kb });
-              // Trigger RAG re-index if knowledgeBase singleton is loaded.
-              if (window.knowledgeBase?.indexToRAG) {
-                window.knowledgeBase.indexToRAG().catch(() => {});
-              }
-              this.showToast(`${result.items.length} trechos de PDF adicionados à base de conhecimento!`, 'success');
-            } catch (e) {
-              console.error('[TrainingApp] Erro ao salvar documentos:', e);
-              this.showToast(`Erro ao salvar trechos do PDF`, 'error');
-            }
           }
 
           if (resultsDiv && resultsGrid) {
@@ -1666,48 +1676,6 @@ class TrainingApp {
 
     this.updateStats();
     this.renderAll();
-  }
-
-  async handleWhatsAppImport(file) {
-    if (!file) return;
-
-    const attendantNames = document.getElementById('attendantNames')?.value || '';
-    const names = attendantNames.split(',').map(n => n.trim()).filter(n => n);
-
-    try {
-      if (window.conversationAnalyzer) {
-        const result = await window.conversationAnalyzer.importWhatsAppExport(file);
-        this.showToast(`Conversa importada: ${result.messageCount} mensagens`, 'success');
-
-        const analysis = window.conversationAnalyzer.analyzeConversation(result.conversationId, names);
-
-        if (analysis && analysis.extractedExamples > 0) {
-          const highQuality = analysis.examples.filter(ex => ex.quality >= 7);
-          window.conversationAnalyzer.addLearnedExamples(highQuality);
-
-          this.showToast(`${highQuality.length} exemplos de alta qualidade extraídos!`, 'success');
-
-          if (confirm(`Deseja adicionar ${highQuality.length} exemplos ao treinamento?`)) {
-            this.examples.push(...highQuality.map(ex => ({
-              id: ex.id,
-              input: ex.input,
-              output: ex.output,
-              category: ex.category,
-              quality: ex.quality,
-              intent: ex.intent,
-              tags: ['imported', 'whatsapp'],
-              source: 'conversation_import'
-            })));
-            await this.saveExamples();
-            this.renderExamples();
-            this.updateStats();
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[TrainingApp] Erro ao importar WhatsApp:', error);
-      this.showToast('Erro ao importar conversa', 'error');
-    }
   }
 
   openModal(modalId) {

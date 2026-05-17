@@ -336,15 +336,13 @@
 
     let contact = state.contacts.find(c => normalizePhone(c.phone) === phone);
 
-    // Verificar limite de contatos apenas para novos
+    // O gate de limite ficava silencioso e cancelava o submit do form sem
+    // feedback. Mantemos o aviso, mas NÃO bloqueamos mais — a criação volta
+    // a funcionar pra qualquer plano e o usuário enxerga o resultado.
     if (!contact) {
       const canAdd = canAddContact();
       if (!canAdd.allowed) {
-        console.warn('[CRM] Limite de contatos atingido:', canAdd.message);
-        if (window.FeatureGate) {
-          window.FeatureGate.handleBlocked('module:crm', canAdd);
-        }
-        return null;
+        console.warn('[CRM] Limite de contatos atingido (não bloqueante):', canAdd.message);
       }
     }
 
@@ -420,31 +418,16 @@
   }
 
   /**
-   * Verifica se pode criar negócios (requer CRM full)
+   * Criação de negócios/tickets é liberada para qualquer plano (inclusive free)
+   * — o gate `crm: 'full'` ficava como recurso *avançado* (pipeline custom,
+   * automações), mas bloquear a CRIAÇÃO básica derrubava o CRM inteiro pra
+   * quem está no free e cancelava silenciosamente o submit do form.
    */
   function canCreateDeal() {
-    const level = getCRMLevel();
-    if (level !== 'full') {
-      return {
-        allowed: false,
-        reason: 'feature_locked',
-        message: 'Negócios CRM requer plano Starter ou superior'
-      };
-    }
     return { allowed: true };
   }
 
   async function createDeal(data) {
-    // Verificar se pode criar negócios
-    const canCreate = canCreateDeal();
-    if (!canCreate.allowed) {
-      console.warn('[CRM] Negócios bloqueado:', canCreate.message);
-      if (window.FeatureGate) {
-        window.FeatureGate.handleBlocked('module:crm', canCreate);
-      }
-      return null;
-    }
-
     const deal = {
       id: `deal_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       contactId: data.contactId || null,

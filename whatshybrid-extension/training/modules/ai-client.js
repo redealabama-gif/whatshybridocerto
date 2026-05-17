@@ -77,9 +77,16 @@
 
     async generateResponse(options = {}) {
       await this.init();
-      
+
       const { messages = [], lastMessage = '', temperature = 0.7 } = options;
-      
+
+      // Recarrega a base de conhecimento a cada chamada — o usuário pode ter
+      // editado FAQs/produtos depois do init() e queremos refletir isso.
+      try {
+        const fresh = await this._getStorage(['whl_knowledge_base']);
+        if (fresh.whl_knowledge_base) this.knowledgeBase = fresh.whl_knowledge_base;
+      } catch (_) { /* mantém o cache */ }
+
       // Tentar backend primeiro
       try {
         const backendResponse = await this._callBackend(messages, lastMessage);
@@ -102,18 +109,36 @@
 
     async _callBackend(messages, lastMessage) {
       if (!this.backendUrl) return null;
-      
+
       // SECURITY FIX P0-034: Sanitize lastMessage to prevent prompt injection
       const safeLastMessage = this._sanitizeForPrompt(lastMessage, 2000);
+
+      // Sem o system prompt construído da base de conhecimento, a IA
+      // responde genericamente — perdendo FAQs/produtos/business carregados.
+      const systemPrompt = this._buildSystemPrompt();
+      const incoming = Array.isArray(messages) ? messages : [];
+      const hasSystem = incoming.some(m => m && m.role === 'system');
+      const finalMessages = [
+        ...(hasSystem || !systemPrompt ? [] : [{ role: 'system', content: systemPrompt }]),
+        ...incoming,
+        { role: 'user', content: safeLastMessage }
+      ];
+
+      // Recarrega o auth token a cada chamada — o SubscriptionManager grava
+      // o JWT do master-token de forma assíncrona, então o valor que pegamos
+      // no init() pode estar desatualizado.
+      const freshAuth = await this._getStorage(['whl_auth_token', 'whl_backend_url']);
+      const authToken = freshAuth.whl_auth_token || this.authToken;
+      if (freshAuth.whl_backend_url) this.backendUrl = freshAuth.whl_backend_url;
 
       const response = await fetch(`${this.backendUrl}/api/v1/ai/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {})
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
         body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: safeLastMessage }],
+          messages: finalMessages,
           temperature: 0.7,
           maxTokens: 500,
           context: 'training'
@@ -121,7 +146,7 @@
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const data = await response.json();
       return data.content || data.text || data.message;
     }

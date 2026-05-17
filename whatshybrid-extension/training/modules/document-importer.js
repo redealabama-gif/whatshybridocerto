@@ -1,14 +1,13 @@
 /**
  * 📄 Document Importer - Importação de Documentos
- * Processa CSV, TXT, JSON, XLSX, ODS, PDF e extrai conhecimento automaticamente
+ * Processa CSV, TXT, JSON, XLSX, ODS e extrai conhecimento automaticamente
  *
  * @version 9.5.8
  */
 
 class DocumentImporter {
   constructor() {
-    // v9.5.8: XLSX (Excel/LibreOffice Calc), ODS (LibreOffice nativo) e PDF agora suportados.
-    this.supportedFormats = ['csv', 'txt', 'json', 'xlsx', 'xls', 'ods', 'pdf'];
+    this.supportedFormats = ['csv', 'txt', 'json', 'xlsx', 'xls', 'ods'];
     this.processingQueue = [];
     this.results = [];
   }
@@ -46,9 +45,6 @@ class DocumentImporter {
       case 'xls':
       case 'ods':
         result = await this.processSpreadsheet(file, extension);
-        break;
-      case 'pdf':
-        result = await this.processPDF(file);
         break;
       default:
         throw new Error(`Processador não implementado para: ${extension}`);
@@ -125,93 +121,6 @@ class DocumentImporter {
       sheetName,
       sheetCount: workbook.SheetNames.length,
     };
-  }
-
-  // ============================================
-  // v9.5.8: PDF via PDF.js
-  // ============================================
-  /**
-   * Extrai texto de PDF e tenta detectar Q&A pairs (FAQs) ou parágrafos
-   * estruturados. Texto bruto vai para 'cannedReplies' do KB se nada
-   * estruturado for detectado, alimentando o RAG.
-   */
-  async processPDF(file) {
-    const pdfjsLib = window.pdfjsLib || (window.WHL_PDFJS && window.WHL_PDFJS.lib);
-    if (!pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
-      throw new Error('Biblioteca PDF.js não carregada. Recarregue a página de treinamento.');
-    }
-
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-
-    const pages = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      // PDF.js text items don't carry line breaks reliably; we rebuild text using
-      // the y-coordinate to approximate lines (items on the same y belong to same line).
-      const lines = [];
-      let currentY = null;
-      let currentLine = [];
-      for (const item of content.items) {
-        const y = item.transform ? Math.round(item.transform[5]) : 0;
-        if (currentY === null || Math.abs(y - currentY) < 2) {
-          currentLine.push(item.str);
-          currentY = y;
-        } else {
-          if (currentLine.length) lines.push(currentLine.join(' ').trim());
-          currentLine = [item.str];
-          currentY = y;
-        }
-      }
-      if (currentLine.length) lines.push(currentLine.join(' ').trim());
-      pages.push(lines.filter(l => l.length > 0).join('\n'));
-    }
-
-    const fullText = pages.join('\n\n').replace(/[ \t]+/g, ' ').trim();
-
-    // Try to detect Q&A pairs first (very common in business FAQ PDFs).
-    const faqs = this._extractFaqPairs(fullText);
-    if (faqs.length >= 2) {
-      return { type: 'faqs', items: faqs, count: faqs.length, pages: pdf.numPages };
-    }
-
-    // Fallback: split into chunks (paragraphs >= 30 chars) and store as
-    // "knowledge documents". The training UI will add them to the KB and the
-    // RAG indexing happens automatically on save.
-    const chunks = fullText
-      .split(/\n\s*\n/)
-      .map(c => c.replace(/\s+/g, ' ').trim())
-      .filter(c => c.length >= 30);
-
-    const items = chunks.map((chunk, idx) => ({
-      id: Date.now() + idx,
-      title: `${file.name} — trecho ${idx + 1}`,
-      content: chunk,
-      source: 'pdf',
-      sourceFile: file.name,
-    }));
-
-    return { type: 'documents', items, count: items.length, pages: pdf.numPages };
-  }
-
-  /**
-   * Tenta extrair pares Pergunta/Resposta de texto livre.
-   * Suporta padrões em PT/EN: "Pergunta:"/"Resposta:", "P:"/"R:", "Q:"/"A:"
-   */
-  _extractFaqPairs(text) {
-    const pairs = [];
-    // Capture "Q:..." until next "A:..." then until next Q or end.
-    const regex = /(?:^|\n)\s*(?:pergunta|p|q|question)\s*[:\-]\s*([\s\S]+?)(?:\n|^)\s*(?:resposta|r|a|answer)\s*[:\-]\s*([\s\S]+?)(?=(?:\n\s*(?:pergunta|p|q|question)\s*[:\-])|$)/gi;
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      const question = match[1].replace(/\s+/g, ' ').trim();
-      const answer = match[2].replace(/\s+/g, ' ').trim();
-      if (question.length >= 5 && answer.length >= 5 && question.length <= 500 && answer.length <= 2000) {
-        pairs.push(this.normalizeFaq({ pergunta: question, resposta: answer }));
-      }
-    }
-    return pairs;
   }
 
   /**

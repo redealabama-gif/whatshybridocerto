@@ -339,7 +339,7 @@
             <div class="tab-content" id="tabImport">
                 <div class="content-header">
                     <h2>📄 Importação de Documentos</h2>
-                    <p>Importe CSVs, TXTs, JSONs e conversas do WhatsApp para treinar a IA.</p>
+                    <p>Importe CSVs, TXTs, JSONs e planilhas (XLSX/ODS) para treinar a IA.</p>
                 </div>
 
                 <div class="import-sections">
@@ -349,28 +349,14 @@
                         <div class="upload-zone" id="uploadZone">
                             <div class="upload-icon">📁</div>
                             <p>Arraste arquivos aqui ou clique para selecionar</p>
-                            <span class="upload-formats">Formatos aceitos: CSV, TXT, JSON, XLSX (Excel), ODS (LibreOffice), PDF</span>
-                            <input type="file" id="fileInput" accept=".csv,.txt,.json,.xlsx,.xls,.ods,.pdf" multiple hidden>
+                            <span class="upload-formats">Formatos aceitos: CSV, TXT, JSON, XLSX (Excel), ODS (LibreOffice)</span>
+                            <input type="file" id="fileInput" accept=".csv,.txt,.json,.xlsx,.xls,.ods" multiple hidden>
                         </div>
                         <div class="upload-queue" id="uploadQueue">
                             <!-- Arquivos na fila -->
                         </div>
                     </div>
 
-                    <!-- Importar Conversas do WhatsApp -->
-                    <div class="import-card">
-                        <h3>💬 Importar Conversas do WhatsApp</h3>
-                        <p>Importe histórico exportado do WhatsApp para a IA aprender.</p>
-                        <div class="upload-zone" id="uploadZoneWpp">
-                            <div class="upload-icon">📱</div>
-                            <p>Arraste o arquivo .txt exportado do WhatsApp</p>
-                            <input type="file" id="wppFileInput" accept=".txt" hidden>
-                        </div>
-                        <div class="conversation-config" style="margin-top: 1rem;">
-                            <label>Nome(s) do(s) Atendente(s) (separados por vírgula):</label>
-                            <input type="text" id="attendantNames" placeholder="Ex: João, Maria, Suporte">
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Resultados da Importação -->
@@ -571,16 +557,8 @@
     <!-- v9.5.8: SheetJS para XLSX/XLS/ODS (UMD — expõe window.XLSX) -->
     <script src="../lib/xlsx.mini.min.js"></script>
 
-    <!-- v9.5.8: PDF.js (ES module) — carregado e exposto como window.pdfjsLib pelo wrapper abaixo -->
-    <script type="module">
-      import * as pdfjsLib from '../lib/pdf.min.mjs';
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.mjs');
-      window.pdfjsLib = pdfjsLib;
-    </script>
-
     <!-- Training Modules (apenas os usados em runtime) -->
     <script src="modules/document-importer.js"></script>
-    <script src="modules/conversation-analyzer.js"></script>
 
     <!-- Main Training Script -->
     <script src="training.js"></script>
