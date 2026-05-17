@@ -65,6 +65,12 @@
         showIcon: true,
         showName: false,
         showLabel: true,
+        // Decisão de UX: stage badge era renderizado junto da label ao lado
+        // do nome do chat e ficava piscando (re-render em cascata por 3
+        // pollers: storage listener + observer + setInterval). Desabilitado
+        // por padrão; quem quiser pode habilitar via
+        // chrome.storage.local.set({whl_badge_settings: {showStage: true}}).
+        showStage: false,
         position: 'right',
         size: 'small'
     };
@@ -755,8 +761,12 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'whl-badge-wrapper-v53';
 
-        // Adicionar badge de estágio se tiver contato com estágio
-        if (contact?.stage) {
+        // Stage badge desabilitado por padrão (settings.showStage=false).
+        // Era ele que ficava piscando ao marcar etiqueta — o re-render
+        // simultâneo de 3 pollers (storage + observer + interval) causava
+        // o flicker visual. Decisão do usuário: remover exibição,
+        // manter só a etiqueta.
+        if (settings.showStage && contact?.stage) {
             const stage = stageMap[contact.stage];
             if (stage) {
                 const stageBadge = createStageBadge(stage, contact);
@@ -878,7 +888,9 @@
         wrapper.className = 'whl-header-badge-wrapper whl-badge-wrapper-v53';
         wrapper.style.cssText = 'display:inline-flex;gap:6px;align-items:center;margin-left:8px;';
 
-        if (contact?.stage) {
+        // Stage badge desabilitado (settings.showStage=false por padrão).
+        // Mesma decisão da renderização na lista de chats — só etiqueta.
+        if (settings.showStage && contact?.stage) {
             const stage = stageMap[contact.stage];
             if (stage) wrapper.appendChild(createStageBadge(stage, contact));
         }

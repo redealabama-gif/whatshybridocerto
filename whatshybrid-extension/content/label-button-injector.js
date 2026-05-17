@@ -57,10 +57,15 @@
                     state.contactLabels = result[STORAGE_KEY].contactLabels || {};
                     state.settings = result[STORAGE_KEY].settings || {};
                 } else {
-                    // Inicializar com labels padrão
+                    // Inicializa state em memória com defaults mas NÃO escreve
+                    // no storage. O saveState antigo aqui era a fonte real do
+                    // "etiqueta some no F5": em alguns timings o storage volta
+                    // {} no get, e esse saveState zerava as etiquetas reais
+                    // que outro módulo (modules/labels.js) tinha acabado de
+                    // gravar. Sem write inicial, primeira interação real do
+                    // usuário (toggleLabel) é quem persiste.
                     state.labels = DEFAULT_LABELS;
                     state.contactLabels = {};
-                    saveState();
                 }
                 console.log('[LabelBtn] Estado carregado:', state.labels.length, 'etiquetas,', Object.keys(state.contactLabels).length, 'contatos');
                 resolve();
@@ -70,14 +75,24 @@
 
     async function saveState() {
         return new Promise(resolve => {
-            const data = {
-                labels: state.labels,
-                contactLabels: state.contactLabels,
-                settings: state.settings
-            };
-            chrome.storage.local.set({ [STORAGE_KEY]: data }, () => {
-                console.log('[LabelBtn] Estado salvo');
-                resolve();
+            // MERGE — não overwrite. Lê o storage atual primeiro pra
+            // preservar campos gravados por modules/labels.js (lastUpdated,
+            // settings extras), depois aplica nossas alterações.
+            chrome.storage.local.get([STORAGE_KEY], existing => {
+                const current = existing[STORAGE_KEY] || {};
+                const data = {
+                    ...current,
+                    labels: state.labels,
+                    contactLabels: state.contactLabels,
+                    settings: { ...(current.settings || {}), ...(state.settings || {}) },
+                    // Carimbo permite que modules/labels.js#chrome.storage.onChanged
+                    // identifique writes que valem o trabalho de re-render.
+                    lastUpdated: Date.now()
+                };
+                chrome.storage.local.set({ [STORAGE_KEY]: data }, () => {
+                    console.log('[LabelBtn] Estado salvo');
+                    resolve();
+                });
             });
         });
     }
