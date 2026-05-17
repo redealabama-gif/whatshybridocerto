@@ -995,15 +995,54 @@
             // v9.3.2 FIX: quando dados mudam (usuário marcou contato com nova cor),
             // força repaint imediato em vez de esperar debounce (150ms parece pouco
             // mas em listas com 1000+ chats o usuário percebe lag visual).
+            //
+            // v9.6.x FIX (anti-flicker): coalescing — múltiplos writes em
+            // sequência (CRM atualiza state + Labels save → 2 storage events
+            // back-to-back) faziam 2 ciclos removeAll+update em <100ms, o
+            // que o usuário via como "estágio piscando" ao marcar etiqueta.
+            // Agrupa via debounce curto + cancela ciclos pendentes/intervalo
+            // enquanto o repaint forçado está em curso.
             if (needsForcedRepaint) {
-                // Limpa todos os badges antes pra evitar duplicação
-                removeAllBadges();
-                // Usa requestAnimationFrame pra coalescer com próximo paint do browser
-                requestAnimationFrame(() => updateAllBadges());
+                scheduleForcedRepaint();
             } else {
                 scheduleUpdate();
             }
         });
+    }
+
+    let _forcedRepaintTimer = null;
+    let _forcedRepaintInFlight = false;
+    function scheduleForcedRepaint() {
+        if (_forcedRepaintInFlight) return; // já vai repintar, não duplica
+        if (_forcedRepaintTimer) clearTimeout(_forcedRepaintTimer);
+        _forcedRepaintTimer = setTimeout(() => {
+            _forcedRepaintTimer = null;
+            _forcedRepaintInFlight = true;
+            // Pausa o interval de recheck durante o repaint — sem isso ele
+            // entrava no meio do removeAll e o usuário via flicker.
+            const savedInterval = badgeUpdateInterval;
+            if (savedInterval) {
+                clearInterval(savedInterval);
+                badgeUpdateInterval = null;
+            }
+            try {
+                removeAllBadges();
+                requestAnimationFrame(() => {
+                    updateAllBadges();
+                    _forcedRepaintInFlight = false;
+                    // Reinicia o interval normal
+                    if (!badgeUpdateInterval) {
+                        badgeUpdateInterval = setInterval(updateAllBadges, CONFIG.RECHECK_INTERVAL);
+                    }
+                });
+            } catch (e) {
+                _forcedRepaintInFlight = false;
+                if (!badgeUpdateInterval) {
+                    badgeUpdateInterval = setInterval(updateAllBadges, CONFIG.RECHECK_INTERVAL);
+                }
+                throw e;
+            }
+        }, 80); // janela curta pra coalescer storage events back-to-back
     }
 
     // ============================================
