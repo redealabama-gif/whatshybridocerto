@@ -39,7 +39,7 @@ if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
   // concatenated into wpp-hooks.js they produce
   // SyntaxError: Invalid or unexpected token at the page-world load —
   // which silently breaks every require()-based feature that depends on
-  // window.whl_hooks_* (extrairContatos, presence hooks, view-once, etc).
+  // window.whl_hooks_* (extrairContatos, presence hooks, etc).
   const parts = fs.readdirSync(partsDir)
     .filter(f => f.endsWith('.js') && !f.startsWith('._'))
     .sort();
@@ -285,7 +285,6 @@ async function build() {
     for (const r of [
       'injected/wa-page-bridge.js',
       'injected/whl-privacy-shield.js',
-      'injected/whl-view-once.js',
     ]) {
       if (!manifest.web_accessible_resources[0].resources.includes(r)) {
         manifest.web_accessible_resources[0].resources.push(r);

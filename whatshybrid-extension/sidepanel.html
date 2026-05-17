@@ -250,31 +250,11 @@
           <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_status_dl_slider"></span>
         </label>
       </div>
-      <!-- View Once Saver -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.2)">
-        <div>
-          <div style="font-size:12px;font-weight:500;color:var(--mod-text)">👁️ Salvar mídias "Ver Uma Vez"</div>
-          <div style="font-size:10px;color:var(--mod-text-muted);margin-top:2px">Captura antes da expiração automática</div>
-        </div>
-        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
-          <input type="checkbox" id="whl_toggle_view_once" style="opacity:0;width:0;height:0">
-          <span style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s" id="whl_toggle_view_once_slider"></span>
-        </label>
-      </div>
     </div>
     <!-- Dispositivo do remetente info -->
     <div style="margin-top:8px;padding:6px 8px;background:rgba(0,0,0,0.06);border-radius:6px;font-size:10px;color:var(--mod-text-muted)">
       💡 <b>Novo:</b> mensagens recuperadas agora exibem 📱 Celular ou 💻 Computador como indicador do dispositivo remetente.
     </div>
-  </div>
-
-  <!-- View Once Salvas -->
-  <div class="sp-card" id="whl_view_once_card" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;font-weight:600;color:var(--mod-text)">👁️ Mídias "Ver Uma Vez" Salvas</div>
-      <button id="whl_view_once_refresh" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:4px 8px;font-size:10px">🔄</button>
-    </div>
-    <div id="whl_view_once_list" style="font-size:11px;color:var(--mod-text-muted)">Nenhuma mídia salva ainda.</div>
   </div>
 
   <!-- Estatísticas -->
@@ -300,10 +280,6 @@
         <div style="font-size: 16px; font-weight: 700; color: #fbbf24;" id="stat_favorites">0</div>
         <div style="font-size: 9px; color: var(--mod-text-muted);">⭐ Favoritos</div>
       </div>
-      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center;">
-        <div style="font-size: 16px; font-weight: 700; color: #f59e0b;" id="stat_view_once">0</div>
-        <div style="font-size: 9px; color: var(--mod-text-muted);">👁️ Ver 1x</div>
-      </div>
     </div>
   </div>
 
@@ -323,7 +299,6 @@
       <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="deleted" style="padding:5px 10px;font-size:10px">🗑️ Apagadas</button>
       <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="edited" style="padding:5px 10px;font-size:10px">✏️ Editadas</button>
       <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="media" style="padding:5px 10px;font-size:10px">📎 Mídia</button>
-      <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="view_once" style="padding:5px 10px;font-size:10px">👁️ Ver 1x</button>
       <button class="sp-btn sp-btn-secondary sp-btn-sm recover-filter" data-filter="favorites" style="padding:5px 10px;font-size:10px">⭐ Favoritos</button>
     </div>
     

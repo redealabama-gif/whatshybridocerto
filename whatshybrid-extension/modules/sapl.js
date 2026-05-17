@@ -72,8 +72,7 @@
       'whl_hooks',
       'recover',
       'privacy_shield',
-      'status_download',
-      'view_once_saver'
+      'status_download'
     ],
 
     // Silent failure
@@ -574,11 +573,6 @@
         return window.WHL_StatusDownload
           ? { ok: true }
           : { ok: false, reason: 'WHL_StatusDownload não encontrado', severity: 'warning' };
-
-      case 'view_once_saver':
-        return window.WHL_ViewOnceSaver
-          ? { ok: true }
-          : { ok: false, reason: 'WHL_ViewOnceSaver não encontrado', severity: 'warning' };
 
       default:
         return window[modId] ? { ok: true } : { ok: false, reason: 'Não encontrado', severity: 'warning' };
