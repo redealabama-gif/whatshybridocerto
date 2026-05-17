@@ -21,12 +21,20 @@
     { name: 'NotificationsModule', global: 'NotificationsModule', priority: 20 },
     { name: 'AnalyticsModule', global: 'AnalyticsModule', priority: 30 },
     { name: 'ContactManager', global: 'ContactManager', priority: 35 },
+    // LabelsModule precisa inicializar ANTES de CRMModule. O CRM no init
+    // chama syncWithBackend que mexe em whl_labels_v2 (mesmo store das
+    // etiquetas). Se o Labels ainda não terminou de hidratar o state em
+    // memória a partir do storage, qualquer write subsequente do CRM
+    // dispara o chrome.storage.onChanged listener do labels — recarrega
+    // state — e o que era state válido vira state estale. Sintoma:
+    // F5 → etiquetas somem (close+reopen não dispara porque o boot é
+    // mais lento e os módulos têm tempo de hidratar antes do sync).
+    { name: 'LabelsModule', global: 'LabelsModule', priority: 38 },
     { name: 'CRMModule', global: 'CRMModule', priority: 40 },
     { name: 'TasksModule', global: 'TasksModule', priority: 50 },
     { name: 'CampaignManager', global: 'CampaignManager', priority: 55 },
     { name: 'SmartRepliesModule', global: 'SmartRepliesModule', priority: 60 },
     { name: 'SubscriptionModule', global: 'SubscriptionModule', priority: 70 },
-    { name: 'LabelsModule', global: 'LabelsModule', priority: 80 },
     { name: 'BusinessIntelligence', global: 'BusinessIntelligence', priority: 85 },
     { name: 'TrainingDebugTools', global: 'TrainingDebugTools', priority: 90 },
     // Módulos originais v7.8.0

@@ -1704,7 +1704,29 @@ function showView(viewName) {
       } catch (_) {}
       await recoverRefresh(false);
     });
-    
+
+    // Paginação — antes os botões existiam no HTML (recover_prev_page /
+    // recover_next_page) mas estavam órfãos, sem listener. RecoverAdvanced
+    // já expõe nextPage()/prevPage(); só faltava conectar.
+    const bindPaging = (btnId, action) => {
+      const btn = $(btnId);
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        try {
+          if (action === 'next' && window.RecoverAdvanced?.nextPage) {
+            window.RecoverAdvanced.nextPage();
+          } else if (action === 'prev' && window.RecoverAdvanced?.prevPage) {
+            window.RecoverAdvanced.prevPage();
+          }
+        } catch (_) {}
+        await recoverRefresh(false);
+      });
+    };
+    bindPaging('recover_prev_page', 'prev');
+    bindPaging('recover_next_page', 'next');
+    bindPaging('recover_prev_page_2', 'prev');
+    bindPaging('recover_next_page_2', 'next');
+
     // FASE 4: Snapshot button
     $('recover_snapshot')?.addEventListener('click', async () => {
       const btn = $('recover_snapshot');
@@ -2274,11 +2296,22 @@ function showView(viewName) {
           chatFilter.value = currentValue;
         }
         
-        // Paginação
-        const pageResult = window.RecoverAdvanced.getPage?.() || { page: 0, totalPages: 1 };
+        // Paginação — atualiza info + estado disabled/enabled dos botões.
+        // Sem isso o usuário não tem feedback visual quando chega no fim
+        // (botão "Próxima ▶" continuava aparentemente clicável e sem efeito).
+        const pageResult = window.RecoverAdvanced.getPage?.() || { page: 0, totalPages: 1, hasNext: false, hasPrev: false };
         const pageInfo = $('recover_page_info');
         if (pageInfo) pageInfo.textContent = `Página ${pageResult.page + 1} de ${pageResult.totalPages || 1}`;
-        
+        ['recover_prev_page', 'recover_prev_page_2'].forEach(id => {
+          const btn = $(id);
+          if (btn) btn.disabled = !pageResult.hasPrev;
+        });
+        ['recover_next_page', 'recover_next_page_2'].forEach(id => {
+          const btn = $(id);
+          if (btn) btn.disabled = !pageResult.hasNext;
+        });
+
+
       } else {
         // Fallback: motor tradicional
         const resp = await motor('GET_RECOVER_HISTORY');
@@ -2699,7 +2732,7 @@ function showView(viewName) {
             <!-- Header: De → Para + Badge -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
               <span style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9);">
-                ${escapeHtml(from)}${to ? ` → ${escapeHtml(to)}` : ''}${h?.deviceIcon ? ` <span title="${h.deviceType === 'phone' ? 'Enviado pelo celular' : 'Enviado pelo computador'}" style="font-size:11px;opacity:0.75">${h.deviceIcon}</span>` : ''}
+                ${escapeHtml(from)}${to ? ` → ${escapeHtml(to)}` : ''}
               </span>
               <span class="${style.badgeClass}" style="font-size: 9px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
                 ${getBadgeText(action)}
@@ -3449,21 +3482,30 @@ function showView(viewName) {
   async function saveDraft() {
     const nameEl = $('sp_draft_name');
     const name = (nameEl?.value || '').trim();
-    
+
     if (!name) {
       alert('⚠️ Informe o nome do template.');
       return;
     }
-    
+
+    // Tenta puxar o estado atual do content script (mensagem, fila, imagem).
+    // Antes: motor() throw fazia o catch geral capturar e o usuário via
+    // "Erro ao salvar template: ...". Se a aba ativa NÃO for WhatsApp Web
+    // (ex.: chrome://newtab, painel aberto em outra página), motor não
+    // responde — mas o usuário ainda quer poder salvar um template vazio
+    // só com o NOME. Agora tratamos o motor como best-effort.
+    let st = {};
     try {
-      // Get current state from motor
       const resp = await motor('GET_STATE', { light: false });
-      const st = resp?.state || resp;
-      
-      // Save template to storage
+      st = resp?.state || resp || {};
+    } catch (e) {
+      console.warn('[Sidepanel] saveDraft: motor() falhou, salvando template só com o nome:', e?.message || e);
+    }
+
+    try {
       const templates = await chrome.storage.local.get('whl_templates') || {};
-      const templatesList = templates.whl_templates || [];
-      
+      const templatesList = Array.isArray(templates.whl_templates) ? templates.whl_templates : [];
+
       const template = {
         name: name,
         message: st.message || '',
@@ -3473,8 +3515,7 @@ function showView(viewName) {
         delayMax: st.delayMax || 6,
         savedAt: new Date().toISOString()
       };
-      
-      // Check if template with same name exists
+
       const existingIndex = templatesList.findIndex(t => t.name === name);
       if (existingIndex >= 0) {
         if (!confirm(`Template "${name}" já existe. Substituir?`)) {
@@ -3484,14 +3525,14 @@ function showView(viewName) {
       } else {
         templatesList.push(template);
       }
-      
+
       await chrome.storage.local.set({ whl_templates: templatesList });
-      
+
       if (nameEl) nameEl.value = '';
       alert('✅ Template salvo com sucesso!');
     } catch (error) {
       console.error('[Sidepanel] Erro ao salvar template:', error);
-      alert('❌ Erro ao salvar template: ' + error.message);
+      alert('❌ Erro ao salvar template: ' + (error?.message || error));
     }
   }
   

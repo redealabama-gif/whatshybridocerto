@@ -251,10 +251,6 @@
         </label>
       </div>
     </div>
-    <!-- Dispositivo do remetente info -->
-    <div style="margin-top:8px;padding:6px 8px;background:rgba(0,0,0,0.06);border-radius:6px;font-size:10px;color:var(--mod-text-muted)">
-      💡 <b>Novo:</b> mensagens recuperadas agora exibem 📱 Celular ou 💻 Computador como indicador do dispositivo remetente.
-    </div>
   </div>
 
   <!-- Estatísticas -->
@@ -314,22 +310,6 @@
     <div class="sp-row" style="margin-top:8px;gap:4px">
       <button id="sp_download_all_recover" class="sp-btn sp-btn-secondary sp-btn-sm" style="flex:1;padding:6px;font-size:10px">💾 Exportar JSON</button>
     </div>
-  </div>
-
-  <!-- Configurações de Notificação -->
-  <div class="sp-card">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sp-title" style="margin:0;font-size:13px">🔔 Notificações Desktop</div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:11px">
-        <input type="checkbox" id="recover_notifications_enabled" style="width:16px;height:16px">
-        <span>Ativar</span>
-      </label>
-    </div>
-    <div class="sp-row" style="margin-top:8px;gap:6px">
-      <input type="text" id="recover_notify_contact" class="sp-input" placeholder="Número específico (ex: 5521...)" style="flex:1;padding:6px;font-size:11px">
-      <button id="recover_add_notify_contact" class="sp-btn sp-btn-secondary sp-btn-sm" style="padding:6px 10px">➕</button>
-    </div>
-    <div id="recover_notify_contacts_list" style="margin-top:6px;font-size:10px;color:var(--mod-text-muted)"></div>
   </div>
 
   <!-- Timeline -->
@@ -459,65 +439,6 @@
     </div>
     
     <div id="sp_antiban_status" class="sp-status"></div>
-  </div>
-
-  <div class="sp-card">
-    <div class="sp-title">🔔 Notificações</div>
-    <div class="sp-muted">Alertas desktop para eventos importantes.</div>
-    
-    <label class="sp-checkbox">
-      <input type="checkbox" id="sp_enable_notifications" checked>
-      <span>Ativar notificações desktop</span>
-    </label>
-    
-    <label class="sp-checkbox">
-      <input type="checkbox" id="sp_enable_sounds" checked>
-      <span>Ativar sons</span>
-    </label>
-    
-    <button id="sp_test_notification" class="sp-btn sp-btn-secondary" style="margin-top:8px">🔔 Testar Notificação</button>
-    <div id="sp_notification_status" class="sp-status"></div>
-  </div>
-
-  <!-- Text-to-Speech Settings -->
-  <div class="sp-card">
-    <div class="sp-title">🔊 Leitura de Mensagens (TTS)</div>
-    <div class="sp-muted">Ouça mensagens em voz alta. Útil para acessibilidade ou multitarefa.</div>
-    
-    <label class="sp-checkbox" style="margin-top:10px">
-      <input type="checkbox" id="sp_tts_enabled" checked>
-      <span>Ativar Text-to-Speech</span>
-    </label>
-    
-    <label class="sp-label" style="margin-top:10px">🎚️ Velocidade</label>
-    <div style="display:flex;align-items:center;gap:10px">
-      <input type="range" id="sp_tts_speed" min="0.5" max="2" step="0.1" value="1" style="flex:1">
-      <span id="sp_tts_speed_value" style="min-width:40px;text-align:center">1.0x</span>
-    </div>
-    
-    <label class="sp-label" style="margin-top:10px">🔉 Volume</label>
-    <div style="display:flex;align-items:center;gap:10px">
-      <input type="range" id="sp_tts_volume" min="0" max="1" step="0.1" value="1" style="flex:1">
-      <span id="sp_tts_volume_value" style="min-width:40px;text-align:center">100%</span>
-    </div>
-    
-    <label class="sp-label" style="margin-top:10px">🗣️ Voz</label>
-    <select id="sp_tts_voice" class="sp-input">
-      <option value="">Carregando vozes...</option>
-    </select>
-    
-    <div class="sp-row" style="margin-top:12px;gap:8px">
-      <button id="sp_tts_test" class="sp-btn sp-btn-secondary" style="flex:1">🔊 Testar Voz</button>
-      <button id="sp_tts_read_last" class="sp-btn sp-btn-primary" style="flex:1">📖 Ler Última Mensagem</button>
-    </div>
-    
-    <div id="sp_tts_status" class="sp-status" style="margin-top:8px"></div>
-    
-    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px">
-      <div style="font-size:11px;color:rgba(255,255,255,0.6)">
-        💡 <b>Dica:</b> Clique com botão direito em qualquer mensagem e selecione "🔊 Ler mensagem" para ouvir.
-      </div>
-    </div>
   </div>
 
   <div class="sp-card">
@@ -729,13 +650,6 @@
     <div class="sp-muted">Organize seus contatos com etiquetas personalizadas.</div>
     <div id="labels_manager_container" style="margin-top:12px">
       <!-- Labels serão renderizadas aqui -->
-    </div>
-  </div>
-
-  <div class="sp-card">
-    <div class="sp-title">📜 Atividades Recentes</div>
-    <div id="crm_activities_container">
-      <!-- Timeline será renderizada aqui -->
     </div>
   </div>
 </section>

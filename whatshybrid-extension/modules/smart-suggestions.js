@@ -355,35 +355,60 @@
   // INTEGRAÇÃO COM AIService
   // ============================================
 
-  // Sobrescrever AIService.generateResponse se não tiver provider configurado
+  // Sobrescrever AIService.generateResponse — APENAS quando NÃO existir
+  // nenhum provider OU backend disponível. O patch antigo era agressivo
+  // demais: gateava só por `getConfiguredProviders().length > 0`, que volta
+  // [] em vários cenários comuns (configuração via backend, cache frio,
+  // master-token só salvo no whl_auth_token sem refresh do AIService).
+  // Resultado: AIService real era pulado e o usuário via canned templates
+  // ("Entendi, posso ajudar com mais alguma informação?") apesar do
+  // backend estar perfeitamente acessível.
   function patchAIService() {
     if (!window.AIService) return;
 
     const originalGenerateResponse = window.AIService.generateResponse;
     const originalGenerateText = window.AIService.generateText;
 
-    // Verificar se há providers configurados
-    const hasProviders = () => {
+    // Verificação mais inteligente: tem provider local OU backend OK OU
+    // master-token persistido. Qualquer um desses == NÃO usar fallback.
+    const hasAnyAIPath = () => {
       try {
         const providers = window.AIService.getConfiguredProviders?.();
-        return providers && providers.length > 0;
-      } catch {
-        return false;
-      }
+        if (providers && providers.length > 0) return true;
+      } catch (_) { /* segue */ }
+      try {
+        if (window.BackendClient && typeof window.BackendClient.isConnected === 'function' && window.BackendClient.isConnected()) return true;
+      } catch (_) { /* segue */ }
+      try {
+        if (window.CopilotEngine && typeof window.CopilotEngine.generateResponse === 'function') return true;
+      } catch (_) { /* segue */ }
+      return false;
     };
 
     // Patch generateResponse
     window.AIService.generateResponse = async function(message, context = [], options = {}) {
-      if (hasProviders()) {
+      // Sempre tenta o AIService real PRIMEIRO. Só cai no fallback canned
+      // se o original throw E não houver nenhuma alternativa viva. Com isto,
+      // se o backend está só temporariamente em 429 e o originalGenerateResponse
+      // joga, ainda tentamos via fallback — mas se o backend funciona, o
+      // usuário vê resposta coerente do provider real.
+      if (originalGenerateResponse) {
         try {
-          return await originalGenerateResponse.call(this, message, context, options);
+          const r = await originalGenerateResponse.call(this, message, context, options);
+          if (r && (r.content || r.text)) return r;
         } catch (error) {
-          log('AIService falhou, usando fallback local:', error.message);
+          log('AIService.generateResponse falhou:', error.message);
         }
       }
 
-      // Fallback para sugestões locais
-      log('Usando SmartSuggestions como fallback');
+      // Só agora cai no canned local — e mesmo assim só se não há
+      // NENHUM caminho de IA viva (provider + backend + copilot todos off).
+      if (hasAnyAIPath()) {
+        // Há caminho mas falhou — propaga erro pra UI mostrar real
+        throw new Error('IA temporariamente indisponível');
+      }
+
+      log('Usando SmartSuggestions como fallback (nenhum provider/backend disponível)');
       const suggestion = getSuggestion(message, context);
       return {
         content: suggestion.text,
@@ -394,13 +419,14 @@
       };
     };
 
-    // Patch generateText
+    // Patch generateText — mesma lógica
     window.AIService.generateText = async function(prompt, options = {}) {
-      if (hasProviders()) {
+      if (originalGenerateText) {
         try {
-          return await originalGenerateText.call(this, prompt, options);
+          const r = await originalGenerateText.call(this, prompt, options);
+          if (r && (r.content || r.text)) return r;
         } catch (error) {
-          log('AIService falhou, usando fallback local:', error.message);
+          log('AIService.generateText falhou:', error.message);
         }
       }
 

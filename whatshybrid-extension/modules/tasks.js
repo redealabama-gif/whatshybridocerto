@@ -731,7 +731,7 @@
       ">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h3 style="margin:0;font-size:18px;">${isEdit ? '✏️ Editar Tarefa' : '➕ Nova Tarefa'}</h3>
-          <button onclick="document.getElementById('task-modal').remove()" style="
+          <button data-task-modal-close="x" style="
             background:none;
             border:none;
             font-size:20px;
@@ -865,7 +865,7 @@
           </div>
 
           <div style="display:flex;gap:8px;margin-top:8px;">
-            <button type="button" onclick="document.getElementById('task-modal').remove()" style="
+            <button type="button" data-task-modal-close="cancel" style="
               flex:1;
               padding:12px;
               background:rgba(255,255,255,0.1);
@@ -890,6 +890,13 @@
     `;
 
     document.body.appendChild(modal);
+
+    // Wire close buttons (CSP MV3 bloqueia onclick inline em HTML injetado
+    // via innerHTML — por isso os botões ❌ e Cancelar ficavam mortos
+    // mesmo o trigger "Nova Tarefa" abrindo OK).
+    modal.querySelectorAll('[data-task-modal-close]').forEach(btn => {
+      btn.addEventListener('click', () => modal.remove());
+    });
 
     // Submit handler
     document.getElementById('task-form').addEventListener('submit', async (e) => {

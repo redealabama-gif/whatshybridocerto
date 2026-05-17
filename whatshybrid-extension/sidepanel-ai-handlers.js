@@ -496,7 +496,13 @@
 
   // Escuta eventos do sistema
   if (window.EventBus) {
+    // level-changed só dispara quando o score cruza threshold (30/50/70/90).
+    // Sem score-changed, a UI ficava em 0% por toda a fase "beginner" mesmo
+    // com aprovações subindo o score (ex.: 0 → 25 não disparava nada porque
+    // ainda estava no nível "beginner"). score-changed dispara em qualquer
+    // delta — UI fica realmente em tempo real.
     window.EventBus.on('confidence:level-changed', updateConfidenceUI);
+    window.EventBus.on('confidence:score-changed', updateConfidenceUI);
     window.EventBus.on('confidence:feedback', updateStats);
     window.EventBus.on('training-stats:updated', updateStats);
     window.EventBus.on('knowledge-base:updated', () => {

@@ -65,6 +65,12 @@
         showIcon: true,
         showName: false,
         showLabel: true,
+        // Decisão de UX: stage badge era renderizado junto da label ao lado
+        // do nome do chat e ficava piscando (re-render em cascata por 3
+        // pollers: storage listener + observer + setInterval). Desabilitado
+        // por padrão; quem quiser pode habilitar via
+        // chrome.storage.local.set({whl_badge_settings: {showStage: true}}).
+        showStage: false,
         position: 'right',
         size: 'small'
     };
@@ -755,8 +761,12 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'whl-badge-wrapper-v53';
 
-        // Adicionar badge de estágio se tiver contato com estágio
-        if (contact?.stage) {
+        // Stage badge desabilitado por padrão (settings.showStage=false).
+        // Era ele que ficava piscando ao marcar etiqueta — o re-render
+        // simultâneo de 3 pollers (storage + observer + interval) causava
+        // o flicker visual. Decisão do usuário: remover exibição,
+        // manter só a etiqueta.
+        if (settings.showStage && contact?.stage) {
             const stage = stageMap[contact.stage];
             if (stage) {
                 const stageBadge = createStageBadge(stage, contact);
@@ -878,7 +888,9 @@
         wrapper.className = 'whl-header-badge-wrapper whl-badge-wrapper-v53';
         wrapper.style.cssText = 'display:inline-flex;gap:6px;align-items:center;margin-left:8px;';
 
-        if (contact?.stage) {
+        // Stage badge desabilitado (settings.showStage=false por padrão).
+        // Mesma decisão da renderização na lista de chats — só etiqueta.
+        if (settings.showStage && contact?.stage) {
             const stage = stageMap[contact.stage];
             if (stage) wrapper.appendChild(createStageBadge(stage, contact));
         }
@@ -995,15 +1007,54 @@
             // v9.3.2 FIX: quando dados mudam (usuário marcou contato com nova cor),
             // força repaint imediato em vez de esperar debounce (150ms parece pouco
             // mas em listas com 1000+ chats o usuário percebe lag visual).
+            //
+            // v9.6.x FIX (anti-flicker): coalescing — múltiplos writes em
+            // sequência (CRM atualiza state + Labels save → 2 storage events
+            // back-to-back) faziam 2 ciclos removeAll+update em <100ms, o
+            // que o usuário via como "estágio piscando" ao marcar etiqueta.
+            // Agrupa via debounce curto + cancela ciclos pendentes/intervalo
+            // enquanto o repaint forçado está em curso.
             if (needsForcedRepaint) {
-                // Limpa todos os badges antes pra evitar duplicação
-                removeAllBadges();
-                // Usa requestAnimationFrame pra coalescer com próximo paint do browser
-                requestAnimationFrame(() => updateAllBadges());
+                scheduleForcedRepaint();
             } else {
                 scheduleUpdate();
             }
         });
+    }
+
+    let _forcedRepaintTimer = null;
+    let _forcedRepaintInFlight = false;
+    function scheduleForcedRepaint() {
+        if (_forcedRepaintInFlight) return; // já vai repintar, não duplica
+        if (_forcedRepaintTimer) clearTimeout(_forcedRepaintTimer);
+        _forcedRepaintTimer = setTimeout(() => {
+            _forcedRepaintTimer = null;
+            _forcedRepaintInFlight = true;
+            // Pausa o interval de recheck durante o repaint — sem isso ele
+            // entrava no meio do removeAll e o usuário via flicker.
+            const savedInterval = badgeUpdateInterval;
+            if (savedInterval) {
+                clearInterval(savedInterval);
+                badgeUpdateInterval = null;
+            }
+            try {
+                removeAllBadges();
+                requestAnimationFrame(() => {
+                    updateAllBadges();
+                    _forcedRepaintInFlight = false;
+                    // Reinicia o interval normal
+                    if (!badgeUpdateInterval) {
+                        badgeUpdateInterval = setInterval(updateAllBadges, CONFIG.RECHECK_INTERVAL);
+                    }
+                });
+            } catch (e) {
+                _forcedRepaintInFlight = false;
+                if (!badgeUpdateInterval) {
+                    badgeUpdateInterval = setInterval(updateAllBadges, CONFIG.RECHECK_INTERVAL);
+                }
+                throw e;
+            }
+        }, 80); // janela curta pra coalescer storage events back-to-back
     }
 
     // ============================================

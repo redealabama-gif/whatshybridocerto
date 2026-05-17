@@ -280,13 +280,23 @@
   }
 
   function isDeletedMessage(element, text = '') {
-    // Verificar por ícone de mensagem apagada
+    // Verificar por ícone de mensagem apagada — escopo :scope evita pegar
+    // ícones de mensagens vizinhas se element for um wrapper.
     if (findElement(element, SELECTORS.DELETED_INDICATORS)) {
       return true;
     }
 
-    // Verificar por texto de mensagem apagada
-    const msgText = text || element.textContent || '';
+    // Verificar por texto — IMPORTANTE: usar APENAS o texto direto da
+    // mensagem, NÃO element.textContent inteiro. Quando uma mensagem
+    // responde a uma apagada, o quote dentro do bubble contém "Esta
+    // mensagem foi apagada" e fazia toda mensagem-resposta virar "apagada".
+    let msgText = text;
+    if (!msgText) {
+      const textEl = findElement(element, SELECTORS.MESSAGE_TEXT);
+      msgText = textEl?.textContent?.trim() || '';
+    }
+    if (!msgText) return false;
+
     for (const pattern of SELECTORS.DELETED_TEXT_PATTERNS) {
       if (msgText.includes(pattern)) {
         return true;
