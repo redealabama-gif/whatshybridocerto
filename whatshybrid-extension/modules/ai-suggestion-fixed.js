@@ -306,9 +306,15 @@
       if (window.WHLAssistants && typeof window.WHLAssistants.pickAssistant === 'function') {
         const profile = window.aiMemoryAdvanced?.getProfile?.(chatId);
         const picked = window.WHLAssistants.pickAssistant(transcript, lastUserMsg, profile);
-        if (picked) {
+        // Validação defensiva: pickAssistant pode retornar truthy mas com
+        // propriedades faltando (objeto vazio, sem name/promptAddition). O
+        // acesso direto a picked.name causava TypeError "Cannot read
+        // properties of undefined (reading 'name')" no console, abortando
+        // a construção do prompt e fazendo a IA cair pro fallback.
+        if (picked && picked.name && picked.promptAddition) {
           specialistPicked = picked;
-          systemParts.push(`ASSISTENTE ESPECIALIZADO ATIVADO: ${picked.name} (confiança ${Math.round(picked.confidence * 100)}%)\n${picked.promptAddition}`);
+          const conf = typeof picked.confidence === 'number' ? Math.round(picked.confidence * 100) : 0;
+          systemParts.push(`ASSISTENTE ESPECIALIZADO ATIVADO: ${picked.name} (confiança ${conf}%)\n${picked.promptAddition}`);
           state.lastAssistantUsed = picked.id;
           if (window.EventBus) {
             window.EventBus.emit('ai:assistant:picked', { assistantId: picked.id, confidence: picked.confidence, chatId });
@@ -1337,16 +1343,57 @@ Responda APENAS com o texto da sugestão:`;
       });
     }
 
+    // Sugestão + 2 botões claros: ✏️ Editar (insere e deixa cursor para
+    // o usuário ajustar antes de enviar) e ✅ Aprovar (insere direto no
+    // composer). Antes só tinha "Clique para inserir" (não-óbvio) e o
+    // usuário pediu botões dedicados. CSP MV3 compliant — sem onclick
+    // inline, listeners via addEventListener.
     body.innerHTML = `
-      <div class="whl-ai-suggestion" id="whl-ai-sug-text">
+      <div class="whl-ai-suggestion" id="whl-ai-sug-text" title="Clique para aprovar e inserir">
         ${escapeHtml(text)}
       </div>
-      <div class="whl-ai-hint">
-        Clique para inserir no chat
+      <div class="whl-ai-actions" style="display:flex;gap:8px;margin-top:10px;">
+        <button id="whl-ai-sug-edit" class="whl-ai-btn whl-ai-btn-secondary" style="flex:1;padding:8px 12px;background:rgba(139,92,246,0.18);border:1px solid rgba(139,92,246,0.4);border-radius:8px;color:#a78bfa;font-weight:600;cursor:pointer;font-size:13px;">✏️ Editar</button>
+        <button id="whl-ai-sug-approve" class="whl-ai-btn whl-ai-btn-primary" style="flex:1;padding:8px 12px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:13px;">✅ Aprovar</button>
+      </div>
+      <div class="whl-ai-hint" style="margin-top:6px;font-size:11px;opacity:0.6;">
+        Aprovar insere direto · Editar permite ajustar antes
       </div>
     `;
 
     body.querySelector('#whl-ai-sug-text').addEventListener('click', useSuggestion);
+    body.querySelector('#whl-ai-sug-approve').addEventListener('click', useSuggestion);
+    body.querySelector('#whl-ai-sug-edit').addEventListener('click', editSuggestion);
+  }
+
+  // editSuggestion — insere a sugestão no campo de mensagem mas mantém
+  // o painel aberto pra o usuário ajustar antes de enviar. Registra
+  // wasEdited=true no learning loop (impacto parcial na confiança).
+  async function editSuggestion() {
+    if (!state.suggestion) return;
+    const original = state.suggestion;
+    try {
+      await insertText(original);
+      // Foca o composer pra o usuário começar a editar
+      const composer = document.querySelector('[contenteditable="true"][role="textbox"]');
+      if (composer) composer.focus();
+
+      if (window.EventBus) {
+        window.EventBus.emit('suggestion:edited', {
+          original,
+          corrected: original, // edição real do usuário ainda não conhecida
+          chatId: getActiveChatId() || null,
+          shownAt: state.suggestionShownAt || Date.now(),
+          isPartialEdit: true,
+          source: 'ai-suggestion-button'
+        });
+      }
+      if (window.confidenceSystem?.recordSuggestionUsed) {
+        window.confidenceSystem.recordSuggestionUsed(true);
+      }
+    } catch (e) {
+      console.warn('[AISuggestion] Falha em editSuggestion:', e?.message || e);
+    }
   }
 
   function showError(message) {

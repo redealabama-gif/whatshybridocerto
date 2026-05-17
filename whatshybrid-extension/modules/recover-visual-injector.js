@@ -140,6 +140,30 @@
     // Carregar marcadores persistentes primeiro
     await loadPersistentMarkers();
 
+    // Auto-clean defensivo: storage de markers corrompido em versões
+    // antigas (pré PR #49) marcou TODAS as mensagens como deleted. Mesmo
+    // com a detecção nova rigorosa, esses markers persistiam e o usuário
+    // continuava vendo "essa mensagem foi apagada" em tudo. Limite empírico:
+    // usuário comum mantém ~50 msgs/conversa × ~5 conversas ativas ≈ 250 max.
+    // > MAX_MARKERS (500) = certeza de bug; > 300 = forte indício. Limpa
+    // automaticamente pra o usuário não precisar rodar comando no console.
+    const CORRUPTION_THRESHOLD = 300;
+    if (persistentMarkers.size > CORRUPTION_THRESHOLD) {
+      console.warn('[RecoverVisualInjector] 🧹 Storage corrompido detectado:', persistentMarkers.size, 'markers (>', CORRUPTION_THRESHOLD, '). Auto-limpando.');
+      persistentMarkers.clear();
+      try {
+        await chrome.storage.local.remove(CONFIG.STORAGE_KEY);
+        // Limpa também badges já injetados na sessão
+        document.querySelectorAll(`.${CONFIG.QUOTE_CLASS}`).forEach(q => q.remove());
+        document.querySelectorAll(`[${CONFIG.INJECTED_ATTR}]`).forEach(el => {
+          el.removeAttribute(CONFIG.INJECTED_ATTR);
+          el.style.background = '';
+        });
+      } catch (e) {
+        console.warn('[RecoverVisualInjector] Falha ao limpar storage corrompido:', e?.message);
+      }
+    }
+
     // Injetar CSS
     injectCSS();
 
@@ -411,11 +435,24 @@
     const BADGE_STATES = ['deleted_local', 'revoked_global', 'edited'];
 
     // Fonte 1: Verificar marcadores persistentes (prioridade - funciona após reload)
+    // Mas validar contra o DOM atual — se a mensagem hoje NÃO mostra mais o
+    // texto/ícone de "apagada" nem "editada", o marker é stale (provavelmente
+    // do bug antigo) e deve ser ignorado. Isso impede que markers
+    // residuais continuem injetando badges em mensagens normais mesmo depois
+    // do auto-clean por threshold ter limpado o pior do storage.
     const persistentMarker = getPersistentMarker(msgId);
     if (persistentMarker && BADGE_STATES.includes(persistentMarker.state)) {
-      state = persistentMarker.state;
-      lastEvent = persistentMarker;
-      originalContent = persistentMarker.originalContent;
+      if (domConfirmsState(msgEl, persistentMarker.state)) {
+        state = persistentMarker.state;
+        lastEvent = persistentMarker;
+        originalContent = persistentMarker.originalContent;
+      } else {
+        // Marker stale — remove pra não voltar no próximo render.
+        try {
+          persistentMarkers.delete(msgId);
+          savePersistentMarkers();
+        } catch (_) { /* ignore */ }
+      }
     }
 
     // Fonte 2: Verificar no RecoverAdvanced se há histórico dessa mensagem
@@ -549,6 +586,40 @@
    * Sem isto, replies que quotam uma mensagem apagada faziam a mensagem
    * que respondeu virar "apagada" também — falso-positivo em cascata.
    */
+  /**
+   * Verifica se o DOM da mensagem ainda confirma o state armazenado.
+   * Usado para validar persistent markers contra a realidade visual atual.
+   * Se a mensagem hoje aparece normal, marker antigo é descartado.
+   */
+  function domConfirmsState(msgEl, state) {
+    try {
+      const directText = extractDirectMessageText(msgEl);
+      const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
+      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope span[aria-label*="ditad" i], :scope span[aria-label*="dited" i]');
+
+      const looksRevoked = hasRecalledIcon || (directText && (
+        directText.includes('Esta mensagem foi apagada') ||
+        directText.includes('This message was deleted') ||
+        directText.includes('Mensagem apagada') ||
+        directText.includes('Message deleted')
+      ));
+
+      const looksEdited = !looksRevoked && (hasEditedLabel || (directText && (
+        directText.includes('<Editada>') ||
+        directText.includes('<Edited>') ||
+        /\b\(Editada\)\s*$/.test(directText) ||
+        /\b\(Edited\)\s*$/.test(directText)
+      )));
+
+      if (state === 'revoked_global' || state === 'deleted_local') return looksRevoked;
+      if (state === 'edited') return looksEdited;
+      return false;
+    } catch (_) {
+      // Se não conseguimos avaliar, fica conservador: rejeita o marker.
+      return false;
+    }
+  }
+
   function extractDirectMessageText(msgEl) {
     if (!msgEl) return '';
     const textSelectors = [
