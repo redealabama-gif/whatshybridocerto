@@ -255,13 +255,18 @@ async function processDunning() {
 
   let pastDueList = [];
   try {
+    // JOIN com users pra pegar email/name do owner — usado pra email
+    // transacional de dunning (sendDunningEscalation). Sem JOIN, precisaríamos
+    // de query extra por workspace dentro do loop.
     pastDueList = db.all(
-      `SELECT id, name, plan, owner_id, dunning_attempts, last_dunning_at,
-              past_due_since, payment_provider, mp_preapproval_id,
-              stripe_subscription_id
-         FROM workspaces
-        WHERE subscription_status = 'past_due'
-          AND past_due_since IS NOT NULL`
+      `SELECT w.id, w.name, w.plan, w.owner_id, w.dunning_attempts,
+              w.last_dunning_at, w.past_due_since, w.payment_provider,
+              w.mp_preapproval_id, w.stripe_subscription_id,
+              u.email AS owner_email, u.name AS owner_name
+         FROM workspaces w
+         LEFT JOIN users u ON u.id = w.owner_id
+        WHERE w.subscription_status = 'past_due'
+          AND w.past_due_since IS NOT NULL`
     ) || [];
   } catch (err) {
     logger.error('[BillingCron] processDunning query falhou:', err.message);
@@ -272,8 +277,10 @@ async function processDunning() {
   // dunning não tiver nada pra processar).
   let mpService = null;
   let stripeService = null;
+  let emailService = null;
   try { mpService = require('../services/MercadoPagoService'); } catch (_) {}
   try { stripeService = require('../services/StripeService'); } catch (_) {}
+  try { emailService = require('../services/EmailService'); } catch (_) {}
 
   const results = [];
   for (const ws of pastDueList) {
@@ -430,6 +437,44 @@ async function processDunning() {
           charge_method: chargeMethod,
           charge_result: chargeResult,
         });
+      }
+
+      // v9.6.x — Email transacional pro CLIENTE (não pro operador).
+      // alertManager.send vai pro operador (você); aqui mandamos pro
+      // owner do workspace via SendGrid. Sem isso, o cliente não sabe
+      // que o cartão falhou — só descobre quando perde acesso.
+      //
+      // Idempotência: o gate `last_dunning_at >= todayMidnight` lá no
+      // topo do loop garante que cada workspace recebe NO MÁXIMO 1
+      // email por estágio (3 emails ao longo do ciclo de 7 dias).
+      //
+      // Fire-and-forget: erro de SendGrid não pode quebrar dunning.
+      // EmailService.send já tem retry interno + outbox.
+      if (emailService?.isConfigured?.() && ws.owner_email) {
+        let scenario = 'declined';
+        if (chargeMethod === 'none') {
+          scenario = 'no_method';
+        } else if (chargeMethod === 'stripe') {
+          if (['gone', 'invoice_void'].includes(chargeResult?.status)) scenario = 'reconfig';
+        } else if (chargeMethod === 'mp') {
+          if (chargeResult?.requiresReconfig) scenario = 'reconfig';
+          else if (chargeResult?.valid) scenario = 'pending'; // MP cuida do retry
+        }
+
+        const STAGE_DAYS_REMAINING = { 1: 6, 2: 4, 3: 1 };
+        emailService.sendDunningEscalation({
+          to: ws.owner_email,
+          name: ws.owner_name || 'Cliente',
+          plan: ws.plan,
+          attempt: stage.attempt,
+          daysOverdue: ageDays,
+          daysUntilSuspension: STAGE_DAYS_REMAINING[stage.attempt] || 1,
+          scenario,
+        }).catch(e => {
+          logger.warn(`[BillingCron] Falha ao enviar email dunning pra ${ws.owner_email}:`, e?.message || e);
+        });
+      } else if (!ws.owner_email) {
+        logger.warn(`[BillingCron] Workspace ${ws.id} sem owner_email — pulando email de dunning`);
       }
 
       logger.info(`[BillingCron] Dunning ${stage.attempt}/3 disparado pra ${ws.id} (${ws.name}) — ${ageDays}d past_due${extraNote}`);
