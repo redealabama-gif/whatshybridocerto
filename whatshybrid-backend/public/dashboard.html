@@ -308,10 +308,6 @@
               <i data-lucide="chrome" style="width:20px;height:20px;"></i>
               Instalar agora
             </a>
-            <button class="btn btn-ghost" onclick="downloadExtension()">
-              <i data-lucide="download" style="width:18px;height:18px;"></i>
-              Baixar .zip (instalação manual)
-            </button>
           </div>
         </div>
         <div style="font-size: 6rem; line-height: 1;">⚡</div>
@@ -332,10 +328,6 @@
             <div>
               <h4>Faça login na extensão</h4>
               <p class="text-muted" style="font-size:0.9rem;">Use o mesmo email e senha desta conta. A extensão vai se conectar automaticamente ao seu workspace.</p>
-              <div style="margin-top: 8px;">
-                <span class="text-muted" style="font-size:0.8rem;">Endpoint da API: </span>
-                <code class="api-key" id="api-endpoint">https://api.whatshybrid.com.br</code>
-              </div>
             </div>
           </li>
           <li style="display: flex; gap: 16px; padding: 16px 0; counter-increment: step;">
@@ -804,15 +796,8 @@
     e.preventDefault();
     // Quando publicada na Chrome Web Store, troque por o link real:
     // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
-    toast('Em breve disponível na Chrome Web Store. Por enquanto, use a opção "Baixar .zip" para instalação manual.', 'info', 6000);
+    toast('Em breve disponível na Chrome Web Store.', 'info', 4000);
   });
-
-  function downloadExtension() {
-    // Endpoint que entrega o zip da extensão (Onda 4 ou agora — depende do backend)
-    window.location.href = '/api/v1/extension/download';
-  }
-
-  document.getElementById('api-endpoint').textContent = window.location.origin;
 
   // ── Tokens & Uso ─────────────────────────────────────────
   async function loadTokens() {
