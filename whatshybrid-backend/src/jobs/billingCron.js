@@ -90,10 +90,15 @@ function processExpiredTrials() {
         logger.error(`[BillingCron] Erro ao ativar ${ws.id}:`, e.message);
       }
     } else {
-      // Não pagou — past_due
+      // Não pagou — past_due. past_due_since (COALESCE) marca o início do
+      // ciclo de dunning sem resetar se já está marcado. processDunning()
+      // dispara retries em 1/3/7 dias contra esse campo.
       try {
         db.run(
-          `UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`,
+          `UPDATE workspaces
+              SET subscription_status = 'past_due',
+                  past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP)
+            WHERE id = ?`,
           [ws.id]
         );
         results.push({ workspace_id: ws.id, action: 'past_due', plan: ws.plan });
@@ -144,10 +149,14 @@ function processExpiredSubscriptions() {
   const results = [];
   for (const ws of toRenew) {
     // Marca como past_due — o owner do SaaS toma providência
-    // (ou trigger automático via card token, que é Onda 4.5)
+    // (ou trigger automático via card token, que é Onda 4.5).
+    // past_due_since marca início do ciclo de dunning.
     try {
       db.run(
-        `UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`,
+        `UPDATE workspaces
+            SET subscription_status = 'past_due',
+                past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP)
+          WHERE id = ?`,
         [ws.id]
       );
       results.push({ workspace_id: ws.id, action: 'renewal_due', plan: ws.plan });
@@ -169,20 +178,126 @@ function processExpiredSubscriptions() {
 }
 
 /**
+ * v9.6.x — Dunning automático: retries escalonados em 1, 3 e 7 dias após
+ * a subscription virar past_due. Cada workspace tem `dunning_attempts`
+ * (0..3) e `last_dunning_at`. O cron roda 1×/dia (03:00 default), então
+ * cada disparo só acontece uma vez por dia mesmo que o cron seja chamado
+ * múltiplas vezes manualmente.
+ *
+ * Schedule:
+ *   - Dia 1 após past_due → tentativa 1 (lembrete amigável)
+ *   - Dia 3              → tentativa 2 (aviso firme, ameaça de suspensão)
+ *   - Dia 7              → tentativa 3 (último aviso, prepare-se pra perder
+ *                                       acesso amanhã); na próxima run o
+ *                                       suspendDelinquent suspende.
+ *
+ * Como o "real automatic charge" (Onda 4.5 — preapproval MP, Stripe
+ * subscription) ainda não está auto-disparando cobrança, este dunning é
+ * focado em ALERTAR o cliente (e o operador via alertManager). Quando o
+ * card-token retry for implementado, basta plugar aqui a chamada efetiva
+ * de cobrança em cada tentativa.
+ */
+function processDunning() {
+  const now = Date.now();
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // Stage por idade (em dias) e tentativa esperada nesse estágio.
+  const STAGES = [
+    { dayMin: 1, dayMax: 2, attempt: 1, severity: 'info',     label: 'Lembrete amigável' },
+    { dayMin: 3, dayMax: 4, attempt: 2, severity: 'warning',  label: 'Aviso firme — risco de suspensão' },
+    { dayMin: 7, dayMax: 7, attempt: 3, severity: 'critical', label: 'Último aviso — suspensão amanhã' },
+  ];
+
+  let pastDueList = [];
+  try {
+    pastDueList = db.all(
+      `SELECT id, name, plan, owner_id, dunning_attempts, last_dunning_at, past_due_since
+         FROM workspaces
+        WHERE subscription_status = 'past_due'
+          AND past_due_since IS NOT NULL`
+    ) || [];
+  } catch (err) {
+    logger.error('[BillingCron] processDunning query falhou:', err.message);
+    return [];
+  }
+
+  const results = [];
+  for (const ws of pastDueList) {
+    const pastDueAt = new Date(ws.past_due_since).getTime();
+    if (!Number.isFinite(pastDueAt)) continue;
+    const ageDays = Math.floor((now - pastDueAt) / 86400000);
+
+    // Encontra o estágio que cobre essa idade.
+    const stage = STAGES.find(s => ageDays >= s.dayMin && ageDays <= s.dayMax);
+    if (!stage) continue;
+
+    // Idempotência: só dispara se o attempt esperado é > attempts já feitos
+    // E se o last_dunning_at é de outro dia (anti-double-fire no mesmo dia).
+    const currentAttempts = Number(ws.dunning_attempts) || 0;
+    if (currentAttempts >= stage.attempt) continue;
+    if (ws.last_dunning_at) {
+      const lastAt = new Date(ws.last_dunning_at);
+      if (Number.isFinite(lastAt.getTime()) && lastAt >= todayMidnight) continue;
+    }
+
+    try {
+      db.run(
+        `UPDATE workspaces
+            SET dunning_attempts = ?,
+                last_dunning_at = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+        [stage.attempt, ws.id]
+      );
+
+      if (alertManager) {
+        alertManager.send(stage.severity, `💸 Dunning ${stage.attempt}/3 — ${stage.label}`, {
+          workspace_id: ws.id,
+          workspace_name: ws.name,
+          plan: ws.plan,
+          age_days: ageDays,
+          attempt: stage.attempt,
+          past_due_since: ws.past_due_since,
+        });
+      }
+
+      logger.info(`[BillingCron] Dunning ${stage.attempt}/3 disparado pra workspace ${ws.id} (${ws.name}) — ${ageDays}d past_due`);
+      results.push({
+        workspace_id: ws.id,
+        attempt: stage.attempt,
+        age_days: ageDays,
+        plan: ws.plan
+      });
+    } catch (e) {
+      logger.error(`[BillingCron] Erro dunning ${ws.id}:`, e.message);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Suspende workspaces que estão past_due há mais de 7 dias.
+ *
+ * v9.6.x: usa `past_due_since` (não `updated_at`). O field antigo mudava
+ * com qualquer write na linha (incluindo o próprio bump de
+ * dunning_attempts), o que fazia o filtro `updated_at <= sevenDaysAgo`
+ * nunca matchar — workspace nunca era suspenso na prática.
  */
 function suspendDelinquent() {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
   let toSuspend = [];
   try {
     toSuspend = db.all(
-      `SELECT id, name, plan FROM workspaces
+      `SELECT id, name, plan, past_due_since FROM workspaces
        WHERE subscription_status = 'past_due'
-         AND updated_at <= ?`,
-      [sevenDaysAgo.toISOString()]
+         AND past_due_since IS NOT NULL
+         AND past_due_since <= ?`,
+      [sevenDaysAgo]
     ) || [];
   } catch (err) {
+    logger.error('[BillingCron] suspendDelinquent query falhou:', err.message);
     return [];
   }
 
@@ -192,14 +307,15 @@ function suspendDelinquent() {
         `UPDATE workspaces SET subscription_status = 'suspended' WHERE id = ?`,
         [ws.id]
       );
-      logger.warn(`[BillingCron] Workspace ${ws.id} (${ws.name}) suspendido por inadimplência`);
+      logger.warn(`[BillingCron] Workspace ${ws.id} (${ws.name}) suspendido por inadimplência (past_due desde ${ws.past_due_since})`);
 
       if (alertManager) {
         alertManager.send('critical', '🚫 Workspace suspenso', {
           workspace_id: ws.id,
           workspace_name: ws.name,
           plan: ws.plan,
-          reason: '7 dias past_due',
+          reason: '7 dias past_due (após dunning 1/3/7)',
+          past_due_since: ws.past_due_since,
         });
       }
     } catch (e) {
@@ -262,6 +378,11 @@ function runAll() {
   try {
     const trials = processExpiredTrials();
     const renewals = processExpiredSubscriptions();
+    // v9.6.x: dunning ANTES de suspendDelinquent — assim a tentativa 3
+    // (dia 7) é registrada no mesmo dia em que o workspace cruza o limite
+    // de suspensão. Sem essa ordem, o suspend rodaria primeiro e o cliente
+    // perderia acesso sem receber o "último aviso".
+    const dunning = processDunning();
     const suspended = suspendDelinquent();
     const endingSoon = notifyTrialsEnding();
 
@@ -284,6 +405,7 @@ function runAll() {
     const summary = {
       trials_processed: trials.length,
       renewals_due: renewals.length,
+      dunning_dispatched: dunning.length,
       workspaces_suspended: suspended.length,
       trial_ending_notifications: endingSoon.length,
       health_scores_updated: healthResult.updated,
@@ -406,4 +528,4 @@ function stop() {
   }
 }
 
-module.exports = { start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, suspendDelinquent };
+module.exports = { start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, processDunning, suspendDelinquent };

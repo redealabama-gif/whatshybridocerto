@@ -307,10 +307,16 @@ router.post('/mercadopago-saas', asyncHandler(async (req, res) => {
         logger.info(`[WebhookSaaS] Recurring charge OK: ws=${ws.id} plan=${ws.plan}`);
 
       } else if (['rejected', 'cancelled'].includes(auth.status)) {
-        // Cobrança recusada — entra em dunning
+        // Cobrança recusada — entra em dunning. past_due_since marca o
+        // início do ciclo pra billingCron disparar retries em 1/3/7 dias
+        // e suspender só depois. Só seta se ainda não está past_due
+        // (evita resetar o timer se webhook duplicar).
         db.run(
-          `UPDATE workspaces SET subscription_status = 'past_due', updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
+          `UPDATE workspaces
+              SET subscription_status = 'past_due',
+                  past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP),
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?`,
           [ws.id]
         );
 

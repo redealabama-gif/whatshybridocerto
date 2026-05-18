@@ -395,6 +395,140 @@ router.get('/metrics/providers', asyncHandler(async (req, res) => {
 }));
 
 // ============================================
+// BILLING / COST INTELLIGENCE
+// ============================================
+
+/**
+ * GET /admin/billing/high-spenders
+ *
+ * Top workspaces por gasto USD em janela configurável. Serve pra detectar:
+ *   - cliente abusivo (gasto 100× a média do plano)
+ *   - bug do cliente (loop chamando IA em background)
+ *   - upsell opportunity (cliente Pro consumindo como Agency)
+ *
+ * Query params:
+ *   ?window=24h|7d|30d   (default 7d)
+ *   ?limit=N             (default 20, max 100)
+ *
+ * Lê de llm_cost_log (populado pelo CostLoggerService a cada AI call).
+ * Junta com workspaces pra dar nome + plano. Custo USD é REAL (calculado
+ * no momento da request com a pricing table da OpenAI/Groq).
+ */
+router.get('/billing/high-spenders', asyncHandler(async (req, res) => {
+  const windowMap = { '24h': 1, '7d': 7, '30d': 30 };
+  const windowKey = String(req.query.window || '7d');
+  const days = windowMap[windowKey];
+  if (!days) {
+    return res.status(400).json({ error: 'window inválido. Use 24h, 7d ou 30d.' });
+  }
+
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  let rows = [];
+  try {
+    rows = db.all(
+      `SELECT
+          w.id              AS workspace_id,
+          w.name            AS workspace_name,
+          w.plan,
+          w.subscription_status,
+          COUNT(c.id)       AS request_count,
+          SUM(c.total_tokens)  AS tokens_total,
+          SUM(c.cost_usd)      AS cost_usd_total,
+          AVG(c.latency_ms)    AS latency_ms_avg,
+          MAX(c.created_at)    AS last_request_at
+        FROM llm_cost_log c
+        JOIN workspaces w ON w.id = c.workspace_id
+       WHERE c.created_at >= ?
+       GROUP BY w.id, w.name, w.plan, w.subscription_status
+       ORDER BY cost_usd_total DESC
+       LIMIT ?`,
+      [since, limit]
+    ) || [];
+  } catch (err) {
+    logger.error('[Admin] high-spenders query falhou:', err.message);
+    throw err;
+  }
+
+  // Quota expected per plan (matched from TokenService.PLAN_TOKENS).
+  // Não é binding — só pra calcular % consumido vs cota teórica e flagear
+  // outliers ("Pro gastando como Agency" indica upsell ou abuso).
+  const planQuota = {
+    free: 0, starter: 50000, pro: 500000, agency: 5000000, enterprise: 999000000
+  };
+
+  const enriched = rows.map(r => {
+    const quota = planQuota[r.plan] || 0;
+    const pctOfQuota = quota > 0 ? (Number(r.tokens_total) / quota) * 100 : null;
+    return {
+      ...r,
+      cost_usd_total: Number(r.cost_usd_total || 0),
+      tokens_total: Number(r.tokens_total || 0),
+      latency_ms_avg: r.latency_ms_avg ? Math.round(r.latency_ms_avg) : null,
+      pct_of_quota: pctOfQuota !== null ? Number(pctOfQuota.toFixed(1)) : null,
+      flag: pctOfQuota === null ? null
+            : pctOfQuota > 80 ? 'near_quota'
+            : pctOfQuota > 150 ? 'over_quota'
+            : null,
+    };
+  });
+
+  res.json({
+    window: windowKey,
+    since,
+    total_workspaces: enriched.length,
+    high_spenders: enriched,
+  });
+}));
+
+/**
+ * GET /admin/billing/dunning-queue
+ *
+ * Workspaces em dunning ativo (past_due) com idade e qual tentativa
+ * já foi enviada. Dá visibilidade do funil pre-suspensão pro operador.
+ */
+router.get('/billing/dunning-queue', asyncHandler(async (req, res) => {
+  let rows = [];
+  try {
+    rows = db.all(
+      `SELECT id              AS workspace_id,
+              name            AS workspace_name,
+              plan,
+              past_due_since,
+              dunning_attempts,
+              last_dunning_at
+         FROM workspaces
+        WHERE subscription_status = 'past_due'
+        ORDER BY past_due_since ASC`
+    ) || [];
+  } catch (err) {
+    logger.error('[Admin] dunning-queue query falhou:', err.message);
+    throw err;
+  }
+
+  const now = Date.now();
+  const enriched = rows.map(r => {
+    const since = r.past_due_since ? new Date(r.past_due_since).getTime() : null;
+    const ageDays = since ? Math.floor((now - since) / 86400000) : null;
+    return {
+      ...r,
+      age_days: ageDays,
+      next_action: ageDays === null ? 'unknown'
+                   : ageDays >= 7 ? 'suspend (próximo cron)'
+                   : ageDays >= 3 ? `tentativa ${Math.min((r.dunning_attempts || 0) + 1, 3)}/3`
+                   : ageDays >= 1 ? 'tentativa 1/3'
+                   : 'aguardando dia 1',
+    };
+  });
+
+  res.json({
+    total: enriched.length,
+    queue: enriched,
+  });
+}));
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 
