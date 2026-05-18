@@ -794,8 +794,14 @@
   }
 
 
+  // Quando lib/socket.io.min.js não está empacotado, não adianta re-tentar
+  // o carregamento a cada reconexão — marca como indisponível e segue em
+  // modo HTTP-only (o sync por fetch funciona sem o socket em tempo real).
+  let socketIOUnavailable = false;
+
   function connectSocket() {
     if (state.socket || !state.accessToken) return;
+    if (socketIOUnavailable) return;
 
     try {
       // Verifica se Socket.IO está disponível
@@ -805,12 +811,16 @@
           if (typeof io !== 'undefined') {
             initializeSocket();
           } else {
-            console.warn('[BackendClient] Socket.IO não disponível após carregamento');
-            updateSocketUI(false, 'Aguardando login');
+            socketIOUnavailable = true;
+            console.info('[BackendClient] Socket.IO indisponível — sync em modo HTTP (tempo real desligado)');
+            updateSocketUI(false, 'Tempo real indisponível');
           }
-        }).catch(err => {
-          console.warn('[BackendClient] Erro ao carregar Socket.IO:', err);
-          updateSocketUI(false, 'Aguardando login');
+        }).catch(() => {
+          // Arquivo ausente do pacote: degrada em silêncio (1 log info) e
+          // não fica re-tentando. O sync por HTTP continua funcionando.
+          socketIOUnavailable = true;
+          console.info('[BackendClient] lib/socket.io.min.js ausente — sync em modo HTTP (tempo real desligado)');
+          updateSocketUI(false, 'Tempo real indisponível');
         });
         return;
       }
@@ -831,8 +841,8 @@
 
       const script = document.createElement('script');
       script.src = chrome.runtime.getURL('lib/socket.io.min.js');
-      script.onload = resolve;
-      script.onerror = reject;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('socket.io.min.js ausente'));
       document.head.appendChild(script);
     });
   }
