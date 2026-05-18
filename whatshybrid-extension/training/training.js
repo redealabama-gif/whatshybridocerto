@@ -1691,5 +1691,12 @@ class TrainingApp {
 // Inicializar app
 let app;
 document.addEventListener('DOMContentLoaded', () => {
+  // v9.7.x — Se o gate inline (training.html) bloqueou por plano free /
+  // trial expirado, não iniciamos o TrainingApp pra não ligar event listeners
+  // nem fazer fetches de dados que serão rejeitados pelo backend (402).
+  if (window.__WHL_TRAINING_BLOCKED) {
+    console.log('[TrainingApp] Bloqueado por plano — app não iniciado.');
+    return;
+  }
   app = new TrainingApp();
 });
