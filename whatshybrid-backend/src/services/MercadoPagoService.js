@@ -275,6 +275,59 @@ class MercadoPagoService {
   }
 
   /**
+   * v9.6.x — Health check de preapproval pra ser usado no dunning loop.
+   *
+   * MP NÃO oferece API pra "force charge agora" em preapproval (o ciclo
+   * é fixo: mensal/trimestral/etc). O que MP faz quando uma cobrança
+   * falha é retry automático interno (3-4 tentativas em 7 dias) e
+   * dispara webhook `subscription_authorized_payment` com `status` a
+   * cada tentativa.
+   *
+   * O que o dunning pode/deve fazer com preapproval:
+   *   1) Refresh status — se cliente cancelou no painel MP, nosso BD não
+   *      sabe até o webhook chegar; checar aqui acelera a detecção.
+   *   2) Detectar invalid (cancelled/paused/expired) — sinalizar pro
+   *      operador via alerta especial pra cliente reconfigurar.
+   *   3) Detectar "MP já tentou e falhou todas as 4×" — preapproval some
+   *      ou vai pra status terminal; momento de suspender mais cedo.
+   *
+   * Retorna {status, valid, requiresReconfig, lastPaymentStatus, raw}.
+   * Não throw — em erro, retorna {status:'unknown', valid:null} pra o
+   * cron não quebrar a iteração.
+   */
+  async getPreapprovalHealth(preapprovalId) {
+    if (!preapprovalId) {
+      return { status: 'missing', valid: false, requiresReconfig: true };
+    }
+    if (!this.isConfigured()) {
+      return { status: 'unknown', valid: null, error: 'mp_not_configured' };
+    }
+    try {
+      const pa = await this.getPreapproval(preapprovalId);
+      const status = pa?.status || 'unknown';
+      // Status MP: authorized | paused | cancelled | pending | finished
+      const valid = status === 'authorized';
+      const requiresReconfig = ['cancelled', 'finished', 'expired'].includes(status);
+      return {
+        status,
+        valid,
+        requiresReconfig,
+        nextPaymentDate: pa?.next_payment_date || null,
+        lastModified: pa?.last_modified || null,
+        raw: pa,
+      };
+    } catch (err) {
+      // 404 = preapproval não existe mais (deletada/expirada)
+      const httpStatus = err.response?.status;
+      if (httpStatus === 404) {
+        return { status: 'not_found', valid: false, requiresReconfig: true };
+      }
+      logger.warn(`[MP] getPreapprovalHealth ${preapprovalId} falhou:`, err.message);
+      return { status: 'unknown', valid: null, error: err.message };
+    }
+  }
+
+  /**
    * Cancela uma preapproval (cliente quer parar de pagar mensalmente).
    * Status passa para 'cancelled'. MP NÃO emite reembolso de cobranças
    * já feitas — apenas para de cobrar futuras.

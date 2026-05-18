@@ -197,7 +197,7 @@ function processExpiredSubscriptions() {
  * card-token retry for implementado, basta plugar aqui a chamada efetiva
  * de cobrança em cada tentativa.
  */
-function processDunning() {
+async function processDunning() {
   const now = Date.now();
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
@@ -212,7 +212,9 @@ function processDunning() {
   let pastDueList = [];
   try {
     pastDueList = db.all(
-      `SELECT id, name, plan, owner_id, dunning_attempts, last_dunning_at, past_due_since
+      `SELECT id, name, plan, owner_id, dunning_attempts, last_dunning_at,
+              past_due_since, payment_provider, mp_preapproval_id,
+              stripe_subscription_id
          FROM workspaces
         WHERE subscription_status = 'past_due'
           AND past_due_since IS NOT NULL`
@@ -221,6 +223,13 @@ function processDunning() {
     logger.error('[BillingCron] processDunning query falhou:', err.message);
     return [];
   }
+
+  // Lazy-load dos services (evita require circular e custo no boot se
+  // dunning não tiver nada pra processar).
+  let mpService = null;
+  let stripeService = null;
+  try { mpService = require('../services/MercadoPagoService'); } catch (_) {}
+  try { stripeService = require('../services/StripeService'); } catch (_) {}
 
   const results = [];
   for (const ws of pastDueList) {
@@ -241,6 +250,88 @@ function processDunning() {
       if (Number.isFinite(lastAt.getTime()) && lastAt >= todayMidnight) continue;
     }
 
+    // v9.6.x — Real automatic charge (Onda 4.5).
+    //
+    // Tenta cobrança real ANTES do alerta. Resultado vai no log + alerta
+    // contextual. Idempotência: o gate `last_dunning_at >= todayMidnight`
+    // acima garante que cada workspace recebe NO MÁXIMO um retry/dia.
+    //
+    // Stripe: força pagamento de invoice aberta via POST /invoices/{id}/pay.
+    //         Resultados:
+    //           - ok=true, status='paid'         → cliente regularizou; webhook
+    //                                              renova next_billing_at e tokens
+    //           - ok=true, status='already_paid' → webhook anterior já marcou OK
+    //                                              (race); só não suspende
+    //           - ok=false, status='declined'    → cartão recusado de novo; alert
+    //           - ok=false, status='gone'        → subscription cancelada; alert
+    //                                              especial (reconfig)
+    //
+    // MP preapproval: MP NÃO oferece endpoint pra forçar charge imediato
+    //         (retries são automáticos no ciclo do MP). O que dá pra
+    //         fazer é HEALTH CHECK — se preapproval foi cancelada pelo
+    //         cliente no painel MP, detectamos aqui e mudamos o alerta
+    //         pra "cliente precisa reconfigurar pagamento".
+    let chargeResult = null;
+    let chargeMethod = null;
+    try {
+      if (ws.stripe_subscription_id && stripeService?.isConfigured?.()) {
+        chargeMethod = 'stripe';
+        chargeResult = await stripeService.retryFailedInvoice(ws.stripe_subscription_id);
+        if (chargeResult.ok && (chargeResult.status === 'paid' || chargeResult.status === 'already_paid')) {
+          // Cobrança passou — webhook do Stripe vai marcar active+renovar
+          // tokens. Aqui só registramos no log e NÃO mandamos alerta de
+          // dunning (cliente regularizou).
+          logger.info(`[BillingCron] Dunning ${stage.attempt}/3 → CHARGE OK (stripe) pra ${ws.id} (${ws.name})`);
+          // Atualiza dunning_attempts mesmo no sucesso pra evitar tentar
+          // de novo no mesmo dia se algo der ruim entre agora e o webhook.
+          db.run(
+            `UPDATE workspaces
+                SET dunning_attempts = ?,
+                    last_dunning_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+            [stage.attempt, ws.id]
+          );
+          results.push({
+            workspace_id: ws.id, attempt: stage.attempt, age_days: ageDays,
+            plan: ws.plan, charge: 'stripe:paid'
+          });
+          continue;
+        }
+      } else if (ws.mp_preapproval_id && mpService?.isConfigured?.()) {
+        chargeMethod = 'mp';
+        chargeResult = await mpService.getPreapprovalHealth(ws.mp_preapproval_id);
+      }
+    } catch (err) {
+      logger.warn(`[BillingCron] Charge attempt falhou pra ${ws.id}:`, err.message);
+      chargeResult = { ok: false, status: 'exception', error: err.message };
+    }
+
+    // Decide severity/label do alerta baseado no resultado do charge.
+    let severity = stage.severity;
+    let label = stage.label;
+    let extraNote = '';
+    if (chargeResult) {
+      if (chargeMethod === 'stripe') {
+        if (chargeResult.status === 'declined') {
+          extraNote = ' (cartão recusado novamente)';
+        } else if (chargeResult.status === 'gone' || chargeResult.status === 'invoice_void') {
+          severity = 'critical';
+          label = 'Assinatura inválida — cliente precisa reconfigurar';
+          extraNote = ` (${chargeResult.status})`;
+        }
+      } else if (chargeMethod === 'mp') {
+        if (chargeResult.requiresReconfig) {
+          severity = 'critical';
+          label = 'Preapproval MP inválida — cliente precisa reconfigurar';
+          extraNote = ` (status=${chargeResult.status})`;
+        }
+      }
+    } else if (!ws.stripe_subscription_id && !ws.mp_preapproval_id) {
+      // Workspace sem método de pagamento salvo (provavelmente trial
+      // expirado que nunca configurou). Dunning vira só notificação.
+      extraNote = ' (sem método de pagamento — só alerta)';
+    }
+
     try {
       db.run(
         `UPDATE workspaces
@@ -251,22 +342,25 @@ function processDunning() {
       );
 
       if (alertManager) {
-        alertManager.send(stage.severity, `💸 Dunning ${stage.attempt}/3 — ${stage.label}`, {
+        alertManager.send(severity, `💸 Dunning ${stage.attempt}/3 — ${label}`, {
           workspace_id: ws.id,
           workspace_name: ws.name,
           plan: ws.plan,
           age_days: ageDays,
           attempt: stage.attempt,
           past_due_since: ws.past_due_since,
+          charge_method: chargeMethod,
+          charge_result: chargeResult,
         });
       }
 
-      logger.info(`[BillingCron] Dunning ${stage.attempt}/3 disparado pra workspace ${ws.id} (${ws.name}) — ${ageDays}d past_due`);
+      logger.info(`[BillingCron] Dunning ${stage.attempt}/3 disparado pra ${ws.id} (${ws.name}) — ${ageDays}d past_due${extraNote}`);
       results.push({
         workspace_id: ws.id,
         attempt: stage.attempt,
         age_days: ageDays,
-        plan: ws.plan
+        plan: ws.plan,
+        charge: chargeMethod ? `${chargeMethod}:${chargeResult?.status || 'none'}` : 'none',
       });
     } catch (e) {
       logger.error(`[BillingCron] Erro dunning ${ws.id}:`, e.message);
@@ -372,7 +466,7 @@ function notifyTrialsEnding() {
 /**
  * Run all jobs in sequence
  */
-function runAll() {
+async function runAll() {
   const start = Date.now();
   logger.info('[BillingCron] Iniciando ciclo diário');
   try {
@@ -382,7 +476,11 @@ function runAll() {
     // (dia 7) é registrada no mesmo dia em que o workspace cruza o limite
     // de suspensão. Sem essa ordem, o suspend rodaria primeiro e o cliente
     // perderia acesso sem receber o "último aviso".
-    const dunning = processDunning();
+    //
+    // processDunning é async agora (faz HTTP calls pra Stripe/MP). Mantemos
+    // await pra suspendDelinquent não rodar antes do retry de cobrança
+    // resolver — se Stripe pagou no dia 7, NÃO queremos suspender.
+    const dunning = await processDunning();
     const suspended = suspendDelinquent();
     const endingSoon = notifyTrialsEnding();
 
