@@ -69,12 +69,21 @@
   /**
    * Inicializa a view do CRM com todos os eventos funcionais
    */
-  function crmInit() {
+  async function crmInit() {
     console.log('[WHL Fixes] Initializing CRM view...');
 
-    // Inicializar módulos necessários
-    if (window.CRMModule) window.CRMModule.init();
-    if (window.LabelsModule) window.LabelsModule.init();
+    // Inicializar módulos necessários — AGUARDA o init concluir antes de
+    // renderizar. init() é assíncrono (loadState() lê o chrome.storage de
+    // forma async). Sem o await, renderKanban/renderLabelManager rodavam no
+    // mesmo tick com o state ainda vazio, e as etiquetas só reapareciam após
+    // o próximo write no storage. No reload da página não há write nenhum,
+    // então as etiquetas simplesmente sumiam até alguma alteração manual.
+    try {
+      if (window.CRMModule) await window.CRMModule.init();
+      if (window.LabelsModule) await window.LabelsModule.init();
+    } catch (e) {
+      console.warn('[WHL Fixes] Falha ao inicializar módulos do CRM:', e?.message || e);
+    }
 
     // Renderizar Kanban
     const kanbanContainer = document.getElementById('crm_kanban_container');
