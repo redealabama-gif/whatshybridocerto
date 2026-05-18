@@ -651,6 +651,54 @@
         padding: 8px;
         background: rgba(0,0,0,0.2);
       }
+
+      /* Botões 3D da sugestão — Editar (roxo) / Reprovar (vermelho) / Aprovar (verde WhatsApp) */
+      .whl-ai-btn3d {
+        flex: 1;
+        padding: 9px 8px;
+        border: none;
+        border-radius: 9px;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 12.5px;
+        cursor: pointer;
+        transition: transform 0.08s ease, box-shadow 0.12s ease, filter 0.15s ease;
+      }
+      .whl-ai-btn3d:hover { filter: brightness(1.08); }
+      .whl-ai-btn3d:active { transform: translateY(3px); }
+      .whl-ai-btn3d:disabled { cursor: default; filter: brightness(0.8); transform: none; }
+      .whl-ai-btn-edit {
+        background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
+        box-shadow: 0 4px 0 #5b21b6, 0 6px 11px rgba(0,0,0,0.4);
+      }
+      .whl-ai-btn-edit:active { box-shadow: 0 1px 0 #5b21b6, 0 2px 5px rgba(0,0,0,0.4); }
+      .whl-ai-btn-reject {
+        background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+        box-shadow: 0 4px 0 #991b1b, 0 6px 11px rgba(0,0,0,0.4);
+      }
+      .whl-ai-btn-reject:active { box-shadow: 0 1px 0 #991b1b, 0 2px 5px rgba(0,0,0,0.4); }
+      .whl-ai-btn-approve {
+        background: linear-gradient(180deg, #25D366 0%, #128C7E 100%);
+        box-shadow: 0 4px 0 #0b6b5e, 0 6px 11px rgba(0,0,0,0.4);
+      }
+      .whl-ai-btn-approve:active { box-shadow: 0 1px 0 #0b6b5e, 0 2px 5px rgba(0,0,0,0.4); }
+
+      /* Textarea de edição inline da sugestão */
+      .whl-ai-suggestion-edit {
+        width: 100%;
+        min-height: 76px;
+        padding: 12px;
+        background: rgba(139, 92, 246, 0.12);
+        border-radius: 10px;
+        border: 1px solid rgba(139, 92, 246, 0.55);
+        color: #e5e7eb;
+        font-size: 13px;
+        line-height: 1.6;
+        font-family: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      .whl-ai-suggestion-edit:focus { outline: none; border-color: #a78bfa; }
     `;
 
     document.head.appendChild(style);
@@ -1332,6 +1380,7 @@ Responda APENAS com o texto da sugestão:`;
 
     state.suggestion = text;
     state.suggestionShownAt = Date.now();
+    state.suggestionEdited = false;
 
     // V3-004 FIX: Emit suggestion:shown for analytics and implicit tracking
     if (window.EventBus) {
@@ -1343,57 +1392,86 @@ Responda APENAS com o texto da sugestão:`;
       });
     }
 
-    // Sugestão + 2 botões claros: ✏️ Editar (insere e deixa cursor para
-    // o usuário ajustar antes de enviar) e ✅ Aprovar (insere direto no
-    // composer). Antes só tinha "Clique para inserir" (não-óbvio) e o
-    // usuário pediu botões dedicados. CSP MV3 compliant — sem onclick
-    // inline, listeners via addEventListener.
+    // Sugestão + 3 botões 3D claros:
+    //   ✏️ Editar  → torna a sugestão editável AQUI no painel (não envia nada)
+    //   ❌ Reprovar → descarta + feedback negativo
+    //   ✅ Aprovar  → envia o texto (editado ou não) ao chat
+    // CSP MV3 compliant — listeners via addEventListener, sem onclick inline.
     body.innerHTML = `
-      <div class="whl-ai-suggestion" id="whl-ai-sug-text" title="Clique para aprovar e inserir">
+      <div class="whl-ai-suggestion" id="whl-ai-sug-text">
         ${escapeHtml(text)}
       </div>
-      <div class="whl-ai-actions" style="display:flex;gap:8px;margin-top:10px;">
-        <button id="whl-ai-sug-edit" class="whl-ai-btn whl-ai-btn-secondary" style="flex:1;padding:8px 12px;background:rgba(139,92,246,0.18);border:1px solid rgba(139,92,246,0.4);border-radius:8px;color:#a78bfa;font-weight:600;cursor:pointer;font-size:13px;">✏️ Editar</button>
-        <button id="whl-ai-sug-approve" class="whl-ai-btn whl-ai-btn-primary" style="flex:1;padding:8px 12px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:13px;">✅ Aprovar</button>
+      <div class="whl-ai-actions" style="display:flex;gap:6px;margin-top:10px;">
+        <button id="whl-ai-sug-edit" class="whl-ai-btn3d whl-ai-btn-edit">✏️ Editar</button>
+        <button id="whl-ai-sug-reject" class="whl-ai-btn3d whl-ai-btn-reject">❌ Reprovar</button>
+        <button id="whl-ai-sug-approve" class="whl-ai-btn3d whl-ai-btn-approve">✅ Aprovar</button>
       </div>
       <div class="whl-ai-hint" style="margin-top:6px;font-size:11px;opacity:0.6;">
-        Aprovar insere direto · Editar permite ajustar antes
+        Editar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta
       </div>
     `;
 
-    body.querySelector('#whl-ai-sug-text').addEventListener('click', useSuggestion);
-    body.querySelector('#whl-ai-sug-approve').addEventListener('click', useSuggestion);
     body.querySelector('#whl-ai-sug-edit').addEventListener('click', editSuggestion);
+    body.querySelector('#whl-ai-sug-reject').addEventListener('click', rejectSuggestion);
+    body.querySelector('#whl-ai-sug-approve').addEventListener('click', useSuggestion);
   }
 
-  // editSuggestion — insere a sugestão no campo de mensagem mas mantém
-  // o painel aberto pra o usuário ajustar antes de enviar. Registra
-  // wasEdited=true no learning loop (impacto parcial na confiança).
-  async function editSuggestion() {
+  // editSuggestion — torna a sugestão editável DENTRO do painel. NÃO envia
+  // nada ao chat: o texto só vai pro WhatsApp quando o usuário clicar em
+  // Aprovar. Marca state.suggestionEdited p/ o feedback contar como correção.
+  function editSuggestion() {
     if (!state.suggestion) return;
-    const original = state.suggestion;
-    try {
-      await insertText(original);
-      // Foca o composer pra o usuário começar a editar
-      const composer = document.querySelector('[contenteditable="true"][role="textbox"]');
-      if (composer) composer.focus();
+    const body = document.getElementById('whl-ai-body');
+    const textEl = body && document.getElementById('whl-ai-sug-text');
+    if (!body || !textEl) return;
+    if (document.getElementById('whl-ai-sug-edit-area')) return; // já em edição
 
-      if (window.EventBus) {
-        window.EventBus.emit('suggestion:edited', {
-          original,
-          corrected: original, // edição real do usuário ainda não conhecida
-          chatId: getActiveChatId() || null,
-          shownAt: state.suggestionShownAt || Date.now(),
-          isPartialEdit: true,
-          source: 'ai-suggestion-button'
-        });
-      }
-      if (window.confidenceSystem?.recordSuggestionUsed) {
-        window.confidenceSystem.recordSuggestionUsed(true);
-      }
-    } catch (e) {
-      console.warn('[AISuggestion] Falha em editSuggestion:', e?.message || e);
+    const ta = document.createElement('textarea');
+    ta.id = 'whl-ai-sug-edit-area';
+    ta.className = 'whl-ai-suggestion-edit';
+    ta.value = state.suggestion;
+    textEl.replaceWith(ta);
+    ta.focus();
+    try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (_) {}
+
+    state.suggestionEdited = true;
+
+    const editBtn = document.getElementById('whl-ai-sug-edit');
+    if (editBtn) {
+      editBtn.textContent = '✏️ Editando…';
+      editBtn.disabled = true;
     }
+  }
+
+  // rejectSuggestion — Reprovar: descarta a sugestão e registra feedback
+  // negativo (incrementa o contador "Ruim"). Não envia nada ao chat.
+  function rejectSuggestion() {
+    const rejected = state.suggestion;
+    const chatId = getActiveChatId() || null;
+
+    if (window.EventBus) {
+      window.EventBus.emit('suggestion:rejected', {
+        suggestion: rejected,
+        chatId,
+        shownAt: state.suggestionShownAt || Date.now(),
+        source: 'ai-suggestion-button'
+      });
+    }
+
+    // Feedback negativo no backend (não-bloqueante).
+    const interactionId = state.lastInteractionId;
+    if (interactionId && window.BackendClient?.ai?.feedback) {
+      window.BackendClient.ai.feedback(interactionId, 'negative', {
+        chatId,
+        assistantResponse: rejected || '',
+        feedbackType: 'rating',
+      }).catch(err => log('Feedback negativo falhou (não crítico):', err?.message));
+    }
+
+    if (window.NotificationsModule?.toast) {
+      window.NotificationsModule.toast('❌ Sugestão reprovada', 'info', 1500);
+    }
+    hidePanel();
   }
 
   function showError(message) {
@@ -1462,18 +1540,23 @@ Responda APENAS com o texto da sugestão:`;
   async function useSuggestion() {
     if (!state.suggestion) return;
 
+    // Se o usuário entrou em modo edição, usa o texto do textarea.
+    const editArea = document.getElementById('whl-ai-sug-edit-area');
+    const finalText = (editArea ? editArea.value : state.suggestion).trim();
+    if (!finalText) return;
+
     try {
-      await insertText(state.suggestion);
+      await insertText(finalText);
       hidePanel();
 
       // R-003 FIX: Emit suggestion:used for learning systems (matching AI-004 pattern)
       if (window.EventBus) {
         window.EventBus.emit('suggestion:used', {
-          suggestion: state.suggestion,
+          suggestion: finalText,
           userMessage: '',
           chatId: getActiveChatId() || null,
           shownAt: state.suggestionShownAt || Date.now(),  // V3-004 FIX: Use stored timestamp
-          wasEdited: false,
+          wasEdited: !!state.suggestionEdited,
           source: 'ai-suggestion-button'
         });
       }
@@ -1484,7 +1567,7 @@ Responda APENAS com o texto da sugestão:`;
       // Snapshot garante que o feedback bata com a sugestão que o humano de fato usou.
       const usedInteractionId = state.lastInteractionId;
       const usedMetadata      = state.lastMetadata;
-      const usedSuggestion    = state.suggestion;
+      const usedSuggestion    = finalText;
       const usedChatId        = getActiveChatId() || null;
 
       // v9.3.0: fecha o feedback loop com o backend orchestrator.
@@ -1531,7 +1614,7 @@ Responda APENAS com o texto da sugestão:`;
       
       // Registrar uso de sugestão no ConfidenceSystem
       if (window.confidenceSystem?.recordSuggestionUsed) {
-        window.confidenceSystem.recordSuggestionUsed(false);
+        window.confidenceSystem.recordSuggestionUsed(!!state.suggestionEdited);
       }
     } catch (e) {
       console.error('[AI-Btn] Erro ao inserir:', e);
