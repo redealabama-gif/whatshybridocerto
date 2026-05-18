@@ -736,6 +736,17 @@
     buildSystemPrompt({ persona = 'professional', businessContext = true } = {}) {
       let prompt = '';
 
+      // Guard: buildSystemPrompt pode ser chamado antes do init() concluir
+      // (cold-start do subsistema de treino). Sem isto, acessar
+      // this.knowledge.business.name estourava "Cannot read properties of
+      // undefined (reading 'name')". Garante a forma mínima do objeto.
+      this.knowledge = this.knowledge || {};
+      this.knowledge.business = this.knowledge.business || {};
+      this.knowledge.tone = this.knowledge.tone || {};
+      this.knowledge.policies = this.knowledge.policies || {};
+      this.knowledge.faqs = this.knowledge.faqs || [];
+      this.knowledge.products = this.knowledge.products || [];
+
       // Informações do negócio
       if (businessContext && this.knowledge.business.name) {
         prompt += `Você está atendendo pela empresa "${this.knowledge.business.name}".\n`;

@@ -907,11 +907,29 @@
           // Atualiza loading pra dar feedback visual (orchestrator pode levar 5-15s)
           showLoading('Consultando inteligência avançada...');
 
+          // Persona ativa (tom/estilo). A geração roda no orquestrador do
+          // backend — que não conhece as personas da extensão. Enviamos o
+          // objeto da persona para o backend injetar no system prompt; sem
+          // isto, trocar de persona não mudava a resposta.
+          let personaPayload = null;
+          try {
+            const ap = window.CopilotEngine?.getActivePersona?.();
+            if (ap && typeof ap.systemPrompt === 'string' && ap.systemPrompt.trim()) {
+              personaPayload = {
+                id: ap.id || '',
+                name: ap.name || '',
+                description: ap.description || '',
+                systemPrompt: ap.systemPrompt,
+              };
+            }
+          } catch (_) { /* persona é opcional */ }
+
           // Timeout 18s: backend tem quality cycle (até 2 retries de LLM ~6s cada).
           // Se passar disso, provavelmente está sob carga ou caiu — vai pro fallback local.
           const orchestrated = await Promise.race([
             window.BackendClient.ai.process(chatKey, lastUserMsg, {
               language: 'pt-BR',
+              persona: personaPayload,
             }),
             new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 18000)),
           ]);

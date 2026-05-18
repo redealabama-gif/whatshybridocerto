@@ -1026,6 +1026,7 @@
       message,
       language: options.language || 'pt-BR',
       businessRules: options.businessRules || [],
+      persona: options.persona || null,
     }),
 
     // Feedback do usuário — fecha ciclo de aprendizado.

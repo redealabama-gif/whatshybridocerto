@@ -63,7 +63,7 @@ for (const [, qName] of Object.entries(QUEUES)) {
 
 // ── Processor: ai:realtime ────────────────────────────────────────────────────
 async function processRealtimeJob(job) {
-  const { tenantId, chatId, message, language, businessRules, workspaceConfig } = job.data;
+  const { tenantId, chatId, message, language, businessRules, persona, workspaceConfig } = job.data;
 
   const orchestratorRegistry = require('../registry/OrchestratorRegistry');
   const orchestrator = orchestratorRegistry.get(tenantId, workspaceConfig || {});
@@ -72,6 +72,7 @@ async function processRealtimeJob(job) {
   const result = await orchestrator.processMessage(chatId, message, {
     language: language || 'pt-BR',
     businessRules: businessRules || [],
+    persona: persona || null,
   });
 
   // Métrica de observabilidade (P2)
