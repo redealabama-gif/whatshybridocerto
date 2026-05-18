@@ -311,11 +311,14 @@ class EmailService {
     };
     const t = TONES[attempt] || TONES[1];
 
+    // `?from=dunning` permite ao dashboard saber que o cliente chegou via
+    // email de cobrança e mostrar UI contextual (banner past_due + toast
+    // orientando). Hash `#billing[/sub-acao]` é tratado pelo router do dashboard.
     const SCENARIO_CTA = {
-      declined:  { label: 'Atualizar método de pagamento', path: '/dashboard.html#billing' },
-      reconfig:  { label: 'Reconfigurar assinatura',       path: '/dashboard.html#billing/subscription' },
-      no_method: { label: 'Configurar pagamento',          path: '/dashboard.html#billing/subscribe' },
-      pending:   { label: 'Ver detalhes da assinatura',    path: '/dashboard.html#billing' },
+      declined:  { label: 'Atualizar método de pagamento', path: '/dashboard.html?from=dunning#billing' },
+      reconfig:  { label: 'Reconfigurar assinatura',       path: '/dashboard.html?from=dunning#billing/subscription' },
+      no_method: { label: 'Configurar pagamento',          path: '/dashboard.html?from=dunning#billing/subscribe' },
+      pending:   { label: 'Ver detalhes da assinatura',    path: '/dashboard.html?from=dunning#billing' },
     };
     const cta = SCENARIO_CTA[scenario] || SCENARIO_CTA.declined;
 

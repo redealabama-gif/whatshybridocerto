@@ -626,7 +626,9 @@ router.get('/me',
     const user = db.get(
       `SELECT u.id, u.email, u.name, u.avatar, u.phone, u.role, u.workspace_id, u.settings,
               w.name as workspace_name, w.plan, w.credits,
-              w.trial_end_at, w.subscription_status, w.next_billing_at
+              w.trial_end_at, w.subscription_status, w.next_billing_at,
+              w.payment_provider, w.mp_preapproval_id, w.stripe_subscription_id,
+              w.auto_renew_enabled, w.past_due_since, w.dunning_attempts
        FROM users u
        JOIN workspaces w ON u.workspace_id = w.id
        WHERE u.id = ?`,
@@ -655,6 +657,12 @@ router.get('/me',
         trial_end_at: user.trial_end_at,
         subscription_status: user.subscription_status,
         next_billing_at: user.next_billing_at,
+        payment_provider: user.payment_provider || null,
+        mp_preapproval_id: user.mp_preapproval_id || null,
+        stripe_subscription_id: user.stripe_subscription_id || null,
+        auto_renew_enabled: user.auto_renew_enabled === 1,
+        past_due_since: user.past_due_since || null,
+        dunning_attempts: user.dunning_attempts || 0,
       }
     });
   })
