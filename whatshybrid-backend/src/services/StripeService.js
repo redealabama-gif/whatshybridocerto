@@ -82,7 +82,29 @@ class StripeService {
   }
 
   /**
-   * Cria checkout session pra assinatura
+   * Cria checkout session pra assinatura.
+   *
+   * v9.6.x — Smart Retries via API:
+   *
+   * O cronograma de "Smart Retries" do Stripe (quantos retries, em quais
+   * dias) ainda é configuração de conta no dashboard
+   * (Settings → Billing → Subscriptions and emails → Smart retries).
+   * Stripe NÃO expõe via API a definição desse schedule por subscription.
+   *
+   * MAS — e isso é o que estava faltando — os retries SÓ FUNCIONAM se
+   * o cartão usado no checkout virar o "default payment method" do
+   * customer associado à subscription. Sem essa flag, o cartão fica
+   * vinculado só à invoice inicial; se ela falhar depois, o Stripe não
+   * tem o que cobrar nas retentativas → marca past_due imediato e
+   * dunning interno do Stripe nem dispara.
+   *
+   * Setamos `subscription_data.payment_settings.save_default_payment_method
+   * = 'on_subscription'` pra garantir que isso aconteça automaticamente.
+   *
+   * collection_method='charge_automatically' (default em subscriptions
+   * via checkout) + save_default_payment_method='on_subscription' juntos
+   * são o que habilita o ciclo completo de retries via Stripe. Não
+   * precisa de mais nada no API.
    */
   async createCheckoutSession({ priceId, customerEmail, successUrl, cancelUrl, metadata = {} }) {
     return this._request('POST', '/checkout/sessions', {
@@ -93,7 +115,44 @@ class StripeService {
       cancel_url: cancelUrl,
       metadata,
       allow_promotion_codes: true,
+      // Garante salvar cartão como default → habilita retries automáticos
+      subscription_data: {
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription',
+        },
+      },
     });
+  }
+
+  /**
+   * v9.6.x — Garante que subscriptions existentes têm os settings que
+   * habilitam o ciclo de retries do Stripe. Útil pra rodar uma vez como
+   * backfill em subscriptions criadas antes desta versão (que foram
+   * criadas sem `save_default_payment_method`).
+   *
+   * Idempotente — Stripe aceita PUT múltiplo nesses settings sem efeito
+   * colateral.
+   *
+   * Retorna {ok, status, raw} sem throw — chamador (cron de backfill ou
+   * admin endpoint) decide o que fazer com falhas.
+   */
+  async ensureRetrySettings(subscriptionId) {
+    if (!subscriptionId) return { ok: false, status: 'no_subscription' };
+    if (!this.isConfigured()) return { ok: false, status: 'not_configured' };
+
+    try {
+      const updated = await this._request('POST', `/subscriptions/${subscriptionId}`, {
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription',
+        },
+      });
+      return { ok: true, status: 'updated', raw: updated };
+    } catch (err) {
+      logger.warn(`[Stripe] ensureRetrySettings ${subscriptionId} falhou:`, err.message);
+      return { ok: false, status: 'error', error: err.message };
+    }
   }
 
   /**

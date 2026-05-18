@@ -528,6 +528,78 @@ router.get('/billing/dunning-queue', asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * POST /admin/billing/stripe/backfill-retry-settings
+ *
+ * Aplica payment_settings={save_default_payment_method:'on_subscription'}
+ * em todas as subscriptions Stripe ativas que foram criadas ANTES da
+ * v9.6.x. Sem isso, retries automáticos do Stripe não funcionam (faltam
+ * default payment method salvo).
+ *
+ * Idempotente — Stripe aceita PUT múltiplo. Roda 1× depois de deploy
+ * pra cobrir base existente. Novas subscriptions criadas via
+ * createCheckoutSession (v9.6.x+) já saem com os settings corretos.
+ *
+ * Body opcional: { workspaceId: "uuid" } pra rodar em um workspace só
+ * (debug). Sem body = roda em todos os workspaces ativos com Stripe.
+ *
+ * Response: { total, updated, skipped, errors: [...] }
+ */
+router.post('/billing/stripe/backfill-retry-settings', asyncHandler(async (req, res) => {
+  const stripeService = require('../services/StripeService');
+  if (!stripeService.isConfigured?.()) {
+    return res.status(503).json({ error: 'Stripe não configurado (STRIPE_SECRET_KEY ausente)' });
+  }
+
+  const filterWs = req.body?.workspaceId;
+  let rows = [];
+  try {
+    rows = filterWs
+      ? db.all(
+          `SELECT id, name, stripe_subscription_id FROM workspaces
+            WHERE id = ? AND stripe_subscription_id IS NOT NULL`,
+          [filterWs]
+        ) || []
+      : db.all(
+          `SELECT id, name, stripe_subscription_id FROM workspaces
+            WHERE stripe_subscription_id IS NOT NULL
+              AND subscription_status IN ('active', 'past_due')`
+        ) || [];
+  } catch (err) {
+    logger.error('[Admin] backfill-retry-settings query falhou:', err.message);
+    throw err;
+  }
+
+  const result = { total: rows.length, updated: 0, skipped: 0, errors: [] };
+
+  for (const ws of rows) {
+    try {
+      const r = await stripeService.ensureRetrySettings(ws.stripe_subscription_id);
+      if (r.ok) {
+        result.updated++;
+      } else {
+        result.skipped++;
+        result.errors.push({
+          workspace_id: ws.id,
+          subscription_id: ws.stripe_subscription_id,
+          status: r.status,
+          error: r.error,
+        });
+      }
+    } catch (e) {
+      result.skipped++;
+      result.errors.push({
+        workspace_id: ws.id,
+        subscription_id: ws.stripe_subscription_id,
+        error: e.message,
+      });
+    }
+  }
+
+  logger.info(`[Admin] Stripe backfill: ${result.updated}/${result.total} updated, ${result.skipped} skipped`);
+  res.json(result);
+}));
+
 // ============================================
 // HEALTH CHECK
 // ============================================
