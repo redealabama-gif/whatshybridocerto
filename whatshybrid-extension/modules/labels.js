@@ -623,6 +623,20 @@
             return;
         }
 
+        // Guarda 3: anti-downgrade. Se o write externo tem MENOS etiquetas de
+        // contato que o estado atual, é uma versão estale (ex.: sync com o
+        // backend que ainda não recebeu as últimas atribuições). Não deixa
+        // apagar as etiquetas locais — segunda linha de defesa do mesmo bug
+        // tratado em crm.js#syncWithBackend.
+        const incomingContactCount = (incoming && incoming.contactLabels &&
+            Object.keys(incoming.contactLabels).length) || 0;
+        const currentContactCount = (state.contactLabels &&
+            Object.keys(state.contactLabels).length) || 0;
+        if (incomingContactCount < currentContactCount) {
+            console.warn('[Labels] 🛡️ Ignorado write externo com menos etiquetas de contato (downgrade)');
+            return;
+        }
+
         console.log('[Labels] 🔄 Dados alterados externamente, recarregando...');
         loadState().then(() => {
             if (typeof window.renderModuleViews === 'function') {

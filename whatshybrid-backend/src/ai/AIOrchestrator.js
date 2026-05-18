@@ -230,6 +230,7 @@ class AIOrchestrator {
             ...(strategy ? [this.strategySelector.toPromptInstruction(strategy)] : []),
           ],
           language: context.language || 'pt-BR',
+          persona: context.persona || null,  // tom/estilo escolhido pelo cliente (extensão)
           behavioralDirective,   // v10
           responseGoal,          // v10
           behaviorProfile,       // v10.1

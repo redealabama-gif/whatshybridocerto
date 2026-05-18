@@ -426,6 +426,10 @@
 
   function updateConfidenceUI() {
     if (!window.confidenceSystem) return;
+    // Guard: o card de confiança pode não estar montado quando updateStats
+    // roda (ex.: setTimeout pós-load). Sem isto, getElementById(...).textContent
+    // estourava "Cannot set properties of null" dentro do callback do timer.
+    if (!document.getElementById('confidence_emoji')) return;
 
     const level = window.confidenceSystem.getConfidenceLevel();
     const score = window.confidenceSystem.score;
@@ -465,13 +469,16 @@
 
     if (window.knowledgeBase) {
       const stats = window.knowledgeBase.getStats();
-      document.getElementById('kb_faqs_count').textContent = stats.faqs;
-      document.getElementById('kb_products_count_stat').textContent = stats.products;
+      const faqsEl = document.getElementById('kb_faqs_count');
+      if (faqsEl) faqsEl.textContent = stats.faqs;
+      const prodEl = document.getElementById('kb_products_count_stat');
+      if (prodEl) prodEl.textContent = stats.products;
     }
 
     if (window.fewShotLearning) {
       const stats = window.fewShotLearning.getStats();
-      document.getElementById('kb_examples_count').textContent = stats.totalExamples;
+      const exEl = document.getElementById('kb_examples_count');
+      if (exEl) exEl.textContent = stats.totalExamples;
     }
 
     updateConfidenceUI();

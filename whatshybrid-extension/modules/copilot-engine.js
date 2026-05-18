@@ -417,7 +417,7 @@ Diretrizes:
       // Não salvar conversas completas (muito grande)
       const toSave = { ...state };
       toSave.conversations = {}; // Limpar conversas do storage
-      
+
       await chrome.storage.local.set({
         [CONFIG.STORAGE_KEY]: JSON.stringify(toSave)
       });
@@ -425,6 +425,27 @@ Diretrizes:
       console.error('[CopilotEngine] Falha ao salvar estado:', e);
     }
   }
+
+  // Sincronização cross-contexto da persona. A seleção de persona acontece no
+  // painel lateral (um contexto JS) mas a geração de resposta roda no content
+  // script (outro contexto) — o EventBus não cruza, então a persona escolhida
+  // nunca chegava ao gerador e a resposta não mudava. Os dois contextos
+  // compartilham chrome.storage.local: ouvimos a chave e atualizamos a persona
+  // ativa ao vivo. Sincroniza SÓ activePersona (não o state inteiro, para não
+  // sobrescrever conversas/métricas locais deste contexto).
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes[CONFIG.STORAGE_KEY]) return;
+      try {
+        let nv = changes[CONFIG.STORAGE_KEY].newValue;
+        if (typeof nv === 'string') nv = JSON.parse(nv);
+        if (nv && typeof nv.activePersona === 'string' && nv.activePersona !== state.activePersona) {
+          state.activePersona = nv.activePersona;
+          console.log('[CopilotEngine] 👤 Persona sincronizada via storage:', state.activePersona);
+        }
+      } catch (_) { /* ignore */ }
+    });
+  } catch (_) { /* ignore */ }
 
   function setupEventListeners() {
     if (!window.EventBus) return;
