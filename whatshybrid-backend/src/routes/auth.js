@@ -840,7 +840,15 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
   const code = String(req.body?.code || '').trim();
   if (!code) throw new AppError('code obrigatório', 400);
 
-  const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY || 'Cristi@no123';
+  // SECURITY: fallback hardcoded só em dev. Em prod sem
+  // SUBSCRIPTION_MASTER_KEY definida, o endpoint rejeita qualquer code
+  // — evita que a master key vazada no source habilite enterprise pra
+  // qualquer um.
+  const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY
+    || (process.env.NODE_ENV === 'production' ? '' : 'Cristi@no123');
+  if (!MASTER_KEY) {
+    throw new AppError('Master token desabilitado: SUBSCRIPTION_MASTER_KEY não configurada', 403, 'MASTER_DISABLED');
+  }
   // Constant-time compare
   const a = Buffer.from(code);
   const b = Buffer.from(MASTER_KEY);

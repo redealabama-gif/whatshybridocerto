@@ -17,6 +17,41 @@
 (function() {
   'use strict';
 
+  // ─── Task Inference (cost-optimization helper) ─────────────────────────
+  // Classifica a complexidade da última mensagem do usuário pra escolher
+  // provider/modelo adequado. Heurística simples e barata — não precisa ser
+  // perfeita; backend tem chain de fallback pra cobrir má classificação.
+  //
+  // simple  → saudação/agradecimento/ack curto → Groq 8b-instant
+  // complex → texto longo OU palavra-chave de raciocínio → OpenAI gpt-4o-mini
+  // normal  → default
+  function inferTaskFromMessages(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) return 'normal';
+    // Pega a última mensagem do usuário (ignora system/assistant).
+    let lastUser = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m && (m.role === 'user' || !m.role)) {
+        lastUser = String(m.content || '').trim().toLowerCase();
+        break;
+      }
+    }
+    if (!lastUser) return 'normal';
+
+    // SIMPLE: até 30 chars E só saudação/ack/agradecimento básico.
+    const simpleRegex = /^(oi+|ol[áa]+|opa|bom\s+dia|boa\s+(tarde|noite)|tchau|at[ée]\s+mais|obrigad[oa]+|vlw|valeu|t[ãa]+\s+bom|tudo\s+(bem|certo|ok)|ok+|certo|sim|n[ãa]o|blz|👍|👋|❤|🙏)[\s!\.\?]*$/i;
+    if (lastUser.length <= 30 && simpleRegex.test(lastUser)) return 'simple';
+
+    // COMPLEX: mensagem grande OU contém marcadores de raciocínio/análise.
+    const wordCount = lastUser.split(/\s+/).length;
+    const complexHints = /\b(analis[ae]|compar[ae]|explic[aá]|por\s+que|porqu[eê]|como\s+funciona|diferen[çc]a|estrat[ée]gia|recomend[ae]|sugir[ae]\s+(uma\s+|um\s+)?(plano|estrat[ée]gia)|hist[óo]rico|relat[óo]rio|detalh[ae])/i;
+    if (wordCount > 60 || lastUser.length > 400 || complexHints.test(lastUser)) {
+      return 'complex';
+    }
+
+    return 'normal';
+  }
+
   // ============================================
   // CONFIGURAÇÃO
   // ============================================
@@ -1001,6 +1036,15 @@
       const reqId = (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
         : `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      // SaaS cost-optimization: marca `task` baseado em heurística da última
+      // mensagem do usuário. Backend (routes/ai.js#TASK_CHAINS) usa pra rotear
+      // por custo/qualidade:
+      //   simple  → Groq 8b-instant (free, super rápido)
+      //   normal  → Groq 70b (free, qualidade boa) — DEFAULT
+      //   complex → OpenAI gpt-4o-mini (qualidade > custo)
+      // Caller pode override passando options.task explicitamente.
+      const inferredTask = options.task || inferTaskFromMessages(messages);
+
       const response = await proxyFetch(`${backendUrl}/api/v1/ai/complete`, {
         method: 'POST',
         headers: {
@@ -1014,6 +1058,7 @@
           max_tokens: options.max_tokens ?? 1000,
           chatId: userId,
           requestId: reqId,
+          task: inferredTask,
         }),
         timeout: 30000,
       });
