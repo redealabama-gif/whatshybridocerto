@@ -376,7 +376,7 @@ router.get('/knowledge/search', authenticate, asyncHandler(async (req, res) => {
  * Body: { chatId, message, language?, businessRules? }
  */
 router.post('/process', authenticate, asyncHandler(async (req, res) => {
-  const { chatId, message, language = 'pt-BR', businessRules } = req.body;
+  const { chatId, message, language = 'pt-BR', businessRules, persona } = req.body;
   // FIX v9.3.0 BUG CRÍTICO MULTI-TENANT:
   //   Antes: req.user.tenantId (não existe) || req.user.workspaceId (camelCase, não existe — user tem workspace_id snake_case)
   //   Resultado: TODAS as chamadas caíam no 'default' — multi-tenant quebrado.
@@ -393,6 +393,21 @@ router.post('/process', authenticate, asyncHandler(async (req, res) => {
   }
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' });
+  }
+
+  // Persona (tom/estilo de resposta) — escolhida pelo cliente na extensão.
+  // É input do cliente, então sanitiza antes de injetar no system prompt:
+  // só aceita objeto com systemPrompt string e limita o tamanho dos campos.
+  let safePersona = null;
+  if (persona && typeof persona === 'object' &&
+      typeof persona.systemPrompt === 'string' && persona.systemPrompt.trim()) {
+    const clip = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+    safePersona = {
+      id: clip(persona.id, 64),
+      name: clip(persona.name, 120),
+      description: clip(persona.description, 300),
+      systemPrompt: clip(persona.systemPrompt, 2000),
+    };
   }
 
   // v9.3.9 BILLING FIX CRÍTICO: pre-check saldo de tokens ANTES de chamar IA.
@@ -450,6 +465,7 @@ router.post('/process', authenticate, asyncHandler(async (req, res) => {
         tenantId, chatId, message,
         language: language || 'pt-BR',
         businessRules: businessRules || [],
+        persona: safePersona,
         workspaceConfig,
       }, { priority: 1 });
       const queueEvents = realtimeQueue.events || new (require('bullmq').QueueEvents)(QUEUES.REALTIME, {
@@ -466,6 +482,7 @@ router.post('/process', authenticate, asyncHandler(async (req, res) => {
     result = await orchestrator.processMessage(chatId, message, {
       language: language || 'pt-BR',
       businessRules: businessRules || [],
+      persona: safePersona,
     });
   }
 
