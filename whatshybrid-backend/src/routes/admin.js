@@ -600,6 +600,170 @@ router.post('/billing/stripe/backfill-retry-settings', asyncHandler(async (req, 
   res.json(result);
 }));
 
+/**
+ * GET /admin/billing/dunning/charges
+ *
+ * Histórico paginado de tentativas de cobrança feitas pelo dunning.
+ *
+ * Query params:
+ *   ?workspaceId=uuid      → filtra por workspace (default: todos)
+ *   ?status=declined|paid|... → filtra por charge_status
+ *   ?okOnly=true|false     → só sucessos ou só falhas
+ *   ?limit=N (max 200, default 50)
+ *   ?offset=N (default 0)
+ *
+ * Útil pra responder "por que esse workspace foi suspenso?" sem precisar
+ * vasculhar logs. JOIN com workspaces pra trazer nome/plano.
+ */
+router.get('/billing/dunning/charges', asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+  const filters = [];
+  const params = [];
+  if (req.query.workspaceId) {
+    filters.push('d.workspace_id = ?');
+    params.push(String(req.query.workspaceId));
+  }
+  if (req.query.status) {
+    filters.push('d.charge_status = ?');
+    params.push(String(req.query.status));
+  }
+  if (req.query.okOnly === 'true') filters.push('d.ok = 1');
+  else if (req.query.okOnly === 'false') filters.push('d.ok = 0');
+
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+  let rows = [];
+  try {
+    rows = db.all(
+      `SELECT d.id,
+              d.workspace_id,
+              w.name              AS workspace_name,
+              w.plan,
+              w.subscription_status,
+              d.provider,
+              d.provider_subscription_id,
+              d.attempt_number,
+              d.past_due_age_days,
+              d.charge_method,
+              d.charge_status,
+              d.ok,
+              d.error_message,
+              d.created_at
+         FROM dunning_charge_attempts d
+         LEFT JOIN workspaces w ON w.id = d.workspace_id
+         ${where}
+        ORDER BY d.created_at DESC
+        LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    ) || [];
+  } catch (err) {
+    logger.error('[Admin] dunning/charges query falhou:', err.message);
+    throw err;
+  }
+
+  // Total pra paginação
+  let total = 0;
+  try {
+    const totalRow = db.get(
+      `SELECT COUNT(*) AS c FROM dunning_charge_attempts d ${where}`,
+      params
+    );
+    total = Number(totalRow?.c || 0);
+  } catch (_) { /* não bloqueia */ }
+
+  res.json({
+    total,
+    limit,
+    offset,
+    charges: rows.map(r => ({ ...r, ok: !!r.ok })),
+  });
+}));
+
+/**
+ * GET /admin/billing/dunning/charges/:id
+ *
+ * Detalhe completo de uma tentativa específica, incluindo raw_response do
+ * gateway (que pode ter 4KB de JSON). Separado do list pra não pesar
+ * payload da listagem.
+ */
+router.get('/billing/dunning/charges/:id', asyncHandler(async (req, res) => {
+  let row = null;
+  try {
+    row = db.get(
+      `SELECT d.*, w.name AS workspace_name, w.plan, w.subscription_status
+         FROM dunning_charge_attempts d
+         LEFT JOIN workspaces w ON w.id = d.workspace_id
+        WHERE d.id = ?`,
+      [String(req.params.id)]
+    );
+  } catch (err) {
+    logger.error('[Admin] dunning/charges/:id query falhou:', err.message);
+    throw err;
+  }
+  if (!row) return res.status(404).json({ error: 'Charge attempt não encontrado' });
+
+  // Parse raw_response (string JSON) pra objeto se possível
+  let raw = null;
+  if (row.raw_response) {
+    try { raw = JSON.parse(row.raw_response); } catch (_) { raw = row.raw_response; }
+  }
+
+  res.json({ ...row, ok: !!row.ok, raw_response: raw });
+}));
+
+/**
+ * GET /admin/billing/dunning/charges/summary
+ *
+ * Funil agregado: total de tentativas por status nos últimos N dias.
+ * Resposta no formato {paid: N, declined: N, gone: N, ...} pra alimentar
+ * dashboard de cobrança.
+ *
+ * ?days=N (default 30, max 365)
+ */
+router.get('/billing/dunning/summary', asyncHandler(async (req, res) => {
+  const days = Math.min(parseInt(req.query.days, 10) || 30, 365);
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  let rows = [];
+  try {
+    rows = db.all(
+      `SELECT charge_status,
+              provider,
+              COUNT(*) AS count,
+              SUM(CASE WHEN ok = 1 THEN 1 ELSE 0 END) AS ok_count
+         FROM dunning_charge_attempts
+        WHERE created_at >= ?
+        GROUP BY charge_status, provider
+        ORDER BY count DESC`,
+      [since]
+    ) || [];
+  } catch (err) {
+    logger.error('[Admin] dunning/summary query falhou:', err.message);
+    throw err;
+  }
+
+  // Conta workspaces únicos no período (cobrados ao menos uma vez)
+  let uniqueWorkspaces = 0;
+  try {
+    const r = db.get(
+      `SELECT COUNT(DISTINCT workspace_id) AS c
+         FROM dunning_charge_attempts
+        WHERE created_at >= ?`,
+      [since]
+    );
+    uniqueWorkspaces = Number(r?.c || 0);
+  } catch (_) {}
+
+  res.json({
+    days,
+    since,
+    unique_workspaces: uniqueWorkspaces,
+    by_status_provider: rows,
+  });
+}));
+
 // ============================================
 // HEALTH CHECK
 // ============================================

@@ -22,8 +22,52 @@
  */
 
 const cron = require('node-cron');
+const crypto = require('crypto');
 const db = require('../utils/database');
 const logger = require('../utils/logger');
+
+/**
+ * Persiste uma row em dunning_charge_attempts. Fire-and-forget,
+ * NUNCA throw — perder log de auditoria não pode quebrar dunning.
+ *
+ * raw é o resultado do gateway (objeto). Truncamos pra 4KB pra não
+ * explodir disco se Stripe retornar payload gigante.
+ */
+function recordDunningChargeAttempt({
+  workspaceId, provider, providerSubscriptionId, attemptNumber,
+  pastDueAgeDays, chargeMethod, chargeStatus, ok, errorMessage, raw,
+}) {
+  try {
+    let rawJson = null;
+    if (raw) {
+      try {
+        const s = JSON.stringify(raw);
+        rawJson = s.length > 4096 ? s.substring(0, 4093) + '...' : s;
+      } catch (_) { rawJson = null; }
+    }
+    db.run(
+      `INSERT INTO dunning_charge_attempts
+        (id, workspace_id, provider, provider_subscription_id, attempt_number,
+         past_due_age_days, charge_method, charge_status, ok, error_message, raw_response)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        workspaceId,
+        provider || 'none',
+        providerSubscriptionId || null,
+        attemptNumber,
+        pastDueAgeDays,
+        chargeMethod || 'skipped',
+        chargeStatus || 'unknown',
+        ok ? 1 : 0,
+        errorMessage ? String(errorMessage).substring(0, 500) : null,
+        rawJson,
+      ]
+    );
+  } catch (e) {
+    logger.warn('[BillingCron] recordDunningChargeAttempt falhou:', e.message);
+  }
+}
 
 let alertManager;
 try { alertManager = require('../observability/alertManager'); } catch (_) {}
@@ -273,17 +317,30 @@ async function processDunning() {
     //         pra "cliente precisa reconfigurar pagamento".
     let chargeResult = null;
     let chargeMethod = null;
+    let chargeMethodKind = 'skipped';
+    let providerSubId = null;
     try {
       if (ws.stripe_subscription_id && stripeService?.isConfigured?.()) {
         chargeMethod = 'stripe';
+        chargeMethodKind = 'retry_invoice';
+        providerSubId = ws.stripe_subscription_id;
         chargeResult = await stripeService.retryFailedInvoice(ws.stripe_subscription_id);
         if (chargeResult.ok && (chargeResult.status === 'paid' || chargeResult.status === 'already_paid')) {
           // Cobrança passou — webhook do Stripe vai marcar active+renovar
-          // tokens. Aqui só registramos no log e NÃO mandamos alerta de
-          // dunning (cliente regularizou).
+          // tokens. Registra no histórico, atualiza dunning_attempts pra
+          // evitar reentrância no mesmo dia, e PULA o alerta (cliente OK).
           logger.info(`[BillingCron] Dunning ${stage.attempt}/3 → CHARGE OK (stripe) pra ${ws.id} (${ws.name})`);
-          // Atualiza dunning_attempts mesmo no sucesso pra evitar tentar
-          // de novo no mesmo dia se algo der ruim entre agora e o webhook.
+          recordDunningChargeAttempt({
+            workspaceId: ws.id,
+            provider: 'stripe',
+            providerSubscriptionId: providerSubId,
+            attemptNumber: stage.attempt,
+            pastDueAgeDays: ageDays,
+            chargeMethod: chargeMethodKind,
+            chargeStatus: chargeResult.status,
+            ok: true,
+            raw: chargeResult.raw,
+          });
           db.run(
             `UPDATE workspaces
                 SET dunning_attempts = ?,
@@ -299,7 +356,12 @@ async function processDunning() {
         }
       } else if (ws.mp_preapproval_id && mpService?.isConfigured?.()) {
         chargeMethod = 'mp';
+        chargeMethodKind = 'health_check';
+        providerSubId = ws.mp_preapproval_id;
         chargeResult = await mpService.getPreapprovalHealth(ws.mp_preapproval_id);
+      } else {
+        chargeMethod = 'none';
+        chargeMethodKind = 'skipped';
       }
     } catch (err) {
       logger.warn(`[BillingCron] Charge attempt falhou pra ${ws.id}:`, err.message);
@@ -333,6 +395,22 @@ async function processDunning() {
     }
 
     try {
+      // Persiste histórico do attempt — tanto pra cobrança falha (declined/
+      // gone) quanto pra skipped (sem método de pagamento). O caminho de
+      // "stripe:paid" já tem o record acima e continua antes daqui.
+      recordDunningChargeAttempt({
+        workspaceId: ws.id,
+        provider: chargeMethod || 'none',
+        providerSubscriptionId: providerSubId,
+        attemptNumber: stage.attempt,
+        pastDueAgeDays: ageDays,
+        chargeMethod: chargeMethodKind,
+        chargeStatus: chargeResult?.status || (chargeMethod === 'none' ? 'no_method' : 'unknown'),
+        ok: !!chargeResult?.ok,
+        errorMessage: chargeResult?.error || null,
+        raw: chargeResult?.raw || chargeResult,
+      });
+
       db.run(
         `UPDATE workspaces
             SET dunning_attempts = ?,
