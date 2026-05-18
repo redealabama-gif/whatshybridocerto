@@ -11,6 +11,7 @@ const config = require('../../config');
 const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
+const { checkTokenBalance } = require('../middleware/tokenBalance');
 const { makeLikeTerm } = require('../utils/sql-helpers');
 // v9.5.0 BUG #137: `aiCompletionLimiter` nunca foi exportado por rateLimiter.js.
 // Em v9.4.7 era importado e passado como middleware → undefined → Express
@@ -39,6 +40,138 @@ const PROVIDERS = {
   }
 };
 
+// ─── Task-based routing ────────────────────────────────────────────────────
+// Cada chamada de IA aceita opcionalmente `task: 'simple'|'normal'|'complex'`.
+// O backend mapeia para uma cadeia de candidates (provider+model) ordenada
+// por preferência. Cada candidate é tentado em ordem até um responder OK;
+// erros transientes (429/5xx/timeout/network) caem pro próximo. Erros
+// definitivos (4xx ≠ 429) abortam imediato.
+//
+// Decisões:
+//   simple  — saudação, "ok", "obrigado", classificação binária. Modelo
+//             menor é suficiente. Groq 8b-instant é praticamente free.
+//   normal  — atendimento padrão. Groq 70b é grátis e tem qualidade próxima
+//             do gpt-4o-mini. Fallback OpenAI mini se Groq ficar fora.
+//   complex — análise profunda, ticket técnico longo, raciocínio multi-step.
+//             Vai direto pro gpt-4o-mini (qualidade > custo aqui).
+//
+// SaaS economy: ~95% dos atendimentos cabe em 'normal' (free via Groq).
+// O cliente NÃO paga você toda vez que a IA responder — só quando consumir
+// o que custou ao backend de verdade (TokenService.consume com tokens reais).
+const TASK_CHAINS = {
+  simple: [
+    { provider: 'groq',   model: 'llama-3.1-8b-instant' },
+    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+    { provider: 'openai', model: 'gpt-4o-mini' },
+  ],
+  normal: [
+    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+    { provider: 'openai', model: 'gpt-4o-mini' },
+  ],
+  complex: [
+    { provider: 'openai', model: 'gpt-4o-mini' },
+    { provider: 'openai', model: 'gpt-4o' },
+    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+  ],
+};
+
+/**
+ * Monta a chain de candidates para tentativa em ordem.
+ * - Se cliente especifica `provider`, respeita E adiciona o "outro lado"
+ *   (groq/openai) como fallback runtime.
+ * - Se não especifica, usa task chain.
+ * Filtra automaticamente candidates cujo provider não tem API key configurada.
+ */
+function resolveProviderChain(task, explicitProvider, explicitModel) {
+  let candidates;
+  if (explicitProvider && PROVIDERS[explicitProvider]) {
+    candidates = [{
+      provider: explicitProvider,
+      model: explicitModel || config.ai[explicitProvider]?.defaultModel || 'gpt-4o-mini'
+    }];
+    // Adiciona o oposto como degradação resiliente.
+    const opposite = explicitProvider === 'openai' ? 'groq' : 'openai';
+    candidates.push({
+      provider: opposite,
+      model: config.ai[opposite]?.defaultModel
+        || (opposite === 'openai' ? 'gpt-4o-mini' : 'llama-3.3-70b-versatile')
+    });
+  } else {
+    const key = (task || 'normal').toLowerCase();
+    candidates = TASK_CHAINS[key] || TASK_CHAINS.normal;
+  }
+  // Mantém só candidates com key configurada no .env.
+  return candidates.filter(c => !!config.ai[c.provider]?.apiKey);
+}
+
+/**
+ * Faz UMA chamada HTTP a um provider/model. Retorna {content, usage} ou
+ * THROW Axios error (deixa retryability pra quem chamou decidir).
+ */
+async function callProviderOnce(provider, model, messages, temperature, max_tokens) {
+  const providerConfig = PROVIDERS[provider];
+  const apiKey = config.ai[provider]?.apiKey;
+  if (!providerConfig || !apiKey) {
+    const e = new Error(`Provider ${provider} sem API key configurada`);
+    e.code = 'PROVIDER_NOT_CONFIGURED';
+    throw e;
+  }
+
+  let requestBody;
+  if (provider === 'anthropic') {
+    const systemMsg = messages.find(m => m.role === 'system');
+    const otherMsgs = messages.filter(m => m.role !== 'system');
+    requestBody = {
+      model,
+      max_tokens: max_tokens || 1000,
+      ...(systemMsg && { system: systemMsg.content }),
+      messages: otherMsgs.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      ...(temperature !== undefined && { temperature })
+    };
+  } else {
+    requestBody = {
+      model,
+      messages,
+      temperature: temperature ?? 0.7,
+      max_tokens: max_tokens || 1000
+    };
+  }
+
+  const startTime = Date.now();
+  const response = await axios.post(
+    providerConfig.endpoint,
+    requestBody,
+    { headers: providerConfig.getHeaders(apiKey), timeout: 60000 }
+  );
+  const latency = Date.now() - startTime;
+
+  let content, usage;
+  if (provider === 'anthropic') {
+    content = response.data.content?.[0]?.text || '';
+    usage = { prompt_tokens: response.data.usage?.input_tokens, completion_tokens: response.data.usage?.output_tokens };
+  } else {
+    content = response.data.choices?.[0]?.message?.content || '';
+    usage = response.data.usage;
+  }
+
+  return { content, usage, latency, model, provider };
+}
+
+/**
+ * Decide se vale tentar o próximo candidate na chain.
+ * - 429 (rate limit), 5xx, timeout, network error → vale.
+ * - 400/401/403 → não vale (problema de auth/payload, não transient).
+ */
+function isRetryableError(err) {
+  if (err.code === 'PROVIDER_NOT_CONFIGURED') return true; // só pula esse provider
+  if (err.code === 'ECONNABORTED') return true; // axios timeout
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') return true;
+  const status = err.response?.status;
+  if (status === 429) return true;
+  if (status >= 500 && status < 600) return true;
+  return false;
+}
+
 // v9.4.6: getCredits/deductCredits REMOVIDOS — usavam workspaces.credits
 // (tabela legada). Tudo migrado pra TokenService (única fonte de verdade).
 
@@ -48,117 +181,96 @@ router.use(aiLimiter);
  * @route POST /api/v1/ai/complete
  * @desc AI completion (proxied)
  */
-router.post('/complete', aiCompletionLimiter, authenticate, asyncHandler(async (req, res) => {
-  let { provider, model, messages, temperature, max_tokens, requestId, chatId } = req.body;
+router.post(
+  '/complete',
+  aiCompletionLimiter,
+  authenticate,
+  // P1: plugado o middleware checkTokenBalance — antes o check era manual
+  // dentro do handler. Agora qualquer rota IA nova herda a proteção só
+  // adicionando o middleware. estimatedCost=1 mantém o comportamento
+  // antigo ("bloqueia só se zerou completamente"); a contabilização real
+  // acontece pós-resposta via tokenService.consume.
+  checkTokenBalance(1),
+  asyncHandler(async (req, res) => {
+    const { provider: explicitProvider, model: explicitModel, messages, temperature, max_tokens, requestId, chatId, task } = req.body;
 
-  // v9.4.3 BUG #110: idempotência. requestId pode vir do frontend (UUID gerado
-  // ao iniciar a request) — backend usa pra dedup no consume.
-  const safeRequestId = (typeof requestId === 'string' && requestId.length > 0 && requestId.length <= 100)
-    ? requestId
-    : null;
-  
-  // Detecta provider disponível automaticamente se não especificado
-  if (!provider) {
-    if (config.ai.groq?.apiKey) {
-      provider = 'groq';
-    } else if (config.ai.openai?.apiKey) {
-      provider = 'openai';
-    } else if (config.ai.anthropic?.apiKey) {
-      provider = 'anthropic';
-    } else if (config.ai.venice?.apiKey) {
-      provider = 'venice';
-    } else {
-      throw new AppError('No AI provider configured. Please set an API key in .env', 400);
-    }
-  }
+    // v9.4.3 BUG #110: idempotência via requestId
+    const safeRequestId = (typeof requestId === 'string' && requestId.length > 0 && requestId.length <= 100)
+      ? requestId
+      : null;
 
-  const providerConfig = PROVIDERS[provider];
-  if (!providerConfig) {
-    throw new AppError('Invalid provider', 400);
-  }
-
-  // v9.4.3 BUG #111: API key vem APENAS do env do backend (Backend-Only AI).
-  // Antes, este endpoint lia settings.aiKeys do workspace — quebrava o modelo
-  // SaaS (cliente bypassava billing). v9.4.0 já bloqueou /settings/ai-keys mas
-  // este endpoint ainda lia o que sobrou no DB. Agora ignora 100%.
-  const apiKey = config.ai[provider]?.apiKey;
-  if (!apiKey) {
-    throw new AppError(`API key não configurada no servidor para ${provider}. Configure ${provider.toUpperCase()}_API_KEY no .env`, 503);
-  }
-
-  // v9.4.3 BUG #112: pre-check de saldo via TokenService (única fonte de verdade).
-  // Antes: getCredits/deductCredits usavam workspaces.credits (tabela legada),
-  // enquanto resto do sistema usava workspace_credits (tabela do TokenService).
-  // Cliente podia ter 0 tokens em workspace_credits e 999 em workspaces.credits,
-  // ou vice-versa.
-  const tokenService = require('../services/TokenService');
-  const balance = tokenService.getBalance(req.workspaceId);
-  if (balance.balance <= 0) {
-    throw new AppError('Insufficient AI credits', 402, 'INSUFFICIENT_CREDITS');
-  }
-
-  try {
-    const startTime = Date.now();
-    
-    let requestBody;
-    if (provider === 'anthropic') {
-      const systemMsg = messages.find(m => m.role === 'system');
-      const otherMsgs = messages.filter(m => m.role !== 'system');
-      requestBody = {
-        model: model || config.ai.anthropic.defaultModel,
-        max_tokens: max_tokens || 1000,
-        ...(systemMsg && { system: systemMsg.content }),
-        messages: otherMsgs.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
-        ...(temperature && { temperature })
-      };
-    } else {
-      requestBody = {
-        model: model || config.ai[provider]?.defaultModel || 'gpt-4o-mini',
-        messages,
-        temperature: temperature ?? 0.7,
-        max_tokens: max_tokens || 1000
-      };
+    // Monta chain de fallback (task-based ou explicit-provider com degradação).
+    const chain = resolveProviderChain(task, explicitProvider, explicitModel);
+    if (chain.length === 0) {
+      throw new AppError('No AI provider configured. Set GROQ_API_KEY ou OPENAI_API_KEY no .env', 503);
     }
 
-    const response = await axios.post(
-      providerConfig.endpoint,
-      requestBody,
-      { headers: providerConfig.getHeaders(apiKey), timeout: 60000 }
-    );
-
-    const latency = Date.now() - startTime;
-
-    // Parse response
-    let content, usage;
-    if (provider === 'anthropic') {
-      content = response.data.content?.[0]?.text || '';
-      usage = { prompt_tokens: response.data.usage?.input_tokens, completion_tokens: response.data.usage?.output_tokens };
-    } else {
-      content = response.data.choices?.[0]?.message?.content || '';
-      usage = response.data.usage;
+    // Tenta cada candidate; primeiro sucesso é a resposta.
+    let lastError = null;
+    let result = null;
+    let attemptedChain = [];
+    for (const candidate of chain) {
+      attemptedChain.push(`${candidate.provider}/${candidate.model}`);
+      try {
+        result = await callProviderOnce(
+          candidate.provider,
+          candidate.model,
+          messages,
+          temperature,
+          max_tokens
+        );
+        break; // sucesso
+      } catch (err) {
+        lastError = err;
+        const status = err.response?.status || err.code || 'unknown';
+        if (isRetryableError(err)) {
+          logger.warn(`[ai/complete] ${candidate.provider}/${candidate.model} falhou (${status}) — tentando próximo candidate`);
+          continue;
+        }
+        // Erro definitivo (auth/payload). Aborta sem fallback.
+        logger.error(`[ai/complete] ${candidate.provider}/${candidate.model} erro definitivo (${status}):`, err.response?.data?.error?.message || err.message);
+        throw new AppError(
+          err.response?.data?.error?.message || 'AI request failed',
+          err.response?.status || 500
+        );
+      }
     }
 
-    // v9.4.3: debitar via TokenService com idempotência por requestId
+    if (!result) {
+      logger.error('[ai/complete] Todos os providers falharam:', attemptedChain.join(' → '));
+      throw new AppError(
+        lastError?.response?.data?.error?.message
+          || `Todos os providers falharam: ${attemptedChain.join(' → ')}`,
+        lastError?.response?.status || 503
+      );
+    }
+
+    const { content, usage, latency, model, provider } = result;
+
+    // Débito via TokenService (única fonte de verdade) com idempotência.
+    const tokenService = require('../services/TokenService');
     const totalTokens = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0);
-    let consumeResult = { allowed: true, balance_after: balance.balance, idempotent_replay: false };
+    let consumeResult = { allowed: true, balance_after: 0, idempotent_replay: false };
     if (totalTokens > 0) {
       consumeResult = tokenService.consume(req.workspaceId, totalTokens, {
         ai_request_id: safeRequestId,
-        model: requestBody.model,
+        model,
         prompt_tokens: usage?.prompt_tokens,
         completion_tokens: usage?.completion_tokens,
-        description: `AI completion: ${provider}/${requestBody.model}`,
+        description: `AI completion: ${provider}/${model}${task ? ` (task=${task})` : ''}`,
       });
+    } else {
+      const bal = tokenService.getBalance(req.workspaceId);
+      consumeResult.balance_after = bal?.balance || 0;
     }
 
-    // Log usage
+    // Analytics
     db.run(
       'INSERT INTO analytics_events (id, workspace_id, event_type, event_data, user_id) VALUES (?, ?, ?, ?, ?)',
-      [uuidv4(), req.workspaceId, 'ai:completion', JSON.stringify({ provider, model: requestBody.model, tokens: usage, latency, requestId: safeRequestId }), req.userId]
+      [uuidv4(), req.workspaceId, 'ai:completion', JSON.stringify({ provider, model, tokens: usage, latency, requestId: safeRequestId, task: task || null, attempted: attemptedChain }), req.userId]
     );
 
-    // v9.5.5: Per-request economic log (provider, model, tokens, latency, USD cost).
-    // Fire-and-forget — never block the AI response on a logging failure.
+    // CostLogger fire-and-forget
     try {
       const costLogger = require('../services/CostLoggerService');
       costLogger.log({
@@ -166,7 +278,7 @@ router.post('/complete', aiCompletionLimiter, authenticate, asyncHandler(async (
         userId: req.userId,
         requestId: safeRequestId,
         provider,
-        model: requestBody.model,
+        model,
         promptTokens: usage?.prompt_tokens || 0,
         completionTokens: usage?.completion_tokens || 0,
         latencyMs: latency,
@@ -178,18 +290,16 @@ router.post('/complete', aiCompletionLimiter, authenticate, asyncHandler(async (
     res.json({
       content,
       provider,
-      model: requestBody.model,
+      model,
       usage,
       latency,
       balance: consumeResult.balance_after,
       idempotent_replay: consumeResult.idempotent_replay || false,
+      // Útil pra debug: se o cliente pediu openai e caiu pra groq, ele vê.
+      ...(attemptedChain.length > 1 && { fallback_used: true, attempted: attemptedChain }),
     });
-
-  } catch (error) {
-    logger.error('AI completion error:', error.response?.data || error.message);
-    throw new AppError(error.response?.data?.error?.message || 'AI request failed', error.response?.status || 500);
-  }
-}));
+  })
+);
 
 /**
  * @route GET /api/v1/ai/credits

@@ -22,8 +22,52 @@
  */
 
 const cron = require('node-cron');
+const crypto = require('crypto');
 const db = require('../utils/database');
 const logger = require('../utils/logger');
+
+/**
+ * Persiste uma row em dunning_charge_attempts. Fire-and-forget,
+ * NUNCA throw — perder log de auditoria não pode quebrar dunning.
+ *
+ * raw é o resultado do gateway (objeto). Truncamos pra 4KB pra não
+ * explodir disco se Stripe retornar payload gigante.
+ */
+function recordDunningChargeAttempt({
+  workspaceId, provider, providerSubscriptionId, attemptNumber,
+  pastDueAgeDays, chargeMethod, chargeStatus, ok, errorMessage, raw,
+}) {
+  try {
+    let rawJson = null;
+    if (raw) {
+      try {
+        const s = JSON.stringify(raw);
+        rawJson = s.length > 4096 ? s.substring(0, 4093) + '...' : s;
+      } catch (_) { rawJson = null; }
+    }
+    db.run(
+      `INSERT INTO dunning_charge_attempts
+        (id, workspace_id, provider, provider_subscription_id, attempt_number,
+         past_due_age_days, charge_method, charge_status, ok, error_message, raw_response)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        workspaceId,
+        provider || 'none',
+        providerSubscriptionId || null,
+        attemptNumber,
+        pastDueAgeDays,
+        chargeMethod || 'skipped',
+        chargeStatus || 'unknown',
+        ok ? 1 : 0,
+        errorMessage ? String(errorMessage).substring(0, 500) : null,
+        rawJson,
+      ]
+    );
+  } catch (e) {
+    logger.warn('[BillingCron] recordDunningChargeAttempt falhou:', e.message);
+  }
+}
 
 let alertManager;
 try { alertManager = require('../observability/alertManager'); } catch (_) {}
@@ -90,10 +134,15 @@ function processExpiredTrials() {
         logger.error(`[BillingCron] Erro ao ativar ${ws.id}:`, e.message);
       }
     } else {
-      // Não pagou — past_due
+      // Não pagou — past_due. past_due_since (COALESCE) marca o início do
+      // ciclo de dunning sem resetar se já está marcado. processDunning()
+      // dispara retries em 1/3/7 dias contra esse campo.
       try {
         db.run(
-          `UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`,
+          `UPDATE workspaces
+              SET subscription_status = 'past_due',
+                  past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP)
+            WHERE id = ?`,
           [ws.id]
         );
         results.push({ workspace_id: ws.id, action: 'past_due', plan: ws.plan });
@@ -144,10 +193,14 @@ function processExpiredSubscriptions() {
   const results = [];
   for (const ws of toRenew) {
     // Marca como past_due — o owner do SaaS toma providência
-    // (ou trigger automático via card token, que é Onda 4.5)
+    // (ou trigger automático via card token, que é Onda 4.5).
+    // past_due_since marca início do ciclo de dunning.
     try {
       db.run(
-        `UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`,
+        `UPDATE workspaces
+            SET subscription_status = 'past_due',
+                past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP)
+          WHERE id = ?`,
         [ws.id]
       );
       results.push({ workspace_id: ws.id, action: 'renewal_due', plan: ws.plan });
@@ -169,20 +222,299 @@ function processExpiredSubscriptions() {
 }
 
 /**
+ * v9.6.x — Dunning automático: retries escalonados em 1, 3 e 7 dias após
+ * a subscription virar past_due. Cada workspace tem `dunning_attempts`
+ * (0..3) e `last_dunning_at`. O cron roda 1×/dia (03:00 default), então
+ * cada disparo só acontece uma vez por dia mesmo que o cron seja chamado
+ * múltiplas vezes manualmente.
+ *
+ * Schedule:
+ *   - Dia 1 após past_due → tentativa 1 (lembrete amigável)
+ *   - Dia 3              → tentativa 2 (aviso firme, ameaça de suspensão)
+ *   - Dia 7              → tentativa 3 (último aviso, prepare-se pra perder
+ *                                       acesso amanhã); na próxima run o
+ *                                       suspendDelinquent suspende.
+ *
+ * Como o "real automatic charge" (Onda 4.5 — preapproval MP, Stripe
+ * subscription) ainda não está auto-disparando cobrança, este dunning é
+ * focado em ALERTAR o cliente (e o operador via alertManager). Quando o
+ * card-token retry for implementado, basta plugar aqui a chamada efetiva
+ * de cobrança em cada tentativa.
+ */
+async function processDunning() {
+  const now = Date.now();
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // Stage por idade (em dias) e tentativa esperada nesse estágio.
+  const STAGES = [
+    { dayMin: 1, dayMax: 2, attempt: 1, severity: 'info',     label: 'Lembrete amigável' },
+    { dayMin: 3, dayMax: 4, attempt: 2, severity: 'warning',  label: 'Aviso firme — risco de suspensão' },
+    { dayMin: 7, dayMax: 7, attempt: 3, severity: 'critical', label: 'Último aviso — suspensão amanhã' },
+  ];
+
+  let pastDueList = [];
+  try {
+    // JOIN com users pra pegar email/name do owner — usado pra email
+    // transacional de dunning (sendDunningEscalation). Sem JOIN, precisaríamos
+    // de query extra por workspace dentro do loop.
+    pastDueList = db.all(
+      `SELECT w.id, w.name, w.plan, w.owner_id, w.dunning_attempts,
+              w.last_dunning_at, w.past_due_since, w.payment_provider,
+              w.mp_preapproval_id, w.stripe_subscription_id,
+              u.email AS owner_email, u.name AS owner_name
+         FROM workspaces w
+         LEFT JOIN users u ON u.id = w.owner_id
+        WHERE w.subscription_status = 'past_due'
+          AND w.past_due_since IS NOT NULL`
+    ) || [];
+  } catch (err) {
+    logger.error('[BillingCron] processDunning query falhou:', err.message);
+    return [];
+  }
+
+  // Lazy-load dos services (evita require circular e custo no boot se
+  // dunning não tiver nada pra processar).
+  let mpService = null;
+  let stripeService = null;
+  let emailService = null;
+  try { mpService = require('../services/MercadoPagoService'); } catch (_) {}
+  try { stripeService = require('../services/StripeService'); } catch (_) {}
+  try { emailService = require('../services/EmailService'); } catch (_) {}
+
+  const results = [];
+  for (const ws of pastDueList) {
+    const pastDueAt = new Date(ws.past_due_since).getTime();
+    if (!Number.isFinite(pastDueAt)) continue;
+    const ageDays = Math.floor((now - pastDueAt) / 86400000);
+
+    // Encontra o estágio que cobre essa idade.
+    const stage = STAGES.find(s => ageDays >= s.dayMin && ageDays <= s.dayMax);
+    if (!stage) continue;
+
+    // Idempotência: só dispara se o attempt esperado é > attempts já feitos
+    // E se o last_dunning_at é de outro dia (anti-double-fire no mesmo dia).
+    const currentAttempts = Number(ws.dunning_attempts) || 0;
+    if (currentAttempts >= stage.attempt) continue;
+    if (ws.last_dunning_at) {
+      const lastAt = new Date(ws.last_dunning_at);
+      if (Number.isFinite(lastAt.getTime()) && lastAt >= todayMidnight) continue;
+    }
+
+    // v9.6.x — Real automatic charge (Onda 4.5).
+    //
+    // Tenta cobrança real ANTES do alerta. Resultado vai no log + alerta
+    // contextual. Idempotência: o gate `last_dunning_at >= todayMidnight`
+    // acima garante que cada workspace recebe NO MÁXIMO um retry/dia.
+    //
+    // Stripe: força pagamento de invoice aberta via POST /invoices/{id}/pay.
+    //         Resultados:
+    //           - ok=true, status='paid'         → cliente regularizou; webhook
+    //                                              renova next_billing_at e tokens
+    //           - ok=true, status='already_paid' → webhook anterior já marcou OK
+    //                                              (race); só não suspende
+    //           - ok=false, status='declined'    → cartão recusado de novo; alert
+    //           - ok=false, status='gone'        → subscription cancelada; alert
+    //                                              especial (reconfig)
+    //
+    // MP preapproval: MP NÃO oferece endpoint pra forçar charge imediato
+    //         (retries são automáticos no ciclo do MP). O que dá pra
+    //         fazer é HEALTH CHECK — se preapproval foi cancelada pelo
+    //         cliente no painel MP, detectamos aqui e mudamos o alerta
+    //         pra "cliente precisa reconfigurar pagamento".
+    let chargeResult = null;
+    let chargeMethod = null;
+    let chargeMethodKind = 'skipped';
+    let providerSubId = null;
+    try {
+      if (ws.stripe_subscription_id && stripeService?.isConfigured?.()) {
+        chargeMethod = 'stripe';
+        chargeMethodKind = 'retry_invoice';
+        providerSubId = ws.stripe_subscription_id;
+        chargeResult = await stripeService.retryFailedInvoice(ws.stripe_subscription_id);
+        if (chargeResult.ok && (chargeResult.status === 'paid' || chargeResult.status === 'already_paid')) {
+          // Cobrança passou — webhook do Stripe vai marcar active+renovar
+          // tokens. Registra no histórico, atualiza dunning_attempts pra
+          // evitar reentrância no mesmo dia, e PULA o alerta (cliente OK).
+          logger.info(`[BillingCron] Dunning ${stage.attempt}/3 → CHARGE OK (stripe) pra ${ws.id} (${ws.name})`);
+          recordDunningChargeAttempt({
+            workspaceId: ws.id,
+            provider: 'stripe',
+            providerSubscriptionId: providerSubId,
+            attemptNumber: stage.attempt,
+            pastDueAgeDays: ageDays,
+            chargeMethod: chargeMethodKind,
+            chargeStatus: chargeResult.status,
+            ok: true,
+            raw: chargeResult.raw,
+          });
+          db.run(
+            `UPDATE workspaces
+                SET dunning_attempts = ?,
+                    last_dunning_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+            [stage.attempt, ws.id]
+          );
+          results.push({
+            workspace_id: ws.id, attempt: stage.attempt, age_days: ageDays,
+            plan: ws.plan, charge: 'stripe:paid'
+          });
+          continue;
+        }
+      } else if (ws.mp_preapproval_id && mpService?.isConfigured?.()) {
+        chargeMethod = 'mp';
+        chargeMethodKind = 'health_check';
+        providerSubId = ws.mp_preapproval_id;
+        chargeResult = await mpService.getPreapprovalHealth(ws.mp_preapproval_id);
+      } else {
+        chargeMethod = 'none';
+        chargeMethodKind = 'skipped';
+      }
+    } catch (err) {
+      logger.warn(`[BillingCron] Charge attempt falhou pra ${ws.id}:`, err.message);
+      chargeResult = { ok: false, status: 'exception', error: err.message };
+    }
+
+    // Decide severity/label do alerta baseado no resultado do charge.
+    let severity = stage.severity;
+    let label = stage.label;
+    let extraNote = '';
+    if (chargeResult) {
+      if (chargeMethod === 'stripe') {
+        if (chargeResult.status === 'declined') {
+          extraNote = ' (cartão recusado novamente)';
+        } else if (chargeResult.status === 'gone' || chargeResult.status === 'invoice_void') {
+          severity = 'critical';
+          label = 'Assinatura inválida — cliente precisa reconfigurar';
+          extraNote = ` (${chargeResult.status})`;
+        }
+      } else if (chargeMethod === 'mp') {
+        if (chargeResult.requiresReconfig) {
+          severity = 'critical';
+          label = 'Preapproval MP inválida — cliente precisa reconfigurar';
+          extraNote = ` (status=${chargeResult.status})`;
+        }
+      }
+    } else if (!ws.stripe_subscription_id && !ws.mp_preapproval_id) {
+      // Workspace sem método de pagamento salvo (provavelmente trial
+      // expirado que nunca configurou). Dunning vira só notificação.
+      extraNote = ' (sem método de pagamento — só alerta)';
+    }
+
+    try {
+      // Persiste histórico do attempt — tanto pra cobrança falha (declined/
+      // gone) quanto pra skipped (sem método de pagamento). O caminho de
+      // "stripe:paid" já tem o record acima e continua antes daqui.
+      recordDunningChargeAttempt({
+        workspaceId: ws.id,
+        provider: chargeMethod || 'none',
+        providerSubscriptionId: providerSubId,
+        attemptNumber: stage.attempt,
+        pastDueAgeDays: ageDays,
+        chargeMethod: chargeMethodKind,
+        chargeStatus: chargeResult?.status || (chargeMethod === 'none' ? 'no_method' : 'unknown'),
+        ok: !!chargeResult?.ok,
+        errorMessage: chargeResult?.error || null,
+        raw: chargeResult?.raw || chargeResult,
+      });
+
+      db.run(
+        `UPDATE workspaces
+            SET dunning_attempts = ?,
+                last_dunning_at = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+        [stage.attempt, ws.id]
+      );
+
+      if (alertManager) {
+        alertManager.send(severity, `💸 Dunning ${stage.attempt}/3 — ${label}`, {
+          workspace_id: ws.id,
+          workspace_name: ws.name,
+          plan: ws.plan,
+          age_days: ageDays,
+          attempt: stage.attempt,
+          past_due_since: ws.past_due_since,
+          charge_method: chargeMethod,
+          charge_result: chargeResult,
+        });
+      }
+
+      // v9.6.x — Email transacional pro CLIENTE (não pro operador).
+      // alertManager.send vai pro operador (você); aqui mandamos pro
+      // owner do workspace via SendGrid. Sem isso, o cliente não sabe
+      // que o cartão falhou — só descobre quando perde acesso.
+      //
+      // Idempotência: o gate `last_dunning_at >= todayMidnight` lá no
+      // topo do loop garante que cada workspace recebe NO MÁXIMO 1
+      // email por estágio (3 emails ao longo do ciclo de 7 dias).
+      //
+      // Fire-and-forget: erro de SendGrid não pode quebrar dunning.
+      // EmailService.send já tem retry interno + outbox.
+      if (emailService?.isConfigured?.() && ws.owner_email) {
+        let scenario = 'declined';
+        if (chargeMethod === 'none') {
+          scenario = 'no_method';
+        } else if (chargeMethod === 'stripe') {
+          if (['gone', 'invoice_void'].includes(chargeResult?.status)) scenario = 'reconfig';
+        } else if (chargeMethod === 'mp') {
+          if (chargeResult?.requiresReconfig) scenario = 'reconfig';
+          else if (chargeResult?.valid) scenario = 'pending'; // MP cuida do retry
+        }
+
+        const STAGE_DAYS_REMAINING = { 1: 6, 2: 4, 3: 1 };
+        emailService.sendDunningEscalation({
+          to: ws.owner_email,
+          name: ws.owner_name || 'Cliente',
+          plan: ws.plan,
+          attempt: stage.attempt,
+          daysOverdue: ageDays,
+          daysUntilSuspension: STAGE_DAYS_REMAINING[stage.attempt] || 1,
+          scenario,
+        }).catch(e => {
+          logger.warn(`[BillingCron] Falha ao enviar email dunning pra ${ws.owner_email}:`, e?.message || e);
+        });
+      } else if (!ws.owner_email) {
+        logger.warn(`[BillingCron] Workspace ${ws.id} sem owner_email — pulando email de dunning`);
+      }
+
+      logger.info(`[BillingCron] Dunning ${stage.attempt}/3 disparado pra ${ws.id} (${ws.name}) — ${ageDays}d past_due${extraNote}`);
+      results.push({
+        workspace_id: ws.id,
+        attempt: stage.attempt,
+        age_days: ageDays,
+        plan: ws.plan,
+        charge: chargeMethod ? `${chargeMethod}:${chargeResult?.status || 'none'}` : 'none',
+      });
+    } catch (e) {
+      logger.error(`[BillingCron] Erro dunning ${ws.id}:`, e.message);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Suspende workspaces que estão past_due há mais de 7 dias.
+ *
+ * v9.6.x: usa `past_due_since` (não `updated_at`). O field antigo mudava
+ * com qualquer write na linha (incluindo o próprio bump de
+ * dunning_attempts), o que fazia o filtro `updated_at <= sevenDaysAgo`
+ * nunca matchar — workspace nunca era suspenso na prática.
  */
 function suspendDelinquent() {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
   let toSuspend = [];
   try {
     toSuspend = db.all(
-      `SELECT id, name, plan FROM workspaces
+      `SELECT id, name, plan, past_due_since FROM workspaces
        WHERE subscription_status = 'past_due'
-         AND updated_at <= ?`,
-      [sevenDaysAgo.toISOString()]
+         AND past_due_since IS NOT NULL
+         AND past_due_since <= ?`,
+      [sevenDaysAgo]
     ) || [];
   } catch (err) {
+    logger.error('[BillingCron] suspendDelinquent query falhou:', err.message);
     return [];
   }
 
@@ -192,14 +524,15 @@ function suspendDelinquent() {
         `UPDATE workspaces SET subscription_status = 'suspended' WHERE id = ?`,
         [ws.id]
       );
-      logger.warn(`[BillingCron] Workspace ${ws.id} (${ws.name}) suspendido por inadimplência`);
+      logger.warn(`[BillingCron] Workspace ${ws.id} (${ws.name}) suspendido por inadimplência (past_due desde ${ws.past_due_since})`);
 
       if (alertManager) {
         alertManager.send('critical', '🚫 Workspace suspenso', {
           workspace_id: ws.id,
           workspace_name: ws.name,
           plan: ws.plan,
-          reason: '7 dias past_due',
+          reason: '7 dias past_due (após dunning 1/3/7)',
+          past_due_since: ws.past_due_since,
         });
       }
     } catch (e) {
@@ -256,12 +589,21 @@ function notifyTrialsEnding() {
 /**
  * Run all jobs in sequence
  */
-function runAll() {
+async function runAll() {
   const start = Date.now();
   logger.info('[BillingCron] Iniciando ciclo diário');
   try {
     const trials = processExpiredTrials();
     const renewals = processExpiredSubscriptions();
+    // v9.6.x: dunning ANTES de suspendDelinquent — assim a tentativa 3
+    // (dia 7) é registrada no mesmo dia em que o workspace cruza o limite
+    // de suspensão. Sem essa ordem, o suspend rodaria primeiro e o cliente
+    // perderia acesso sem receber o "último aviso".
+    //
+    // processDunning é async agora (faz HTTP calls pra Stripe/MP). Mantemos
+    // await pra suspendDelinquent não rodar antes do retry de cobrança
+    // resolver — se Stripe pagou no dia 7, NÃO queremos suspender.
+    const dunning = await processDunning();
     const suspended = suspendDelinquent();
     const endingSoon = notifyTrialsEnding();
 
@@ -284,6 +626,7 @@ function runAll() {
     const summary = {
       trials_processed: trials.length,
       renewals_due: renewals.length,
+      dunning_dispatched: dunning.length,
       workspaces_suspended: suspended.length,
       trial_ending_notifications: endingSoon.length,
       health_scores_updated: healthResult.updated,
@@ -406,4 +749,4 @@ function stop() {
   }
 }
 
-module.exports = { start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, suspendDelinquent };
+module.exports = { start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, processDunning, suspendDelinquent };

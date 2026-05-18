@@ -56,10 +56,24 @@ function lookupCode(code) {
 
 // v9.6.0 — chave-mestra do desenvolvedor. Constante-time compare via
 // crypto.timingSafeEqual evita timing attacks. Configurável via env
-// SUBSCRIPTION_MASTER_KEY; default 'Cristi@no123' pra build local.
-const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY || 'Cristi@no123';
+// SUBSCRIPTION_MASTER_KEY.
+//
+// SECURITY: o fallback 'Cristi@no123' existe APENAS em dev. Em produção
+// (NODE_ENV=production), se a env não estiver definida, isMasterKey
+// sempre retorna false — assim a master key vazada no source não dá
+// acesso a ninguém em prod. Em dev, mantém o fallback pra não quebrar
+// o fluxo local.
+const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY
+  || (process.env.NODE_ENV === 'production' ? '' : 'Cristi@no123');
+
+if (process.env.NODE_ENV === 'production' && !process.env.SUBSCRIPTION_MASTER_KEY) {
+  console.warn('[subscription] SUBSCRIPTION_MASTER_KEY não definida em produção — master key desabilitada (correto pra prod sem dev backdoor)');
+}
+
 function isMasterKey(code) {
   if (!code || typeof code !== 'string') return false;
+  // Em prod sem SUBSCRIPTION_MASTER_KEY, MASTER_KEY=='' → sempre rejeita.
+  if (!MASTER_KEY) return false;
   const a = Buffer.from(code.trim());
   const b = Buffer.from(MASTER_KEY);
   if (a.length !== b.length) return false;

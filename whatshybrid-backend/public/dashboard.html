@@ -576,6 +576,26 @@
         </div>
       </div>
 
+      <!-- Past-due / dunning banner — só aparece quando workspace.past_due_since != null -->
+      <div class="section" id="past-due-banner" style="display:none; border:1px solid var(--error); background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.04));">
+        <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="font-size:2rem; line-height:1;">⚠️</div>
+          <div style="flex:1; min-width:240px;">
+            <h2 style="margin-bottom:8px; color: var(--error);" id="past-due-title">Pagamento pendente</h2>
+            <p id="past-due-message" style="margin-bottom:12px;">Sua assinatura está com pagamento em atraso.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="past-due-reconfigure-btn" type="button">
+                <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+                <span id="past-due-cta-label">Reconfigurar pagamento agora</span>
+              </button>
+              <button class="btn btn-ghost" type="button" onclick="document.getElementById('payment-method-info').scrollIntoView({behavior:'smooth'})">
+                Ver opções de pagamento
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section" id="current-plan-section">
         <h2>Plano atual</h2>
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
@@ -1051,8 +1071,150 @@
     }
   }
 
+  // ── v9.6.x — Hash router para CTAs do email de dunning ───
+  // Emails apontam para:
+  //   #billing               — past_due genérico ou pending
+  //   #billing/subscription  — reconfig (assinatura cancelada/inválida no gateway)
+  //   #billing/subscribe     — no_method (nunca configurou pagamento)
+  // Query string ?from=dunning marca origem pra mostrar banner contextual.
+  function routeFromHash() {
+    const raw = (window.location.hash || '').replace(/^#/, '');
+    if (!raw) return null;
+    const [tabPath, subAction] = raw.split('/');
+    if (tabPath === 'billing') {
+      switchTab('billing');
+      return subAction || 'default';
+    }
+    if (tabPath === 'tokens') { switchTab('tokens'); return null; }
+    if (tabPath === 'extension') { switchTab('extension'); return null; }
+    if (tabPath === 'ai') { switchTab('ai'); return null; }
+    return null;
+  }
+
+  function isFromDunning() {
+    const qs = new URLSearchParams(window.location.search || '');
+    return qs.get('from') === 'dunning';
+  }
+
+  // Renderiza o banner de past_due baseado em workspace.past_due_since
+  // e dunning_attempts. Esconde se está tudo ok.
+  function renderPastDueBanner() {
+    const ws = userData?.workspace || {};
+    const banner = document.getElementById('past-due-banner');
+    if (!banner) return;
+
+    const pastDue = ws.past_due_since;
+    const status = (ws.subscription_status || '').toLowerCase();
+    const isPastDue = !!pastDue || status === 'past_due' || status === 'suspended';
+
+    if (!isPastDue) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    const attempts = ws.dunning_attempts || 0;
+    const provider = ws.payment_provider || null;
+    const hasMpPreapproval = !!ws.mp_preapproval_id;
+    const hasStripeSub = !!ws.stripe_subscription_id;
+    const hasMethod = hasMpPreapproval || hasStripeSub;
+
+    let daysOverdue = 0;
+    if (pastDue) {
+      const since = new Date(pastDue);
+      daysOverdue = Math.max(0, Math.floor((Date.now() - since.getTime()) / 86400000));
+    }
+
+    // Mensagem e CTA contextuais por status
+    const title = document.getElementById('past-due-title');
+    const message = document.getElementById('past-due-message');
+    const ctaLabel = document.getElementById('past-due-cta-label');
+
+    if (status === 'suspended') {
+      title.textContent = '🚫 Conta suspensa';
+      message.innerHTML = `Sua conta foi suspensa após várias tentativas de cobrança sem sucesso (${daysOverdue} dias em atraso). Reative reconfigurando o pagamento.`;
+      ctaLabel.textContent = 'Reativar conta';
+    } else if (!hasMethod) {
+      title.textContent = '💳 Configure seu pagamento';
+      message.innerHTML = `Seu trial terminou e ainda não há método de pagamento configurado. Para continuar usando, assine agora.`;
+      ctaLabel.textContent = 'Assinar agora';
+    } else if (attempts >= 3) {
+      title.textContent = '🚨 Último aviso';
+      message.innerHTML = `Já tentamos cobrar <strong>3 vezes</strong> sem sucesso. Sua conta será suspensa em breve. Reconfigure o pagamento agora.`;
+      ctaLabel.textContent = 'Reconfigurar agora';
+    } else if (attempts >= 1) {
+      title.textContent = '⚠️ Pagamento pendente';
+      message.innerHTML = `Tentativa <strong>${attempts}/3</strong> de cobrança falhou (${daysOverdue} dias em atraso). Atualize seu método de pagamento.`;
+      ctaLabel.textContent = 'Atualizar pagamento';
+    } else {
+      title.textContent = '⚠️ Pagamento pendente';
+      message.innerHTML = `Detectamos um problema no seu último pagamento. Reconfigure pra evitar interrupção.`;
+      ctaLabel.textContent = 'Reconfigurar pagamento';
+    }
+
+    banner.style.display = '';
+    // Reinitialize lucide icons no banner recém-visível
+    try { lucide.createIcons(); } catch(_) {}
+  }
+
+  // Reconfigura assinatura: cancela preapproval/subscription atual (se houver)
+  // e abre novo checkout no provider apropriado. Botão único, fluxo inteiro
+  // automatizado — cliente que veio do email não precisa adivinhar o que clicar.
+  async function reconfigureSubscription() {
+    const ws = userData?.workspace || {};
+    const provider = ws.payment_provider || null;
+    const hasMpPreapproval = !!ws.mp_preapproval_id;
+
+    // Tenta cancelar preapproval antigo do MP — ignora erros (pode já estar cancelado/inválido)
+    if (hasMpPreapproval) {
+      try { await api.post('/api/v1/billing/cancel-recurring'); } catch(_) {}
+    }
+
+    // Provider Stripe → cria novo checkout Stripe. Caso contrário (MP ou indefinido),
+    // cria nova preapproval no MP (fluxo recorrente default no BR).
+    if (provider === 'stripe') {
+      return startStripeCheckout();
+    }
+    return subscribeRecurring();
+  }
+
+  document.getElementById('past-due-reconfigure-btn')?.addEventListener('click', () => {
+    reconfigureSubscription();
+  });
+
+  // Após carregar dados do user, decide o que mostrar baseado no hash + status
+  function handlePostLoadRouting() {
+    renderPastDueBanner();
+
+    const subAction = routeFromHash();
+    const fromDunning = isFromDunning();
+
+    // Se veio do email e está em past_due, mostra toast pra orientar
+    if (fromDunning) {
+      const ws = userData?.workspace || {};
+      const hasMethod = !!ws.mp_preapproval_id || !!ws.stripe_subscription_id;
+      if (subAction === 'subscribe' || !hasMethod) {
+        toast('Configure seu método de pagamento abaixo para continuar', 'warning', 6000);
+      } else if (subAction === 'subscription') {
+        toast('Sua assinatura precisa ser reconfigurada. Clique no botão abaixo.', 'warning', 6000);
+      } else {
+        toast('Verifique seu método de pagamento para evitar suspensão', 'warning', 6000);
+      }
+    }
+
+    // Auto-dispara reconfigure quando rota é #billing/subscription E veio do email
+    // (intenção explícita: cliente clicou "Reconfigurar assinatura" no email)
+    if (subAction === 'subscription' && fromDunning) {
+      const banner = document.getElementById('past-due-banner');
+      if (banner && banner.style.display !== 'none') {
+        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+
+  window.addEventListener('hashchange', () => { routeFromHash(); });
+
   // ── Initialize ───────────────────────────────────────────
-  loadUser();
+  loadUser().then(handlePostLoadRouting);
   loadTokens();
   loadInvoices();
 

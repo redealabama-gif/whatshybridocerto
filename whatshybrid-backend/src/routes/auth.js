@@ -626,7 +626,9 @@ router.get('/me',
     const user = db.get(
       `SELECT u.id, u.email, u.name, u.avatar, u.phone, u.role, u.workspace_id, u.settings,
               w.name as workspace_name, w.plan, w.credits,
-              w.trial_end_at, w.subscription_status, w.next_billing_at
+              w.trial_end_at, w.subscription_status, w.next_billing_at,
+              w.payment_provider, w.mp_preapproval_id, w.stripe_subscription_id,
+              w.auto_renew_enabled, w.past_due_since, w.dunning_attempts
        FROM users u
        JOIN workspaces w ON u.workspace_id = w.id
        WHERE u.id = ?`,
@@ -655,6 +657,12 @@ router.get('/me',
         trial_end_at: user.trial_end_at,
         subscription_status: user.subscription_status,
         next_billing_at: user.next_billing_at,
+        payment_provider: user.payment_provider || null,
+        mp_preapproval_id: user.mp_preapproval_id || null,
+        stripe_subscription_id: user.stripe_subscription_id || null,
+        auto_renew_enabled: user.auto_renew_enabled === 1,
+        past_due_since: user.past_due_since || null,
+        dunning_attempts: user.dunning_attempts || 0,
       }
     });
   })
@@ -840,7 +848,15 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
   const code = String(req.body?.code || '').trim();
   if (!code) throw new AppError('code obrigatório', 400);
 
-  const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY || 'Cristi@no123';
+  // SECURITY: fallback hardcoded só em dev. Em prod sem
+  // SUBSCRIPTION_MASTER_KEY definida, o endpoint rejeita qualquer code
+  // — evita que a master key vazada no source habilite enterprise pra
+  // qualquer um.
+  const MASTER_KEY = process.env.SUBSCRIPTION_MASTER_KEY
+    || (process.env.NODE_ENV === 'production' ? '' : 'Cristi@no123');
+  if (!MASTER_KEY) {
+    throw new AppError('Master token desabilitado: SUBSCRIPTION_MASTER_KEY não configurada', 403, 'MASTER_DISABLED');
+  }
   // Constant-time compare
   const a = Buffer.from(code);
   const b = Buffer.from(MASTER_KEY);

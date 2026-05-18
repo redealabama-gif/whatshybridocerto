@@ -82,7 +82,29 @@ class StripeService {
   }
 
   /**
-   * Cria checkout session pra assinatura
+   * Cria checkout session pra assinatura.
+   *
+   * v9.6.x — Smart Retries via API:
+   *
+   * O cronograma de "Smart Retries" do Stripe (quantos retries, em quais
+   * dias) ainda é configuração de conta no dashboard
+   * (Settings → Billing → Subscriptions and emails → Smart retries).
+   * Stripe NÃO expõe via API a definição desse schedule por subscription.
+   *
+   * MAS — e isso é o que estava faltando — os retries SÓ FUNCIONAM se
+   * o cartão usado no checkout virar o "default payment method" do
+   * customer associado à subscription. Sem essa flag, o cartão fica
+   * vinculado só à invoice inicial; se ela falhar depois, o Stripe não
+   * tem o que cobrar nas retentativas → marca past_due imediato e
+   * dunning interno do Stripe nem dispara.
+   *
+   * Setamos `subscription_data.payment_settings.save_default_payment_method
+   * = 'on_subscription'` pra garantir que isso aconteça automaticamente.
+   *
+   * collection_method='charge_automatically' (default em subscriptions
+   * via checkout) + save_default_payment_method='on_subscription' juntos
+   * são o que habilita o ciclo completo de retries via Stripe. Não
+   * precisa de mais nada no API.
    */
   async createCheckoutSession({ priceId, customerEmail, successUrl, cancelUrl, metadata = {} }) {
     return this._request('POST', '/checkout/sessions', {
@@ -93,7 +115,44 @@ class StripeService {
       cancel_url: cancelUrl,
       metadata,
       allow_promotion_codes: true,
+      // Garante salvar cartão como default → habilita retries automáticos
+      subscription_data: {
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription',
+        },
+      },
     });
+  }
+
+  /**
+   * v9.6.x — Garante que subscriptions existentes têm os settings que
+   * habilitam o ciclo de retries do Stripe. Útil pra rodar uma vez como
+   * backfill em subscriptions criadas antes desta versão (que foram
+   * criadas sem `save_default_payment_method`).
+   *
+   * Idempotente — Stripe aceita PUT múltiplo nesses settings sem efeito
+   * colateral.
+   *
+   * Retorna {ok, status, raw} sem throw — chamador (cron de backfill ou
+   * admin endpoint) decide o que fazer com falhas.
+   */
+  async ensureRetrySettings(subscriptionId) {
+    if (!subscriptionId) return { ok: false, status: 'no_subscription' };
+    if (!this.isConfigured()) return { ok: false, status: 'not_configured' };
+
+    try {
+      const updated = await this._request('POST', `/subscriptions/${subscriptionId}`, {
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription',
+        },
+      });
+      return { ok: true, status: 'updated', raw: updated };
+    } catch (err) {
+      logger.warn(`[Stripe] ensureRetrySettings ${subscriptionId} falhou:`, err.message);
+      return { ok: false, status: 'error', error: err.message };
+    }
   }
 
   /**
@@ -127,6 +186,80 @@ class StripeService {
    */
   async getSubscription(id) {
     return this._request('GET', `/subscriptions/${id}`);
+  }
+
+  /**
+   * v9.6.x — Retry de cobrança em invoice aberta da subscription.
+   *
+   * Stripe oferece "smart retries" automáticos, mas:
+   *   1) Precisa estar habilitado no dashboard (Settings → Billing →
+   *      Subscriptions and emails → Smart retries).
+   *   2) Mesmo habilitado, segue cronograma do Stripe — nem sempre
+   *      coincide com nosso dunning (1/3/7 dias).
+   *
+   * Esta função busca a `latest_invoice` da subscription e força pay
+   * via POST /invoices/{id}/pay. Se a invoice estiver `open` ou
+   * `uncollectible`, o Stripe tenta debitar o método de pagamento
+   * default novamente AGORA — independente de smart retries.
+   *
+   * Retorna {ok, status, invoiceId, raw} sem throw — chamador (dunning)
+   * decide o que fazer baseado em ok/status. Erros HTTP do Stripe
+   * (4xx auth, 5xx server) viram {ok:false, error}.
+   *
+   * Casos terminais (não vale retry):
+   *   - subscription cancelled/incomplete_expired → ok:false, status:'gone'
+   *   - latest_invoice paid → ok:true, status:'already_paid'
+   *   - subscription sem invoice (paused?) → ok:false, status:'no_invoice'
+   */
+  async retryFailedInvoice(subscriptionId) {
+    if (!subscriptionId) return { ok: false, status: 'no_subscription' };
+    if (!this.isConfigured()) return { ok: false, status: 'not_configured' };
+
+    try {
+      const sub = await this._request('GET', `/subscriptions/${subscriptionId}`);
+      if (!sub) return { ok: false, status: 'gone' };
+
+      const subStatus = sub.status;
+      if (['canceled', 'incomplete_expired'].includes(subStatus)) {
+        return { ok: false, status: 'gone', subStatus };
+      }
+      const invoiceId = sub.latest_invoice;
+      if (!invoiceId) return { ok: false, status: 'no_invoice', subStatus };
+
+      // Verifica estado da invoice antes de pagar — algumas já estão pagas
+      // (race com webhook) ou foram void/uncollectible permanente.
+      const invoice = await this._request('GET', `/invoices/${invoiceId}`);
+      if (invoice?.status === 'paid') {
+        return { ok: true, status: 'already_paid', invoiceId, raw: invoice };
+      }
+      if (invoice?.status === 'void' || invoice?.status === 'deleted') {
+        return { ok: false, status: 'invoice_void', invoiceId };
+      }
+
+      // Força pagamento. Stripe vai usar o default payment method do
+      // customer. Se cartão recusou de novo, Stripe responde 402 (Card
+      // Declined). Capturamos como ok:false sem throw pra o cron iterar.
+      const paid = await this._request('POST', `/invoices/${invoiceId}/pay`);
+      const newStatus = paid?.status;
+      const success = newStatus === 'paid';
+      return {
+        ok: success,
+        status: success ? 'paid' : (newStatus || 'unknown'),
+        invoiceId,
+        raw: paid,
+      };
+    } catch (err) {
+      // Stripe API error: pode ser 402 (card declined), 4xx (auth), 5xx
+      // (server). Loga mas não joga — dunning continua pro alerta.
+      const msg = String(err.message || '');
+      const declined = /Stripe 402|card_declined|insufficient_funds|payment_intent_authentication_failure/i.test(msg);
+      logger.warn(`[Stripe] retryFailedInvoice ${subscriptionId} falhou:`, msg);
+      return {
+        ok: false,
+        status: declined ? 'declined' : 'error',
+        error: msg
+      };
+    }
   }
 
   async getPaymentIntent(id) {

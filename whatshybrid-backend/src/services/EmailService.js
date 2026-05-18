@@ -288,6 +288,79 @@ class EmailService {
     return this.send({ to, subject: '⚠️ Pagamento recusado — WhatsHybrid Pro', html });
   }
 
+  /**
+   * v9.6.x — Dunning escalonado. Disparado pelo billingCron.processDunning
+   * a cada tentativa (1/3 amigável, 2/3 firme, 3/3 último aviso).
+   *
+   * `scenario` muda o tom + CTA:
+   *   - 'declined'        — cartão recusou de novo
+   *   - 'reconfig'        — assinatura cancelada/inválida, precisa refazer
+   *   - 'no_method'       — nunca configurou método de pagamento (ex: trial expirado)
+   *   - 'pending'         — MP cuida do retry, só avisamos
+   *
+   * O subject + tom mudam conforme attempt pra dar urgência crescente
+   * sem soar agressivo demais nas primeiras tentativas.
+   */
+  async sendDunningEscalation({ to, name, plan, attempt, daysOverdue, daysUntilSuspension, scenario }) {
+    if (!to) return { skipped: true, reason: 'no_email' };
+
+    const TONES = {
+      1: { prefix: '⏰', tone: 'Lembrete amigável', urgency: 'Você ainda tem alguns dias pra regularizar.' },
+      2: { prefix: '⚠️',  tone: 'Aviso firme',        urgency: `Em ${daysUntilSuspension || 4} dias sua conta será suspensa.` },
+      3: { prefix: '🚨', tone: 'Último aviso',       urgency: 'Sua conta será suspensa amanhã se o pagamento não for regularizado.' },
+    };
+    const t = TONES[attempt] || TONES[1];
+
+    // `?from=dunning` permite ao dashboard saber que o cliente chegou via
+    // email de cobrança e mostrar UI contextual (banner past_due + toast
+    // orientando). Hash `#billing[/sub-acao]` é tratado pelo router do dashboard.
+    const SCENARIO_CTA = {
+      declined:  { label: 'Atualizar método de pagamento', path: '/dashboard.html?from=dunning#billing' },
+      reconfig:  { label: 'Reconfigurar assinatura',       path: '/dashboard.html?from=dunning#billing/subscription' },
+      no_method: { label: 'Configurar pagamento',          path: '/dashboard.html?from=dunning#billing/subscribe' },
+      pending:   { label: 'Ver detalhes da assinatura',    path: '/dashboard.html?from=dunning#billing' },
+    };
+    const cta = SCENARIO_CTA[scenario] || SCENARIO_CTA.declined;
+
+    const SCENARIO_BODY = {
+      declined: `
+        <p>Olá ${this._escape(name)},</p>
+        <p>Tentamos renovar seu plano <strong>${this._escape(plan?.toUpperCase() || 'PRO')}</strong>, mas o pagamento foi recusado pela operadora do cartão.</p>
+        <p>Possíveis motivos: cartão sem saldo, cartão expirado, ou bloqueio antifraude.</p>
+        <p><strong>${t.urgency}</strong></p>
+      `,
+      reconfig: `
+        <p>Olá ${this._escape(name)},</p>
+        <p>Notamos que sua assinatura do plano <strong>${this._escape(plan?.toUpperCase() || 'PRO')}</strong> foi cancelada ou está inválida no sistema de pagamentos.</p>
+        <p>Pra continuar usando o WhatsHybrid sem interrupção, é necessário reconfigurar o método de pagamento.</p>
+        <p><strong>${t.urgency}</strong></p>
+      `,
+      no_method: `
+        <p>Olá ${this._escape(name)},</p>
+        <p>Seu período de avaliação do plano <strong>${this._escape(plan?.toUpperCase() || 'PRO')}</strong> terminou, mas ainda não há método de pagamento configurado na sua conta.</p>
+        <p>Configure agora pra continuar com acesso à IA e demais funcionalidades premium.</p>
+        <p><strong>${t.urgency}</strong></p>
+      `,
+      pending: `
+        <p>Olá ${this._escape(name)},</p>
+        <p>A renovação do seu plano <strong>${this._escape(plan?.toUpperCase() || 'PRO')}</strong> está pendente. Estamos aguardando a próxima tentativa automática de cobrança.</p>
+        <p>Se preferir não esperar, você pode atualizar o método de pagamento manualmente.</p>
+        <p><strong>${t.urgency}</strong></p>
+      `,
+    };
+
+    const subject = `${t.prefix} ${t.tone} (${attempt}/3) — Pagamento pendente • WhatsHybrid`;
+    const html = this._wrap({
+      title: `${t.prefix} ${t.tone}`,
+      preheader: t.urgency,
+      body: SCENARIO_BODY[scenario] || SCENARIO_BODY.declined,
+      ctaLabel: cta.label,
+      ctaUrl: `${this.baseUrl}${cta.path}`,
+    });
+
+    return this.send({ to, subject, html });
+  }
+
   async sendTokensLow({ to, name, balance, total, pct }) {
     const html = this._wrap({
       title: `🪫 Seus tokens estão acabando`,

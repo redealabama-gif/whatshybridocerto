@@ -313,8 +313,12 @@
   // ============================================
   let state = {
     configs: {}, // { providerId: { apiKey, model, enabled, priority } }
-    defaultProvider: 'openai',
-    fallbackChain: ['openai', 'anthropic', 'venice', 'groq'],
+    // SaaS cost-optimization: Groq tem free tier generoso e qualidade
+    // próxima do gpt-4o-mini em pt-BR; OpenAI vira fallback quando Groq
+    // não dá conta. O backend ainda recebe a hint mas roteia por task
+    // (POST /api/v1/ai/complete aceita `task: 'simple'|'normal'|'complex'`).
+    defaultProvider: 'groq',
+    fallbackChain: ['groq', 'openai', 'anthropic', 'venice'],
     cache: new Map(),
     rateLimits: new Map(),
     healthStatus: {},
@@ -472,8 +476,8 @@
       
       if (data) {
         state.configs = data.configs || {};
-        state.defaultProvider = data.defaultProvider || 'openai';
-        state.fallbackChain = data.fallbackChain || ['openai', 'anthropic', 'venice', 'groq'];
+        state.defaultProvider = data.defaultProvider || 'groq';
+        state.fallbackChain = data.fallbackChain || ['groq', 'openai', 'anthropic', 'venice'];
         state.stats = data.stats || state.stats;
       }
     } catch (e) {
