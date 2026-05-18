@@ -12,6 +12,7 @@ const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
 const { checkTokenBalance } = require('../middleware/tokenBalance');
+const { checkSubscription } = require('../middleware/subscription');
 const { makeLikeTerm } = require('../utils/sql-helpers');
 // v9.5.0 BUG #137: `aiCompletionLimiter` nunca foi exportado por rateLimiter.js.
 // Em v9.4.7 era importado e passado como middleware → undefined → Express
@@ -185,6 +186,11 @@ router.post(
   '/complete',
   aiCompletionLimiter,
   authenticate,
+  // v9.7.x — Gate de plano: free não tem acesso a IA. Antes só o saldo de
+  // tokens segurava (free=0 tokens), mas isso retornava erro genérico de
+  // saldo. Agora retorna 402 FEATURE_NOT_AVAILABLE com upgradeUrl —
+  // frontend mostra modal de upsell adequado.
+  checkSubscription('ai_basic'),
   // P1: plugado o middleware checkTokenBalance — antes o check era manual
   // dentro do handler. Agora qualquer rota IA nova herda a proteção só
   // adicionando o middleware. estimatedCost=1 mantém o comportamento
@@ -521,7 +527,7 @@ router.get('/few-shot', authenticate, asyncHandler(async (req, res) => {
  * pra extensão montar contexto híbrido (já implementado em conversations + few-shot,
  * só faltava endpoint unificado).
  */
-router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
+router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
   const { chatId, messageId, interactionId, userMessage, assistantResponse, rating, correctedResponse, feedbackType } = req.body;
 
   // Validação rigorosa pra não corromper base de aprendizado

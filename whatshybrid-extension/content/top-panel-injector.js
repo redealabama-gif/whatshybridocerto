@@ -292,18 +292,65 @@
 
     // Setup event listeners for the panel
     function setupEventListeners(panel) {
+        // v9.7.x — Gate de plano antes de abrir abas/popups.
+        // Mapa view/action → feature key do FeatureGate. Se a feature não
+        // estiver mapeada (ex: principal, recover), o clique passa direto.
+        // O FeatureGate é tolerante: se não existir, o gate é no-op.
+        const FEATURE_BY_VIEW = {
+            ai:        'module:ai',
+            autopilot: 'module:autopilot',
+            extrator:  'module:extractor',
+            // crm, tasks, team, config, backup, principal, recover: free → sem gate
+        };
+        const FEATURE_BY_ACTION = {
+            'open-training': 'module:training',
+        };
+
+        // Tenta bloquear via FeatureGate. Retorna true se bloqueou (chamador
+        // NÃO deve prosseguir). Se FeatureGate não está disponível, libera.
+        function gateBlocked(featureKey, contextLabel) {
+            if (!featureKey) return false;
+            const FG = (typeof window !== 'undefined') ? window.FeatureGate : null;
+            if (!FG || typeof FG.check !== 'function') return false;
+            const result = FG.check(featureKey);
+            if (result && result.allowed) return false;
+
+            // Bloqueou: usa o próprio handler do FeatureGate (que mostra modal
+            // de upsell via NotificationsModule + emite evento). Fallback pra
+            // alert simples se o handler não estiver acessível.
+            try {
+                if (typeof FG.guard === 'function') {
+                    // guard() chama check+handleBlocked internamente
+                    FG.guard(featureKey);
+                } else if (typeof FG.handleBlocked === 'function') {
+                    FG.handleBlocked(featureKey, result);
+                } else {
+                    const msg = result?.message || `${contextLabel || 'Este recurso'} não está disponível no seu plano. Faça upgrade pra desbloquear.`;
+                    alert(msg);
+                }
+            } catch (e) {
+                console.warn('[TopPanel] gate handler falhou:', e?.message);
+            }
+            debugLog('[TopPanel] 🔒 Bloqueado por plano:', featureKey, result);
+            return true;
+        }
+
         // Botões que abrem em popup/nova aba (não no sidepanel)
         const popupButtons = panel.querySelectorAll('.top-panel-tab-popup');
         popupButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const action = btn.dataset.action;
-                
+
+                // v9.7.x — gate antes de abrir popup
+                const featureKey = FEATURE_BY_ACTION[action];
+                if (gateBlocked(featureKey, 'Treinamento de IA')) return;
+
                 if (action === 'open-training') {
                     debugLog('[TopPanel] 🎓 Abrindo Treinamento de IA em nova aba...');
-                    chrome.runtime.sendMessage({ 
-                        action: 'WHL_OPEN_POPUP_TAB', 
-                        url: 'training/training.html' 
+                    chrome.runtime.sendMessage({
+                        action: 'WHL_OPEN_POPUP_TAB',
+                        url: 'training/training.html'
                     });
                 }
             });
@@ -314,20 +361,28 @@
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 debugLog('[TopPanel] 🖱️ Tab clicked:', tab.dataset.view);
-                
+
+                const view = tab.dataset.view || 'principal';
+
+                // v9.7.x — gate antes de marcar como ativo e abrir
+                if (gateBlocked(FEATURE_BY_VIEW[view], view)) {
+                    // Não trocar a aba ativa visualmente quando bloqueado —
+                    // assim o cliente fica no contexto em que estava.
+                    return;
+                }
+
                 // Não marcar popup buttons como active
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
 
-                const view = tab.dataset.view || 'principal';
                 debugLog(`[TopPanel] View switched to: ${view}`);
 
                 // Garantir que side panel está habilitado
                 setSidePanelEnabled(true);
-                
+
                 // Abrir com a nova view
                 openSidePanel(view);
-                
+
                 debugLog(`[TopPanel] ✅ Message sent for view: ${view}`);
             });
         });

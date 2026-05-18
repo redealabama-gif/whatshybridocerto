@@ -28,10 +28,16 @@ const router = express.Router();
 const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate, authorize } = require('../middleware/auth');
+const { checkSubscription } = require('../middleware/subscription');
 const logger = require('../utils/logger');
 const { v4: uuid } = require('../utils/uuid-wrapper');
 
 router.use(authenticate);
+// v9.7.x — Treinamento bloqueado pra free. Plano free não tem IA, então
+// treinar dados que nunca serão usados não faz sentido. Coerente com
+// checkSubscription('ai_basic') aplicado nas rotas de IA — ambos liberam
+// pra starter+.
+router.use(checkSubscription('training'));
 
 /**
  * POST /api/v1/training/sync
