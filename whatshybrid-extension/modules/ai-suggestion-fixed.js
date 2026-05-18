@@ -242,6 +242,30 @@
     return null;
   }
 
+  // v9.5.5 — Espera o BackendClient terminar de inicializar antes de decidir
+  // a camada da sugestão. No reload da página com uma conversa já aberta, a
+  // sugestão dispara antes do init()+validateToken() do BackendClient concluir;
+  // isConnected() ainda é false, o MÉTODO 0 (orquestrador real) é pulado e a
+  // resposta cai no fallback genérico. A espera é curta e só atua durante a
+  // janela de inicialização: assim que init() conclui — conectado ou não —
+  // retorna na hora. Com backend já conectado, retorna imediatamente.
+  async function waitForBackendReady(timeoutMs = 5000) {
+    const bc = window.BackendClient;
+    if (!bc || typeof bc.isConnected !== 'function') return false;
+    if (bc.isConnected()) return true;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (bc.isConnected()) return true;
+      let st = null;
+      try { st = bc.debug?.(); } catch (_) {}
+      // init() já concluiu e mesmo assim não conectou (sem token ou token
+      // inválido) — esperar mais não muda nada, libera pro fallback.
+      if (st && st.initialized && !st.connected) return false;
+      await new Promise(r => setTimeout(r, 150));
+    }
+    return bc.isConnected();
+  }
+
   function formatMemoryForPrompt(memory) {
     if (!memory || typeof memory !== 'object') return '';
     const parts = [];
@@ -879,6 +903,13 @@
       try {
         await getMemoryForChatSafe(chatKey, 2000);
       } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
+
+      // v9.5.5 — Fecha a janela de corrida do reload: garante que o
+      // BackendClient terminou de conectar antes de escolher a camada da
+      // sugestão, evitando que o reload caia no fallback genérico.
+      if (!suggestion && window.BackendClient) {
+        try { await waitForBackendReady(5000); } catch (_) {}
+      }
 
       // MÉTODO 0 (v9.3.0 — PRIORIDADE MÁXIMA): Backend AIOrchestrator real
       //
