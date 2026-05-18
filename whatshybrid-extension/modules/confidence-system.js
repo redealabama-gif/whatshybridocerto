@@ -295,6 +295,10 @@
           window.EventBus.on('suggestion:edited', () => {
             this.sendConfidenceFeedback('correction', { source: 'suggestion:edited' }).catch(() => {});
           });
+          // Botão "❌ Reprovar" — sinal negativo explícito (incrementa "Ruim").
+          window.EventBus.on('suggestion:rejected', () => {
+            this.sendConfidenceFeedback('bad', { source: 'suggestion:rejected' }).catch(() => {});
+          });
           console.log('[ConfidenceSystem] ✅ EventBus listeners attached (feedback growth wired)');
         }
       } catch (error) {
@@ -342,33 +346,34 @@
      * @returns {number} - Score (0-100)
      */
     calculateScore() {
-      // 1. Feedback Score (max 40 pontos)
-      const totalFeedback = this.metrics.feedbackGood + this.metrics.feedbackBad;
-      let feedbackScore = 0;
-      if (totalFeedback > 0) {
-        feedbackScore = (this.metrics.feedbackGood / totalFeedback) * 40;
+      // Score baseado em VOLUME + QUALIDADE das interações reais do usuário
+      // (Aprovar / Editar / Reprovar). A fórmula antiga era pura proporção
+      // (good/total) — batia 100% com 1 único acerto, dando confiança falsa.
+      // Agora cresce de forma gradual e confiável:
+      //   • aprovar  = +1.0 ponto
+      //   • editar   = +0.4 ponto (a IA acertou só em parte)
+      //   • reprovar = -1.0 ponto
+      // ~40 aprovações limpas ≈ 70% (libera o modo copiloto com confiança real).
+      const good        = this.metrics.feedbackGood || 0;
+      const corrections = this.metrics.feedbackCorrections || 0;
+      const bad         = this.metrics.feedbackBad || 0;
+      const totalInteractions = good + corrections + bad;
+
+      const TARGET_POINTS = 40; // pontos efetivos para atingir 70%
+      const effectivePoints = (good * 1.0) + (corrections * 0.4) - (bad * 1.0);
+      let computed = (Math.max(0, effectivePoints) / TARGET_POINTS) * 70;
+
+      // Taxa de acerto: com amostra relevante (>= 5 interações), o score é
+      // escalado pela qualidade — 100% de aprovações não corta nada; muitas
+      // correções/erros seguram o crescimento.
+      if (totalInteractions >= 5) {
+        const accuracy = good / totalInteractions;
+        computed = computed * (0.5 + 0.5 * accuracy);
       }
-
-      // 2. Knowledge Base Score (max 20 pontos)
-      const knowledgeScore = Math.min(20,
-        (this.metrics.faqsAdded * 0.5) +
-        (this.metrics.productsAdded * 0.3) +
-        (this.metrics.examplesAdded * 1.0)
-      );
-
-      // 3. Usage Score (max 25 pontos)
-      const totalSuggestions = this.metrics.suggestionsUsed + this.metrics.suggestionsEdited;
-      let usageScore = 0;
-      if (totalSuggestions > 0) {
-        usageScore = (this.metrics.suggestionsUsed / totalSuggestions) * 25;
-      }
-
-      // 4. Auto-Send Score (max 15 pontos)
-      const autoScore = Math.min(15, this.metrics.autoSent * 0.5);
 
       // Total (max 100)
       const prevScore = this.score;
-      this.score = Math.min(100, Math.round(feedbackScore + knowledgeScore + usageScore + autoScore));
+      this.score = Math.min(100, Math.max(0, Math.round(computed)));
 
       // Atualiza nível (só emite confidence:level-changed quando muda de nível)
       this.updateLevel();

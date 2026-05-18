@@ -301,7 +301,18 @@
             );
             const localHasTimestamp = localLabelsLastUpdated > 0;
 
-            const acceptRemote = remoteUpdated > 0 && (
+            // Proteção anti-downgrade: nunca substitui a versão local por uma
+            // remota que tenha MENOS etiquetas de contato. Era a causa de
+            // "recarregar a página e as etiquetas sumirem" — o backend ainda
+            // não tinha recebido as últimas atribuições e devolvia uma versão
+            // mais pobre que, mesmo assim, sobrescrevia o storage local.
+            const remoteContactCount = (data.data.labels.contactLabels &&
+              Object.keys(data.data.labels.contactLabels).length) || 0;
+            const localContactCount = (localLabels && localLabels.contactLabels &&
+              Object.keys(localLabels.contactLabels).length) || 0;
+            const remoteIsDowngrade = localHasUserData && remoteContactCount < localContactCount;
+
+            const acceptRemote = remoteUpdated > 0 && !remoteIsDowngrade && (
               !localHasUserData ||
               (localHasTimestamp && remoteUpdated > localLabelsLastUpdated)
             );
