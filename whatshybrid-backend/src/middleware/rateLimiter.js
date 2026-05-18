@@ -75,6 +75,17 @@ const rateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders:   false,
   keyGenerator: (req) => req.user?.id || req.ip,
+  // A extensão sincroniza ~18 módulos em alta frequência nestes endpoints
+  // internos de dados (sync/crm/tasks/recover/subscription) — todos exigem
+  // token de autenticação. Contá-los no teto global por-usuário causava 429
+  // em cascata: o primeiro 429 dispara retries que reabastecem a janela e a
+  // mantêm estourada (mesmo com max=1000). Estes grupos ficam de fora do
+  // limiter geral; o brute-force de login tem authLimiter e o custo de IA
+  // tem aiLimiter próprios, então a proteção que importa permanece.
+  skip: (req) => {
+    const p = req.path || req.originalUrl || '';
+    return /^\/api\/(v1\/)?(sync|crm|tasks|recover|subscription)(\/|$)/.test(p);
+  },
 });
 
 // ── Auth limiter (força bruta) ───────────────────────────────────────────────
