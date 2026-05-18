@@ -4238,17 +4238,6 @@ function showView(viewName) {
   function initializeNewWidgets() {
     console.log('[SidePanel Router] 🎯 Inicializando novos widgets...');
 
-    // Trust System Widget
-    const trustContainer = document.getElementById('trust-system-widget');
-    if (trustContainer && window.TrustSystem) {
-      try {
-        window.TrustSystem.renderTrustWidget(trustContainer);
-        console.log('[SidePanel Router] ✅ Trust System widget renderizado');
-      } catch (e) {
-        console.error('[SidePanel Router] Erro ao renderizar Trust System:', e);
-      }
-    }
-
     // Team System Widget
     const teamContainer = document.getElementById('team-system-widget');
     if (teamContainer && window.TeamSystem) {
