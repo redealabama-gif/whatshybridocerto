@@ -387,6 +387,9 @@ app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/extension', extensionRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/ai-settings', aiSettingsRoutes);
+// v9.7.x: Training sync — extensão chama no botão "Sincronizar" da página de treinamento.
+// Antes o endpoint não existia (404 silencioso) e a UI mostrava sucesso falso.
+app.use('/api/v1/training', require('./routes/training'));
 // v9.0.0: Funnel tracking
 app.use('/api/v1/funnel', require('./routes/funnel'));
 // v9.0.0: Referrals

@@ -150,6 +150,18 @@ class AIOrchestrator {
         knowledgeResults = (await this.hybridSearch.search(message, 5)) || [];
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
 
+      // ── 3b. v9.7.x — Conhecimento treinado pelo usuário (FAQs / produtos /
+      //     business info / few-shot examples salvos via /training/sync).
+      //     HybridSearch é in-memory e nunca foi populado a partir das tabelas
+      //     de treinamento — então o treinamento ficava invisível pro caminho
+      //     principal. Aqui buscamos direto do DB por keyword match leve e
+      //     mergeamos como `knowledgeResults`, que o DynamicPromptBuilder já
+      //     sabe injetar no prompt.
+      try {
+        const trained = this._loadTrainedKnowledge(message, 6);
+        if (trained.length) knowledgeResults = knowledgeResults.concat(trained);
+      } catch (err) { logger.warn(`loadTrainedKnowledge error: ${err.message}`); }
+
       // ── 4. v10: Classificação do objetivo comercial ANTES do prompt ─────────
       let commercialResult = null;
       if (this.config.enableCommercialIntelligence) {
@@ -674,6 +686,152 @@ class AIOrchestrator {
 
   _estimateTokens(text) {
     return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * v9.7.x — Busca conhecimento treinado (FAQs / produtos / business info)
+   * direto das tabelas do workspace e devolve no shape que o DynamicPromptBuilder
+   * espera ({ content, source, score }).
+   *
+   * Por que não usar HybridSearch? Porque ele é um índice in-memory que precisaria
+   * ser populado/sincronizado a cada sync de treinamento — e não é. Adicionar essa
+   * sincronia seria um sistema secundário (embeddings, persistência do índice).
+   * Aqui resolvemos o caminho crítico com SQL puro: keyword match LIKE com
+   * scoring por token-overlap. Funciona pra catálogos < 10k registros, que é o
+   * universo de SaaS B2B small/mid.
+   *
+   * Fonte de prioridade (em ordem decrescente):
+   *  1. FAQs com match direto na pergunta → score alto
+   *  2. Produtos com match no nome/descrição → score médio
+   *  3. Business info (horário, política, instruções custom) → sempre inclui
+   *     porque é contexto base (não depende de match)
+   *
+   * @private
+   */
+  _loadTrainedKnowledge(message, maxItems = 6) {
+    const out = [];
+    let db;
+    try { db = require('../utils/database'); } catch (_) { return out; }
+    if (!db || !this.tenantId || this.tenantId === 'default') return out;
+
+    const text = String(message || '').toLowerCase().trim();
+    if (!text) return out;
+
+    // Tokenização leve: palavras > 3 chars, top 6 (filtra stopwords pt-BR comuns)
+    const STOPWORDS = new Set([
+      'para','como','quando','onde','qual','quais','aquele','aquela','isso','esse',
+      'essa','este','esta','muito','pouco','também','tambem','minha','meu','seus',
+      'suas','vocês','voces','você','voce','tudo','nada','quem','porque','mais',
+      'pelo','pela','dos','das','uma','umas','uns','sem','sob','sobre','entre'
+    ]);
+    const tokens = Array.from(new Set(
+      text.split(/[^a-záàâãéêíóôõúç0-9]+/i)
+          .filter(t => t.length >= 4 && !STOPWORDS.has(t))
+    )).slice(0, 6);
+
+    // Helper de score por overlap de tokens
+    const scoreOf = (haystack) => {
+      const h = String(haystack || '').toLowerCase();
+      let hits = 0;
+      for (const t of tokens) if (h.includes(t)) hits++;
+      return tokens.length ? hits / tokens.length : 0;
+    };
+
+    // ── FAQs ────────────────────────────────────────────────────────
+    try {
+      const faqs = db.all(
+        `SELECT question, answer, category
+           FROM faqs
+          WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC
+          LIMIT 50`,
+        [this.tenantId]
+      ) || [];
+
+      const scored = faqs
+        .map(f => ({
+          content: `Pergunta: ${f.question}\nResposta: ${f.answer}`,
+          source: `FAQ${f.category ? ` / ${f.category}` : ''}`,
+          score: Math.max(scoreOf(f.question) * 1.5, scoreOf(f.answer) * 0.8),
+        }))
+        .filter(x => x.score >= 0.3)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      out.push(...scored);
+    } catch (e) { logger.debug?.(`[Orchestrator] FAQ query failed: ${e.message}`); }
+
+    // ── Products ────────────────────────────────────────────────────
+    try {
+      const products = db.all(
+        `SELECT name, description, short_description, sku, category, price, currency, stock_status
+           FROM products
+          WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC
+          LIMIT 100`,
+        [this.tenantId]
+      ) || [];
+
+      const scored = products
+        .map(p => {
+          const blob = `${p.name} ${p.short_description || ''} ${p.description || ''} ${p.category || ''} ${p.sku || ''}`;
+          return {
+            content: `Produto: ${p.name}` +
+                     (p.sku ? ` (SKU ${p.sku})` : '') +
+                     (Number.isFinite(p.price) && p.price > 0
+                        ? ` — ${p.currency || 'BRL'} ${Number(p.price).toFixed(2)}`
+                        : '') +
+                     (p.short_description ? `\nResumo: ${p.short_description}` : '') +
+                     (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : '') +
+                     (p.stock_status ? `\nDisponibilidade: ${p.stock_status}` : ''),
+            source: `Catálogo${p.category ? ` / ${p.category}` : ''}`,
+            score: scoreOf(blob),
+          };
+        })
+        .filter(x => x.score >= 0.3)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2);
+      out.push(...scored);
+    } catch (e) { logger.debug?.(`[Orchestrator] Product query failed: ${e.message}`); }
+
+    // ── Business Info (sempre inclui se existir — é contexto base) ──
+    try {
+      const wk = db.get(
+        'SELECT data FROM workspace_knowledge WHERE workspace_id = ?',
+        [this.tenantId]
+      );
+      if (wk?.data) {
+        const bi = JSON.parse(wk.data);
+        const lines = [];
+        if (bi.name)               lines.push(`Empresa: ${bi.name}`);
+        if (bi.segment)            lines.push(`Segmento: ${bi.segment}`);
+        if (bi.description)        lines.push(`Sobre: ${String(bi.description).slice(0, 400)}`);
+        if (bi.hours)              lines.push(`Horário de atendimento: ${bi.hours}`);
+        if (bi.responseTime)       lines.push(`Tempo de resposta: ${bi.responseTime}`);
+        if (bi.phone)              lines.push(`Telefone: ${bi.phone}`);
+        if (bi.email)              lines.push(`Email: ${bi.email}`);
+        if (Array.isArray(bi.paymentMethods) && bi.paymentMethods.length) {
+          lines.push(`Formas de pagamento: ${bi.paymentMethods.join(', ')}`);
+        }
+        if (bi.deliveryPolicy)     lines.push(`Política de entrega: ${String(bi.deliveryPolicy).slice(0, 400)}`);
+        if (bi.freeShipping)       lines.push(`Frete grátis: ${bi.freeShipping}`);
+        if (bi.returnPolicy)       lines.push(`Política de troca: ${String(bi.returnPolicy).slice(0, 400)}`);
+        if (bi.customInstructions) lines.push(`Instruções da empresa: ${String(bi.customInstructions).slice(0, 800)}`);
+
+        if (lines.length) {
+          out.push({
+            content: lines.join('\n'),
+            source: 'Informações do Negócio',
+            // score alto fixo — sempre relevante como contexto base
+            score: 0.95,
+          });
+        }
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] BusinessInfo load failed: ${e.message}`); }
+
+    // Limita ao topN final mantendo a ordenação por score
+    return out
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxItems);
   }
 }
 
