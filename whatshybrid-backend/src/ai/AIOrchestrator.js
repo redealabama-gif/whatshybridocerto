@@ -115,101 +115,6 @@ class AIOrchestrator {
     logger.info(`AIOrchestrator ready (tenant: ${this.tenantId})`);
   }
 
-  /**
-   * Conhecimento treinado pelo cliente (aba de Treinamento da extensão):
-   * informações do negócio, FAQs e produtos. Fica em workspace_knowledge,
-   * que o índice do HybridSearch NÃO alimenta — por isso o orquestrador
-   * lê direto da tabela e injeta no prompt. Cache de 60s para não bater no
-   * banco a cada mensagem; atualizações de treino propagam em até 1 minuto.
-   */
-  async _getTrainedKnowledgeItem() {
-    const now = Date.now();
-    if (this._trainedKnowledgeCache && (now - this._trainedKnowledgeCache.at) < 60000) {
-      return this._trainedKnowledgeCache.item;
-    }
-    let item = null;
-    try {
-      const db = require('../utils/database');
-      const row = await db.get(
-        'SELECT data FROM workspace_knowledge WHERE workspace_id = ?',
-        [this.tenantId]
-      );
-      if (row && row.data) {
-        let data = null;
-        try { data = JSON.parse(row.data); } catch (_) { data = null; }
-        const text = data ? this._formatTrainedKnowledge(data) : '';
-        if (text) {
-          item = { content: text, source: 'Base de Conhecimento (Treinamento)', score: 0.97 };
-        }
-      }
-    } catch (err) {
-      logger.warn(`[Orchestrator] _getTrainedKnowledgeItem: ${err.message}`);
-    }
-    this._trainedKnowledgeCache = { at: now, item };
-    return item;
-  }
-
-  /** Formata o blob de conhecimento treinado em texto pro prompt. Defensivo:
-   *  os nomes de campo variam entre versões da extensão. */
-  _formatTrainedKnowledge(data) {
-    if (!data || typeof data !== 'object') return '';
-    const parts = [];
-
-    const biz = data.business || {};
-    const bizLines = [];
-    if (biz.name) bizLines.push(`Empresa: ${biz.name}`);
-    if (biz.description) bizLines.push(`Sobre: ${biz.description}`);
-    if (biz.segment) bizLines.push(`Segmento: ${biz.segment}`);
-    if (biz.hours || biz.businessHours) bizLines.push(`Horário de atendimento: ${biz.hours || biz.businessHours}`);
-    if (biz.address) bizLines.push(`Endereço: ${biz.address}`);
-    if (biz.phone) bizLines.push(`Telefone: ${biz.phone}`);
-    if (biz.paymentMethods) {
-      bizLines.push(`Formas de pagamento: ${Array.isArray(biz.paymentMethods) ? biz.paymentMethods.join(', ') : biz.paymentMethods}`);
-    }
-    if (biz.customInstructions) bizLines.push(`Instruções da empresa: ${biz.customInstructions}`);
-    if (bizLines.length) parts.push('## Empresa\n' + bizLines.join('\n'));
-
-    const pol = data.policies || biz.policies || {};
-    if (pol && typeof pol === 'object') {
-      const polLines = [];
-      if (pol.payment) polLines.push(`Pagamento: ${pol.payment}`);
-      if (pol.delivery) polLines.push(`Entrega: ${pol.delivery}`);
-      if (pol.returns) polLines.push(`Trocas/Devoluções: ${pol.returns}`);
-      if (polLines.length) parts.push('## Políticas\n' + polLines.join('\n'));
-    } else if (typeof pol === 'string' && pol.trim()) {
-      parts.push('## Políticas\n' + pol.trim());
-    }
-
-    const faqs = data.faq || data.faqs || [];
-    if (Array.isArray(faqs) && faqs.length) {
-      const faqText = faqs
-        .map(f => f && { q: f.question || f.q, a: f.answer || f.a })
-        .filter(f => f && f.q && f.a)
-        .slice(0, 15)
-        .map(f => `P: ${f.q}\nR: ${f.a}`)
-        .join('\n\n');
-      if (faqText) parts.push('## Perguntas Frequentes\n' + faqText);
-    }
-
-    const products = data.products || [];
-    if (Array.isArray(products) && products.length) {
-      const prodText = products
-        .filter(p => p && p.name)
-        .slice(0, 25)
-        .map(p => {
-          let s = `- ${p.name}`;
-          const price = Number(p.price);
-          if (Number.isFinite(price) && price > 0) s += ` — R$ ${price.toFixed(2)}`;
-          if (p.description) s += `: ${p.description}`;
-          return s;
-        })
-        .join('\n');
-      if (prodText) parts.push('## Produtos / Serviços\n' + prodText);
-    }
-
-    return parts.join('\n\n').trim();
-  }
-
   async processMessage(chatId, message, context = {}) {
     if (!chatId || typeof chatId !== 'string') throw new Error('chatId is required and must be a string');
     // FIX FATAL: variável era declarada como _tracer mas usada como tracer linhas abaixo
@@ -244,17 +149,6 @@ class AIOrchestrator {
       try {
         knowledgeResults = (await this.hybridSearch.search(message, 5)) || [];
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
-
-      // ── 3b. Conhecimento treinado pelo cliente (FAQs/produtos/negócio) ──────
-      // O índice do HybridSearch não é alimentado com o que o cliente cadastra
-      // na aba de Treinamento — sem isto nada disso chegava ao prompt do LLM.
-      // Injetamos só no prompt (promptKnowledge); knowledgeResults original
-      // segue intacto pro fallback de _generateResponse e pro qualityChecker.
-      let promptKnowledge = knowledgeResults;
-      try {
-        const trainedItem = await this._getTrainedKnowledgeItem();
-        if (trainedItem) promptKnowledge = [trainedItem, ...knowledgeResults];
-      } catch (err) { logger.warn(`trained knowledge error: ${err.message}`); }
 
       // ── 4. v10: Classificação do objetivo comercial ANTES do prompt ─────────
       let commercialResult = null;
@@ -315,7 +209,7 @@ class AIOrchestrator {
           intent: intentResult.intent,
           confidence: intentResult.confidence,
           memory: conversationContext,
-          knowledge: promptKnowledge,
+          knowledge: knowledgeResults,
           emotionalContext: context.emotionalContext,
           fewShotExamples,
           businessRules: [

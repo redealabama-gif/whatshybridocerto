@@ -528,32 +528,15 @@ router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
   if (!chatId || typeof chatId !== 'string' || chatId.length > 200) {
     return res.status(400).json({ error: 'chatId inválido' });
   }
-  // userMessage/assistantResponse são opcionais: quando há interactionId, o
-  // orchestrator reconstrói o contexto da interação. O botão "Reprovar" da
-  // extensão não envia userMessage — exigi-lo aqui derrubava o feedback com 400
-  // antes mesmo de chegar no recordFeedback. Validamos só tipo/tamanho quando
-  // o campo vier preenchido.
-  if (userMessage != null && (typeof userMessage !== 'string' || userMessage.length > 10000)) {
+  if (!userMessage || typeof userMessage !== 'string' || userMessage.length > 10000) {
     return res.status(400).json({ error: 'userMessage inválido (max 10k chars)' });
   }
-  if (assistantResponse != null && (typeof assistantResponse !== 'string' || assistantResponse.length > 10000)) {
+  if (!assistantResponse || typeof assistantResponse !== 'string' || assistantResponse.length > 10000) {
     return res.status(400).json({ error: 'assistantResponse inválido (max 10k chars)' });
   }
-  // rating: aceita número 0-5 OU rótulo semântico ('positive'/'negative'/'neutral'/
-  // 'edited'). A extensão (botões Aprovar/Reprovar) envia string; antes virava
-  // NaN e a rota respondia 400 — o loop de aprendizado nunca recebia nada.
-  let ratingNum;
-  if (typeof rating === 'string') {
-    const RATING_LABELS = { positive: 5, negative: 1, neutral: 3, edited: 3 };
-    const label = rating.trim().toLowerCase();
-    ratingNum = Object.prototype.hasOwnProperty.call(RATING_LABELS, label)
-      ? RATING_LABELS[label]
-      : Number(rating);
-  } else {
-    ratingNum = Number(rating);
-  }
+  const ratingNum = Number(rating);
   if (!Number.isFinite(ratingNum) || ratingNum < 0 || ratingNum > 5) {
-    return res.status(400).json({ error: 'rating inválido (número 0-5 ou positive/negative/neutral)' });
+    return res.status(400).json({ error: 'rating deve ser número entre 0 e 5' });
   }
   if (correctedResponse !== undefined && correctedResponse !== null) {
     if (typeof correctedResponse !== 'string' || correctedResponse.length > 10000) {
@@ -572,7 +555,7 @@ router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
         (id, workspace_id, chat_id, message_id, user_message, assistant_response,
          rating, corrected_response, feedback_type, user_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [id, req.workspaceId, chatId, messageId || null, userMessage || '', assistantResponse || '',
+      [id, req.workspaceId, chatId, messageId || null, userMessage, assistantResponse,
        ratingNum, correctedResponse || null, fbType, req.userId]
     );
   } catch (e) {
