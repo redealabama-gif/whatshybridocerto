@@ -246,24 +246,67 @@
   // a camada da sugestão. No reload da página com uma conversa já aberta, a
   // sugestão dispara antes do init()+validateToken() do BackendClient concluir;
   // isConnected() ainda é false, o MÉTODO 0 (orquestrador real) é pulado e a
-  // resposta cai no fallback genérico. A espera é curta e só atua durante a
-  // janela de inicialização: assim que init() conclui — conectado ou não —
-  // retorna na hora. Com backend já conectado, retorna imediatamente.
-  async function waitForBackendReady(timeoutMs = 5000) {
+  // resposta cai no fallback genérico.
+  //
+  // v9.7.x — EXPANDIDA: agora espera também CopilotEngine (loadState → persona)
+  // e SubscriptionManager (workspace + token validado). Antes esperava apenas
+  // JWT/health; persona/training ainda carregando = backend rodava com
+  // persona=null → prompt mínimo → resposta genérica na primeira sugestão
+  // pós-F5 (bug recorrente que o usuário reportou várias vezes).
+  //
+  // Critérios "ready":
+  //   1. BackendClient.isConnected() → JWT válido + health ok
+  //   2. CopilotEngine.debug().initialized → loadState() concluiu, persona resolvida
+  //   3. SubscriptionManager.initialized → plano/credits/workspace conhecidos
+  //
+  // Retorna true se TODOS os 3 passaram; false se timeout (chamador segue pro
+  // fallback, mas ao menos sabemos qual condição falhou via log).
+  async function waitForBackendReady(timeoutMs = 7000) {
     const bc = window.BackendClient;
     if (!bc || typeof bc.isConnected !== 'function') return false;
-    if (bc.isConnected()) return true;
+
+    function checkReady() {
+      const backendOk = bc.isConnected();
+      // CopilotEngine: persona ativa carregada do chrome.storage.local
+      const copilotOk = !window.CopilotEngine ||
+                       (window.CopilotEngine.debug && window.CopilotEngine.debug()?.initialized === true);
+      // SubscriptionManager: workspace + plan info disponíveis
+      const subOk = !window.SubscriptionManager ||
+                   (window.SubscriptionManager.getStatus && !!window.SubscriptionManager.getStatus()?.subscription);
+      return { backendOk, copilotOk, subOk, allReady: backendOk && copilotOk && subOk };
+    }
+
+    // Fast path: já pronto na hora do clique (caso típico depois de uns segundos)
+    const initial = checkReady();
+    if (initial.allReady) return true;
+
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (bc.isConnected()) return true;
-      let st = null;
-      try { st = bc.debug?.(); } catch (_) {}
-      // init() já concluiu e mesmo assim não conectou (sem token ou token
-      // inválido) — esperar mais não muda nada, libera pro fallback.
-      if (st && st.initialized && !st.connected) return false;
+      const st = checkReady();
+      if (st.allReady) return true;
+
+      // Se BackendClient já terminou init() e não conectou (sem token / token inválido),
+      // não adianta esperar mais — o orquestrador exige conexão. Libera pro fallback.
+      let bcDebug = null;
+      try { bcDebug = bc.debug?.(); } catch (_) {}
+      if (bcDebug && bcDebug.initialized && !bcDebug.connected) {
+        log('⚠️ Backend init concluído sem conexão — pulando aguardo:', bcDebug);
+        return false;
+      }
+
       await new Promise(r => setTimeout(r, 150));
     }
-    return bc.isConnected();
+
+    // Timeout: loga honestamente qual condição não passou pra debug em produção
+    const final = checkReady();
+    if (!final.allReady) {
+      log('⚠️ waitForBackendReady timeout — estado:', {
+        backendOk: final.backendOk,
+        copilotOk: final.copilotOk,
+        subOk: final.subOk,
+      });
+    }
+    return final.allReady;
   }
 
   function formatMemoryForPrompt(memory) {
@@ -908,7 +951,8 @@
       // BackendClient terminou de conectar antes de escolher a camada da
       // sugestão, evitando que o reload caia no fallback genérico.
       if (!suggestion && window.BackendClient) {
-        try { await waitForBackendReady(5000); } catch (_) {}
+        // v9.7.x — 7s (timeout default ampliado pra esperar CopilotEngine + Subscription também)
+        try { await waitForBackendReady(7000); } catch (_) {}
       }
 
       // MÉTODO 0 (v9.3.0 — PRIORIDADE MÁXIMA): Backend AIOrchestrator real
