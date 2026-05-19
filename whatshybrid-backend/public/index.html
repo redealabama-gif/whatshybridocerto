@@ -483,7 +483,7 @@
 <section id="pricing" class="py-16 container">
   <div class="text-center">
     <h2 class="mb-4">Investimento que se paga sozinho</h2>
-    <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
+    <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser. Comece com 7 dias grátis em qualquer plano pago.</p>
 
     <div class="pricing-toggle" id="pricing-toggle-wrapper">
       <button class="active" data-period="monthly">Mensal</button>
@@ -492,59 +492,81 @@
   </div>
 
   <div class="pricing-grid">
+    <!-- Free -->
     <div class="plan">
+      <h3>Free</h3>
+      <div class="plan-price">
+        <span class="plan-price-currency">R$</span>
+        <span class="plan-price-value" data-monthly="0" data-yearly="0">0</span>
+        <span class="plan-price-period">/mês</span>
+      </div>
+      <p class="text-muted" style="font-size:0.85rem;margin:-8px 0 16px;">Pra conhecer a plataforma</p>
+      <ul class="plan-features">
+        <li><i data-lucide="check"></i> Disparo manual de mensagens</li>
+        <li><i data-lucide="check"></i> Extrator de contatos</li>
+        <li><i data-lucide="check"></i> Recover (recupera mensagens apagadas/editadas)</li>
+        <li><i data-lucide="check"></i> CRM básico (até 50 contatos)</li>
+        <li><i data-lucide="check"></i> Tarefas e lembretes</li>
+        <li class="disabled"><i data-lucide="x"></i> Sem sugestão de IA</li>
+        <li class="disabled"><i data-lucide="x"></i> Sem treinamento de IA</li>
+        <li class="disabled"><i data-lucide="x"></i> Sem Autopilot</li>
+      </ul>
+      <a href="signup.html?plan=free" class="btn btn-ghost btn-block">Começar grátis</a>
+    </div>
+
+    <!-- Starter -->
+    <div class="plan featured">
+      <div class="plan-badge">Mais popular</div>
       <h3>Starter</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="97" data-yearly="77">97</span>
+        <span class="plan-price-value" data-monthly="50" data-yearly="40">50</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="text-muted" style="font-size:0.85rem;margin:-8px 0 16px;">Pra começar a vender com IA</p>
       <ul class="plan-features">
-        <li><i data-lucide="check"></i> 1 atendente</li>
-        <li><i data-lucide="check"></i> 50.000 tokens IA/mês</li>
-        <li><i data-lucide="check"></i> Pacotes avulsos a partir de R$ 19</li>
-        <li><i data-lucide="check"></i> CRM básico</li>
-        <li><i data-lucide="check"></i> Modo Copiloto</li>
-        <li class="disabled"><i data-lucide="x"></i> Sem IA neural</li>
+        <li><i data-lucide="check"></i> <strong>Tudo do Free</strong></li>
+        <li><i data-lucide="check"></i> <strong>Sugestão de resposta por IA</strong> (botão 🤖)</li>
+        <li><i data-lucide="check"></i> Treinamento da IA (FAQs, catálogo, tom de voz)</li>
+        <li><i data-lucide="check"></i> Autopilot — IA responde sozinho com sua aprovação</li>
+        <li><i data-lucide="check"></i> 50.000 tokens de IA/mês</li>
+        <li><i data-lucide="check"></i> CRM completo (até 1.000 contatos)</li>
+        <li><i data-lucide="check"></i> 2 atendentes</li>
+        <li><i data-lucide="check"></i> Disparos em massa + etiquetas customizadas</li>
+        <li><i data-lucide="check"></i> Analytics básico</li>
       </ul>
-      <a href="signup.html?plan=starter" class="btn btn-ghost btn-block">Começar</a>
+      <a href="signup.html?plan=starter" class="btn btn-primary btn-block">7 dias grátis</a>
     </div>
 
-    <div class="plan featured">
-      <div class="plan-badge">Mais popular</div>
+    <!-- Pro -->
+    <div class="plan">
       <h3>Pro</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="197" data-yearly="157">197</span>
+        <span class="plan-price-value" data-monthly="100" data-yearly="80">100</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="text-muted" style="font-size:0.85rem;margin:-8px 0 16px;">Pra escalar o atendimento</p>
       <ul class="plan-features">
-        <li><i data-lucide="check"></i> <strong>IA neural completa</strong></li>
-        <li><i data-lucide="check"></i> Até 5 atendentes</li>
-        <li><i data-lucide="check"></i> 500.000 tokens IA/mês</li>
-        <li><i data-lucide="check"></i> Compre tokens extras quando precisar</li>
-        <li><i data-lucide="check"></i> Aprendizado validado</li>
-        <li><i data-lucide="check"></i> Disparos em massa</li>
+        <li><i data-lucide="check"></i> <strong>Tudo do Starter</strong></li>
+        <li><i data-lucide="check"></i> <strong>Modo Copiloto avançado</strong> (IA proativa)</li>
+        <li><i data-lucide="check"></i> 500.000 tokens de IA/mês</li>
+        <li><i data-lucide="check"></i> CRM ilimitado (até 10.000 contatos)</li>
+        <li><i data-lucide="check"></i> Conversas ilimitadas por dia</li>
+        <li><i data-lucide="check"></i> 5 atendentes em equipe</li>
+        <li><i data-lucide="check"></i> Analytics avançado + funis</li>
+        <li><i data-lucide="check"></i> API access + webhooks</li>
         <li><i data-lucide="check"></i> Suporte prioritário</li>
       </ul>
-      <a href="signup.html?plan=pro" class="btn btn-primary btn-block">7 dias grátis</a>
-    </div>
-
-    <div class="plan">
-      <h3>Agency</h3>
-      <div class="plan-price">
-        <span class="plan-price-value" style="font-size: 1.8rem;">Sob consulta</span>
-      </div>
-      <ul class="plan-features">
-        <li><i data-lucide="check"></i> Atendentes ilimitados</li>
-        <li><i data-lucide="check"></i> Mensagens ilimitadas</li>
-        <li><i data-lucide="check"></i> White-label</li>
-        <li><i data-lucide="check"></i> API dedicada</li>
-        <li><i data-lucide="check"></i> SLA garantido</li>
-      </ul>
-      <a href="mailto:contato@whatshybrid.com.br?subject=Plano Agency" class="btn btn-ghost btn-block">Falar com consultor</a>
+      <a href="signup.html?plan=pro" class="btn btn-ghost btn-block">7 dias grátis</a>
     </div>
   </div>
+
+  <!-- Agency / Enterprise como linha sutil abaixo, fora do grid principal -->
+  <p class="text-center text-muted mt-8" style="font-size:0.9rem;">
+    Precisa de atendentes ilimitados, white-label ou SLA dedicado?
+    <a href="mailto:contato@whatshybrid.com.br?subject=Plano Empresarial" style="color: var(--brand-cyan);">Falar com consultor →</a>
+  </p>
 </section>
 
 <!-- FAQ -->
@@ -595,6 +617,48 @@
       </button>
       <div class="faq-answer"><p>Não. Tudo via interface. Você preenche formulários sobre seu negócio (FAQ, tom de voz, catálogo, políticas) e a IA já está treinada. Configuração inicial leva 30 minutos.</p></div>
     </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Como funciona o trial de 7 dias grátis?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Ao criar sua conta em qualquer plano pago (Starter ou Pro), você ganha 7 dias com acesso completo a todas as funcionalidades do plano escolhido, sem precisar de cartão de crédito. Antes do trial terminar, a gente avisa por email. Se você não ativar o pagamento, sua conta volta automaticamente pro plano Free — sem cobrança e sem perda dos dados que você já criou.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>O que acontece se meus tokens de IA acabarem no meio do mês?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>O botão 🤖 (sugestão de resposta) e o Autopilot ficam pausados, e você recebe um aviso no painel com link direto para comprar um pacote avulso. Os pacotes começam em R$ 19,00 (10.000 tokens) e não expiram — somam ao seu saldo. Disparo manual, CRM, tarefas, equipe e tudo que não usa IA continuam funcionando normalmente até o início do próximo ciclo.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>O plano Free dá acesso à sugestão de IA?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Não. No plano Free você tem acesso ao Disparo manual, Extrator de contatos, Recover (mensagens apagadas), CRM básico (até 50 contatos) e Tarefas. A IA (botão 🤖 de sugestão, Autopilot e Treinamento) começa no plano Starter. Se quiser experimentar a IA, ative qualquer plano pago e use os 7 dias grátis — sem cartão.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Posso mudar de plano depois?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Sim, a qualquer momento. Upgrade libera as funcionalidades novas imediatamente e o valor proporcional é cobrado no próximo ciclo. Downgrade vale a partir do próximo ciclo (você não perde acesso no que já pagou). O pagamento mensal recorrente é via MercadoPago (Brasil) ou Stripe (internacional) — você pode cancelar a renovação automática em 1 clique no painel.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Posso usar em mais de uma máquina?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Sim, mas uma chave de assinatura fica vinculada a um navegador/máquina por vez (proteção contra compartilhamento abusivo). Pra trocar de máquina, clique no ✕ vermelho ao lado do plano ativo no painel da extensão pra liberar a chave — aí é só ativar no outro navegador. Seus dados de CRM/treinamento/conversas ficam sincronizados via backend, não somem.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>O Autopilot responde sozinho? E se ele errar?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>O Autopilot só dispara em modo automático quando você ativa e quando o sistema tem confiança ≥ 85% na resposta gerada (parâmetro ajustável). Abaixo disso, a mensagem entra na fila pra você revisar antes de enviar. Você pode pausar o Autopilot a qualquer momento com 1 clique, configurar horário de funcionamento, pular grupos, limitar respostas por hora e definir lista de contatos a serem ignorados. Cada resposta tem feedback (👍/👎) que recalibra a IA pro seu jeito.</p></div>
+    </div>
   </div>
 </section>
 
@@ -628,18 +692,28 @@
 
 <script src="js/futuristic.js"></script>
 <script>
-  // Lucide icons
-  lucide.createIcons();
+  // Lucide icons — try/catch porque o CDN unpkg pode estar bloqueado/lento
+  // (sem isto, ReferenceError mata o resto do script: pricing toggle, FAQ
+  // accordion etc. param de funcionar)
+  try {
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+  } catch (e) { console.warn('lucide init failed:', e?.message); }
 
   // Pricing toggle
+  // FIX: precisa de closest('button') porque o botão "Anual" tem um <span>
+  // interno (badge -20%) — clique no span retornava target != button e o
+  // toggle não atualizava os valores.
   const toggle = document.getElementById('pricing-toggle-wrapper');
   toggle.addEventListener('click', e => {
-    if (!e.target.matches('button')) return;
-    const period = e.target.dataset.period;
-    toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === e.target));
+    const btn = e.target.closest('button');
+    if (!btn || !toggle.contains(btn)) return;
+    const period = btn.dataset.period;
+    if (!period) return;
+    toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.plan-price-value').forEach(el => {
       const v = el.dataset[period];
-      if (v) el.textContent = v;
+      // textContent só atualiza se há valor; preserva números como "0" do Free
+      if (v !== undefined && v !== null && v !== '') el.textContent = v;
     });
     document.querySelectorAll('.plan-price-period').forEach(el => {
       el.textContent = period === 'yearly' ? '/mês (anual)' : '/mês';
