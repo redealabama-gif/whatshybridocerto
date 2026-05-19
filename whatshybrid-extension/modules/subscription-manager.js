@@ -241,6 +241,14 @@
 
     console.log('[SubscriptionManager] Inicializando...');
 
+    // v9.7.x — Cache da URL base do backend pra que getUpgradeUrl/getBuyCreditsUrl
+    // possam montar links síncronos (modal dispara em handler de clique).
+    // O storage é assíncrono — sem cache, retornaria fallback errado.
+    try {
+      const backendUrl = await getBackendUrl();
+      if (backendUrl) state._backendBaseCache = String(backendUrl).replace(/\/+$/, '');
+    } catch (_) {}
+
     await loadState();
     scheduleDailyReset();
     scheduleAutoSync();
@@ -1125,17 +1133,36 @@
   // ============================================
   // URLS
   // ============================================
+  // v9.7.x — Antes apontavam pra whatshybrid.com/{planos,creditos,minha-conta},
+  // páginas que não existem em produção. Agora apontam pro dashboard.html do
+  // backend, que TEM os fluxos implementados (#billing, #tokens). URL base
+  // lida de chrome.storage.local.whl_backend_url; fallback estável é
+  // /dashboard.html#billing (relativo — o caller decide o host).
+
+  function _getBackendBase() {
+    try {
+      // Tenta o storage primeiro (definido no Backend Setup do sidepanel)
+      if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+        // Não dá pra fazer get síncrono — leitor é assíncrono.
+        // _backendBaseCache é populado em init() async; aqui retorna o snapshot.
+        return state._backendBaseCache || 'https://app.whatshybrid.com.br';
+      }
+    } catch (_) {}
+    return 'https://app.whatshybrid.com.br';
+  }
 
   function getUpgradeUrl(planId) {
-    return `https://whatshybrid.com/planos?plan=${planId}`;
+    const base = _getBackendBase();
+    const planQs = planId ? `?plan=${encodeURIComponent(planId)}` : '';
+    return `${base}/dashboard.html${planQs}#billing`;
   }
 
   function getBuyCreditsUrl() {
-    return 'https://whatshybrid.com/creditos';
+    return `${_getBackendBase()}/dashboard.html#tokens`;
   }
 
   function getManageUrl() {
-    return 'https://whatshybrid.com/minha-conta';
+    return `${_getBackendBase()}/dashboard.html`;
   }
 
   // ============================================

@@ -309,6 +309,117 @@
     return final.allReady;
   }
 
+  // v9.7.x — Gate de acesso à sugestão (plano + créditos).
+  // Retorna { allowed, reason, message, ctaLabel, ctaUrl }. O caller usa
+  // pra renderizar o painel de bloqueio sem chamar o backend.
+  function _checkSuggestionAccess() {
+    const SM = window.SubscriptionManager;
+    if (!SM) {
+      // Sem SubscriptionManager carregado ainda — libera (boot inicial).
+      return { allowed: true };
+    }
+    const FG = window.FeatureGate;
+
+    // 1. Checagem de plano via FeatureGate (mantém consistente com top-panel)
+    if (FG && typeof FG.check === 'function') {
+      const result = FG.check('module:smart-replies');
+      if (!result.allowed) {
+        // Diferencia tokens-zerados de plano-bloqueado pra mostrar CTA certo.
+        if (result.canBuyCredits || result.reason === 'no_credits') {
+          return {
+            allowed: false,
+            reason: 'no_credits',
+            title: '🪫 Seus tokens de IA acabaram',
+            message: result.message || 'Compre um pacote avulso pra continuar usando a IA — a partir de R$ 19 (não expira).',
+            ctaLabel: 'Comprar tokens',
+            ctaUrl: SM.getBuyCreditsUrl?.() || null,
+          };
+        }
+        return {
+          allowed: false,
+          reason: result.reason || 'plan_required',
+          title: '🔒 Recurso bloqueado no seu plano',
+          message: result.message || 'A sugestão de IA está disponível a partir do plano Starter (R$ 50/mês). Comece com 7 dias grátis.',
+          ctaLabel: 'Ver planos',
+          ctaUrl: SM.getUpgradeUrl?.(result.upgradeRequired || 'starter') || null,
+        };
+      }
+    }
+
+    // 2. Defesa adicional: mesmo passando no FeatureGate, garante créditos
+    if (typeof SM.canUseAI === 'function' && !SM.canUseAI()) {
+      return {
+        allowed: false,
+        reason: 'no_credits',
+        title: '🪫 Seus tokens de IA acabaram',
+        message: 'Compre um pacote avulso pra continuar — a partir de R$ 19 (não expira).',
+        ctaLabel: 'Comprar tokens',
+        ctaUrl: SM.getBuyCreditsUrl?.() || null,
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  // Renderiza painel de bloqueio dentro do panel da sugestão.
+  // Reutiliza o panel da extensão pra UX consistente (não usa modal externo).
+  function _renderBlockedPanel(gate) {
+    const panel = document.getElementById(CONFIG.PANEL_ID);
+    if (!panel) return;
+
+    // Sanitize antes de injetar
+    const title = String(gate.title || 'Recurso indisponível');
+    const message = String(gate.message || '');
+    const ctaLabel = String(gate.ctaLabel || 'Saiba mais');
+    const ctaUrl = gate.ctaUrl;
+
+    const safe = (s) => String(s).replace(/[<>&"']/g, c => ({
+      '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+
+    panel.innerHTML = `
+      <div style="padding: 20px; text-align: center; max-width: 320px;">
+        <h3 style="margin: 0 0 12px; font-size: 1.05rem; color: #fff;">${safe(title)}</h3>
+        <p style="margin: 0 0 16px; color: #c4b5fd; font-size: 0.9rem; line-height: 1.5;">${safe(message)}</p>
+        ${ctaUrl ? `
+          <button id="whl-suggestion-cta" style="
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: white;
+            border: 0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+          ">${safe(ctaLabel)}</button>
+        ` : ''}
+        <button id="whl-suggestion-close" style="
+          display: block;
+          margin: 8px auto 0;
+          background: transparent;
+          color: #6b7280;
+          border: 0;
+          font-size: 0.8rem;
+          cursor: pointer;
+        ">Fechar</button>
+      </div>
+    `;
+
+    if (ctaUrl) {
+      const ctaBtn = panel.querySelector('#whl-suggestion-cta');
+      if (ctaBtn) {
+        ctaBtn.addEventListener('click', () => {
+          try { window.open(ctaUrl, '_blank'); }
+          catch (_) { window.location.href = ctaUrl; }
+        });
+      }
+    }
+    const closeBtn = panel.querySelector('#whl-suggestion-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => hidePanel());
+  }
+
   function formatMemoryForPrompt(memory) {
     if (!memory || typeof memory !== 'object') return '';
     const parts = [];
@@ -880,6 +991,22 @@
 
   async function generateSuggestion() {
     if (state.generating) return;
+
+    // v9.7.x — Gate de plano + créditos ANTES de gerar.
+    // Bug anterior: botão 🤖 gerava sugestão pra qualquer usuário (free
+    // inclusive), consumindo tokens fora do plano. Agora:
+    //   1. Plano free / trial expirado → mostra modal "requer Starter+"
+    //      com botão "Ver planos" que abre /dashboard.html#billing.
+    //   2. Plano ok mas tokens=0 → mostra "tokens esgotados" com botão
+    //      "Comprar pacote" que abre /dashboard.html#tokens.
+    // Master key (enterprise + créditos infinitos) passa por ambos.
+    const planGate = _checkSuggestionAccess();
+    if (!planGate.allowed) {
+      state.generating = false;
+      showPanel();
+      _renderBlockedPanel(planGate);
+      return;
+    }
 
     state.generating = true;
     showPanel();
