@@ -57,7 +57,7 @@
         maxChatsPerDay: 100,
         maxCampaigns: 5,
         maxFlows: 3,
-        maxTeamMembers: 2,
+        maxTeamMembers: -1,
         aiCredits: 100,
         smartReplies: true,
         copilot: false,
@@ -87,7 +87,7 @@
         maxChatsPerDay: -1, // ilimitado
         maxCampaigns: 20,
         maxFlows: 10,
-        maxTeamMembers: 5,
+        maxTeamMembers: -1,
         aiCredits: 500,
         smartReplies: true,
         copilot: true,

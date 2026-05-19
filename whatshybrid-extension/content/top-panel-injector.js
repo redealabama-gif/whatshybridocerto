@@ -307,7 +307,8 @@
             ai:        'module:ai',
             autopilot: 'module:autopilot',
             extrator:  'module:extractor',
-            // crm, tasks, team, config, backup, principal, recover: free → sem gate
+            team:      'module:team',
+            // crm, tasks, config, backup, principal, recover: free → sem gate
         };
         const FEATURE_BY_ACTION = {
             'open-training': 'module:training',
