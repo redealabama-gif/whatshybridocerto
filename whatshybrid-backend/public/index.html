@@ -138,6 +138,21 @@
       max-width: 640px;
       margin: 0 auto 32px;
     }
+    .hero-video {
+      max-width: 720px;
+      margin: 0 auto 32px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(111, 0, 255, 0.35);
+      box-shadow: 0 20px 60px rgba(111, 0, 255, 0.25),
+                  0 0 0 1px rgba(0, 255, 255, 0.08) inset;
+      background: rgba(15, 12, 41, 0.6);
+    }
+    .hero-video video {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
     .hero-ctas {
       display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
       margin-top: 32px;
@@ -352,6 +367,17 @@
       e responde clientes 24/7 com a voz da sua empresa. Instale a extensão no Chrome,
       conecte ao WhatsApp Web, e comece em 5 minutos.
     </p>
+    <div class="hero-video">
+      <video
+        src="assets/hero-demo.mp4"
+        autoplay
+        loop
+        muted
+        playsinline
+        preload="metadata"
+        aria-label="Demonstração do WhatsHybrid Pro em ação no WhatsApp Web"
+      ></video>
+    </div>
     <div class="hero-ctas">
       <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
         <i data-lucide="zap" style="width:20px;height:20px;"></i>
