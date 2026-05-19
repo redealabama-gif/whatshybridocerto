@@ -414,6 +414,41 @@
     transform: none;
 }
 
+/* v9.7.x — Botão de remover chave (X vermelho).
+   Aparece via JS apenas quando assinatura está ativa. */
+.subscription-deactivate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 6px;
+    padding: 0;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    border-radius: 6px;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.subscription-deactivate-btn:hover {
+    background: rgba(239, 68, 68, 0.95);
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: scale(1.06);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.45);
+}
+
+.subscription-deactivate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Action buttons (minimize / etc) */
 .top-panel-action {
     border: none;

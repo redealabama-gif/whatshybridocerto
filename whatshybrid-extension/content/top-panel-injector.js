@@ -168,15 +168,22 @@
                             <span class="credits-value" id="whl-credits-value">0</span>
                         </div>
                         <div class="subscription-input-wrapper" id="whl-sub-input-wrapper">
-                            <input type="text" 
-                                   id="whl-subscription-code" 
-                                   class="subscription-input" 
-                                   placeholder="Código de Assinatura" 
+                            <input type="text"
+                                   id="whl-subscription-code"
+                                   class="subscription-input"
+                                   placeholder="Código de Assinatura"
                                    maxlength="30">
                             <button id="whl-activate-btn" class="subscription-activate-btn" title="Ativar Assinatura">
                                 ✓
                             </button>
                         </div>
+                        <!-- v9.7.x — Botão X (remover chave). Aparece só quando assinatura
+                             ativa, permitindo que o user limpe a chave pra logar em outra máquina. -->
+                        <button id="whl-deactivate-btn" class="subscription-deactivate-btn"
+                                title="Remover chave (sair desta máquina)"
+                                style="display:none;">
+                            ✕
+                        </button>
                     </div>
                     <button class="top-panel-action" data-action="toggle" title="Minimizar (oculta painel superior + lateral)">🗕</button>
                 </div>
@@ -444,6 +451,46 @@
             });
         }
 
+        // v9.7.x — Botão X (remover chave). Confirma com o user antes pra não
+        // perder estado por clique acidental. Após desativar, limpa o storage
+        // local e devolve a UI ao modo "código de assinatura" pra próximo login.
+        const deactivateBtn = document.getElementById('whl-deactivate-btn');
+        if (deactivateBtn) {
+            deactivateBtn.addEventListener('click', async () => {
+                const ok = confirm(
+                    'Remover a chave de assinatura desta máquina?\n\n' +
+                    'Sua conta continua ativa — você só vai precisar reativar ' +
+                    'a chave neste navegador / computador.\n\n' +
+                    'Os dados locais (CRM, treinamento, conversas) NÃO são ' +
+                    'apagados.'
+                );
+                if (!ok) return;
+
+                deactivateBtn.disabled = true;
+                deactivateBtn.textContent = '⏳';
+
+                try {
+                    if (window.SubscriptionManager?.deactivateSubscription) {
+                        await window.SubscriptionManager.deactivateSubscription();
+                        showSubscriptionMessage('Chave removida ✓', 'success');
+                        // Limpa input + atualiza UI; updateSubscriptionUI agora
+                        // mostra o input wrapper novamente e esconde o X.
+                        const input = document.getElementById('whl-subscription-code');
+                        if (input) input.value = '';
+                        updateSubscriptionUI();
+                    } else {
+                        showSubscriptionMessage('Sistema não pronto', 'error');
+                    }
+                } catch (error) {
+                    debugLog('[TopPanel] deactivate error:', error?.message);
+                    showSubscriptionMessage('Erro ao remover chave', 'error');
+                }
+
+                deactivateBtn.disabled = false;
+                deactivateBtn.textContent = '✕';
+            });
+        }
+
         // Atualizar UI inicial
         setTimeout(updateSubscriptionUI, 1000);
 
@@ -568,6 +615,14 @@
             } else {
                 inputWrapper.style.display = 'flex';
             }
+        }
+
+        // v9.7.x — Botão de remover chave aparece só com assinatura ativa.
+        // Permite que o user limpe a chave aqui e ative em outra máquina.
+        const deactivateBtn = document.getElementById('whl-deactivate-btn');
+        if (deactivateBtn) {
+            const showDeactivate = isActive && planId !== 'free';
+            deactivateBtn.style.display = showDeactivate ? 'inline-flex' : 'none';
         }
 
         // Mostrar créditos apenas se tiver plano pago
