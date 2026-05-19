@@ -226,9 +226,9 @@
     }
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px;
-      max-width: 1100px; margin: 48px auto 0;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 22px;
+      max-width: 1240px; margin: 48px auto 0;
     }
     .plan {
       background: rgba(15, 12, 41, 0.6);
@@ -269,17 +269,67 @@
       font-family: 'Orbitron', sans-serif;
     }
     .plan-price-period { color: var(--text-muted); font-size: 0.9rem; }
+    .plan-tagline {
+      color: var(--text-muted); font-size: 0.85rem;
+      margin: -8px 0 22px;
+    }
     .plan-features {
       list-style: none; padding: 0;
-      margin: 0 0 32px; flex: 1;
+      margin: 0 0 28px; flex: 1;
     }
-    .plan-features li {
-      display: flex; align-items: flex-start; gap: 10px;
-      padding: 8px 0; font-size: 0.95rem;
+    /* Feature "caixinha" — cada funcionalidade num bloco roxo translúcido */
+    .plan-features li.feat {
+      display: flex; flex-direction: column; gap: 4px;
+      background: rgba(111, 0, 255, 0.10);
+      border: 1px solid rgba(111, 0, 255, 0.22);
+      border-radius: 10px;
+      padding: 10px 13px;
+      margin-bottom: 8px;
     }
-    .plan-features li i { color: var(--success); flex-shrink: 0; margin-top: 2px; width: 16px; height: 16px; }
-    .plan-features li.disabled { color: var(--text-dim); }
-    .plan-features li.disabled i { color: var(--text-dim); }
+    .plan-features li.feat .feat-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9rem; font-weight: 700; color: var(--text);
+    }
+    .plan-features li.feat .feat-head i {
+      color: var(--brand-cyan); width: 15px; height: 15px; flex-shrink: 0;
+    }
+    .plan-features li.feat .feat-desc {
+      font-size: 0.8rem; color: var(--text-muted);
+      line-height: 1.45; padding-left: 23px;
+    }
+    /* Linha de herança ("Tudo do Free / Starter") */
+    .plan-features li.feat-incl {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9rem; font-weight: 600; color: var(--brand-cyan);
+      padding: 4px 0 12px; margin-bottom: 6px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    }
+    .plan-features li.feat-incl i { width: 16px; height: 16px; flex-shrink: 0; }
+    .plan-features li.feat-incl .feat-incl-extra { color: var(--text-muted); font-weight: 400; }
+    /* Linha de cota/limite (specs simples, sem caixa) */
+    .plan-features li.feat-spec {
+      display: flex; align-items: flex-start; gap: 9px;
+      font-size: 0.88rem; color: var(--text); padding: 6px 4px;
+    }
+    .plan-features li.feat-spec i {
+      color: var(--success); width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px;
+    }
+    /* Funcionalidade bloqueada no plano */
+    .plan-features li.feat-locked {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 0.86rem; color: var(--text-dim); padding: 5px 4px;
+    }
+    .plan-features li.feat-locked i {
+      color: var(--text-dim); width: 14px; height: 14px; flex-shrink: 0;
+    }
+    .plan-locked-label {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-dim); margin: 14px 0 6px;
+    }
+    .pricing-note {
+      max-width: 720px; margin: 32px auto 0; text-align: center;
+      color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;
+    }
 
     /* FAQ */
     .faq-list { max-width: 720px; margin: 48px auto 0; }
@@ -492,59 +542,134 @@
   </div>
 
   <div class="pricing-grid">
+
+    <!-- FREE -->
     <div class="plan">
+      <h3>Free</h3>
+      <div class="plan-price">
+        <span class="plan-price-currency">R$</span>
+        <span class="plan-price-value" data-monthly="0" data-yearly="0">0</span>
+        <span class="plan-price-period">/mês</span>
+      </div>
+      <p class="plan-tagline">Pra conhecer a plataforma</p>
+      <ul class="plan-features">
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Disparo manual</strong></span>
+          <span class="feat-desc">Envia mensagens uma a uma, com modelo pronto.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Recover</strong></span>
+          <span class="feat-desc">Recupera mensagens apagadas ou editadas pelo cliente.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>CRM básico</strong></span>
+          <span class="feat-desc">Contatos, etiquetas e funil de vendas — até 50 contatos.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Tarefas</strong></span>
+          <span class="feat-desc">Follow-ups e lembretes — até 50 tarefas.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Configurações</strong></span>
+          <span class="feat-desc">Preferências e ajustes da extensão.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Backup</strong></span>
+          <span class="feat-desc">Exporta e restaura seus dados locais.</span>
+        </li>
+        <li class="plan-locked-label">Disponível nos planos pagos</li>
+        <li class="feat-locked"><i data-lucide="x"></i>Disparo em massa</li>
+        <li class="feat-locked"><i data-lucide="x"></i>Extrator de contatos</li>
+        <li class="feat-locked"><i data-lucide="x"></i>IA — sugestão de resposta</li>
+        <li class="feat-locked"><i data-lucide="x"></i>Autopilot</li>
+        <li class="feat-locked"><i data-lucide="x"></i>Treinamento da IA</li>
+        <li class="feat-locked"><i data-lucide="x"></i>Equipe</li>
+      </ul>
+      <a href="signup.html?plan=free" class="btn btn-ghost btn-block">Começar grátis</a>
+    </div>
+
+    <!-- STARTER -->
+    <div class="plan featured">
+      <div class="plan-badge">Mais popular</div>
       <h3>Starter</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="97" data-yearly="77">97</span>
+        <span class="plan-price-value" data-monthly="50" data-yearly="40">50</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="plan-tagline">Pra começar a vender com IA</p>
       <ul class="plan-features">
-        <li><i data-lucide="check"></i> 1 atendente</li>
-        <li><i data-lucide="check"></i> 50.000 tokens IA/mês</li>
-        <li><i data-lucide="check"></i> Pacotes avulsos a partir de R$ 19</li>
-        <li><i data-lucide="check"></i> CRM básico</li>
-        <li><i data-lucide="check"></i> Modo Copiloto</li>
-        <li class="disabled"><i data-lucide="x"></i> Sem IA neural</li>
+        <li class="feat-incl"><i data-lucide="check"></i>Tudo do Free&nbsp;<span class="feat-incl-extra">— com limites bem maiores</span></li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Disparo em massa</strong></span>
+          <span class="feat-desc">Envia para muitos contatos de uma vez, com delay anti-ban.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Extrator</strong></span>
+          <span class="feat-desc">Coleta contatos do WhatsApp Web e exporta em CSV/XLSX.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>IA — sugestão de resposta</strong></span>
+          <span class="feat-desc">Botão 🤖 que gera o texto pronto pra você revisar e enviar.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Autopilot</strong></span>
+          <span class="feat-desc">A IA responde os clientes sozinha quando você ativa.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Treinamento da IA</strong></span>
+          <span class="feat-desc">Ensine FAQs, catálogo e o tom de voz da sua empresa.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Equipe</strong></span>
+          <span class="feat-desc">Adicione membros da sua equipe ao mesmo workspace.</span>
+        </li>
+        <li class="feat-spec"><i data-lucide="zap"></i>50.000 tokens de IA por mês</li>
+        <li class="feat-spec"><i data-lucide="check"></i>CRM até 1.000 contatos e 200 tarefas</li>
+        <li class="feat-spec"><i data-lucide="check"></i>Etiquetas customizadas no WhatsApp</li>
       </ul>
-      <a href="signup.html?plan=starter" class="btn btn-ghost btn-block">Começar</a>
+      <a href="signup.html?plan=starter" class="btn btn-primary btn-block">7 dias grátis</a>
     </div>
 
-    <div class="plan featured">
-      <div class="plan-badge">Mais popular</div>
+    <!-- PRO -->
+    <div class="plan">
       <h3>Pro</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="197" data-yearly="157">197</span>
+        <span class="plan-price-value" data-monthly="100" data-yearly="80">100</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="plan-tagline">Pra escalar o atendimento</p>
       <ul class="plan-features">
-        <li><i data-lucide="check"></i> <strong>IA neural completa</strong></li>
-        <li><i data-lucide="check"></i> Até 5 atendentes</li>
-        <li><i data-lucide="check"></i> 500.000 tokens IA/mês</li>
-        <li><i data-lucide="check"></i> Compre tokens extras quando precisar</li>
-        <li><i data-lucide="check"></i> Aprendizado validado</li>
-        <li><i data-lucide="check"></i> Disparos em massa</li>
-        <li><i data-lucide="check"></i> Suporte prioritário</li>
+        <li class="feat-incl"><i data-lucide="check"></i>Tudo do Starter&nbsp;<span class="feat-incl-extra">— sem limites de uso</span></li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>10× mais tokens de IA</strong></span>
+          <span class="feat-desc">500.000 tokens por mês para sugestões e Autopilot.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>CRM ilimitado</strong></span>
+          <span class="feat-desc">Contatos e tarefas sem teto.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Conversas ilimitadas</strong></span>
+          <span class="feat-desc">Atenda quantos clientes quiser por dia.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Disparo em massa expandido</strong></span>
+          <span class="feat-desc">Até 2.000 mensagens por dia.</span>
+        </li>
+        <li class="feat-spec"><i data-lucide="check"></i>Suporte prioritário</li>
       </ul>
-      <a href="signup.html?plan=pro" class="btn btn-primary btn-block">7 dias grátis</a>
+      <a href="signup.html?plan=pro" class="btn btn-ghost btn-block">7 dias grátis</a>
     </div>
 
-    <div class="plan">
-      <h3>Agency</h3>
-      <div class="plan-price">
-        <span class="plan-price-value" style="font-size: 1.8rem;">Sob consulta</span>
-      </div>
-      <ul class="plan-features">
-        <li><i data-lucide="check"></i> Atendentes ilimitados</li>
-        <li><i data-lucide="check"></i> Mensagens ilimitadas</li>
-        <li><i data-lucide="check"></i> White-label</li>
-        <li><i data-lucide="check"></i> API dedicada</li>
-        <li><i data-lucide="check"></i> SLA garantido</li>
-      </ul>
-      <a href="mailto:contato@whatshybrid.com.br?subject=Plano Agency" class="btn btn-ghost btn-block">Falar com consultor</a>
-    </div>
   </div>
+
+  <p class="pricing-note">
+    Todos os planos incluem <strong>7 dias grátis</strong>, sem cartão de crédito.
+    Quando precisar de mais IA, compre pacotes avulsos de tokens a partir de
+    <strong>R$ 19</strong> — eles não expiram.
+  </p>
 </section>
 
 <!-- FAQ -->
@@ -586,7 +711,7 @@
         <span>Quanto custa a IA por cliente atendido?</span>
         <i data-lucide="chevron-down"></i>
       </button>
-      <div class="faq-answer"><p>Cada plano inclui uma cota mensal de tokens (50k Starter, 500k Pro, 5M Agency). Tokens são a unidade que a IA consome — uma resposta média gasta ~200 tokens. Quando seus tokens acabam, você pode comprar pacotes avulsos (a partir de R$ 19,00 por 10k tokens) que não expiram. No portal você vê o saldo em tempo real e o histórico completo de uso.</p></div>
+      <div class="faq-answer"><p>Cada plano pago inclui uma cota mensal de tokens — 50.000 no Starter e 500.000 no Pro. Tokens são a unidade que a IA consome: uma resposta média gasta ~200 tokens. Se a cota acabar, você compra pacotes avulsos a partir de R$ 19 (não expiram). No portal você acompanha o saldo em tempo real e o histórico completo de uso.</p></div>
     </div>
     <div class="faq-item">
       <button class="faq-question">
@@ -594,6 +719,34 @@
         <i data-lucide="chevron-down"></i>
       </button>
       <div class="faq-answer"><p>Não. Tudo via interface. Você preenche formulários sobre seu negócio (FAQ, tom de voz, catálogo, políticas) e a IA já está treinada. Configuração inicial leva 30 minutos.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Como funciona o teste grátis de 7 dias?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Todo plano pago começa com 7 dias grátis e sem cartão de crédito. Durante o teste você usa tudo o que o plano oferece. Se decidir não continuar, basta não assinar — nada é cobrado.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>O que acontece quando meus tokens acabam?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>O botão 🤖 para de gerar sugestões e exibe um aviso com link direto para comprar mais tokens. O restante da extensão continua funcionando normalmente — só a parte de IA fica em pausa até você recarregar. Os pacotes avulsos não expiram, então o saldo que sobrar fica para depois.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Qual a diferença do plano Free para os planos pagos?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>O Free entrega disparo manual, Recover, CRM básico, Tarefas, Configurações e Backup — ótimo para conhecer a plataforma. Os recursos de IA (sugestão de resposta, Autopilot e Treinamento da IA), além de disparo em massa, Extrator e Equipe, são exclusivos do Starter e do Pro.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">
+        <span>Posso mudar de plano depois?</span>
+        <i data-lucide="chevron-down"></i>
+      </button>
+      <div class="faq-answer"><p>Sim, a qualquer momento pelo portal do cliente. O upgrade libera os novos recursos na hora; o downgrade passa a valer a partir do próximo ciclo de cobrança.</p></div>
     </div>
   </div>
 </section>
@@ -628,23 +781,30 @@
 
 <script src="js/futuristic.js"></script>
 <script>
-  // Lucide icons
-  lucide.createIcons();
+  // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
+  // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
 
-  // Pricing toggle
+  // Pricing toggle Mensal/Anual
   const toggle = document.getElementById('pricing-toggle-wrapper');
-  toggle.addEventListener('click', e => {
-    if (!e.target.matches('button')) return;
-    const period = e.target.dataset.period;
-    toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === e.target));
-    document.querySelectorAll('.plan-price-value').forEach(el => {
-      const v = el.dataset[period];
-      if (v) el.textContent = v;
+  if (toggle) {
+    toggle.addEventListener('click', e => {
+      // closest('button'): o clique pode cair no <span> -20% dentro do botão.
+      const btn = e.target.closest('button');
+      if (!btn || !toggle.contains(btn)) return;
+      const period = btn.dataset.period;
+      toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.plan-price-value').forEach(el => {
+        const v = el.dataset[period];
+        if (v != null) el.textContent = v;
+      });
+      document.querySelectorAll('.plan-price-period').forEach(el => {
+        el.textContent = period === 'yearly' ? '/mês (anual)' : '/mês';
+      });
     });
-    document.querySelectorAll('.plan-price-period').forEach(el => {
-      el.textContent = period === 'yearly' ? '/mês (anual)' : '/mês';
-    });
-  });
+  }
 
   // FAQ accordion
   document.querySelectorAll('.faq-question').forEach(btn => {

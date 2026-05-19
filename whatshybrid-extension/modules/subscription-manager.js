@@ -242,6 +242,9 @@
     console.log('[SubscriptionManager] Inicializando...');
 
     await loadState();
+    // Cacheia a URL do backend pra getUpgradeUrl/getBuyCreditsUrl (síncronas)
+    // poderem apontar pro dashboard real (#billing / #tokens).
+    try { _backendBaseCache = await getBackendUrl(); } catch (_) { _backendBaseCache = null; }
     scheduleDailyReset();
     scheduleAutoSync();
 
@@ -1126,15 +1129,29 @@
   // URLS
   // ============================================
 
+  // Cache síncrono da URL do backend (populado no init() a partir de
+  // whl_backend_url). As funções de URL abaixo são chamadas de forma síncrona
+  // — sem o cache, getBackendUrl() é async e não dá pra montar a URL na hora.
+  let _backendBaseCache = null;
+
+  // Billing e tokens ficam no dashboard do backend (dashboard.html#billing /
+  // #tokens), não nas URLs de marketing antigas — que apontavam pra páginas
+  // inexistentes, por isso o clique de "upgrade" não levava a lugar nenhum.
   function getUpgradeUrl(planId) {
-    return `https://whatshybrid.com/planos?plan=${planId}`;
+    const base = (_backendBaseCache || '').replace(/\/+$/, '');
+    if (base) return `${base}/dashboard.html#billing`;
+    return `https://whatshybrid.com/planos?plan=${planId || ''}`;
   }
 
   function getBuyCreditsUrl() {
+    const base = (_backendBaseCache || '').replace(/\/+$/, '');
+    if (base) return `${base}/dashboard.html#tokens`;
     return 'https://whatshybrid.com/creditos';
   }
 
   function getManageUrl() {
+    const base = (_backendBaseCache || '').replace(/\/+$/, '');
+    if (base) return `${base}/dashboard.html#billing`;
     return 'https://whatshybrid.com/minha-conta';
   }
 

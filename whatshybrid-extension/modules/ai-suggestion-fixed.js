@@ -881,6 +881,20 @@
   async function generateSuggestion() {
     if (state.generating) return;
 
+    // Gating de acesso: o botão 🤖 consome tokens de IA. Plano Free / sem
+    // assinatura ativa não pode gerar; com tokens zerados, oferece a compra.
+    // Reusa FeatureGate.check — mesmo FEATURE_MAP/SubscriptionManager das abas.
+    // Fail-open proposital: se o FeatureGate não estiver carregado, o backend
+    // continua sendo o enforcer real (auth + checkTokenBalance + 402).
+    try {
+      const gate = window.FeatureGate?.check?.('action:use_ai');
+      if (gate && gate.allowed === false) {
+        showPanel();
+        _renderAccessBlocked(gate);
+        return;
+      }
+    } catch (_) { /* erro no gate não bloqueia o fluxo normal */ }
+
     state.generating = true;
     showPanel();
     showLoading('Analisando conversa...');
@@ -1039,7 +1053,7 @@
           log('Backend orchestrator falhou (cairá pra fallback):', e?.message || e);
           // Se foi 402 (sem créditos), interrompe — não chame OpenAI direto sem cobrar
           if (e?.status === 402 || /payment.required|insufficient.*token/i.test(String(e?.message))) {
-            showError('Sem créditos suficientes. Recarregue tokens no portal.');
+            _renderAccessBlocked({ reason: 'no_credits', canBuyCredits: true });
             return;
           }
         }
@@ -1627,6 +1641,53 @@ Responda APENAS com o texto da sugestão:`;
     document.getElementById('whl-ai-use-fallback')?.addEventListener('click', () => {
       const fallback = generateFallbackSuggestion(lastUserMsg);
       showSuggestion(fallback);
+    });
+  }
+
+  /**
+   * Painel exibido quando o acesso à IA está bloqueado: sem assinatura ativa /
+   * plano insuficiente, ou tokens de IA esgotados. Diferente de showError(),
+   * renderiza um botão clicável que leva ao dashboard real (planos ou tokens).
+   * @param {{reason?:string, message?:string, canBuyCredits?:boolean}} result
+   */
+  function _renderAccessBlocked(result) {
+    const body = document.getElementById('whl-ai-body');
+    if (!body) return;
+
+    const noCredits = result?.reason === 'no_credits' || result?.canBuyCredits === true;
+    const icon  = noCredits ? '🔋' : '🔒';
+    const title = noCredits ? 'Tokens de IA esgotados' : 'Recurso dos planos pagos';
+    const msg   = noCredits
+      ? 'Seus tokens de IA acabaram. Compre um pacote avulso (não expira) para voltar a gerar sugestões.'
+      : (result?.message || 'A sugestão de resposta com IA faz parte dos planos Starter e Pro. Faça upgrade para usar o assistente.');
+    const ctaLabel = noCredits ? '🛒 Comprar tokens' : '⚡ Ver planos';
+
+    body.innerHTML = `
+      <div style="padding: 18px; text-align: center;">
+        <div style="font-size: 32px; margin-bottom: 10px;">${icon}</div>
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #fff;">${escapeHtml(title)}</div>
+        <div style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-bottom: 16px;">${escapeHtml(msg)}</div>
+        <button id="whl-ai-access-cta" style="
+          background: linear-gradient(135deg, #6f00ff, #9b4dff);
+          color: #fff; border: none; padding: 11px 22px;
+          border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 600;
+        ">${escapeHtml(ctaLabel)}</button>
+      </div>
+    `;
+
+    body.querySelector('#whl-ai-access-cta')?.addEventListener('click', () => {
+      let url = null;
+      try {
+        const SM = window.SubscriptionManager;
+        url = noCredits ? SM?.getBuyCreditsUrl?.() : SM?.getUpgradeUrl?.();
+      } catch (_) { /* resolve via fallback abaixo */ }
+      if (!url) {
+        const base = window.BackendClient?.getBaseUrl?.();
+        if (base) {
+          url = base.replace(/\/+$/, '') + (noCredits ? '/dashboard.html#tokens' : '/dashboard.html#billing');
+        }
+      }
+      if (url) window.open(url, '_blank');
     });
   }
 
