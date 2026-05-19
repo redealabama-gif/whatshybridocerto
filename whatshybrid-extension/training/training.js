@@ -137,7 +137,6 @@ class TrainingApp {
 
     // Header buttons
     document.getElementById('btnSync')?.addEventListener('click', () => this.syncWithBackend());
-    document.getElementById('btnImport')?.addEventListener('click', () => this.importData());
     document.getElementById('btnExport')?.addEventListener('click', () => this.exportData());
 
     // Exemplos
