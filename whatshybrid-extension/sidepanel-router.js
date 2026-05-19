@@ -2279,18 +2279,16 @@ function showView(viewName) {
         const statDeleted = $('stat_deleted');
         const statEdited = $('stat_edited');
         const statMedia = $('stat_media');
-        const statFavorites = $('stat_favorites');
 
         if (statRevoked) statRevoked.textContent = stats.revoked || 0;
         if (statDeleted) statDeleted.textContent = stats.deleted || 0;
         if (statEdited) statEdited.textContent = stats.edited || 0;
         if (statMedia) {
-          const mediaCount = (stats.byType?.image || 0) + (stats.byType?.video || 0) + 
-                            (stats.byType?.audio || 0) + (stats.byType?.sticker || 0) + 
+          const mediaCount = (stats.byType?.image || 0) + (stats.byType?.video || 0) +
+                            (stats.byType?.audio || 0) + (stats.byType?.sticker || 0) +
                             (stats.byType?.document || 0);
           statMedia.textContent = mediaCount;
         }
-        if (statFavorites) statFavorites.textContent = stats.favorites || 0;
 
         // Total
         const totalEl = $('sp_recover_total');
@@ -2690,11 +2688,7 @@ function showView(viewName) {
       
       // Botão copiar
       buttons += `<button class="recover-action-btn" data-action="copy" data-id="${escapeHtml(msgId)}" title="Copiar" style="background:none;border:none;cursor:pointer;font-size:14px;">📋</button>`;
-      
-      // Botão favoritar
-      const isFav = window.RecoverAdvanced?.isFavorite?.(msgId) || false;
-      buttons += `<button class="recover-fav-btn ${isFav ? 'active' : ''}" data-id="${escapeHtml(msgId)}" title="Favoritar" style="background:none;border:none;cursor:pointer;font-size:14px;">${isFav ? '⭐' : '☆'}</button>`;
-      
+
       // Botão comparar (só para editadas)
       if (h?.action === 'edited' && h?.previousContent) {
         buttons += `<button class="recover-action-btn" data-action="compare" data-id="${escapeHtml(msgId)}" title="Comparar versões" style="background:none;border:none;cursor:pointer;font-size:14px;">📊</button>`;
@@ -2775,17 +2769,7 @@ function showView(viewName) {
     // Event delegation para botões
     root.onclick = async (e) => {
       const btn = e.target.closest('[data-action]');
-      const favBtn = e.target.closest('.recover-fav-btn');
-      
-      if (favBtn) {
-        const id = favBtn.dataset.id;
-        const isFav = window.RecoverAdvanced?.toggleFavorite?.(id);
-        favBtn.textContent = isFav ? '⭐' : '☆';
-        favBtn.classList.toggle('active', isFav);
-        recoverRefresh(false);
-        return;
-      }
-      
+
       if (!btn) return;
       
       const action = btn.dataset.action;

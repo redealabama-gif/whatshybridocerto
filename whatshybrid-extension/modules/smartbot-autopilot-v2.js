@@ -28,6 +28,53 @@
     WORKING_HOURS: { enabled: false, start: 8, end: 22 }
   };
 
+  // v9.7.x — Persistência de config. Antes setConfig() só mutava CONFIG em
+  // memória → ao recarregar a página, tudo resetava (só a blacklist sobrevivia).
+  // Agora gravamos as chaves "Configuráveis via UI" em chrome.storage.local.
+  const CONFIG_STORAGE_KEY = 'whl_autopilot_config';
+  // Subset whitelist — só chaves seguras de persistir. Não persistimos `enabled`
+  // (estado de runtime, não config) nem `processedKey` (interno).
+  const PERSISTED_KEYS = [
+    'SKIP_GROUPS',
+    'MAX_RESPONSES_PER_HOUR',
+    'DELAY_BETWEEN_CHATS',
+    'WORKING_HOURS',
+    'minConfidence',
+    'requireCopilotMode',
+    'useConfidenceSystem',
+  ];
+
+  function persistConfig() {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+      const snapshot = {};
+      for (const k of PERSISTED_KEYS) {
+        if (k in CONFIG) snapshot[k] = CONFIG[k];
+      }
+      chrome.storage.local.set({ [CONFIG_STORAGE_KEY]: snapshot });
+    } catch (e) {
+      console.warn('[Autopilot] persistConfig falhou:', e?.message);
+    }
+  }
+
+  async function restoreConfig() {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+      const res = await new Promise(r => chrome.storage.local.get(CONFIG_STORAGE_KEY, r));
+      const saved = res?.[CONFIG_STORAGE_KEY];
+      if (!saved || typeof saved !== 'object') return;
+      for (const k of PERSISTED_KEYS) {
+        if (k in saved) CONFIG[k] = saved[k];
+      }
+      console.log('[Autopilot] ⚙️  Config restaurada de chrome.storage:', saved);
+    } catch (e) {
+      console.warn('[Autopilot] restoreConfig falhou:', e?.message);
+    }
+  }
+
+  // Restaura assim que o módulo carrega — antes de qualquer scheduleProcess
+  restoreConfig();
+
   const AUTOPILOT_LIMITS = {
     maxMessagesPerMinute: 3,
     maxMessagesPerHour: 30,
@@ -1081,98 +1128,86 @@
   async function generateResponse(item) {
     const chatId = item.chatId || (item.phone ? `${String(item.phone).replace(/\D/g, '')}@c.us` : '');
     const messageText = item.message || item.text || '';
-    
-    console.log(`[Autopilot] 🚀 [MOTOR: BACKEND] Gerando resposta para: ${chatId}`);
-    
-    // PRIORIDADE 1: CopilotEngine (mesma lógica robusta do copiloto e sugestões)
-    if (window.CopilotEngine && typeof window.CopilotEngine.generateResponse === 'function') {
+
+    console.log(`[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: ${chatId}`);
+
+    // v9.7.x — FIX CRÍTICO: o autopilot agora usa o MESMO caminho da sugestão manual
+    // (BackendClient.ai.process → POST /api/v2/ai/process → AIOrchestrator completo)
+    // ao invés do antigo CopilotEngine.generateResponse, que roteava por
+    // /api/v1/ai/complete (proxy de LLM cru, sem RAG/memória/quality/learning).
+    //
+    // Justificativa: o autopilot atua de forma autônoma sem revisão humana —
+    // portanto NÃO PODE ser menos inteligente que a sugestão manual. Os comentários
+    // antigos diziam "mesma lógica robusta", mas era enganoso: era outro endpoint.
+    //
+    // PRIORIDADE 1: BackendClient.ai.process — orchestrator completo
+    if (window.BackendClient?.ai?.process) {
       try {
-        console.log('[Autopilot] 🤖 [MOTOR: BACKEND/CopilotEngine] Iniciando...');
-        
-        // Carregar contexto híbrido primeiro (memória + exemplos + KB do servidor)
-        if (window.CopilotEngine.loadConversationContext) {
-          await window.CopilotEngine.loadConversationContext(chatId, true);
+        const result = await window.BackendClient.ai.process(chatId, messageText, {
+          language: 'pt-BR',
+        });
+
+        // backend retorna { success, response, metadata, intelligence }
+        if (result && result.success && (result.response || result.content)) {
+          const text = result.response || result.content;
+          console.log(`[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada` +
+            (result.metadata?.qualityScore != null ? ` | quality=${result.metadata.qualityScore}` : '') +
+            (result.intelligence?.responseGoal ? ` | goal=${result.intelligence.responseGoal}` : ''));
+          return text;
         }
-        
-        // Analisar mensagem (usa toda a inteligência: intent, sentiment, KB, etc)
-        const analysis = await window.CopilotEngine.analyzeMessage(messageText, chatId);
-        
-        // Gerar resposta com contexto híbrido
-        const result = await window.CopilotEngine.generateResponse(chatId, analysis);
-        
-        if (result && result.content) {
-          console.log(`[Autopilot] ✅ [MOTOR: BACKEND] Resposta gerada | Provider: ${result.provider || 'unknown'}`);
-          return result.content;
-        }
+        console.warn('[Autopilot] ⚠️ ai.process devolveu resposta vazia', result);
       } catch (e) {
-        console.error('[Autopilot] ❌ [MOTOR: BACKEND] CopilotEngine falhou:', e.message);
-        
-        // v7.9.13: Se FORCE_BACKEND, NÃO continuar para fallbacks
-        // R-002 FIX: Check both FORCE_BACKEND AND DISABLE_LOCAL_FALLBACK
+        console.error('[Autopilot] ❌ ai.process falhou:', e.message);
+
+        // FORCE_BACKEND + DISABLE_LOCAL_FALLBACK → propaga erro (cliente NÃO recebe template)
         if (FORCE_BACKEND && DISABLE_LOCAL_FALLBACK) {
           if (SHOW_BACKEND_ERRORS && window.EventBus) {
             window.EventBus.emit('autopilot:backend:error', {
-              error: e.message,
-              chatId,
-              reason: 'Backend obrigatório falhou'
+              error: e.message, chatId, reason: 'Orchestrator falhou'
             });
           }
           emitRuntimeEvent('backend-error', {
-            error: e.message,
-            chatId,
-            reason: 'Backend obrigatório falhou'
+            error: e.message, chatId, reason: 'Orchestrator falhou'
           });
-          throw new Error(`❌ Backend obrigatório falhou: ${e.message}`);
+          throw new Error(`❌ Orchestrator falhou: ${e.message}`);
         }
+        // senão, cai pra fallback abaixo
       }
     }
-    
-    // v7.9.13: Se FORCE_BACKEND, não usar fallbacks locais
-    // R-002 FIX: Check both FORCE_BACKEND AND DISABLE_LOCAL_FALLBACK
-    if (FORCE_BACKEND && DISABLE_LOCAL_FALLBACK) {
-      console.error('[Autopilot] ❌ [MOTOR: BLOQUEADO] Backend obrigatório indisponível');
-      console.error('[Autopilot] 🚨 CopilotEngine não está disponível. Verifique os módulos.');
-      throw new Error('❌ Backend obrigatório indisponível. CopilotEngine não carregado.');
+
+    // PRIORIDADE 2 (fallback): CopilotEngine — caminho antigo via /ai/complete.
+    // Mantemos como degradação graciosa quando ai.process não está disponível
+    // (ex: backend muito antigo ou rede que só permite v1).
+    if (window.CopilotEngine && typeof window.CopilotEngine.generateResponse === 'function') {
+      try {
+        console.warn('[Autopilot] ⚠️ [MOTOR: FALLBACK/CopilotEngine] usando caminho v1');
+        if (window.CopilotEngine.loadConversationContext) {
+          await window.CopilotEngine.loadConversationContext(chatId, true);
+        }
+        const analysis = await window.CopilotEngine.analyzeMessage(messageText, chatId);
+        const result = await window.CopilotEngine.generateResponse(chatId, analysis);
+        if (result && result.content) return result.content;
+      } catch (e) {
+        console.error('[Autopilot] ❌ CopilotEngine fallback falhou:', e.message);
+      }
     }
-    
-    // === FALLBACKS (APENAS se FORCE_BACKEND = false) ===
-    console.warn('[Autopilot] ⚠️ [MOTOR: LOCAL] Tentando fallbacks locais...');
-    
-    // Notificar UI sobre uso de fallback
+
+    // v9.7.x — Sem template autônomo. Antes mandávamos ao cliente final
+    // "⚠️ Sistema de IA temporariamente indisponível…" — péssima UX e pode
+    // queimar a marca. Agora: lança erro, o caller marca como `failed` na
+    // stats e PULA a mensagem. Cliente vai notar o silêncio e o operador
+    // verá no painel.
     if (window.EventBus) {
-      window.EventBus.emit('ai:fallback-used', { reason: 'backend_unavailable' });
+      window.EventBus.emit('autopilot:backend:error', {
+        chatId,
+        reason: 'Todos os caminhos de IA falharam — mensagem pulada (sem auto-template)',
+      });
     }
-    
-    // PRIORIDADE 2: AIService (fallback)
-    if (window.AIService?.generate) {
-      try {
-        console.warn('[Autopilot] ⚠️ [MOTOR: LOCAL/AIService] Usando motor local');
-        const response = await window.AIService.generate(messageText);
-        if (response) return response;
-      } catch (e) {
-        console.error('[Autopilot] ❌ AIService falhou:', e.message);
-      }
-    }
-    
-    // PRIORIDADE 3: BackendClient direto (fallback)
-    if (window.BackendClient?.generateResponse) {
-      try {
-        console.warn('[Autopilot] ⚠️ [MOTOR: LOCAL/BackendClient] Usando cliente direto');
-        const response = await window.BackendClient.generateResponse(messageText);
-        if (response) return response;
-      } catch (e) {
-        console.error('[Autopilot] ❌ BackendClient falhou:', e.message);
-      }
-    }
-    
-    // ÚLTIMO RECURSO: template padrão (apenas se FORCE_BACKEND = false)
-    console.error('[Autopilot] ❌ [MOTOR: TEMPLATE] Usando template genérico (IA indisponível)');
-    const templates = [
-      '⚠️ Sistema de IA temporariamente indisponível. Retornarei em breve.',
-      '⚠️ Recebi sua mensagem. Estou com dificuldades técnicas, mas logo respondo.',
-      '⚠️ Olá! O sistema de IA está em manutenção. Aguarde um momento.'
-    ];
-    return templates[Math.floor(Math.random() * templates.length)];
+    emitRuntimeEvent('backend-error', {
+      chatId,
+      reason: 'Todos os caminhos de IA falharam — mensagem pulada (sem auto-template)',
+    });
+    throw new Error('❌ IA indisponível — autopilot pulou esta mensagem (não envia template autônomo)');
   }
 
   // ============================================
@@ -1403,6 +1438,7 @@
       } else if (typeof configOrKey === 'string' && configOrKey in CONFIG) {
         CONFIG[configOrKey] = value;
       }
+      persistConfig(); // v9.7.x — sobrevive a reload da página
       updateUI();
     },
     
@@ -1432,6 +1468,7 @@
     },
     setMinConfidence: (value) => {
       CONFIG.minConfidence = Math.max(0, Math.min(100, value));
+      persistConfig(); // v9.7.x
       console.log('[Autopilot] 📊 Confiança mínima:', CONFIG.minConfidence);
     },
     enableCopilot: () => {

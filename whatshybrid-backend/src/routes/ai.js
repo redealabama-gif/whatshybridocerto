@@ -12,6 +12,7 @@ const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
 const { checkTokenBalance } = require('../middleware/tokenBalance');
+const { checkSubscription } = require('../middleware/subscription');
 const { makeLikeTerm } = require('../utils/sql-helpers');
 // v9.5.0 BUG #137: `aiCompletionLimiter` nunca foi exportado por rateLimiter.js.
 // Em v9.4.7 era importado e passado como middleware → undefined → Express
@@ -185,6 +186,11 @@ router.post(
   '/complete',
   aiCompletionLimiter,
   authenticate,
+  // v9.7.x — Gate de plano: free não tem acesso a IA. Antes só o saldo de
+  // tokens segurava (free=0 tokens), mas isso retornava erro genérico de
+  // saldo. Agora retorna 402 FEATURE_NOT_AVAILABLE com upgradeUrl —
+  // frontend mostra modal de upsell adequado.
+  checkSubscription('ai_basic'),
   // P1: plugado o middleware checkTokenBalance — antes o check era manual
   // dentro do handler. Agora qualquer rota IA nova herda a proteção só
   // adicionando o middleware. estimatedCost=1 mantém o comportamento
@@ -521,22 +527,56 @@ router.get('/few-shot', authenticate, asyncHandler(async (req, res) => {
  * pra extensão montar contexto híbrido (já implementado em conversations + few-shot,
  * só faltava endpoint unificado).
  */
-router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
+router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
   const { chatId, messageId, interactionId, userMessage, assistantResponse, rating, correctedResponse, feedbackType } = req.body;
 
   // Validação rigorosa pra não corromper base de aprendizado
   if (!chatId || typeof chatId !== 'string' || chatId.length > 200) {
     return res.status(400).json({ error: 'chatId inválido' });
   }
-  if (!userMessage || typeof userMessage !== 'string' || userMessage.length > 10000) {
-    return res.status(400).json({ error: 'userMessage inválido (max 10k chars)' });
+
+  // v9.7.x — FIX FEEDBACK LOOP: extensão envia rating como STRING ('positive'/'negative')
+  // ou número (0-5). Aceita ambos e normaliza pra número antes de gravar.
+  // Bug anterior: Number('positive') = NaN → 400 → IA nunca aprendia com feedback.
+  let ratingNum;
+  if (typeof rating === 'number') {
+    ratingNum = rating;
+  } else if (typeof rating === 'string') {
+    const r = rating.toLowerCase().trim();
+    if (r === 'positive' || r === 'thumbs_up' || r === 'good' || r === 'up') ratingNum = 5;
+    else if (r === 'negative' || r === 'thumbs_down' || r === 'bad' || r === 'down') ratingNum = 0;
+    else if (r === 'neutral') ratingNum = 3;
+    else ratingNum = Number(r); // tenta como número stringificado
+  } else if (rating === undefined && (feedbackType === 'thumbs_up' || feedbackType === 'thumbs_down')) {
+    // Sinal binário sem rating numérico — deriva do feedbackType
+    ratingNum = feedbackType === 'thumbs_up' ? 5 : 0;
   }
-  if (!assistantResponse || typeof assistantResponse !== 'string' || assistantResponse.length > 10000) {
-    return res.status(400).json({ error: 'assistantResponse inválido (max 10k chars)' });
-  }
-  const ratingNum = Number(rating);
   if (!Number.isFinite(ratingNum) || ratingNum < 0 || ratingNum > 5) {
-    return res.status(400).json({ error: 'rating deve ser número entre 0 e 5' });
+    return res.status(400).json({
+      error: "rating deve ser número 0-5 ou string ('positive'/'negative'/'neutral')",
+      received: rating,
+    });
+  }
+
+  // v9.7.x — userMessage/assistantResponse podem ser RECONSTRUÍDOS via interactionId.
+  // Antes exigíamos os dois sempre, mas a UI nem sempre tem como reconstruir o texto
+  // exato da sugestão original. Com interactionId, o orchestrator carrega do
+  // _interactionMetadataStore / DB. Sem interactionId, exigimos os textos.
+  const hasInteractionId = interactionId && typeof interactionId === 'string' && interactionId.length <= 200;
+  if (!hasInteractionId) {
+    if (!userMessage || typeof userMessage !== 'string' || userMessage.length > 10000) {
+      return res.status(400).json({ error: 'userMessage obrigatório quando não há interactionId (max 10k chars)' });
+    }
+    if (!assistantResponse || typeof assistantResponse !== 'string' || assistantResponse.length > 10000) {
+      return res.status(400).json({ error: 'assistantResponse obrigatório quando não há interactionId (max 10k chars)' });
+    }
+  } else {
+    if (userMessage !== undefined && (typeof userMessage !== 'string' || userMessage.length > 10000)) {
+      return res.status(400).json({ error: 'userMessage inválido (max 10k chars)' });
+    }
+    if (assistantResponse !== undefined && (typeof assistantResponse !== 'string' || assistantResponse.length > 10000)) {
+      return res.status(400).json({ error: 'assistantResponse inválido (max 10k chars)' });
+    }
   }
   if (correctedResponse !== undefined && correctedResponse !== null) {
     if (typeof correctedResponse !== 'string' || correctedResponse.length > 10000) {
@@ -549,13 +589,17 @@ router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
   const { v4: uuid } = require('../utils/uuid-wrapper');
   const id = uuid();
 
+  // Defaults seguros pra colunas NOT NULL quando vier só interactionId
+  const safeUserMessage      = (userMessage      ?? '').toString();
+  const safeAssistantResponse = (assistantResponse ?? '').toString();
+
   try {
     db.run(
       `INSERT INTO ai_feedback
         (id, workspace_id, chat_id, message_id, user_message, assistant_response,
          rating, corrected_response, feedback_type, user_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [id, req.workspaceId, chatId, messageId || null, userMessage, assistantResponse,
+      [id, req.workspaceId, chatId, messageId || null, safeUserMessage, safeAssistantResponse,
        ratingNum, correctedResponse || null, fbType, req.userId]
     );
   } catch (e) {
@@ -569,7 +613,7 @@ router.post('/learn/feedback', authenticate, asyncHandler(async (req, res) => {
   // Agora: pega o orchestrator do workspace via registry (mesma instância que processou
   // a request original) e chama recordFeedback corretamente. Orchestrator carrega
   // metadata da interação via _interactionMetadataStore (in-memory) ou DB fallback.
-  if (interactionId && typeof interactionId === 'string' && interactionId.length <= 200) {
+  if (hasInteractionId) {
     setImmediate(async () => {
       try {
         const orchestratorRegistry = require('../registry/OrchestratorRegistry');

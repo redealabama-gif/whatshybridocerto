@@ -49,6 +49,11 @@ const FEATURE_PLANS = {
   'ai_basic': ['starter', 'pro', 'enterprise'],
   'ai_advanced': ['pro', 'enterprise'],
   'ai_custom_models': ['enterprise'],
+  // Treinamento (FAQ, produtos, exemplos, business info) — usa o mesmo
+  // gate de ai_basic. Cliente em free não treina a IA, e isso é coerente
+  // porque ele também não pode usar IA — sem motivo pra treinar algo
+  // que ele não consegue invocar.
+  'training': ['starter', 'pro', 'enterprise'],
 
   // Equipe
   'team': ['enterprise'],

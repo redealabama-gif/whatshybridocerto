@@ -34,6 +34,18 @@
     'module:crm': { minPlan: 'free', feature: 'crm' },
     'module:tasks': { minPlan: 'free' },
     'module:training': { minPlan: 'starter' },
+    // v9.7.x — Autopilot exige plano pago. Autopilot atua sozinho consumindo
+    // tokens — mantê-lo bloqueado pra free é consistente com smart-replies
+    // (que também exige starter+). Mesmo gate de IA.
+    // NÃO usa `feature:` porque a flag 'autopilot' não existe no PLANS
+    // do SubscriptionManager — o gate é só por minPlan + créditos.
+    // Master key (enterprise local) passa pelo minPlan (enterprise > starter)
+    // e pelos créditos (999999 alocados na ativação), liberando autopilot.
+    'module:autopilot': { minPlan: 'starter', requiresCredits: true },
+    // v9.7.x — Aba "IA" do painel lateral. Hoje o gate de smart-replies
+    // bloqueia o envio mas a aba abre normal — sem esse mapeamento, o
+    // top-panel não consegue decidir "abre ou mostra upsell" pra view='ai'.
+    'module:ai': { minPlan: 'starter', feature: 'smartReplies', requiresCredits: true },
 
     // === AÇÕES ===
     'action:send_bulk': { minPlan: 'starter', feature: 'bulkMessages' },

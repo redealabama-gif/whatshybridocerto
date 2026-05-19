@@ -9,6 +9,7 @@ const router = express.Router();
 const { authenticate, checkWorkspace } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { aiLimiter } = require('../middleware/rateLimiter');
+const { checkSubscription } = require('../middleware/subscription');
 
 // Aplicar rate limiting específico para IA em todas as rotas
 router.use(aiLimiter);
@@ -79,7 +80,7 @@ router.get('/models', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/complete
  * Chat completion
  */
-router.post('/complete', authenticate, asyncHandler(async (req, res) => {
+router.post('/complete', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
   if (!AIRouter) {
     return res.status(503).json({ error: 'AI Router not available' });
   }
@@ -375,7 +376,7 @@ router.get('/knowledge/search', authenticate, asyncHandler(async (req, res) => {
  *
  * Body: { chatId, message, language?, businessRules? }
  */
-router.post('/process', authenticate, asyncHandler(async (req, res) => {
+router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
   const { chatId, message, language = 'pt-BR', businessRules, persona } = req.body;
   // FIX v9.3.0 BUG CRÍTICO MULTI-TENANT:
   //   Antes: req.user.tenantId (não existe) || req.user.workspaceId (camelCase, não existe — user tem workspace_id snake_case)
