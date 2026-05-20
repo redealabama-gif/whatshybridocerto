@@ -147,20 +147,21 @@
 }
 .laptop-screen video,
 .laptop-screen .laptop-inner {
-  display: block;
   width: 100%;
   height: auto;
   border-radius: 6px;
   background: rgba(15, 12, 41, 0.6);
 }
+.laptop-screen video { display: block; }
 /* Fallback when video src fails (preview / offline). Hidden when video plays. */
-.laptop-fallback {
+.laptop-screen .laptop-fallback {
   display: none;
   aspect-ratio: 16 / 10;
   position: relative;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(111,0,255,0.25), rgba(0,255,255,0.08)), #050313;
 }
+.laptop-screen.no-video video { display: none; }
 .laptop-screen.no-video .laptop-fallback { display: block; }
 .lf-stripes {
   position: absolute; inset: 0;
