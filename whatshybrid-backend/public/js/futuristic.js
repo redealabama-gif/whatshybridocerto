@@ -158,3 +158,28 @@ window.escapeHtml = function(unsafe) {
 window.safeText = function(elem, text) {
   if (elem) elem.textContent = text == null ? '' : String(text);
 };
+
+// Mobile nav drawer — each .nav-toggle toggles its sibling .nav-links.
+// Closes when a link inside is clicked or when ESC is pressed.
+(function () {
+  function setOpen(btn, links, open) {
+    links.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  }
+  document.querySelectorAll('.nav-toggle').forEach(btn => {
+    const links = btn.parentElement && btn.parentElement.querySelector('.nav-links');
+    if (!links) return;
+    btn.addEventListener('click', () => setOpen(btn, links, !links.classList.contains('open')));
+    links.addEventListener('click', e => {
+      if (e.target.closest('a')) setOpen(btn, links, false);
+    });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.nav-links.open').forEach(links => {
+      const btn = links.parentElement && links.parentElement.querySelector('.nav-toggle');
+      if (btn) setOpen(btn, links, false);
+    });
+  });
+})();
