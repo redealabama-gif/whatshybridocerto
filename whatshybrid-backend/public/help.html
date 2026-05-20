@@ -30,19 +30,23 @@
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="container header-container">
-      <a href="/" class="logo">
-        <span class="logo-icon">⚡</span>
-        <span class="logo-text">WhatsHybrid<span style="color:var(--accent-cyan)">Pro</span></span>
+  <div class="bg-grid"></div>
+  <div class="bg-glow purple"></div>
+  <div class="bg-glow cyan"></div>
+
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="index.html" class="logo">
+        <span class="logo-mark">W</span>
+        <span>WhatsHybrid <span style="color: var(--brand-cyan);">Pro</span></span>
       </a>
-      <nav class="nav-links">
-        <a href="/">Início</a>
-        <a href="/login.html">Entrar</a>
-        <a href="/signup.html" class="btn btn-primary btn-sm">Criar conta</a>
-      </nav>
+      <ul class="nav-links">
+        <li><a href="index.html">Início</a></li>
+        <li><a href="login.html">Entrar</a></li>
+        <li><a href="signup.html" class="btn btn-cyan">Criar conta</a></li>
+      </ul>
     </div>
-  </header>
+  </nav>
 
   <main class="help-container">
     <h1 style="font-size: 2.5rem; color: #fff;">Central de Ajuda</h1>
@@ -123,8 +127,8 @@
 <p><strong>Pré-requisitos:</strong> Google Chrome 100+, conta WhatsApp Business</p>
 <ol>
   <li>Crie conta em <a href="/signup.html">signup</a></li>
-  <li>Você ganha 7 dias de trial automático</li>
-  <li>Recebe 100.000 tokens iniciais</li>
+  <li>Escolha o plano (Free, Starter ou Pro) — Starter e Pro vêm com 7 dias de trial</li>
+  <li>Recebe os tokens de IA do plano escolhido durante o trial</li>
   <li>Configure idioma em "Configurações → Conta"</li>
   <li>(Opcional) Ative 2FA em "Configurações → Segurança"</li>
 </ol>
@@ -176,11 +180,11 @@
 <p>Resposta típica + contexto = ~750 tokens por interação.</p>
 <h3>Quanto vem em cada plano</h3>
 <ul>
-  <li><strong>Trial:</strong> 100k tokens (7 dias)</li>
-  <li><strong>Starter R$ 97/mês:</strong> 100k tokens</li>
-  <li><strong>Pro R$ 197/mês:</strong> 500k tokens</li>
-  <li><strong>Business R$ 397/mês:</strong> 1M tokens</li>
+  <li><strong>Free R$ 0/mês:</strong> sem tokens de IA (recursos de IA bloqueados)</li>
+  <li><strong>Starter R$ 49,90/mês:</strong> 50.000 tokens</li>
+  <li><strong>Pro R$ 99,90/mês:</strong> 500.000 tokens</li>
 </ul>
+<p>Precisa de mais? Compre pacotes avulsos a partir de R$ 19 — tokens avulsos não expiram.</p>
       `,
       'two-factor': `
 <h2>🔐 Autenticação 2FA</h2>

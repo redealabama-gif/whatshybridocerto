@@ -266,32 +266,33 @@
     </div>
 
     <div class="plans-grid">
-      <div class="plan-option" data-plan="starter" data-price="97">
-        <h4>Starter</h4>
-        <div class="price">R$ 97<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+      <div class="plan-option" data-plan="free" data-price="0" data-price-label="R$ 0/mês">
+        <h4>Free</h4>
+        <div class="price">R$ 0<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
-          <li><i data-lucide="check"></i> 1 atendente</li>
-          <li><i data-lucide="check"></i> 500 msgs/mês</li>
-          <li><i data-lucide="check"></i> CRM básico</li>
+          <li><i data-lucide="check"></i> Disparo manual, Recover, Backup</li>
+          <li><i data-lucide="check"></i> CRM até 50 contatos</li>
+          <li><i data-lucide="check"></i> Sem recursos de IA</li>
         </ul>
       </div>
-      <div class="plan-option selected" data-plan="pro" data-price="197">
-        <h4>Pro <span class="pill" style="font-size:0.65rem;padding:2px 8px;margin-left:4px;">Popular</span></h4>
-        <div class="price">R$ 197<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+      <div class="plan-option selected" data-plan="starter" data-price="49.90" data-price-label="R$ 49,90/mês">
+        <h4>Starter <span class="pill" style="font-size:0.65rem;padding:2px 8px;margin-left:4px;">Popular</span></h4>
+        <div class="price">R$ 49,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
-          <li><i data-lucide="check"></i> 5 atendentes</li>
-          <li><i data-lucide="check"></i> 5.000 msgs/mês</li>
-          <li><i data-lucide="check"></i> IA neural completa</li>
-          <li><i data-lucide="check"></i> Aprendizado ativo</li>
+          <li><i data-lucide="check"></i> Tudo do Free</li>
+          <li><i data-lucide="check"></i> 50k tokens de IA/mês</li>
+          <li><i data-lucide="check"></i> Disparo em massa + Extrator</li>
+          <li><i data-lucide="check"></i> Autopilot + Treinamento</li>
         </ul>
       </div>
-      <div class="plan-option" data-plan="agency" data-price="497">
-        <h4>Agency</h4>
-        <div class="price">R$ 497<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+      <div class="plan-option" data-plan="pro" data-price="99.90" data-price-label="R$ 99,90/mês">
+        <h4>Pro</h4>
+        <div class="price">R$ 99,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
-          <li><i data-lucide="check"></i> Ilimitado</li>
-          <li><i data-lucide="check"></i> White-label</li>
-          <li><i data-lucide="check"></i> SLA garantido</li>
+          <li><i data-lucide="check"></i> Tudo do Starter</li>
+          <li><i data-lucide="check"></i> 500k tokens de IA/mês</li>
+          <li><i data-lucide="check"></i> CRM e conversas ilimitados</li>
+          <li><i data-lucide="check"></i> Suporte prioritário</li>
         </ul>
       </div>
     </div>
@@ -374,17 +375,19 @@
 
   let signupData = {
     company: '', name: '', email: '', password: '',
-    plan: 'pro', price: 197,
+    plan: 'starter', price: 49.90, priceLabel: 'R$ 49,90/mês',
   };
 
   // Pre-select plan from URL ?plan=
   const urlPlan = new URLSearchParams(window.location.search).get('plan');
-  if (urlPlan && ['starter', 'pro', 'agency'].includes(urlPlan)) {
+  if (urlPlan && ['free', 'starter', 'pro'].includes(urlPlan)) {
     document.querySelectorAll('.plan-option').forEach(el => {
       el.classList.toggle('selected', el.dataset.plan === urlPlan);
     });
+    const opt = document.querySelector(`[data-plan="${urlPlan}"]`);
     signupData.plan = urlPlan;
-    signupData.price = parseInt(document.querySelector(`[data-plan="${urlPlan}"]`).dataset.price);
+    signupData.price = parseFloat(opt.dataset.price);
+    signupData.priceLabel = opt.dataset.priceLabel;
   }
 
   function goToStep(n) {
@@ -449,7 +452,8 @@
       document.querySelectorAll('.plan-option').forEach(p => p.classList.remove('selected'));
       el.classList.add('selected');
       signupData.plan = el.dataset.plan;
-      signupData.price = parseInt(el.dataset.price);
+      signupData.price = parseFloat(el.dataset.price);
+      signupData.priceLabel = el.dataset.priceLabel;
     });
   });
 
@@ -458,7 +462,7 @@
     e.preventDefault();
     document.getElementById('summary-plan').textContent =
       signupData.plan.charAt(0).toUpperCase() + signupData.plan.slice(1);
-    document.getElementById('summary-price').textContent = `R$ ${signupData.price}/mês`;
+    document.getElementById('summary-price').textContent = signupData.priceLabel;
     goToStep(3);
   });
 
