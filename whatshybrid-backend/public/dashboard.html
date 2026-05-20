@@ -211,10 +211,6 @@
         <i data-lucide="coins" aria-hidden="true"></i>
         Tokens &amp; Uso
       </button>
-      <button class="tab-btn" data-tab="ai" role="tab" aria-selected="false" aria-controls="tab-ai">
-        <i data-lucide="brain-circuit" aria-hidden="true"></i>
-        Inteligência Artificial
-      </button>
       <button class="tab-btn" data-tab="billing" role="tab" aria-selected="false" aria-controls="tab-billing">
         <i data-lucide="credit-card" aria-hidden="true"></i>
         Assinatura
@@ -430,135 +426,6 @@
       </div>
     </div>
 
-    <!-- ─── Tab: AI Settings ─── -->
-    <div class="tab-content" id="tab-ai" role="tabpanel" aria-labelledby="tab-btn-ai">
-      <div class="page-header">
-        <div>
-          <h1>Inteligência Artificial</h1>
-          <p>Configure como a IA responde mensagens dos seus clientes.</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-bottom: 8px;">Personalidade e tom</h3>
-        <p class="text-muted" style="margin-bottom: 20px; font-size: 0.9rem;">
-          Defina como a IA deve falar com seus clientes.
-        </p>
-
-        <div class="form-grid">
-          <div class="input-group">
-            <label class="input-label" for="ai-tone">Tom de voz</label>
-            <select id="ai-tone" class="input">
-              <option value="friendly">Amigável (padrão)</option>
-              <option value="formal">Formal</option>
-              <option value="casual">Casual</option>
-              <option value="professional">Profissional</option>
-              <option value="enthusiastic">Entusiasmado</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="ai-sector">Setor / Nicho</label>
-            <input type="text" id="ai-sector" class="input"
-                   placeholder="Ex: Loja de roupas, Imobiliária, Clínica..."
-                   maxlength="200">
-          </div>
-        </div>
-
-        <div class="input-group" style="margin-top: 16px;">
-          <label class="input-label" for="ai-system-prompt">
-            Instruções customizadas (opcional)
-            <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85rem;">
-              — defina como a IA deve se comportar
-            </span>
-          </label>
-          <textarea id="ai-system-prompt" class="input"
-                    rows="6"
-                    maxlength="5000"
-                    placeholder="Exemplo: Você é o assistente da Loja XPTO. Sempre cumprimente o cliente pelo nome quando souber. Nunca prometa descontos sem confirmar com humano. Seja breve nas respostas (máximo 3 frases)."></textarea>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-            <span id="prompt-char-count">0</span> / 5000 caracteres
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top: 24px;">
-        <h3 style="margin-bottom: 8px;">Configurações avançadas</h3>
-
-        <div class="form-grid">
-          <div class="input-group">
-            <label class="input-label" for="ai-max-tokens">
-              Máximo de tokens por resposta
-              <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85rem;">
-                (50–2000)
-              </span>
-            </label>
-            <input type="number" id="ai-max-tokens" class="input"
-                   min="50" max="2000" value="500">
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-              Respostas mais curtas economizam tokens (≈ R$ 0,002 por 1k).
-            </div>
-          </div>
-          <div class="input-group">
-            <label class="input-label">
-              <input type="checkbox" id="ai-auto-reply" checked
-                     style="margin-right: 8px;">
-              Enviar respostas automaticamente
-            </label>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-              Se desligado, IA só sugere e você confirma.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top: 24px;">
-        <h3 style="margin-bottom: 8px;">Base de conhecimento</h3>
-        <p class="text-muted" style="margin-bottom: 16px; font-size: 0.9rem;">
-          Cole aqui informações sobre seu negócio (FAQ, regras, preços, horários).
-          A IA vai usar isso para responder com precisão.
-        </p>
-        <textarea id="ai-knowledge-base" class="input"
-                  rows="10" maxlength="50000"
-                  placeholder="Exemplo:
-- Horário: Segunda a sábado, 9h às 18h
-- Endereço: Rua X, 123
-- Frete grátis acima de R$ 200
-- Aceitamos: Pix, cartão, boleto
-- Trocas em até 7 dias"></textarea>
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-          <span id="kb-char-count">0</span> / 50000 caracteres
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
-        <button class="btn btn-primary" id="ai-save-btn" type="button">
-          <i data-lucide="save" aria-hidden="true" style="width:16px;height:16px;"></i>
-          Salvar configurações
-        </button>
-        <button class="btn btn-cyan" id="ai-test-btn" type="button">
-          <i data-lucide="play" aria-hidden="true" style="width:16px;height:16px;"></i>
-          Testar IA
-        </button>
-      </div>
-
-      <!-- Test result panel -->
-      <div class="card" id="ai-test-result-panel" style="margin-top: 24px; display: none;">
-        <h3 style="margin-bottom: 12px;">Teste da IA</h3>
-        <div class="input-group">
-          <label class="input-label" for="ai-test-input">Mensagem de teste</label>
-          <input type="text" id="ai-test-input" class="input"
-                 placeholder="Ex: Vocês entregam no fim de semana?">
-        </div>
-        <button class="btn btn-primary" id="ai-test-send-btn" type="button" style="margin-top: 12px;">
-          Enviar teste
-        </button>
-        <div id="ai-test-output" style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 8px; min-height: 60px; display: none;">
-          <strong style="color: var(--brand-cyan);">Resposta da IA:</strong>
-          <div id="ai-test-response" style="margin-top: 8px;"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- ─── Tab: Billing ─── -->
     <div class="tab-content" id="tab-billing" role="tabpanel" aria-labelledby="tab-btn-billing">
       <div class="page-header">
@@ -597,7 +464,6 @@
             <div class="text-muted mt-2" id="billing-next-charge" style="font-size: 0.85rem;">Próxima cobrança: —</div>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-ghost">Mudar plano</button>
             <button class="btn btn-ghost" onclick="cancelSubscription()" style="color: var(--error);">Cancelar</button>
           </div>
         </div>
@@ -693,6 +559,9 @@
     document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
     // Close mobile sidebar
     document.getElementById('sidebar').classList.remove('open');
+    // Refresh os KPIs/histórico ao voltar pra Visão Geral — antes só carregava
+    // uma vez no load da página e ficava congelado mesmo com novo uso.
+    if (tabName === 'overview' && typeof loadKpis === 'function') loadKpis();
   }
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -749,7 +618,7 @@
 
     // Billing tab
     document.getElementById('billing-plan-name').textContent = plan;
-    const planPrices = { STARTER: 'R$ 97/mês', PRO: 'R$ 197/mês', AGENCY: 'R$ 497/mês', FREE: 'R$ 0/mês' };
+    const planPrices = { STARTER: 'R$ 49,90/mês', PRO: 'R$ 99,90/mês', FREE: 'R$ 0/mês' };
     document.getElementById('billing-plan-price').textContent = planPrices[plan] || 'R$ —';
 
     if (trial) {
@@ -779,6 +648,11 @@
         document.getElementById('kpi-patterns-sub').textContent = stats.graduated_patterns > 0
           ? `IA aprendeu com você ✨`
           : `Comece a dar feedback para a IA aprender`;
+
+        // Últimas interações da IA — o backend já devolve aqui no mesmo /stats,
+        // mas o front nunca renderizava. Agora preenche o container que antes
+        // ficava no empty-state pra sempre.
+        renderRecentActivity(stats.recent_activity || []);
       } else {
         // Fallback: zeros visíveis
         ['kpi-messages', 'kpi-patterns', 'kpi-contacts', 'kpi-users'].forEach(id => {
@@ -791,12 +665,76 @@
     }
   }
 
+  function renderRecentActivity(items) {
+    const container = document.getElementById('recent-activity');
+    if (!container) return;
+    if (!items.length) return; // mantém o empty-state default
+
+    const statusPill = (s) => {
+      const ok = (s || '').toLowerCase();
+      if (ok === 'success' || ok === 'ok' || ok === 'completed') return '<span class="pill success">ok</span>';
+      if (ok === 'error' || ok === 'failed')                    return '<span class="pill warning">erro</span>';
+      return `<span class="pill">${(s || '—').replace(/[<>&]/g, '')}</span>`;
+    };
+    const fmtDate = (iso) => {
+      try {
+        return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } catch (_) { return iso || '—'; }
+    };
+
+    container.innerHTML = `
+      <table class="activity-table">
+        <thead><tr>
+          <th>Quando</th><th>Modelo</th><th>Status</th><th>Latência</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(it => `
+            <tr>
+              <td>${fmtDate(it.created_at)}</td>
+              <td style="color:var(--text-muted);font-size:0.85rem;">${(it.model || '—').toString().replace(/[<>&]/g, '')}</td>
+              <td>${statusPill(it.status)}</td>
+              <td style="color:var(--text-muted);font-size:0.85rem;">${it.latency_ms ? it.latency_ms + ' ms' : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
   // ── Extension actions ────────────────────────────────────
-  document.getElementById('install-extension-btn').addEventListener('click', (e) => {
+  // Baixa o zip da extensão pelo endpoint autenticado /api/v1/extension/download.
+  // Se o admin ainda não gerou o zip no servidor a rota devolve 503 — mostramos
+  // uma mensagem clara em vez de um download mudo.
+  document.getElementById('install-extension-btn').addEventListener('click', async (e) => {
     e.preventDefault();
-    // Quando publicada na Chrome Web Store, troque por o link real:
-    // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
-    toast('Em breve disponível na Chrome Web Store.', 'info', 4000);
+    try {
+      const token = api.getToken && api.getToken();
+      const res = await fetch('/api/v1/extension/download', {
+        method: 'GET',
+        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      });
+      if (!res.ok) {
+        let msg = 'Download indisponível no momento. Tente de novo em instantes.';
+        try {
+          const body = await res.json();
+          msg = body.message || body.error || msg;
+        } catch (_) {}
+        toast(msg, 'warning', 6000);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'whatshybrid-extension.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast('Download iniciado. Descompacte e siga as instruções abaixo para instalar no Chrome.', 'success', 5000);
+    } catch (err) {
+      toast('Erro ao baixar a extensão: ' + (err?.message || err), 'error');
+    }
   });
 
   // ── Tokens & Uso ─────────────────────────────────────────
@@ -863,7 +801,9 @@
         consume: { label: 'Consumo IA', color: 'warning' },
         topup: { label: 'Compra avulsa', color: 'success' },
         plan_grant: { label: 'Plano contratado', color: 'success' },
-        plan_renewal: { label: 'Renovação mensal', color: 'success' },
+        // plan_renewal entra também na 1ª compra do plano (resetMonthlyForPlan),
+        // então o rótulo é genérico pra não confundir com renovação real.
+        plan_renewal: { label: 'Cota do plano', color: 'success' },
         adjustment: { label: 'Ajuste', color: '' },
         refund: { label: 'Reembolso', color: 'success' },
       };
@@ -882,9 +822,9 @@
                 <td><span class="pill ${tl.color}">${tl.label}</span></td>
                 <td style="color:var(--text-muted);font-size:0.85rem;">${t.model || '—'}</td>
                 <td style="color:${isNeg ? 'var(--error)' : 'var(--success)'};font-weight:600;">
-                  ${isNeg ? '' : '+'}${Number(t.amount).toLocaleString('pt-BR')}
+                  ${isNeg ? '' : '+'}${Number(t.amount).toLocaleString('pt-BR')} <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">tokens</span>
                 </td>
-                <td>${Number(t.balance_after).toLocaleString('pt-BR')}</td>
+                <td>${Number(t.balance_after).toLocaleString('pt-BR')} <span style="color:var(--text-muted);font-size:0.8rem;">tokens</span></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -901,6 +841,11 @@
       if (r.checkout_url) {
         toast('Redirecionando para o pagamento...', 'success');
         setTimeout(() => { window.location.href = r.checkout_url; }, 600);
+      } else {
+        // Sem checkout_url e sem erro → backend respondeu OK mas o provider
+        // não devolveu URL (geralmente env não configurada). Antes ficava em
+        // silêncio total — agora o cliente sabe o que aconteceu.
+        toast('Pagamento ainda não está disponível. Tente novamente em alguns minutos.', 'warning', 6000);
       }
     } catch (e) {
       if (e.message.includes('indispon')) {
@@ -919,6 +864,14 @@
   async function cancelSubscription() {
     if (!confirm('Tem certeza que quer cancelar? Você mantém acesso até o fim do período pago.')) return;
     try {
+      // /subscription/cancel só marca o status no banco — sem isto, o MercadoPago
+      // continuava cobrando o preapproval mesmo depois do "Cancelar". Se houver
+      // preapproval ativo, paramos a cobrança no provider primeiro.
+      const hasMpPreapproval = !!(userData?.workspace?.mp_preapproval_id);
+      if (hasMpPreapproval) {
+        try { await api.post('/api/v1/billing/cancel-recurring'); }
+        catch (err) { console.warn('cancel-recurring falhou (continuando com cancel local):', err?.message); }
+      }
       await api.post('/api/v1/subscription/cancel');
       toast('Assinatura cancelada. Acesso mantido até o fim do período.', 'success');
       loadUser();
@@ -1072,7 +1025,6 @@
     }
     if (tabPath === 'tokens') { switchTab('tokens'); return null; }
     if (tabPath === 'extension') { switchTab('extension'); return null; }
-    if (tabPath === 'ai') { switchTab('ai'); return null; }
     return null;
   }
 
@@ -1203,108 +1155,20 @@
   loadTokens();
   loadInvoices();
 
-  // ── v8.5.0: AI Settings ───────────────────────────────────
-  async function loadAISettings() {
-    try {
-      const r = await api.get('/api/v1/ai-settings');
-      const s = r.settings || {};
-      document.getElementById('ai-tone').value = s.tone || 'friendly';
-      document.getElementById('ai-sector').value = s.sector || '';
-      document.getElementById('ai-system-prompt').value = s.systemPrompt || '';
-      document.getElementById('ai-max-tokens').value = s.maxResponseTokens || 500;
-      document.getElementById('ai-auto-reply').checked = s.autoReplyEnabled !== false;
-      document.getElementById('ai-knowledge-base').value = s.knowledgeBase || '';
-      updateAICharCounts();
-    } catch (e) {
-      console.warn('loadAISettings error', e);
-    }
-  }
-
-  function updateAICharCounts() {
-    const promptEl = document.getElementById('ai-system-prompt');
-    const kbEl = document.getElementById('ai-knowledge-base');
-    if (promptEl) document.getElementById('prompt-char-count').textContent = promptEl.value.length;
-    if (kbEl) document.getElementById('kb-char-count').textContent = kbEl.value.length;
-  }
-
-  document.getElementById('ai-system-prompt')?.addEventListener('input', updateAICharCounts);
-  document.getElementById('ai-knowledge-base')?.addEventListener('input', updateAICharCounts);
-
-  document.getElementById('ai-save-btn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('ai-save-btn');
-    setLoading(btn, true);
-    try {
-      const settings = {
-        tone: document.getElementById('ai-tone').value,
-        sector: document.getElementById('ai-sector').value,
-        systemPrompt: document.getElementById('ai-system-prompt').value,
-        maxResponseTokens: parseInt(document.getElementById('ai-max-tokens').value, 10) || 500,
-        autoReplyEnabled: document.getElementById('ai-auto-reply').checked,
-        knowledgeBase: document.getElementById('ai-knowledge-base').value,
-      };
-      await api.put('/api/v1/ai-settings', settings);
-      toast('Configurações de IA salvas ✓', 'success');
-    } catch (e) {
-      toast('Erro: ' + e.message, 'error');
-    } finally {
-      setLoading(btn, false);
-    }
-  });
-
-  document.getElementById('ai-test-btn')?.addEventListener('click', () => {
-    const panel = document.getElementById('ai-test-result-panel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    if (panel.style.display === 'block') document.getElementById('ai-test-input')?.focus();
-  });
-
-  document.getElementById('ai-test-send-btn')?.addEventListener('click', async () => {
-    const input = document.getElementById('ai-test-input');
-    const message = input.value.trim();
-    if (!message) return toast('Digite uma mensagem de teste', 'warn');
-
-    const btn = document.getElementById('ai-test-send-btn');
-    const output = document.getElementById('ai-test-output');
-    const responseEl = document.getElementById('ai-test-response');
-    setLoading(btn, true);
-    try {
-      // Salva configs primeiro
-      const settings = {
-        tone: document.getElementById('ai-tone').value,
-        systemPrompt: document.getElementById('ai-system-prompt').value,
-        maxResponseTokens: parseInt(document.getElementById('ai-max-tokens').value, 10) || 500,
-        knowledgeBase: document.getElementById('ai-knowledge-base').value,
-      };
-      await api.put('/api/v1/ai-settings', settings);
-
-      const r = await api.post('/api/v1/ai-settings/test', { message });
-      output.style.display = 'block';
-      // textContent (não innerHTML — evita XSS)
-      responseEl.textContent = r.response || '(sem resposta)';
-      if (r.tokensUsed) {
-        responseEl.textContent += `\n\n[${r.tokensUsed} tokens • ${r.model || ''}]`;
-      }
-    } catch (e) {
-      output.style.display = 'block';
-      responseEl.textContent = 'Erro: ' + e.message;
-    } finally {
-      setLoading(btn, false);
-    }
-  });
-
-  // Lazy load AI tab quando user clicar
-  let _aiLoaded = false;
-  document.querySelector('[data-tab="ai"]')?.addEventListener('click', () => {
-    if (!_aiLoaded) { loadAISettings(); _aiLoaded = true; }
-  });
-
-  // ── v8.5.0: Auto-refresh tokens a cada 60s + reattach quando volta de aba background ──
+  // ── Auto-refresh tokens E KPIs a cada 60s. Sem isso, a Visão Geral carregava
+  //    uma única vez no load e ficava congelada mesmo com novo uso da extensão. ──
   let _tokensInterval = setInterval(() => {
     if (!document.hidden) loadTokens();
+  }, 60000);
+  let _kpisInterval = setInterval(() => {
+    if (!document.hidden && typeof loadKpis === 'function') loadKpis();
   }, 60000);
 
   // Refresh imediato quando usuário volta para a aba
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) loadTokens();
+    if (document.hidden) return;
+    loadTokens();
+    if (typeof loadKpis === 'function') loadKpis();
   });
 
   // Cleanup ao navegar
