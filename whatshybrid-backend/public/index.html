@@ -48,6 +48,7 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/futuristic.css">
+  <link rel="stylesheet" href="css/landing-revamp.css">
 
   <!-- Schema.org structured data -->
   <script type="application/ld+json">
@@ -114,63 +115,51 @@
   <!-- Defer não-crítico -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
   <style>
-    /* Page-specific */
+    /* ── Page-specific (estende landing-revamp.css) ──────────────── */
     .hero {
-      min-height: 80vh;
+      min-height: 92vh;
       display: flex; align-items: center;
-      padding: 80px 0 40px;
+      padding: 60px 0 32px;
       position: relative;
     }
     .hero h1 {
-      font-size: clamp(2.2rem, 6vw, 4.5rem);
-      margin-bottom: 24px;
-      letter-spacing: -0.02em;
+      font-size: clamp(2.2rem, 6vw, 4.6rem);
+      margin-bottom: 20px;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
     }
     .hero p.lead {
-      font-size: clamp(1rem, 1.5vw, 1.25rem);
+      font-size: clamp(1rem, 1.5vw, 1.2rem);
       color: var(--text-muted);
       max-width: 640px;
-      margin: 0 auto 32px;
-    }
-    .hero-video {
-      max-width: 720px;
-      margin: 0 auto 32px;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid rgba(111, 0, 255, 0.35);
-      box-shadow: 0 20px 60px rgba(111, 0, 255, 0.25),
-                  0 0 0 1px rgba(0, 255, 255, 0.08) inset;
-      background: rgba(15, 12, 41, 0.6);
-    }
-    .hero-video video {
-      display: block;
-      width: 100%;
-      height: auto;
+      margin: 0 auto 24px;
+      text-wrap: pretty;
     }
     .hero-ctas {
       display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
-      margin-top: 32px;
+      margin-top: 28px;
     }
     .hero-stats {
       display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 24px; max-width: 700px; margin: 64px auto 0;
+      gap: 24px; max-width: 720px; margin: 56px auto 0;
     }
     .stat-card { text-align: center; }
     .stat-value {
       font-family: 'Orbitron', sans-serif;
-      font-size: 2rem; font-weight: 700;
+      font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 700;
       background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      line-height: 1;
     }
-    .stat-label { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-label { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 8px; }
 
     /* Features */
     .features-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px;
+      gap: 22px;
       margin-top: 48px;
     }
 
@@ -182,10 +171,7 @@
       margin-top: 48px;
       counter-reset: step;
     }
-    .step {
-      position: relative;
-      counter-increment: step;
-    }
+    .step { position: relative; counter-increment: step; }
     .step::before {
       content: counter(step, decimal-leading-zero);
       font-family: 'Orbitron', sans-serif;
@@ -198,7 +184,7 @@
     }
     .step-content { position: relative; z-index: 1; padding-left: 16px; }
 
-    /* Pricing */
+    /* Pricing toggle (preserva contratos JS) */
     .pricing-toggle {
       display: inline-flex;
       background: rgba(15, 12, 41, 0.8);
@@ -209,7 +195,7 @@
     .pricing-toggle button {
       background: transparent;
       border: 0; color: var(--text-muted);
-      padding: 8px 20px;
+      padding: 8px 22px;
       border-radius: 999px;
       font-weight: 600;
       transition: all 0.3s;
@@ -255,7 +241,7 @@
     .plan.featured h3 { color: var(--brand-cyan); }
     .plan-price {
       display: flex; align-items: baseline; gap: 6px;
-      margin-bottom: 24px;
+      margin-bottom: 8px;
     }
     .plan-price-currency { font-size: 1.2rem; color: var(--text-muted); }
     .plan-price-value {
@@ -265,13 +251,9 @@
     .plan-price-period { color: var(--text-muted); font-size: 0.9rem; }
     .plan-tagline {
       color: var(--text-muted); font-size: 0.85rem;
-      margin: -8px 0 22px;
+      margin: 8px 0 22px;
     }
-    .plan-features {
-      list-style: none; padding: 0;
-      margin: 0 0 28px; flex: 1;
-    }
-    /* Feature "caixinha" — cada funcionalidade num bloco roxo translúcido */
+    .plan-features { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; }
     .plan-features li.feat {
       display: flex; flex-direction: column; gap: 4px;
       background: rgba(111, 0, 255, 0.10);
@@ -291,7 +273,6 @@
       font-size: 0.8rem; color: var(--text-muted);
       line-height: 1.45; padding-left: 23px;
     }
-    /* Linha de herança ("Tudo do Free / Starter") */
     .plan-features li.feat-incl {
       display: flex; align-items: center; gap: 8px;
       font-size: 0.9rem; font-weight: 600; color: var(--brand-cyan);
@@ -300,7 +281,6 @@
     }
     .plan-features li.feat-incl i { width: 16px; height: 16px; flex-shrink: 0; }
     .plan-features li.feat-incl .feat-incl-extra { color: var(--text-muted); font-weight: 400; }
-    /* Linha de cota/limite (specs simples, sem caixa) */
     .plan-features li.feat-spec {
       display: flex; align-items: flex-start; gap: 9px;
       font-size: 0.88rem; color: var(--text); padding: 6px 4px;
@@ -308,7 +288,6 @@
     .plan-features li.feat-spec i {
       color: var(--success); width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px;
     }
-    /* Funcionalidade bloqueada no plano */
     .plan-features li.feat-locked {
       display: flex; align-items: center; gap: 9px;
       font-size: 0.86rem; color: var(--text-dim); padding: 5px 4px;
@@ -326,38 +305,46 @@
     }
 
     /* FAQ */
-    .faq-list { max-width: 720px; margin: 48px auto 0; }
+    .faq-list { max-width: 760px; margin: 48px auto 0; }
     .faq-item {
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       margin-bottom: 12px;
       overflow: hidden;
       background: rgba(15, 12, 41, 0.4);
+      transition: border-color 0.3s;
     }
+    .faq-item:hover { border-color: rgba(0, 255, 255, 0.25); }
+    .faq-item.open { border-color: rgba(0, 255, 255, 0.4); }
     .faq-question {
-      width: 100%; padding: 20px;
+      width: 100%; padding: 18px 20px;
       background: transparent; border: 0;
       color: white; font-family: inherit; font-size: 1rem; font-weight: 600;
       text-align: left;
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; align-items: center; gap: 6px;
     }
-    .faq-question i { transition: transform 0.3s; flex-shrink: 0; }
-    .faq-item.open .faq-question i { transform: rotate(180deg); }
+    .faq-question > i[data-lucide="chevron-down"] {
+      transition: transform 0.3s;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .faq-item.open .faq-question > i[data-lucide="chevron-down"] { transform: rotate(180deg); }
     .faq-answer {
       padding: 0 20px;
       max-height: 0;
       overflow: hidden;
       color: var(--text-muted);
-      transition: max-height 0.3s ease, padding 0.3s ease;
+      transition: max-height 0.35s ease, padding 0.35s ease;
     }
-    .faq-item.open .faq-answer { max-height: 400px; padding: 0 20px 20px; }
+    .faq-item.open .faq-answer { max-height: 500px; padding: 0 20px 20px 64px; }
+    .faq-answer p { padding-top: 4px; line-height: 1.6; }
 
     /* CTA banner */
     .cta-banner {
       background: linear-gradient(135deg, rgba(111, 0, 255, 0.2), rgba(0, 255, 255, 0.1));
       border: 1px solid var(--brand-purple);
-      border-radius: 16px;
-      padding: 48px 32px;
+      border-radius: 18px;
+      padding: 56px 32px;
       text-align: center;
       margin-top: 64px;
       position: relative; overflow: hidden;
@@ -387,6 +374,7 @@
     </a>
     <ul class="nav-links">
       <li><a href="#features">Recursos</a></li>
+      <li><a href="#roi">ROI</a></li>
       <li><a href="#pricing">Planos</a></li>
       <li><a href="#faq">FAQ</a></li>
       <li><a href="login.html">Entrar</a></li>
@@ -396,85 +384,310 @@
 </nav>
 
 <!-- Hero -->
-<section class="hero">
+<section class="hero" id="hero">
+
+  <!-- Neural network animated background -->
+  <div class="neural-bg" aria-hidden="true">
+    <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <!-- Connection lines (data flow between nodes) -->
+      <path class="nn-line" d="M 80 120 Q 250 180 420 90" />
+      <path class="nn-line" d="M 80 120 L 320 280" />
+      <path class="nn-line" d="M 320 280 Q 480 200 620 320" />
+      <path class="nn-line" d="M 320 280 L 540 460" />
+      <path class="nn-line" d="M 420 90 L 620 320" />
+      <path class="nn-line" d="M 620 320 Q 760 240 880 380" />
+      <path class="nn-line" d="M 620 320 L 720 540" />
+      <path class="nn-line" d="M 540 460 Q 660 500 780 580" />
+      <path class="nn-line" d="M 880 380 L 1080 240" />
+      <path class="nn-line" d="M 880 380 Q 980 480 1100 540" />
+      <path class="nn-line" d="M 720 540 L 1100 540" />
+      <path class="nn-line" d="M 1080 240 Q 1140 380 1100 540" />
+      <path class="nn-line" d="M 80 480 Q 240 420 380 540" />
+      <path class="nn-line" d="M 80 480 L 540 460" />
+      <path class="nn-line" d="M 380 540 L 720 540" />
+      <path class="nn-line" d="M 80 120 L 80 480" />
+      <path class="nn-line" d="M 420 90 L 1080 240" />
+      <path class="nn-line" d="M 200 620 Q 400 580 540 460" />
+      <path class="nn-line" d="M 1100 80 L 880 380" />
+      <path class="nn-line" d="M 1100 80 L 1080 240" />
+
+      <!-- Travelling data packets along select paths -->
+      <circle class="nn-packet" r="3">
+        <animateMotion dur="6s" repeatCount="indefinite" rotate="auto"
+          path="M 80 120 Q 250 180 420 90"/>
+      </circle>
+      <circle class="nn-packet p2" r="3">
+        <animateMotion dur="7s" repeatCount="indefinite" rotate="auto"
+          path="M 320 280 Q 480 200 620 320"/>
+      </circle>
+      <circle class="nn-packet p3" r="3">
+        <animateMotion dur="5s" repeatCount="indefinite" rotate="auto"
+          path="M 620 320 Q 760 240 880 380"/>
+      </circle>
+      <circle class="nn-packet" r="3">
+        <animateMotion dur="8s" repeatCount="indefinite" rotate="auto"
+          path="M 880 380 L 1080 240"/>
+      </circle>
+
+      <!-- Nodes (neurons) -->
+      <circle class="nn-node" cx="80" cy="120" r="5"/>
+      <circle class="nn-node" cx="320" cy="280" r="6"/>
+      <circle class="nn-node" cx="420" cy="90" r="4"/>
+      <circle class="nn-node" cx="620" cy="320" r="7"/>
+      <circle class="nn-node" cx="540" cy="460" r="5"/>
+      <circle class="nn-node" cx="880" cy="380" r="6"/>
+      <circle class="nn-node" cx="720" cy="540" r="4"/>
+      <circle class="nn-node" cx="1080" cy="240" r="5"/>
+      <circle class="nn-node" cx="1100" cy="540" r="6"/>
+      <circle class="nn-node" cx="80" cy="480" r="4"/>
+      <circle class="nn-node" cx="380" cy="540" r="5"/>
+      <circle class="nn-node" cx="200" cy="620" r="4"/>
+      <circle class="nn-node" cx="1100" cy="80" r="5"/>
+    </svg>
+  </div>
+
   <div class="container text-center">
-    <div class="pill mb-6">
+    <div class="pill mb-6 reveal">
       <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
       <span>Novo · Aprendizado neural validado</span>
     </div>
-    <h1>
+    <h1 class="reveal delay-1">
       A IA que <span class="text-gradient">aprende</span><br>
       a vender no <span class="text-glow">WhatsApp</span>
     </h1>
-    <p class="lead">
+    <p class="lead reveal delay-2">
       WhatsHybrid Pro automatiza seu atendimento, aprende com seus melhores fechamentos,
       e responde clientes 24/7 com a voz da sua empresa. Instale a extensão no Chrome,
       conecte ao WhatsApp Web, e comece em 5 minutos.
     </p>
-    <div class="hero-video">
-      <video
-        src="assets/hero-demo.mp4"
-        autoplay
-        loop
-        muted
-        playsinline
-        preload="metadata"
-        aria-label="Demonstração do WhatsHybrid Pro em ação no WhatsApp Web"
-      ></video>
+
+    <!-- Laptop mockup wrapping hero video + floating badges -->
+    <div class="hero-media-wrap reveal delay-3">
+      <div class="laptop-frame">
+        <div class="laptop-screen">
+          <video
+            src="assets/hero-demo.mp4"
+            autoplay
+            loop
+            muted
+            playsinline
+            preload="metadata"
+            aria-label="Demonstração do WhatsHybrid Pro em ação"
+            onerror="this.style.display='none'; this.parentElement.classList.add('no-video');"
+          ></video>
+          <!-- Fallback shown if video fails to load (preview / offline) -->
+          <div class="laptop-inner laptop-fallback" aria-hidden="true">
+            <div class="lf-stripes"></div>
+            <div class="lf-label">DEMO · WhatsHybrid Pro em ação</div>
+          </div>
+        </div>
+        <div class="laptop-base"></div>
+      </div>
+
+      <div class="float-badges" aria-hidden="true">
+        <div class="float-badge fb-tl">
+          <div class="fb-icon"><i data-lucide="message-circle"></i></div>
+          <div>
+            <div class="fb-value" data-target="3500" data-suffix="+">0</div>
+            <div class="fb-label">mensagens/dia automatizadas</div>
+          </div>
+        </div>
+        <div class="float-badge fb-tr">
+          <div class="fb-icon"><i data-lucide="check-circle"></i></div>
+          <div>
+            <div class="fb-value" data-target="97" data-suffix="%">0</div>
+            <div class="fb-label">taxa de aprovação</div>
+          </div>
+        </div>
+        <div class="float-badge fb-bl">
+          <div class="fb-icon"><i data-lucide="trending-up"></i></div>
+          <div>
+            <div class="fb-value" data-target="3.2" data-suffix="×">0</div>
+            <div class="fb-label">mais fechamentos</div>
+          </div>
+        </div>
+        <div class="float-badge fb-br">
+          <div class="fb-icon"><i data-lucide="timer"></i></div>
+          <div>
+            <div class="fb-value" data-target="12" data-suffix="s">0</div>
+            <div class="fb-label">resposta média</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="hero-ctas">
+
+    <div class="hero-ctas reveal delay-4">
       <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
         <i data-lucide="zap" style="width:20px;height:20px;"></i>
         Testar 7 dias grátis
       </a>
-      <a href="#features" class="btn btn-ghost btn-large" data-cursor="hover">
+      <a href="#how" class="btn btn-ghost btn-large" data-cursor="hover">
         Ver como funciona
         <i data-lucide="arrow-down" style="width:18px;height:18px;"></i>
       </a>
     </div>
 
-    <div class="hero-stats">
+    <div class="hero-stats reveal delay-5">
       <div class="stat-card">
-        <div class="stat-value">24/7</div>
+        <div class="stat-value" data-target="24" data-suffix="/7">24/7</div>
         <div class="stat-label">Atendimento</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">5min</div>
+        <div class="stat-value" data-target="5" data-suffix="min">5min</div>
         <div class="stat-label">Para configurar</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">100%</div>
+        <div class="stat-value" data-target="100" data-suffix="%">100%</div>
         <div class="stat-label">Multi-tenant</div>
       </div>
     </div>
   </div>
 </section>
 
+<!-- Social proof: logo strip + testimonials -->
+<section class="container py-16" id="social-proof">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Quem já automatizou</span>
+    <h2 class="mb-4">+1.200 PMEs brasileiras <span class="text-gradient">vendendo com IA</span></h2>
+    <p class="text-muted">Empresas de e-commerce, serviços e clínicas que escalaram o atendimento sem contratar mais ninguém.</p>
+  </div>
+
+  <!-- Placeholder logos: SVG monocromático cyan. Trocar por reais quando disponíveis. -->
+  <div class="logo-strip reveal delay-1" aria-label="Empresas-cliente (exemplos)">
+    <div class="logo-strip-track">
+      <!-- placeholder logo: Acme Co. -->
+      <svg viewBox="0 0 120 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <path d="M14 6 L14 22 M6 14 L22 14" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">ACME Co.</text>
+      </svg>
+      <!-- placeholder logo: TechBR -->
+      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="4" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <path d="M8 14 L12 18 L18 8" stroke="currentColor" stroke-width="2.5" fill="none" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">TechBR</text>
+      </svg>
+      <!-- placeholder logo: VendasPro -->
+      <svg viewBox="0 0 160 28" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 22 L12 12 L18 18 L26 6" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <circle cx="26" cy="6" r="3" fill="currentColor" style="color:var(--brand-cyan)"/>
+        <text x="34" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">VendasPro</text>
+      </svg>
+      <!-- placeholder logo: NovaMed -->
+      <svg viewBox="0 0 150 28" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 4 L20 4 L20 12 L28 12 L28 20 L20 20 L20 28 L12 28 L12 20 L4 20 L4 12 L12 12 Z"
+              fill="currentColor" style="color:var(--brand-cyan); transform: translate(0, -2px);"/>
+        <text x="36" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">NovaMed</text>
+      </svg>
+      <!-- placeholder logo: PolarCo -->
+      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="14,3 25,24 3,24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <text x="32" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">PolarCo</text>
+      </svg>
+      <!-- placeholder logo: Quanta -->
+      <svg viewBox="0 0 130 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <circle cx="14" cy="14" r="4" fill="currentColor" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">Quanta</text>
+      </svg>
+      <!-- duplicate set for seamless scroll -->
+      <svg viewBox="0 0 120 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <path d="M14 6 L14 22 M6 14 L22 14" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">ACME Co.</text>
+      </svg>
+      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="4" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <path d="M8 14 L12 18 L18 8" stroke="currentColor" stroke-width="2.5" fill="none" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">TechBR</text>
+      </svg>
+      <svg viewBox="0 0 160 28" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 22 L12 12 L18 18 L26 6" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <circle cx="26" cy="6" r="3" fill="currentColor" style="color:var(--brand-cyan)"/>
+        <text x="34" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">VendasPro</text>
+      </svg>
+      <svg viewBox="0 0 150 28" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 4 L20 4 L20 12 L28 12 L28 20 L20 20 L20 28 L12 28 L12 20 L4 20 L4 12 L12 12 Z"
+              fill="currentColor" style="color:var(--brand-cyan); transform: translate(0, -2px);"/>
+        <text x="36" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">NovaMed</text>
+      </svg>
+      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="14,3 25,24 3,24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <text x="32" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">PolarCo</text>
+      </svg>
+      <svg viewBox="0 0 130 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
+        <circle cx="14" cy="14" r="4" fill="currentColor" style="color:var(--brand-cyan)"/>
+        <text x="30" y="20" font-family="Orbitron" font-weight="700" font-size="14" fill="white">Quanta</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Testimonials (placeholder text — substituir por depoimentos reais) -->
+  <div class="testimonials-grid">
+    <div class="testimonial reveal delay-1">
+      <span class="testimonial-result"><i data-lucide="arrow-up-right" style="width:12px;height:12px;"></i>+38% em fechamentos</span>
+      <p>Em 3 semanas a IA aprendeu o jeito que falo com cliente. Hoje ela responde sozinha as dúvidas chatas e eu foco só em fechar venda. Pago o plano em 2 dias.</p>
+      <div class="testimonial-author">
+        <!-- placeholder avatar: SVG circle with gradient + iniciais -->
+        <div class="testimonial-avatar" style="background: linear-gradient(135deg, #6f00ff, #00ffff);">RC</div>
+        <div class="testimonial-meta">
+          <strong>Renato Carvalho</strong>
+          <small>Dono · ModaPlus (e-commerce)</small>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial reveal delay-2">
+      <span class="testimonial-result"><i data-lucide="clock" style="width:12px;height:12px;"></i>−22h/semana de atendimento</span>
+      <p>Tinha 4 atendentes só pra responder &quot;qual o valor?&quot; e &quot;tem prazo?&quot;. Coloquei a IA no Autopilot pra essas perguntas e liberei o time pra suporte real. Mudou o jogo.</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">JM</div>
+        <div class="testimonial-meta">
+          <strong>Juliana Maia</strong>
+          <small>Gerente · ClínicaBem</small>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial reveal delay-3">
+      <span class="testimonial-result"><i data-lucide="zap" style="width:12px;height:12px;"></i>resposta em &lt;15s 24/7</span>
+      <p>Atendo cliente de madrugada sem ficar acordado. O copiloto me avisa só quando precisa de aprovação humana — o resto a IA resolve. Sumiram as reclamações de demora.</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar" style="background: linear-gradient(135deg, #4ade80, #00ffff); color:#0b1020;">AS</div>
+        <div class="testimonial-meta">
+          <strong>Anderson Silva</strong>
+          <small>Vendedor · AutoPeças Sul</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- How it works -->
-<section class="py-16 container">
-  <div class="text-center">
+<section class="py-16 container" id="how">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Onboarding</span>
     <h2 class="mb-4">Em 3 passos você está vendendo</h2>
     <p class="text-muted">Sem desenvolvimento, sem integrações complicadas.</p>
   </div>
 
   <div class="steps">
-    <div class="card step">
+    <div class="card step tilt reveal delay-1">
       <div class="step-content">
-        <div class="card-icon"><span aria-hidden="true">🧩</span></div>
+        <div class="card-icon"><i data-lucide="puzzle" aria-hidden="true"></i></div>
         <h3>Instalar extensão</h3>
         <p class="text-muted mt-2">Adicione ao Chrome, faça login, conecte o WhatsApp Web. Tudo via interface — sem configurar API.</p>
       </div>
     </div>
-    <div class="card step">
+    <div class="card step tilt reveal delay-2">
       <div class="step-content">
-        <div class="card-icon"><span aria-hidden="true">🧠</span></div>
+        <div class="card-icon"><i data-lucide="brain-circuit" aria-hidden="true"></i></div>
         <h3>Treinar a IA</h3>
         <p class="text-muted mt-2">Configure o tom de voz, FAQ, catálogo e políticas em formulários simples. A IA já está pronta para responder.</p>
       </div>
     </div>
-    <div class="card step">
+    <div class="card step tilt reveal delay-3">
       <div class="step-content">
-        <div class="card-icon"><span aria-hidden="true">🚀</span></div>
+        <div class="card-icon"><i data-lucide="rocket" aria-hidden="true"></i></div>
         <h3>Aprender e crescer</h3>
         <p class="text-muted mt-2">Cada feedback positivo seu vira exemplo aprendido. Em dias, a IA responde melhor que muitos humanos.</p>
       </div>
@@ -482,101 +695,511 @@
   </div>
 </section>
 
+<!-- AI in action: chat mockup + dashboard -->
+<section class="py-16 container" id="ai-action">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">IA em ação</span>
+    <h2 class="mb-4">Veja a IA <span class="text-gradient">conversando com cliente</span></h2>
+    <p class="text-muted">À esquerda, o cliente. À direita, a sugestão que a IA gera pra você aprovar — no tom da sua empresa.</p>
+  </div>
+
+  <div class="demo-split">
+
+    <!-- Generic chat mockup (not WhatsApp-branded) -->
+    <div class="chat-mock reveal">
+      <div class="chat-mock-header">
+        <div class="chat-mock-avatar">M</div>
+        <div>
+          <div class="chat-mock-name">Maria (Cliente)</div>
+          <div class="chat-mock-status">online · digitando</div>
+        </div>
+        <span class="chat-tag">VIP</span>
+      </div>
+
+      <div class="chat-msg inbound">
+        <div class="chat-bubble">
+          Oi! Vi o link do plano Premium no insta. Quanto fica e como pago?
+          <small>14:21</small>
+        </div>
+      </div>
+
+      <div class="chat-msg inbound">
+        <div class="chat-bubble">
+          E vocês entregam ainda essa semana?
+          <small>14:21</small>
+        </div>
+      </div>
+
+      <!-- AI suggestion card with typing animation -->
+      <div class="chat-ai-card" role="region" aria-label="Sugestão da IA">
+        <div class="chat-ai-head">
+          <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
+          Sugestão da IA · alta confiança
+        </div>
+        <div class="chat-ai-text" id="chat-ai-typing"></div>
+        <div class="chat-ai-actions">
+          <button type="button" class="chat-ai-btn"><i data-lucide="refresh-cw"></i>Reescrever</button>
+          <button type="button" class="chat-ai-btn primary"><i data-lucide="send"></i>Aprovar e enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard mockup with SVG charts -->
+    <div class="dash-mock reveal delay-1">
+      <div class="dash-mock-header">
+        <div class="dash-mock-title">Painel · hoje</div>
+        <div class="dash-mock-live">ao vivo</div>
+      </div>
+
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <div class="dash-stat-label">Interações</div>
+          <div class="dash-stat-value">1.847</div>
+          <div class="dash-stat-delta"><i data-lucide="trending-up" style="width:12px;height:12px;"></i>+24%</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Aprovadas</div>
+          <div class="dash-stat-value">1.792</div>
+          <div class="dash-stat-delta">97% taxa</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Tokens</div>
+          <div class="dash-stat-value">42k</div>
+          <div class="dash-stat-delta down"><i data-lucide="zap" style="width:12px;height:12px;"></i>R$ 0,84</div>
+        </div>
+      </div>
+
+      <div class="dash-charts">
+        <!-- Line chart: messages over time -->
+        <div class="dash-chart-card">
+          <h5>Mensagens automatizadas · 7 dias</h5>
+          <svg viewBox="0 0 320 130" xmlns="http://www.w3.org/2000/svg" aria-label="Gráfico de mensagens por dia">
+            <defs>
+              <linearGradient id="g-area" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#00ffff" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#00ffff" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="g-stroke" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stop-color="#00ffff"/>
+                <stop offset="100%" stop-color="#6f00ff"/>
+              </linearGradient>
+            </defs>
+            <!-- grid -->
+            <g stroke="rgba(255,255,255,0.04)" stroke-width="1">
+              <line x1="0" y1="30" x2="320" y2="30"/>
+              <line x1="0" y1="60" x2="320" y2="60"/>
+              <line x1="0" y1="90" x2="320" y2="90"/>
+            </g>
+            <!-- area fill -->
+            <path d="M 10 110 L 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22 L 310 110 Z"
+                  fill="url(#g-area)"/>
+            <!-- line -->
+            <path d="M 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22"
+                  fill="none" stroke="url(#g-stroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- end dot -->
+            <circle cx="310" cy="22" r="4" fill="#00ffff" filter="drop-shadow(0 0 6px #00ffff)"/>
+            <!-- x labels -->
+            <g fill="rgba(148,163,184,0.7)" font-family="Inter" font-size="9">
+              <text x="10" y="125">seg</text>
+              <text x="56" y="125">ter</text>
+              <text x="102" y="125">qua</text>
+              <text x="148" y="125">qui</text>
+              <text x="194" y="125">sex</text>
+              <text x="240" y="125">sáb</text>
+              <text x="286" y="125">dom</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Donut: approval rate -->
+        <div class="dash-chart-card donut-wrap">
+          <h5>Taxa de aprovação</h5>
+          <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-label="Donut de aprovação 97%">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="url(#g-donut)" stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="280.5"
+                    stroke-dashoffset="8.4"
+                    transform="rotate(-90 60 60)"/>
+            <defs>
+              <linearGradient id="g-donut" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stop-color="#00ffff"/>
+                <stop offset="100%" stop-color="#6f00ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="donut-value">97%</div>
+        </div>
+
+        <!-- Bars: tokens by hour -->
+        <div class="dash-chart-card" style="grid-column: 1 / -1;">
+          <h5>Tokens consumidos por horário</h5>
+          <svg viewBox="0 0 320 70" xmlns="http://www.w3.org/2000/svg" aria-label="Barras de tokens por hora">
+            <defs>
+              <linearGradient id="g-bar" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#6f00ff"/>
+                <stop offset="100%" stop-color="#00ffff"/>
+              </linearGradient>
+            </defs>
+            <rect x="8" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.575"/><rect x="20.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.55"/><rect x="33" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="45.5" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="58" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="70.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.55"/><rect x="83" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.575"/><rect x="95.5" y="48" width="9" height="12" rx="2" fill="url(#g-bar)" opacity="0.65"/><rect x="108" y="32" width="9" height="28" rx="2" fill="url(#g-bar)" opacity="0.85"/><rect x="120.5" y="26" width="9" height="34" rx="2" fill="url(#g-bar)" opacity="0.925"/><rect x="133" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="1.025"/><rect x="145.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="1.1"/><rect x="158" y="8" width="9" height="52" rx="2" fill="url(#g-bar)" opacity="1.15"/><rect x="170.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="1.1"/><rect x="183" y="15" width="9" height="45" rx="2" fill="url(#g-bar)" opacity="1.0625"/><rect x="195.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="1"/><rect x="208" y="22" width="9" height="38" rx="2" fill="url(#g-bar)" opacity="0.975"/><rect x="220.5" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="1.025"/><rect x="233" y="14" width="9" height="46" rx="2" fill="url(#g-bar)" opacity="1.075"/><rect x="245.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="1"/><rect x="258" y="28" width="9" height="32" rx="2" fill="url(#g-bar)" opacity="0.9"/><rect x="270.5" y="38" width="9" height="22" rx="2" fill="url(#g-bar)" opacity="0.775"/><rect x="283" y="46" width="9" height="14" rx="2" fill="url(#g-bar)" opacity="0.675"/><rect x="295.5" y="51" width="9" height="9" rx="2" fill="url(#g-bar)" opacity="0.6125"/>
+            <g fill="rgba(148,163,184,0.7)" font-family="Inter" font-size="9">
+              <text x="6" y="68">0h</text>
+              <text x="78" y="68">6h</text>
+              <text x="150" y="68">12h</text>
+              <text x="222" y="68">18h</text>
+              <text x="290" y="68">24h</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <!-- Features -->
 <section id="features" class="py-16 container">
-  <div class="text-center">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Recursos</span>
     <h2 class="mb-4">Recursos que <span class="text-gradient">vendem</span></h2>
     <p class="text-muted">Não é só um chatbot. É um vendedor digital que melhora sozinho.</p>
   </div>
 
   <div class="features-grid">
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">🎓</span></div>
+    <div class="card tilt reveal delay-1">
+      <div class="card-icon"><i data-lucide="graduation-cap" aria-hidden="true"></i></div>
       <h4>Aprendizado validado</h4>
       <p class="text-muted mt-2">Padrões só "graduam" depois de 5+ feedbacks positivos com taxa de aprovação alta. Nada de IA decorando lixo.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">🛡️</span></div>
+    <div class="card tilt reveal delay-2">
+      <div class="card-icon"><i data-lucide="shield-check" aria-hidden="true"></i></div>
       <h4>Modo Copiloto</h4>
       <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">🏢</span></div>
+    <div class="card tilt reveal delay-3">
+      <div class="card-icon"><i data-lucide="building-2" aria-hidden="true"></i></div>
       <h4>Multi-tenant nativo</h4>
       <p class="text-muted mt-2">Workspaces isolados. Padrões de um cliente nunca vazam para outro.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">💬</span></div>
+    <div class="card tilt reveal delay-4">
+      <div class="card-icon"><i data-lucide="messages-square" aria-hidden="true"></i></div>
       <h4>Histórico de conversas</h4>
       <p class="text-muted mt-2">Memória contextual por chat. A IA lembra do que combinaram em mensagens anteriores.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">📊</span></div>
+    <div class="card tilt reveal delay-5">
+      <div class="card-icon"><i data-lucide="bar-chart-3" aria-hidden="true"></i></div>
       <h4>Dashboard operacional</h4>
       <p class="text-muted mt-2">Veja em tempo real: quantas interações, padrões aprendidos, custo de IA por cliente.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">🔒</span></div>
+    <div class="card tilt reveal delay-6">
+      <div class="card-icon"><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
       <h4>Segurança em camadas</h4>
       <p class="text-muted mt-2">JWT validado, rate limiting por tenant, CORS estrito, TLS automático Let's Encrypt.</p>
     </div>
   </div>
 </section>
 
-<!-- Funcionalidades -->
+<!-- Como a IA aprende (narrative flow) -->
+<section class="py-16 container" id="learning">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Como a IA aprende</span>
+    <h2 class="mb-4">A IA que <span class="text-gradient">gradua sozinha</span></h2>
+    <p class="text-muted">Cada resposta sua vira treino. Padrões só viram exemplo permanente depois de validados.</p>
+  </div>
+
+  <div class="learn-flow">
+    <!-- Step 1 -->
+    <div class="learn-card reveal delay-1">
+      <div class="learn-illustration">
+        <svg viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="learnG1" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#00ffff"/>
+              <stop offset="100%" stop-color="#6f00ff"/>
+            </linearGradient>
+          </defs>
+          <!-- Speech bubble + thumbs up -->
+          <path d="M 12 30 Q 12 16 28 16 L 78 16 Q 94 16 94 30 L 94 52 Q 94 66 78 66 L 38 66 L 26 78 L 28 66 Q 12 66 12 52 Z"
+                fill="none" stroke="url(#learnG1)" stroke-width="2"/>
+          <text x="32" y="46" font-family="Orbitron" font-size="13" font-weight="700" fill="white">RESP</text>
+          <!-- Thumb -->
+          <circle cx="96" cy="86" r="14" fill="url(#learnG1)" opacity="0.2"/>
+          <path d="M 88 92 L 88 84 L 92 84 L 92 78 Q 92 74 96 74 Q 100 74 100 78 L 100 82 L 106 82 Q 110 82 110 86 L 108 92 Q 108 96 104 96 L 92 96 Z"
+                fill="url(#learnG1)"/>
+        </svg>
+      </div>
+      <div class="learn-step-num">Passo 01</div>
+      <h4>Feedback humano</h4>
+      <p>Você aprova ou ajusta cada resposta. A IA registra: qual mensagem do cliente, qual resposta sua, e o que você corrigiu.</p>
+    </div>
+
+    <div class="learn-arrow reveal delay-2" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none"><path d="M4 14 L24 14 M16 6 L24 14 L16 22" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="learn-card reveal delay-3">
+      <div class="learn-illustration">
+        <svg viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="learnG2" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#00ffff"/>
+              <stop offset="100%" stop-color="#6f00ff"/>
+            </linearGradient>
+          </defs>
+          <!-- Funnel / sieve -->
+          <path d="M 16 22 L 104 22 L 76 58 L 76 88 L 44 88 L 44 58 Z"
+                fill="none" stroke="url(#learnG2)" stroke-width="2"/>
+          <!-- Particles falling through -->
+          <circle cx="35" cy="36" r="3" fill="#00ffff" opacity="0.8"/>
+          <circle cx="55" cy="34" r="2.5" fill="#6f00ff" opacity="0.8"/>
+          <circle cx="75" cy="38" r="3" fill="#00ffff" opacity="0.8"/>
+          <circle cx="92" cy="34" r="2.5" fill="#6f00ff" opacity="0.8"/>
+          <!-- Validated checkmark -->
+          <circle cx="60" cy="72" r="9" fill="url(#learnG2)" opacity="0.25"/>
+          <path d="M 55 72 L 59 76 L 66 67" fill="none" stroke="url(#learnG2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Counter pill -->
+          <rect x="40" y="92" width="44" height="14" rx="7" fill="url(#learnG2)" opacity="0.18"/>
+          <text x="62" y="103" font-family="Orbitron" font-size="9" font-weight="700" text-anchor="middle" fill="#00ffff">5/5 OK</text>
+        </svg>
+      </div>
+      <div class="learn-step-num">Passo 02</div>
+      <h4>Validação automática</h4>
+      <p>Quando um padrão acumula 5+ aprovações com 70%+ de positividade, ele passa pelo filtro. Caso contrário, é descartado.</p>
+    </div>
+
+    <div class="learn-arrow reveal delay-4" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none"><path d="M4 14 L24 14 M16 6 L24 14 L16 22" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="learn-card reveal delay-5">
+      <div class="learn-illustration">
+        <svg viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="learnG3" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#00ffff"/>
+              <stop offset="100%" stop-color="#6f00ff"/>
+            </linearGradient>
+          </defs>
+          <!-- Graduation cap -->
+          <path d="M 14 50 L 60 30 L 106 50 L 60 70 Z" fill="url(#learnG3)" opacity="0.18"/>
+          <path d="M 14 50 L 60 30 L 106 50 L 60 70 Z" fill="none" stroke="url(#learnG3)" stroke-width="2"/>
+          <path d="M 30 56 L 30 80 Q 60 96 90 80 L 90 56" fill="none" stroke="url(#learnG3)" stroke-width="2"/>
+          <line x1="100" y1="50" x2="100" y2="68" stroke="url(#learnG3)" stroke-width="2"/>
+          <circle cx="100" cy="72" r="4" fill="url(#learnG3)"/>
+          <!-- Brain on top -->
+          <circle cx="60" cy="22" r="8" fill="url(#learnG3)" opacity="0.3"/>
+          <circle cx="60" cy="22" r="8" fill="none" stroke="url(#learnG3)" stroke-width="1.5"/>
+          <path d="M 56 22 Q 60 18 64 22" stroke="url(#learnG3)" stroke-width="1.5" fill="none"/>
+          <!-- Sparkles -->
+          <path d="M 22 18 L 22 26 M 18 22 L 26 22" stroke="#00ffff" stroke-width="1.5"/>
+          <path d="M 98 26 L 98 32 M 95 29 L 101 29" stroke="#6f00ff" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="learn-step-num">Passo 03</div>
+      <h4>Padrão graduado</h4>
+      <p>O exemplo entra no prompt do modelo e a IA passa a repetir a fórmula que funciona com seu cliente. Quanto mais você usa, melhor fica.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Inline mid-page CTA -->
+<section class="container">
+  <div class="cta-inline reveal">
+    <div class="cta-inline-text">
+      <h3>Sua equipe responde até dormindo. Literalmente.</h3>
+      <p>Teste por 7 dias. Sem cartão. Cancele com 1 clique.</p>
+    </div>
+    <a href="signup.html?plan=starter" class="btn btn-cyan btn-large" data-cursor="hover">
+      <i data-lucide="rocket" style="width:18px;height:18px;"></i>
+      Começar agora
+    </a>
+  </div>
+</section>
+
+<!-- Funcionalidades (mantido do original) -->
 <section id="funcionalidades" class="py-16 container">
-  <div class="text-center">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Toolkit completo</span>
     <h2 class="mb-4">Funcionalidades que <span class="text-gradient">alavancam o seu negócio</span></h2>
     <p class="text-muted">Tudo o que você precisa para vender mais, atender melhor e economizar tempo — num só lugar.</p>
   </div>
 
   <div class="features-grid">
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">📤</span></div>
+    <div class="card tilt reveal delay-1">
+      <div class="card-icon"><i data-lucide="send" aria-hidden="true"></i></div>
       <h4>Disparo</h4>
       <p class="text-muted mt-2">Alcance centenas de clientes de uma só vez: envie texto com imagem, áudio ou arquivo sem que eles precisem ter seu número salvo. Sua promoção, catálogo ou novidade chega a todo mundo no mesmo instante.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">🎯</span></div>
+    <div class="card tilt reveal delay-2">
+      <div class="card-icon"><i data-lucide="crosshair" aria-hidden="true"></i></div>
       <h4>Extrator</h4>
       <p class="text-muted mt-2">Extraia em segundos todos os contatos da sua conta, separando arquivados e bloqueados. É o material pronto para montar públicos-alvo e turbinar campanhas segmentadas no Meta Ads.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">👁️</span></div>
+    <div class="card tilt reveal delay-3">
+      <div class="card-icon"><i data-lucide="eye" aria-hidden="true"></i></div>
       <h4>Recover</h4>
       <p class="text-muted mt-2">Veja as mensagens que o cliente apagou ou editou. Aquele interessado que desistiu e apagou a dúvida? Você descobre o que ele queria e volta com a oferta certa antes que ele feche com o concorrente.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">📈</span></div>
+    <div class="card tilt reveal delay-4">
+      <div class="card-icon"><i data-lucide="trending-up" aria-hidden="true"></i></div>
       <h4>CRM</h4>
       <p class="text-muted mt-2">Acompanhe cada negócio do primeiro "oi" ao fechamento: saiba quem é lead, quem está quente e quem já virou cliente. Com etiquetas como VIP, urgente ou novo contato, nenhuma venda se perde no caminho.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">⏰</span></div>
+    <div class="card tilt reveal delay-5">
+      <div class="card-icon"><i data-lucide="alarm-clock" aria-hidden="true"></i></div>
       <h4>Tarefas</h4>
       <p class="text-muted mt-2">Agende follow-ups, ligações e contatos com fornecedores e receba o lembrete na hora exata. A extensão organiza sua rotina para que nenhuma oportunidade esfrie por esquecimento.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">👥</span></div>
+    <div class="card tilt reveal delay-6">
+      <div class="card-icon"><i data-lucide="users" aria-hidden="true"></i></div>
       <h4>Equipe</h4>
       <p class="text-muted mt-2">Coloque todo o seu time no mesmo workspace, trabalhando de forma coordenada e profissional. Cada atendimento e cada negócio fica visível para quem precisa — sem ruído e sem retrabalho.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">⚙️</span></div>
+    <div class="card tilt reveal delay-6">
+      <div class="card-icon"><i data-lucide="settings-2" aria-hidden="true"></i></div>
       <h4>Configurações</h4>
       <p class="text-muted mt-2">Agende campanhas para dispararem sozinhas, sem ficar com o WhatsApp aberto, e salve templates das mensagens que você mais usa — remarketing, promoções, catálogo do dia. É só carregar e enviar.</p>
     </div>
-    <div class="card">
-      <div class="card-icon"><span aria-hidden="true">💾</span></div>
+    <div class="card tilt reveal delay-7">
+      <div class="card-icon"><i data-lucide="database" aria-hidden="true"></i></div>
       <h4>Backup</h4>
       <p class="text-muted mt-2">Exporte a conversa de qualquer cliente para gerar relatórios e alinhar com a equipe — ou use esse histórico para treinar a IA e deixá-la cada vez mais afiada. Seus dados sempre seguros e a seu favor.</p>
     </div>
   </div>
 </section>
 
+<!-- Sem vs Com comparison -->
+<section class="py-16 container" id="compare">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Antes &amp; depois</span>
+    <h2 class="mb-4">Seu dia <span class="text-gradient">com</span> e <span style="color:#f87171;">sem</span> WhatsHybrid</h2>
+    <p class="text-muted">Mesma equipe, mesma estrutura — só muda quem responde primeiro.</p>
+  </div>
+
+  <div class="comparison-card reveal delay-1">
+    <div class="comparison-row head">
+      <div>Situação</div>
+      <div class="col-without">Sem WhatsHybrid</div>
+      <div class="col-with">Com WhatsHybrid</div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="clock" style="width:16px;height:16px;color:var(--text-muted);"></i>Tempo de primeira resposta</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>4 a 20 minutos
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>menos de 15 segundos
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="moon" style="width:16px;height:16px;color:var(--text-muted);"></i>Atendimento fora do expediente</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>cliente espera amanhã
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>IA responde 24/7 no tom da empresa
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="users" style="width:16px;height:16px;color:var(--text-muted);"></i>Custo por atendente</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>R$ 2.500+ /mês por pessoa
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>R$ 49,90 /mês cobrindo toda a equipe
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="repeat" style="width:16px;height:16px;color:var(--text-muted);"></i>Mensagens repetitivas (preço, prazo, horário)</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>copia e cola manual o dia todo
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>Autopilot responde sozinho
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="brain" style="width:16px;height:16px;color:var(--text-muted);"></i>Consistência no tom de voz</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>varia por atendente
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>IA treinada no padrão do dono
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-cell" data-mobile-label="Recurso"><i data-lucide="trash-2" style="width:16px;height:16px;color:var(--text-muted);"></i>Mensagens deletadas pelo cliente</div>
+      <div class="comparison-cell dim" data-mobile-label="Sem">
+        <span class="comparison-icon no"><i data-lucide="x"></i></span>perdidas para sempre
+      </div>
+      <div class="comparison-cell bright" data-mobile-label="Com">
+        <span class="comparison-icon yes"><i data-lucide="check"></i></span>Recover mostra tudo
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROI Calculator -->
+<section class="py-16 container" id="roi">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Calculadora de ROI</span>
+    <h2 class="mb-4">Quanto a IA <span class="text-gradient">economiza no seu mês</span></h2>
+    <p class="text-muted">Estimativa baseada em ~1,5 min médio por mensagem respondida bem e custo de atendente PJ.</p>
+  </div>
+
+  <div class="roi-card reveal delay-1">
+    <div class="roi-input-block">
+      <label for="roi-slider">Quantas mensagens você responde por dia?</label>
+      <input type="range" id="roi-slider" class="roi-slider"
+             min="20" max="500" step="10" value="120"
+             aria-label="Mensagens respondidas por dia">
+      <div>
+        <span class="roi-input-num" id="roi-input-num">120</span>
+        <span class="roi-input-unit">mensagens/dia</span>
+      </div>
+      <p class="roi-disclaimer" style="text-align:left; margin-top:18px;">
+        Os números abaixo consideram automação de ~70% das mensagens, custo de R$ 18/h e 22 dias úteis/mês. Estimativa para fins de comparação — não é promessa de resultado.
+      </p>
+    </div>
+
+    <div class="roi-output">
+      <div class="roi-output-row">
+        <div class="roi-output-label">
+          <i data-lucide="clock" aria-hidden="true"></i>
+          Tempo economizado
+        </div>
+        <div class="roi-output-value" id="roi-hours">0 h/mês</div>
+      </div>
+      <div class="roi-output-row">
+        <div class="roi-output-label">
+          <i data-lucide="banknote" aria-hidden="true"></i>
+          Economia em mão de obra (mensal)
+        </div>
+        <div class="roi-output-value" id="roi-cost">R$ 0</div>
+      </div>
+      <div class="roi-output-row highlight">
+        <div class="roi-output-label">
+          <i data-lucide="trophy" aria-hidden="true"></i>
+          Total economizado ao ano
+        </div>
+        <div class="roi-output-value" id="roi-annual">R$ 0</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Pricing -->
 <section id="pricing" class="py-16 container">
-  <div class="text-center">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Planos</span>
     <h2 class="mb-4">Investimento que se <span class="text-gradient">paga sozinho</span></h2>
     <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
 
@@ -589,7 +1212,7 @@
   <div class="pricing-grid">
 
     <!-- FREE -->
-    <div class="plan">
+    <div class="plan reveal delay-1">
       <h3>Free</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
@@ -634,7 +1257,7 @@
     </div>
 
     <!-- STARTER -->
-    <div class="plan featured">
+    <div class="plan featured reveal delay-2">
       <div class="plan-badge">Mais popular</div>
       <h3>Starter</h3>
       <div class="plan-price">
@@ -642,6 +1265,7 @@
         <span class="plan-price-value" data-monthly="49,90" data-yearly="39,92">49,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <span class="plan-savings">Economize R$ 119,76 / ano</span>
       <p class="plan-tagline">Pra começar a vender com IA</p>
       <ul class="plan-features">
         <li class="feat-incl"><i data-lucide="check"></i>Tudo do Free&nbsp;<span class="feat-incl-extra">— com limites bem maiores</span></li>
@@ -655,7 +1279,7 @@
         </li>
         <li class="feat">
           <span class="feat-head"><i data-lucide="check"></i><strong>IA — sugestão de resposta</strong></span>
-          <span class="feat-desc">Botão 🤖 que gera o texto pronto pra você revisar e enviar.</span>
+          <span class="feat-desc">Botão que gera o texto pronto pra você revisar e enviar.</span>
         </li>
         <li class="feat">
           <span class="feat-head"><i data-lucide="check"></i><strong>Autopilot</strong></span>
@@ -677,13 +1301,14 @@
     </div>
 
     <!-- PRO -->
-    <div class="plan">
+    <div class="plan reveal delay-3">
       <h3>Pro</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
         <span class="plan-price-value" data-monthly="99,90" data-yearly="79,92">99,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <span class="plan-savings">Economize R$ 239,76 / ano</span>
       <p class="plan-tagline">Pra escalar o atendimento</p>
       <ul class="plan-features">
         <li class="feat-incl"><i data-lucide="check"></i>Tudo do Starter&nbsp;<span class="feat-incl-extra">— sem limites de uso</span></li>
@@ -719,92 +1344,119 @@
 
 <!-- FAQ -->
 <section id="faq" class="py-16 container">
-  <div class="text-center">
+  <div class="text-center reveal">
+    <span class="section-eyebrow">Dúvidas comuns</span>
     <h2 class="mb-4">Perguntas frequentes</h2>
   </div>
   <div class="faq-list">
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Como funciona a integração com WhatsApp?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="link" aria-hidden="true"></i></span>
+        <span class="q-text">Como funciona a integração com WhatsApp?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Você instala nossa extensão no Chrome, abre o WhatsApp Web normalmente e a IA passa a sugerir/responder automaticamente baseado no que aprende com você. Não usamos a API oficial da Meta — funciona diretamente sobre o WhatsApp Web, igual qualquer atendente humano que abriria o navegador.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Posso cancelar quando quiser?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="x-circle" aria-hidden="true"></i></span>
+        <span class="q-text">Posso cancelar quando quiser?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Sim. Sem fidelidade, sem multa. Cancele dentro do portal do cliente e a cobrança para no próximo ciclo. Seus dados ficam disponíveis por 30 dias para você exportar.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Os dados dos meus clientes ficam seguros?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="shield-check" aria-hidden="true"></i></span>
+        <span class="q-text">Os dados dos meus clientes ficam seguros?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Cada empresa tem um workspace completamente isolado. Padrões aprendidos no seu negócio nunca aparecem em outro. Toda comunicação é via TLS, autenticação JWT, e seguimos boas práticas LGPD.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Como a IA aprende com meu negócio?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="brain-circuit" aria-hidden="true"></i></span>
+        <span class="q-text">Como a IA aprende com meu negócio?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>Você dá feedback (👍/👎) nas respostas que a IA gera. Quando uma resposta tem 5+ aprovações com mais de 70% positiva, ela "gradua" e passa a ser exemplo no prompt do modelo — a IA repete a fórmula que funciona com você.</p></div>
+      <div class="faq-answer"><p>Você dá feedback (positivo/negativo) nas respostas que a IA gera. Quando uma resposta tem 5+ aprovações com mais de 70% positiva, ela "gradua" e passa a ser exemplo no prompt do modelo — a IA repete a fórmula que funciona com você.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Quanto custa a IA por cliente atendido?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="banknote" aria-hidden="true"></i></span>
+        <span class="q-text">Quanto custa a IA por cliente atendido?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Cada plano pago inclui uma cota mensal de tokens — 50.000 no Starter e 500.000 no Pro. Tokens são a unidade que a IA consome: uma resposta média gasta ~200 tokens. Se a cota acabar, você compra pacotes avulsos a partir de R$ 19 (não expiram). No portal você acompanha o saldo em tempo real e o histórico completo de uso.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Preciso de programador para configurar?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="settings-2" aria-hidden="true"></i></span>
+        <span class="q-text">Preciso de programador para configurar?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Não. Tudo via interface. Você preenche formulários sobre seu negócio (FAQ, tom de voz, catálogo, políticas) e a IA já está treinada. Configuração inicial leva 30 minutos.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Como funciona o teste grátis de 7 dias?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="gift" aria-hidden="true"></i></span>
+        <span class="q-text">Como funciona o teste grátis de 7 dias?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Todo plano pago começa com 7 dias grátis e sem cartão de crédito. Durante o teste você usa tudo o que o plano oferece. Se decidir não continuar, basta não assinar — nada é cobrado.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>O que acontece quando meus tokens acabam?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="zap-off" aria-hidden="true"></i></span>
+        <span class="q-text">O que acontece quando meus tokens acabam?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>O botão 🤖 para de gerar sugestões e exibe um aviso com link direto para comprar mais tokens. O restante da extensão continua funcionando normalmente — só a parte de IA fica em pausa até você recarregar. Os pacotes avulsos não expiram, então o saldo que sobrar fica para depois.</p></div>
+      <div class="faq-answer"><p>O botão de sugestão da IA para de gerar respostas e exibe um aviso com link direto para comprar mais tokens. O restante da extensão continua funcionando normalmente — só a parte de IA fica em pausa até você recarregar. Os pacotes avulsos não expiram, então o saldo que sobrar fica para depois.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Qual a diferença do plano Free para os planos pagos?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="layers" aria-hidden="true"></i></span>
+        <span class="q-text">Qual a diferença do plano Free para os planos pagos?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>O Free entrega disparo manual, Recover, CRM básico, Tarefas, Configurações e Backup — ótimo para conhecer a plataforma. Os recursos de IA (sugestão de resposta, Autopilot e Treinamento da IA), além de disparo em massa, Extrator e Equipe, são exclusivos do Starter e do Pro.</p></div>
     </div>
-    <div class="faq-item">
+    <div class="faq-item reveal delay-1">
       <button class="faq-question">
-        <span>Posso mudar de plano depois?</span>
-        <i data-lucide="chevron-down"></i>
+        <span class="q-icon"><i data-lucide="arrow-up-circle" aria-hidden="true"></i></span>
+        <span class="q-text">Posso mudar de plano depois?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
       <div class="faq-answer"><p>Sim, a qualquer momento pelo portal do cliente. O upgrade libera os novos recursos na hora; o downgrade passa a valer a partir do próximo ciclo de cobrança.</p></div>
     </div>
   </div>
 </section>
 
-<!-- CTA banner -->
+<!-- CTA banner with countdown -->
 <section class="container py-16">
-  <div class="cta-banner">
-    <h2 class="mb-4">Pronto para automatizar suas vendas?</h2>
-    <p class="text-muted mb-6">Comece grátis por 7 dias. Sem cartão de crédito.</p>
-    <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
-      <i data-lucide="rocket" style="width:20px;height:20px;"></i>
-      Começar agora
-    </a>
+  <div class="cta-banner reveal" id="final-cta">
+    <span class="section-eyebrow" style="color:white;">Última chamada</span>
+    <h2 class="mb-2">Pronto para automatizar suas vendas?</h2>
+    <p class="text-muted mb-4">Comece grátis por 7 dias. Sem cartão de crédito. Cancele com 1 clique.</p>
+
+    <div class="cta-countdown" id="trial-countdown" aria-label="Tempo restante do trial">
+      <span class="cta-countdown-label">Trial deste mês fecha em</span>
+      <div class="cta-countdown-units">
+        <div class="cd-unit"><span class="cd-days">00</span><small>dias</small></div>
+        <div class="cd-unit"><span class="cd-hours">00</span><small>hrs</small></div>
+        <div class="cd-unit"><span class="cd-mins">00</span><small>min</small></div>
+        <div class="cd-unit"><span class="cd-secs">00</span><small>seg</small></div>
+      </div>
+    </div>
+
+    <p class="cta-vagas">Apenas <strong>23 vagas</strong> restantes no trial deste mês</p>
+
+    <div class="mt-6">
+      <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
+        <i data-lucide="rocket" style="width:20px;height:20px;"></i>
+        Garantir minha vaga
+      </a>
+    </div>
   </div>
 </section>
 
@@ -819,12 +1471,24 @@
     <p class="mt-2">
       <a href="login.html">Entrar</a> ·
       <a href="#pricing">Planos</a> ·
+      <a href="help.html">Central de ajuda</a> ·
+      <a href="privacy.html">Privacidade</a> ·
+      <a href="terms.html">Termos</a> ·
       <a href="mailto:contato@whatshybrid.com.br">Contato</a>
     </p>
   </div>
 </footer>
 
+<!-- Sticky scroll CTA (aparece após 30% scroll) -->
+<div class="sticky-cta" id="sticky-cta" aria-hidden="false">
+  <a href="signup.html" data-cursor="hover">
+    <i data-lucide="zap"></i>
+    Testar 7 dias grátis
+  </a>
+</div>
+
 <script src="js/futuristic.js"></script>
+<script src="js/landing-revamp.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
@@ -832,11 +1496,10 @@
     lucide.createIcons();
   }
 
-  // Pricing toggle Mensal/Anual
+  // Pricing toggle Mensal/Anual (preserva contratos JS)
   const toggle = document.getElementById('pricing-toggle-wrapper');
   if (toggle) {
     toggle.addEventListener('click', e => {
-      // closest('button'): o clique pode cair no <span> -20% dentro do botão.
       const btn = e.target.closest('button');
       if (!btn || !toggle.contains(btn)) return;
       const period = btn.dataset.period;
