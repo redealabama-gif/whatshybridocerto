@@ -263,6 +263,14 @@
 
   // ── Init ──────────────────────────────────────────────────────
   function init() {
+    // Lucide CDN is loaded with defer, so it isn't ready when the inline
+    // <script> at the bottom of index.html runs. That guarded call no-ops
+    // and every <i data-lucide="..."> stays empty (card icons, FAQ chevrons,
+    // pricing checks, etc). This script is also deferred and runs after
+    // lucide, so we re-create icons here.
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
     setupReveal();
     setupCounters();
     setupStickyCTA();
