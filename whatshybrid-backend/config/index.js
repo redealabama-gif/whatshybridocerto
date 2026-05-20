@@ -130,5 +130,13 @@ module.exports = {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM
+  },
+
+  googleOAuth: {
+    // Configurado em https://console.cloud.google.com/ → APIs & Services →
+    // Credentials → OAuth 2.0 Client ID (type Web application).
+    // Quando vazio, o backend devolve 503 para POST /auth/google e o
+    // frontend esconde o botão "Continuar com Google".
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || null,
   }
 };

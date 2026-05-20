@@ -931,4 +931,236 @@ router.post('/master-token', authLimiter, asyncHandler(async (req, res) => {
   });
 }));
 
+// ─────────────────────────────────────────────────────────────────────
+// Google OAuth (Sign in with Google)
+// ─────────────────────────────────────────────────────────────────────
+
+let googleClient = null;
+function getGoogleClient() {
+  if (!config.googleOAuth.clientId) return null;
+  if (!googleClient) {
+    const { OAuth2Client } = require('google-auth-library');
+    googleClient = new OAuth2Client(config.googleOAuth.clientId);
+  }
+  return googleClient;
+}
+
+/**
+ * @route GET /api/v1/auth/google/config
+ * @desc Public Google client ID for the frontend to initialize GIS.
+ *       Returns { clientId: null } when not configured so the frontend
+ *       hides the button gracefully.
+ */
+router.get('/google/config', (req, res) => {
+  res.json({ clientId: config.googleOAuth.clientId || null });
+});
+
+/**
+ * @route POST /api/v1/auth/google
+ * @desc Login or signup via Google id_token. Single endpoint handles both:
+ *       - existing user (matched by google_sub, then by email) → log in
+ *         (and link google_sub on first time if matched by email)
+ *       - new user → create account + workspace + trial (mirrors /signup)
+ *
+ * Body: { credential: string, plan?: 'free'|'starter'|'pro' }
+ *   - `credential` is the JWT id_token returned by Google Identity Services
+ *   - `plan` is only used when creating a new account; defaults to 'free'
+ */
+router.post('/google',
+  authLimiter,
+  [
+    body('credential').isString().notEmpty(),
+    body('plan').optional().isIn(['free', 'starter', 'pro']),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Dados inválidos', 400);
+    }
+
+    const client = getGoogleClient();
+    if (!client) {
+      throw new AppError(
+        'Login com Google não está configurado neste servidor',
+        503,
+        'GOOGLE_OAUTH_DISABLED'
+      );
+    }
+
+    const { credential, plan = 'free' } = req.body;
+
+    // Verify id_token with Google. verifyIdToken checks signature, expiry,
+    // and `aud` claim against our clientId.
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: config.googleOAuth.clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      logger.warn(`Google id_token verification failed: ${err.message}`);
+      throw new AppError('Credencial Google inválida', 401, 'GOOGLE_TOKEN_INVALID');
+    }
+
+    if (!payload || !payload.sub || !payload.email) {
+      throw new AppError('Credencial Google sem dados necessários', 401, 'GOOGLE_TOKEN_INVALID');
+    }
+    if (payload.email_verified === false) {
+      throw new AppError('Email Google não verificado', 403, 'GOOGLE_EMAIL_UNVERIFIED');
+    }
+
+    const googleSub = payload.sub;
+    const email = String(payload.email).toLowerCase();
+    const name = payload.name || email.split('@')[0];
+
+    // Resolve user: google_sub first (canonical), then email (linking case).
+    let user = db.get(
+      'SELECT id, email, name, role, workspace_id, status, google_sub FROM users WHERE google_sub = ?',
+      [googleSub]
+    );
+    let linkedByEmail = false;
+    if (!user) {
+      user = db.get(
+        'SELECT id, email, name, role, workspace_id, status, google_sub FROM users WHERE email = ?',
+        [email]
+      );
+      if (user) {
+        db.run('UPDATE users SET google_sub = ? WHERE id = ?', [googleSub, user.id]);
+        user.google_sub = googleSub;
+        linkedByEmail = true;
+      }
+    }
+
+    let isNewUser = false;
+    if (user) {
+      if (user.status !== 'active') {
+        throw new AppError('Conta inativa', 403, 'ACCOUNT_INACTIVE');
+      }
+      try {
+        require('../services/AuditLogService').log({
+          userId: user.id, workspaceId: user.workspace_id,
+          action: 'user.login',
+          ip: req.ip, userAgent: req.headers['user-agent'],
+          metadata: { method: 'google', linked_by_email: linkedByEmail },
+          outcome: 'success',
+        });
+      } catch (_) {}
+    } else {
+      // New account — mirror /signup
+      isNewUser = true;
+      const userId = uuidv4();
+      const workspaceId = uuidv4();
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7);
+      const trialEndISO = trialEnd.toISOString();
+
+      // users.password is NOT NULL. Store bcrypt of random bytes so any
+      // password-based login attempt against this account is impossible.
+      // User must keep using Google or go through forgot-password.
+      const placeholderPassword = await bcrypt.hash(
+        crypto.randomBytes(32).toString('hex'),
+        12
+      );
+
+      const workspaceName = name && name.trim() ? name.trim() : email.split('@')[0];
+
+      db.transaction(() => {
+        db.run(
+          `INSERT INTO users (id, email, password, name, role, workspace_id, google_sub)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [userId, email, placeholderPassword, name, 'owner', workspaceId, googleSub]
+        );
+        db.run(
+          `INSERT INTO workspaces (id, name, owner_id, plan, trial_end_at, subscription_status, credits)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [workspaceId, workspaceName, userId, plan, trialEndISO, 'trialing', 100]
+        );
+
+        const stages = [
+          { name: 'Lead', color: '#3b82f6', position: 0 },
+          { name: 'Qualificado', color: '#8b5cf6', position: 1 },
+          { name: 'Proposta', color: '#f59e0b', position: 2 },
+          { name: 'Negociação', color: '#ef4444', position: 3 },
+          { name: 'Fechado', color: '#10b981', position: 4 },
+        ];
+        stages.forEach(stage => {
+          db.run(
+            'INSERT INTO pipeline_stages (id, workspace_id, name, color, position) VALUES (?, ?, ?, ?, ?)',
+            [uuidv4(), workspaceId, stage.name, stage.color, stage.position]
+          );
+        });
+        ['VIP', 'Novo', 'Recorrente', 'Pendente'].forEach((labelName, i) => {
+          const colors = ['#fbbf24', '#3b82f6', '#10b981', '#ef4444'];
+          db.run(
+            'INSERT INTO labels (id, workspace_id, name, color) VALUES (?, ?, ?, ?)',
+            [uuidv4(), workspaceId, labelName, colors[i]]
+          );
+        });
+      });
+
+      try {
+        const tokenService = require('../services/TokenService');
+        tokenService.resetMonthlyForPlan(workspaceId, plan);
+      } catch (_) {}
+
+      try {
+        const events = require('../utils/events');
+        events.emit('user.signup', {
+          email, name, plan, trialDays: 7, workspace_id: workspaceId, method: 'google',
+        });
+      } catch (_) {}
+
+      try {
+        const alertManager = require('../observability/alertManager');
+        alertManager.send('info', '🎉 Novo signup (Google)', { email, name, plan });
+      } catch (_) {}
+
+      try {
+        require('../services/AuditLogService').log({
+          userId, workspaceId,
+          action: 'user.signup',
+          ip: req.ip, userAgent: req.headers['user-agent'],
+          metadata: { method: 'google', plan },
+          outcome: 'success',
+        });
+      } catch (_) {}
+
+      user = { id: userId, email, name, role: 'owner', workspace_id: workspaceId };
+    }
+
+    const tokens = generateTokens(user.id);
+
+    const workspace = db.get(
+      'SELECT id, name, plan FROM workspaces WHERE id = ?',
+      [user.workspace_id]
+    );
+    if (workspace) {
+      try {
+        const tokenService = require('../services/TokenService');
+        const balance = tokenService.getBalance(user.workspace_id);
+        workspace.balance = balance?.balance || 0;
+        workspace.credits = workspace.balance;
+      } catch (_) {
+        workspace.balance = 0;
+        workspace.credits = 0;
+      }
+    }
+
+    res.status(isNewUser ? 201 : 200).json({
+      message: isNewUser ? 'Conta criada com sucesso via Google' : 'Login realizado via Google',
+      isNewUser,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        workspaceId: user.workspace_id,
+      },
+      workspace,
+      ...tokens,
+    });
+  })
+);
+
 module.exports = router;
