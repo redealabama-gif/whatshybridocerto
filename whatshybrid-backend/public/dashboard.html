@@ -702,39 +702,11 @@
   }
 
   // ── Extension actions ────────────────────────────────────
-  // Baixa o zip da extensão pelo endpoint autenticado /api/v1/extension/download.
-  // Se o admin ainda não gerou o zip no servidor a rota devolve 503 — mostramos
-  // uma mensagem clara em vez de um download mudo.
-  document.getElementById('install-extension-btn').addEventListener('click', async (e) => {
+  document.getElementById('install-extension-btn').addEventListener('click', (e) => {
     e.preventDefault();
-    try {
-      const token = api.getToken && api.getToken();
-      const res = await fetch('/api/v1/extension/download', {
-        method: 'GET',
-        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-      });
-      if (!res.ok) {
-        let msg = 'Download indisponível no momento. Tente de novo em instantes.';
-        try {
-          const body = await res.json();
-          msg = body.message || body.error || msg;
-        } catch (_) {}
-        toast(msg, 'warning', 6000);
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'whatshybrid-extension.zip';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast('Download iniciado. Descompacte e siga as instruções abaixo para instalar no Chrome.', 'success', 5000);
-    } catch (err) {
-      toast('Erro ao baixar a extensão: ' + (err?.message || err), 'error');
-    }
+    // Quando publicada na Chrome Web Store, troque por o link real:
+    // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
+    toast('Em breve disponível na Chrome Web Store.', 'info', 4000);
   });
 
   // ── Tokens & Uso ─────────────────────────────────────────
