@@ -165,8 +165,13 @@ class CommercialIntelligenceEngine {
    * @returns {string}
    */
   getBehavioralDirective(goal, language = 'pt-BR') {
-    const directives = {
-      fechar_venda: `
+    const lang = typeof language === 'string' && language.startsWith('es') ? 'es'
+      : typeof language === 'string' && language.startsWith('en') ? 'en'
+      : 'pt-BR';
+
+    const byLang = {
+      'pt-BR': {
+        fechar_venda: `
 ## 🎯 OBJETIVO DA RESPOSTA: FECHAR VENDA
 O cliente está próximo de tomar uma decisão. Sua missão é remover obstáculos e conduzir ao fechamento.
 - Confirme os benefícios mais relevantes para a necessidade dele
@@ -175,8 +180,7 @@ O cliente está próximo de tomar uma decisão. Sua missão é remover obstácul
 - Use linguagem de ação: "Posso confirmar agora", "É só..."
 - Termine com uma pergunta ou CTA direto para fechar
 `.trim(),
-
-      gerar_interesse: `
+        gerar_interesse: `
 ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE
 O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento.
 - Destaque benefícios reais e diferenciais (não apenas características)
@@ -185,8 +189,7 @@ O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o 
 - Faça uma pergunta de continuação ao final para manter o diálogo
 - Tom: empolgante mas honesto, nunca exagerado
 `.trim(),
-
-      responder_duvida: `
+        responder_duvida: `
 ## 💡 OBJETIVO DA RESPOSTA: RESOLVER DÚVIDA
 O cliente precisa de clareza. Sua missão é responder de forma precisa e abrir caminho para a próxima etapa.
 - Vá direto ao ponto — responda a dúvida completamente
@@ -195,8 +198,7 @@ O cliente precisa de clareza. Sua missão é responder de forma precisa e abrir 
 - Tom: profissional, claro, confiante
 - Evite respostas genéricas ou incompletas
 `.trim(),
-
-      recuperar_engajamento: `
+        recuperar_engajamento: `
 ## 🔄 OBJETIVO DA RESPOSTA: RECUPERAR ENGAJAMENTO
 O cliente havia demonstrado interesse mas sumiu. Sua missão é reativar a conversa com calor.
 - Reconheça a ausência de forma natural, sem cobrar
@@ -205,8 +207,86 @@ O cliente havia demonstrado interesse mas sumiu. Sua missão é reativar a conve
 - Termine com uma pergunta aberta e acolhedora
 - Tom: amigável, sem pressão, genuinamente útil
 `.trim(),
+      },
+      en: {
+        fechar_venda: `
+## 🎯 RESPONSE GOAL: CLOSE THE SALE
+The customer is close to a decision. Your mission is to remove obstacles and guide them to the close.
+- Confirm the benefits most relevant to their need
+- Address objections proactively and confidently
+- Make the next step easy (payment, sign-up, scheduling)
+- Use action language: "I can confirm it now", "All you need to do is..."
+- End with a question or a direct CTA to close
+`.trim(),
+        gerar_interesse: `
+## 🔥 RESPONSE GOAL: BUILD INTEREST
+The customer is in the discovery phase. Your mission is to create desire and move the relationship forward.
+- Highlight real benefits and differentiators (not just features)
+- Use concrete examples or success stories when available
+- Spark curiosity for the next layer of information
+- End with a follow-up question to keep the dialogue going
+- Tone: exciting but honest, never exaggerated
+`.trim(),
+        responder_duvida: `
+## 💡 RESPONSE GOAL: ANSWER THE QUESTION
+The customer needs clarity. Your mission is to answer precisely and open the way to the next step.
+- Get to the point — answer the question completely
+- Use verified information from the knowledge base
+- When relevant, connect the answer to the natural next step
+- Tone: professional, clear, confident
+- Avoid generic or incomplete answers
+`.trim(),
+        recuperar_engajamento: `
+## 🔄 RESPONSE GOAL: RE-ENGAGE
+The customer had shown interest but went quiet. Your mission is to revive the conversation warmly.
+- Acknowledge the gap naturally, without nagging
+- Briefly recall the earlier context (if available)
+- Offer immediate value: new information, a special condition, an update
+- End with an open, welcoming question
+- Tone: friendly, no pressure, genuinely helpful
+`.trim(),
+      },
+      es: {
+        fechar_venda: `
+## 🎯 OBJETIVO DE LA RESPUESTA: CERRAR LA VENTA
+El cliente está cerca de tomar una decisión. Tu misión es eliminar obstáculos y guiarlo hacia el cierre.
+- Confirma los beneficios más relevantes para su necesidad
+- Maneja las objeciones de forma proactiva y segura
+- Facilita el siguiente paso (pago, suscripción, agendamiento)
+- Usa lenguaje de acción: "Puedo confirmarlo ahora", "Solo tienes que..."
+- Termina con una pregunta o un CTA directo para cerrar
+`.trim(),
+        gerar_interesse: `
+## 🔥 OBJETIVO DE LA RESPUESTA: GENERAR INTERÉS
+El cliente está en fase de descubrimiento. Tu misión es crear deseo y hacer avanzar la relación.
+- Destaca beneficios reales y diferenciales (no solo características)
+- Usa ejemplos concretos o casos de éxito cuando estén disponibles
+- Despierta curiosidad por la siguiente capa de información
+- Termina con una pregunta de continuación para mantener el diálogo
+- Tono: entusiasta pero honesto, nunca exagerado
+`.trim(),
+        responder_duvida: `
+## 💡 OBJETIVO DE LA RESPUESTA: RESOLVER LA DUDA
+El cliente necesita claridad. Tu misión es responder con precisión y abrir camino al siguiente paso.
+- Ve directo al punto — responde la duda por completo
+- Usa información verificada de la base de conocimiento
+- Si es relevante, conecta la respuesta con el siguiente paso natural
+- Tono: profesional, claro, seguro
+- Evita respuestas genéricas o incompletas
+`.trim(),
+        recuperar_engajamento: `
+## 🔄 OBJETIVO DE LA RESPUESTA: RECUPERAR EL ENGAGEMENT
+El cliente había mostrado interés pero desapareció. Tu misión es reactivar la conversación con calidez.
+- Reconoce la ausencia de forma natural, sin reclamar
+- Recuerda brevemente el contexto anterior (si está disponible)
+- Ofrece valor inmediato: nueva información, una condición especial, una actualización
+- Termina con una pregunta abierta y acogedora
+- Tono: amable, sin presión, genuinamente útil
+`.trim(),
+      },
     };
 
+    const directives = byLang[lang] || byLang['pt-BR'];
     return directives[goal] || directives['responder_duvida'];
   }
 

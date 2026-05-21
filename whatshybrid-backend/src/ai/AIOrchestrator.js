@@ -28,6 +28,7 @@ const PerformanceScoreEngine = require('./learning/outcome/PerformanceScoreEngin
 const StrategySelector       = require('./learning/outcome/StrategySelector');
 const AutoLearningLoop       = require('./learning/outcome/AutoLearningLoop');
 const logger = require('../config/logger');
+const { detectLanguage } = require('./utils/languageDetect');
 // CORREÇÃO P2: PipelineTracer para observabilidade real integrada ao pipeline
 let PipelineTracer;
 try { PipelineTracer = require('../observability/pipeline-tracer'); } catch(e) { PipelineTracer = null; }
@@ -123,6 +124,12 @@ class AIOrchestrator {
     if (!message || typeof message !== 'string') throw new Error('message is required and must be a string');
 
     const startTime = Date.now();
+
+    // Resolve response language once, here, so every downstream stage
+    // (commercial directive, prompt builder, fallback system prompt) is
+    // consistent: auto-detect from the customer message (override) →
+    // workspace configured default → request hint → pt-BR.
+    context.language = this._resolveLanguage(message, context.language);
 
     try {
       // ── 1. Contexto de memória (inclui clientStage e lastDominantIntent via v10) ──
@@ -252,14 +259,14 @@ class AIOrchestrator {
 
       // ── 8. Geração de resposta com ciclo de qualidade (v10) ─────────────────
       let response = await this._generateResponse(
-        message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt
+        message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt, context.language
       );
 
       let qualityResult = null;
       if (this.config.enableQualityChecker) {
         qualityResult = await this._runQualityCycle(
           response, message, responseGoal, knowledgeResults,
-          intentResult, conversationContext, responseVariant, dynamicPrompt
+          intentResult, conversationContext, responseVariant, dynamicPrompt, context.language
         );
         response = qualityResult.finalResponse;
       }
@@ -426,7 +433,7 @@ class AIOrchestrator {
    */
   async _runQualityCycle(
     initialResponse, message, responseGoal, knowledgeResults,
-    intentResult, conversationContext, responseVariant, dynamicPrompt
+    intentResult, conversationContext, responseVariant, dynamicPrompt, language = 'pt-BR'
   ) {
     let response = initialResponse;
     let retries = 0;
@@ -461,7 +468,7 @@ class AIOrchestrator {
 
       response = await this._generateResponse(
         message, intentResult, conversationContext, responseVariant,
-        knowledgeResults, reinforcedPrompt
+        knowledgeResults, reinforcedPrompt, language
       );
     }
 
@@ -474,13 +481,55 @@ class AIOrchestrator {
   }
 
   /**
+   * Resolve the response language for this message.
+   * Priority: auto-detected language of the customer message (override) →
+   * workspace's configured ai_language → caller-provided hint → 'pt-BR'.
+   * @private
+   */
+  _resolveLanguage(message, requestHint) {
+    const ALLOWED = ['pt-BR', 'en', 'es'];
+
+    const detected = detectLanguage(message);
+    if (detected) return detected;
+
+    try {
+      const db = require('../utils/database');
+      const row = db.get('SELECT settings FROM workspaces WHERE id = ?', [this.tenantId]);
+      const settings = JSON.parse(row?.settings || '{}');
+      if (settings.ai_language && ALLOWED.includes(settings.ai_language)) {
+        return settings.ai_language;
+      }
+    } catch (err) {
+      logger.debug?.(`[Orchestrator] ai_language lookup skipped: ${err.message}`);
+    }
+
+    if (typeof requestHint === 'string' && ALLOWED.includes(requestHint)) {
+      return requestHint;
+    }
+    return 'pt-BR';
+  }
+
+  /**
+   * Language-aware fallback system prompt — used only when the
+   * DynamicPromptBuilder fails and no dynamic prompt is available.
+   * @private
+   */
+  _fallbackSystemPrompt(language = 'pt-BR') {
+    const prompts = {
+      'pt-BR': 'Você é um assistente de atendimento profissional. Responda de forma clara, útil e educada, em português do Brasil.',
+      en: 'You are a professional customer service assistant. Reply clearly, helpfully and politely, in English.',
+      es: 'Eres un asistente de atención al cliente profesional. Responde de forma clara, útil y educada, en español.',
+    };
+    return prompts[language] || prompts['pt-BR'];
+  }
+
+  /**
    * P1: Real LLM call via AIRouterService.
    * The hardcoded stub was replaced entirely.
    * @private
    */
-  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null) {
-    const systemContent = dynamicPrompt ||
-      'Você é um assistente de atendimento profissional. Responda de forma clara, útil e educada.';
+  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR') {
+    const systemContent = dynamicPrompt || this._fallbackSystemPrompt(language);
 
     const historyMessages = (conversationContext.recentMessages || [])
       .slice(-this.config.maxHistoryMessages)
