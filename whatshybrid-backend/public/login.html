@@ -53,16 +53,29 @@
     }
     .checkbox-row input { accent-color: var(--brand-purple); cursor: pointer; }
     .input-with-icon { position: relative; }
-    .input-with-icon i {
+    .input-with-icon > i,
+    .input-with-icon > svg {
       position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
       color: var(--text-dim); width: 18px; height: 18px;
+      pointer-events: none;
+      z-index: 2;
     }
     .input-with-icon .input { padding-left: 44px; }
     .toggle-pwd {
-      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-      background: transparent; border: 0; color: var(--text-dim); cursor: pointer;
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: transparent; border: 0; padding: 8px;
+      color: var(--text-dim); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      z-index: 3;
     }
+    .toggle-pwd > i,
+    .toggle-pwd > svg { width: 18px; height: 18px; pointer-events: none; }
     .toggle-pwd:hover { color: var(--text-muted); }
+    .toggle-pwd:focus-visible {
+      outline: 2px solid var(--brand-cyan);
+      outline-offset: 1px;
+    }
   </style>
 </head>
 <body class="has-cursor auth-page">
