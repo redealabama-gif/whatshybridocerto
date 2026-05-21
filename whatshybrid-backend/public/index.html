@@ -782,8 +782,9 @@
     .dash-mock .chart-line-area,
     .dash-mock .chart-line-stroke,
     .dash-mock .chart-line-dot,
-    .dash-mock .chart-donut-arc,
     .dash-mock svg rect[fill="url(#g-bar)"] { transform-box: fill-box; }
+    /* Donut: NÃO usa transform-box — conflita com o atributo SVG
+       transform="rotate(-90 60 60)" que posiciona o arco no topo. */
 
     .dash-mock .chart-line-area { opacity: 0; }
     .dash-mock.charts-animate .chart-line-area {
@@ -1300,6 +1301,119 @@
     .egg-toast.show {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SALES STACK — toasts de vendas no canto superior direito
+       ═══════════════════════════════════════════════════════ */
+    .sales-stack {
+      position: fixed;
+      top: 84px;
+      right: 22px;
+      z-index: 8800;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 320px;
+      width: calc(100% - 44px);
+      pointer-events: none;
+    }
+    .sales-card {
+      position: relative;
+      background: linear-gradient(135deg, rgba(28, 32, 50, 0.96), rgba(20, 22, 38, 0.96));
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(0, 255, 255, 0.18);
+      border-radius: 14px;
+      padding: 12px 14px 12px 12px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      opacity: 0;
+      transform: translateX(40px) scale(0.96);
+      transition:
+        opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: auto;
+      overflow: hidden;
+    }
+    .sales-card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--brand-cyan), var(--brand-purple));
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+    .sales-card.is-in  { opacity: 1; transform: translateX(0) scale(1); }
+    .sales-card.is-out { opacity: 0; transform: translateX(40px) scale(0.96); }
+    .sales-avatar {
+      flex: 0 0 38px;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(111, 0, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    .sales-body { flex: 1; min-width: 0; line-height: 1.3; }
+    .sales-line1 {
+      font-size: 0.84rem;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .sales-line1 .sales-name {
+      color: #fff;
+    }
+    .sales-line2 {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sales-line2 .sales-plan {
+      color: var(--brand-cyan);
+      font-weight: 700;
+    }
+    .sales-line2 .sales-value {
+      color: var(--text);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .sales-line2 .sales-check {
+      display: inline-grid;
+      place-items: center;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: rgba(0, 255, 255, 0.18);
+      color: var(--brand-cyan);
+      font-size: 9px;
+      font-weight: 900;
+    }
+    @media (max-width: 720px) {
+      .sales-stack {
+        top: auto;
+        bottom: 88px;
+        right: 12px;
+        max-width: calc(100% - 96px);
+      }
+      .sales-card { padding: 10px 12px; }
+      .sales-avatar { width: 34px; height: 34px; flex: 0 0 34px; font-size: 0.72rem; }
+      .sales-line1 { font-size: 0.78rem; }
+      .sales-line2 { font-size: 0.7rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sales-card { transition: opacity 0.2s; transform: none !important; }
+      .sales-card.is-in { transform: none !important; }
+      .sales-card.is-out { opacity: 0; }
     }
   </style>
 </head>
@@ -2613,6 +2727,9 @@
   </a>
 </div>
 
+<!-- Sales stack (top-right): novos cards de venda surgem ao longo do tempo -->
+<div class="sales-stack" id="sales-stack" aria-live="polite" aria-label="Vendas recentes"></div>
+
 <!-- Live activity ticker -->
 <div class="activity-ticker" id="activity-ticker" role="status" aria-live="polite">
   <div class="activity-ticker-icon">
@@ -3221,6 +3338,139 @@
       });
     }
 
+    // ── 12. Sales stack — cards de vendas no canto superior direito
+    function setupSalesStack() {
+      const stack = document.getElementById('sales-stack');
+      if (!stack) return;
+
+      const sales = [
+        { name: 'Breno Sevaroli',    initials: 'BS', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Camila Andrade',    initials: 'CA', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'Rodrigo Tavares',   initials: 'RT', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Larissa Mendes',    initials: 'LM', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'Felipe Nogueira',   initials: 'FN', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Aline Souza',       initials: 'AS', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'Marcos Vinicius',   initials: 'MV', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Patrícia Lima',     initials: 'PL', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Eduardo Ramos',     initials: 'ER', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'Vanessa Cardoso',   initials: 'VC', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Thiago Bernardes',  initials: 'TB', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'Isabela Freitas',   initials: 'IF', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Gabriel Moraes',    initials: 'GM', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Beatriz Camargo',   initials: 'BC', plan: 'Pro',     value: 'R$ 99,90' },
+        { name: 'André Pinheiro',    initials: 'AP', plan: 'Starter', value: 'R$ 49,90' }
+      ];
+      const palette = [
+        ['#6f00ff', '#a64dff'],
+        ['#00cfd1', '#00ffff'],
+        ['#ff007a', '#ff5fa8'],
+        ['#ffa500', '#ffd166'],
+        ['#22c55e', '#86efac'],
+        ['#3b82f6', '#7dd3fc']
+      ];
+      const MAX_VISIBLE = 3;
+      const VISIBLE_MS = 7000;       // tempo que um card fica antes de sumir
+      const FIRST_DELAY = 12000;     // primeiro card depois de 12s
+
+      let idx = Math.floor(Math.random() * sales.length);
+      let shown = 0;
+
+      function buildCard(sale) {
+        const [c1, c2] = palette[Math.floor(Math.random() * palette.length)];
+        const card = document.createElement('div');
+        card.className = 'sales-card';
+        card.setAttribute('role', 'status');
+
+        const av = document.createElement('div');
+        av.className = 'sales-avatar';
+        av.style.background = `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`;
+        av.textContent = sale.initials;
+
+        const body = document.createElement('div');
+        body.className = 'sales-body';
+        const l1 = document.createElement('div');
+        l1.className = 'sales-line1';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'sales-name';
+        nameSpan.textContent = sale.name;
+        l1.appendChild(nameSpan);
+        l1.appendChild(document.createTextNode(' acabou de adquirir'));
+
+        const l2 = document.createElement('div');
+        l2.className = 'sales-line2';
+        const planSpan = document.createElement('span');
+        planSpan.className = 'sales-plan';
+        planSpan.textContent = 'Plano ' + sale.plan;
+        const sep = document.createElement('span');
+        sep.textContent = '·';
+        sep.style.opacity = '0.5';
+        const valSpan = document.createElement('span');
+        valSpan.className = 'sales-value';
+        valSpan.textContent = sale.value;
+        const check = document.createElement('span');
+        check.className = 'sales-check';
+        check.textContent = '✓';
+        l2.appendChild(planSpan);
+        l2.appendChild(sep);
+        l2.appendChild(valSpan);
+        l2.appendChild(check);
+
+        body.appendChild(l1);
+        body.appendChild(l2);
+
+        card.appendChild(av);
+        card.appendChild(body);
+        return card;
+      }
+
+      function dismissOldest() {
+        const oldest = stack.firstElementChild;
+        if (!oldest) return;
+        oldest.classList.add('is-out');
+        setTimeout(() => oldest.remove(), 500);
+      }
+
+      function pushOne() {
+        const sale = sales[idx % sales.length];
+        idx += 1;
+        const card = buildCard(sale);
+        stack.appendChild(card);
+
+        // trim to MAX_VISIBLE
+        while (stack.children.length > MAX_VISIBLE) {
+          const first = stack.firstElementChild;
+          if (first) { first.classList.add('is-out'); setTimeout(() => first.remove(), 500); }
+          else break;
+        }
+
+        requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-in')));
+
+        // auto-dismiss
+        setTimeout(() => {
+          if (card.isConnected) {
+            card.classList.add('is-out');
+            setTimeout(() => card.remove(), 500);
+          }
+        }, VISIBLE_MS);
+
+        shown += 1;
+      }
+
+      function scheduleNext() {
+        // Intervalo cresce conforme mais vendas vão entrando — começa intenso
+        // (5-9s entre os 3 primeiros) e relaxa pra 18-32s depois de 5+ cards.
+        let min, max;
+        if (shown < 3)       { min = 5000;  max = 9000;  }
+        else if (shown < 6)  { min = 9000;  max = 15000; }
+        else if (shown < 12) { min = 14000; max = 22000; }
+        else                 { min = 20000; max = 32000; }
+        const delay = min + Math.random() * (max - min);
+        setTimeout(() => { pushOne(); scheduleNext(); }, delay);
+      }
+
+      setTimeout(() => { pushOne(); scheduleNext(); }, FIRST_DELAY);
+    }
+
     function init() {
       setupSpotlight();
       setupScrollProgress();
@@ -3232,6 +3482,7 @@
       setupExitModal();
       setupLiveCounter();
       setupEasterEgg();
+      setupSalesStack();
       // Re-render lucide icons inserted dinamicamente (exit modal, ticker etc.)
       if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     }
