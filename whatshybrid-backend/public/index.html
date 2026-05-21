@@ -469,7 +469,6 @@
       <div class="laptop-frame">
         <div class="laptop-screen">
           <video
-            src="assets/hero-demo.mp4"
             autoplay
             loop
             muted
@@ -477,7 +476,14 @@
             preload="metadata"
             aria-label="Demonstração do WhatsHybrid Pro em ação"
             onerror="this.style.display='none'; this.parentElement.classList.add('no-video');"
-          ></video>
+          >
+            <!-- Mobile variant (~1.1 MB) ships first; browser picks the first
+                 <source> whose media query matches. Desktop downloads the
+                 full 7.2 MB file. Browsers that ignore `media` on <source>
+                 (older Safari iOS) fall through to the second entry. -->
+            <source src="assets/hero-demo-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
+            <source src="assets/hero-demo.mp4" type="video/mp4">
+          </video>
           <!-- Fallback shown if video fails to load (preview / offline) -->
           <div class="laptop-inner laptop-fallback" aria-hidden="true">
             <div class="lf-stripes"></div>
