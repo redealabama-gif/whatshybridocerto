@@ -400,7 +400,7 @@ class DynamicPromptBuilder {
    * @param {number} [minScore=0.3]   - Minimum relevance score to include
    * @returns {string|null} Knowledge section text or null if no knowledge provided
    */
-  buildKnowledgeSection(knowledge, minScore = 0.3) {
+  buildKnowledgeSection(knowledge, minScore = 0.3, language = 'pt-BR') {
     if (!knowledge || knowledge.length === 0) {
       return null;
     }
@@ -412,21 +412,31 @@ class DynamicPromptBuilder {
       .slice(0, 3);
 
     if (filtered.length === 0) return null;
-    
+
+    // v10: label each knowledge item for LLM emphasis — i18n so the
+    // wrapper doesn't leak Portuguese into EN/ES responses.
+    const lang = typeof language === 'string' && language.startsWith('es') ? 'es'
+      : typeof language === 'string' && language.startsWith('en') ? 'en'
+      : 'pt-BR';
+    const L = {
+      'pt-BR': { src: 'INFORMAÇÃO IMPORTANTE DA EMPRESA - Fonte', rel: 'relevância' },
+      en:      { src: 'IMPORTANT COMPANY INFORMATION - Source',    rel: 'relevance' },
+      es:      { src: 'INFORMACIÓN IMPORTANTE DE LA EMPRESA - Fuente', rel: 'relevancia' },
+    }[lang];
+
     let section = `# Relevant Knowledge\n`;
-    
+
     filtered.forEach((item, index) => {
-      // v10: label each knowledge item for LLM emphasis
-      section += `\n[INFORMAÇÃO IMPORTANTE DA EMPRESA - Fonte ${index + 1}]`;
+      section += `\n[${L.src} ${index + 1}]`;
       if (item.source) {
         section += ` (${item.source})`;
       }
       if (item.score) {
-        section += ` [relevância: ${(item.score * 100).toFixed(0)}%]`;
+        section += ` [${L.rel}: ${(item.score * 100).toFixed(0)}%]`;
       }
       section += `\n${item.content}\n`;
     });
-    
+
     return section;
   }
 
@@ -664,7 +674,7 @@ class DynamicPromptBuilder {
     }
     
     // 4. Knowledge (Priority 7)
-    const knowledgeText = this.buildKnowledgeSection(knowledge);
+    const knowledgeText = this.buildKnowledgeSection(knowledge, 0.3, language);
     if (knowledgeText) {
       sections.push({
         name: 'KNOWLEDGE',

@@ -67,6 +67,15 @@ router.put('/workspace',
       delete settings.aiKeys;
     }
 
+    // AI response language — default language for AI suggestions / autopilot.
+    // Auto-detection from the customer message still overrides this per-message;
+    // this is the fallback when the message is too short/ambiguous to detect.
+    if (settings && settings.ai_language !== undefined) {
+      if (!['pt-BR', 'en', 'es'].includes(settings.ai_language)) {
+        throw new AppError('ai_language inválido. Use: pt-BR, en ou es', 400);
+      }
+    }
+
     const updates = [];
     const values = [];
 
