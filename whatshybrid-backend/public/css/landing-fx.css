@@ -32,6 +32,11 @@
 .pfx-section[data-pfx-tone="brain"] .pfx-bg { opacity: 0.45; }
 .pfx-section[data-pfx-tone="rays"]  .pfx-bg { opacity: 0.55; }
 .pfx-section[data-pfx-tone="net"]   .pfx-bg { opacity: 0.40; }
+.pfx-section[data-pfx-tone="steps"]    .pfx-bg { opacity: 0.42; }
+.pfx-section[data-pfx-tone="toolkit"]  .pfx-bg { opacity: 0.38; }
+.pfx-section[data-pfx-tone="dialogue"] .pfx-bg { opacity: 0.32; }
+.pfx-section[data-pfx-tone="contrast"] .pfx-bg { opacity: 0.45; }
+.pfx-section[data-pfx-tone="growth"]   .pfx-bg { opacity: 0.42; }
 
 /* Camada escura para garantir contraste do texto */
 .pfx-veil {
@@ -61,6 +66,43 @@
   background:
     radial-gradient(60% 60% at 70% 30%, rgba(0, 255, 255, 0.08) 0%, transparent 70%),
     linear-gradient(180deg, rgba(8, 9, 24, 0.70) 0%, rgba(8, 9, 24, 0.82) 100%);
+}
+
+/* Steps: fluxo horizontal — escurece bordas pra destacar o mid-band */
+.pfx-section[data-pfx-tone="steps"] .pfx-veil {
+  background:
+    radial-gradient(85% 65% at 50% 50%, rgba(8, 9, 24, 0.30) 0%, rgba(8, 9, 24, 0.78) 100%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.55) 0%, rgba(8, 9, 24, 0.75) 100%);
+}
+
+/* Toolkit: uniform — não tem hotspot, escurecemos só o suficiente p/ cards */
+.pfx-section[data-pfx-tone="toolkit"] .pfx-veil {
+  background:
+    radial-gradient(50% 50% at 50% 50%, rgba(111, 0, 255, 0.06) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.72) 0%, rgba(8, 9, 24, 0.82) 100%);
+}
+
+/* Dialogue: dois polos laterais — clareia o meio (onde flui a "conversa") */
+.pfx-section[data-pfx-tone="dialogue"] .pfx-veil {
+  background:
+    radial-gradient(45% 40% at 50% 50%, rgba(0, 255, 255, 0.05) 0%, transparent 70%),
+    linear-gradient(90deg, rgba(8, 9, 24, 0.82) 0%, rgba(8, 9, 24, 0.62) 50%, rgba(8, 9, 24, 0.82) 100%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.55) 0%, rgba(8, 9, 24, 0.75) 100%);
+}
+
+/* Contrast: split-screen — escurece igualmente ambos lados */
+.pfx-section[data-pfx-tone="contrast"] .pfx-veil {
+  background:
+    radial-gradient(60% 60% at 25% 50%, rgba(111, 0, 255, 0.10) 0%, transparent 70%),
+    radial-gradient(60% 60% at 75% 50%, rgba(0, 255, 255, 0.08) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.65) 0%, rgba(8, 9, 24, 0.78) 100%);
+}
+
+/* Growth: brilho no topo (subida) — escurece base */
+.pfx-section[data-pfx-tone="growth"] .pfx-veil {
+  background:
+    radial-gradient(70% 50% at 50% 20%, rgba(0, 255, 255, 0.10) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.45) 0%, rgba(8, 9, 24, 0.78) 70%, rgba(8, 9, 24, 0.85) 100%);
 }
 
 /* Mobile: desliga a translação JS via classe; já cai para background fixo */
