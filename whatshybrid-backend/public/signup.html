@@ -128,9 +128,12 @@
     .summary-row.total { border-bottom: 0; font-size: 1.2rem; font-weight: 700; }
 
     .input-with-icon { position: relative; }
-    .input-with-icon i {
+    .input-with-icon > i,
+    .input-with-icon > svg {
       position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
       color: var(--text-dim); width: 18px; height: 18px;
+      pointer-events: none;
+      z-index: 2;
     }
     .input-with-icon .input { padding-left: 44px; }
 
