@@ -49,6 +49,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="css/futuristic.css">
   <link rel="stylesheet" href="css/landing-revamp.css">
+  <link rel="stylesheet" href="css/landing-fx.css">
 
   <!-- Schema.org structured data -->
   <script type="application/ld+json">
@@ -862,11 +863,11 @@
         </p>
 
         <div class="hero-ctas reveal delay-3">
-          <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
+          <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover" data-magnetic data-magnetic-strength="0.30" data-magnetic-max="14">
             <i data-lucide="zap" style="width:20px;height:20px;"></i>
             Testar 7 dias grátis
           </a>
-          <a href="#how" class="btn btn-ghost btn-large" data-cursor="hover">
+          <a href="#how" class="btn btn-ghost btn-large" data-cursor="hover" data-magnetic data-magnetic-strength="0.25" data-magnetic-max="12">
             Ver como funciona
             <i data-lucide="arrow-down" style="width:18px;height:18px;"></i>
           </a>
@@ -1374,33 +1375,33 @@
   </div>
 
   <div class="features-grid">
-    <div class="card tilt reveal delay-1">
-      <div class="card-icon"><i data-lucide="graduation-cap" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-1" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="graduation-cap" aria-hidden="true"></i></div>
       <h4>Aprendizado validado</h4>
       <p class="text-muted mt-2">Padrões só "graduam" depois de 5+ feedbacks positivos com taxa de aprovação alta. Nada de IA decorando lixo.</p>
     </div>
-    <div class="card tilt reveal delay-2">
-      <div class="card-icon"><i data-lucide="shield-check" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-2" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="shield-check" aria-hidden="true"></i></div>
       <h4>Modo Copiloto</h4>
       <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
     </div>
-    <div class="card tilt reveal delay-3">
-      <div class="card-icon"><i data-lucide="building-2" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-3" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="building-2" aria-hidden="true"></i></div>
       <h4>Multi-tenant nativo</h4>
       <p class="text-muted mt-2">Workspaces isolados. Padrões de um cliente nunca vazam para outro.</p>
     </div>
-    <div class="card tilt reveal delay-4">
-      <div class="card-icon"><i data-lucide="messages-square" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-4" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="messages-square" aria-hidden="true"></i></div>
       <h4>Histórico de conversas</h4>
       <p class="text-muted mt-2">Memória contextual por chat. A IA lembra do que combinaram em mensagens anteriores.</p>
     </div>
-    <div class="card tilt reveal delay-5">
-      <div class="card-icon"><i data-lucide="bar-chart-3" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-5" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="bar-chart-3" aria-hidden="true"></i></div>
       <h4>Dashboard operacional</h4>
       <p class="text-muted mt-2">Veja em tempo real: quantas interações, padrões aprendidos, custo de IA por cliente.</p>
     </div>
-    <div class="card tilt reveal delay-6">
-      <div class="card-icon"><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-6" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
       <h4>Segurança em camadas</h4>
       <p class="text-muted mt-2">JWT validado, rate limiting por tenant, CORS estrito, TLS automático Let's Encrypt.</p>
     </div>
@@ -1408,8 +1409,11 @@
 </section>
 
 <!-- Como a IA aprende (narrative flow) -->
-<section class="py-16 container" id="learning">
-  <div class="text-center reveal">
+<section class="py-16 pfx-section" id="learning" data-pfx-tone="brain" data-pfx-speed="0.20">
+  <div class="pfx-bg" style="background-image: url('assets/bg-brain.jpg');"></div>
+  <div class="pfx-veil"></div>
+  <div class="container">
+  <div class="text-center reveal reveal-blur">
     <span class="section-eyebrow">Como a IA aprende</span>
     <h2 class="mb-4">A IA que <span class="text-gradient">gradua sozinha</span></h2>
     <p class="text-muted">Cada resposta sua vira treino. Padrões só viram exemplo permanente depois de validados.</p>
@@ -1510,6 +1514,7 @@
       <p>O exemplo entra no prompt do modelo e a IA passa a repetir a fórmula que funciona com seu cliente. Quanto mais você usa, melhor fica.</p>
     </div>
   </div>
+  </div>
 </section>
 
 <!-- Inline mid-page CTA -->
@@ -1527,54 +1532,58 @@
 </section>
 
 <!-- Funcionalidades (mantido do original) -->
-<section id="funcionalidades" class="py-16 container">
-  <div class="text-center reveal">
+<section id="funcionalidades" class="py-16 pfx-section" data-pfx-tone="net" data-pfx-speed="0.15">
+  <div class="pfx-bg" style="background-image: url('assets/bg-network.jpg');"></div>
+  <div class="pfx-veil"></div>
+  <div class="container">
+  <div class="text-center reveal reveal-blur">
     <span class="section-eyebrow">Toolkit completo</span>
     <h2 class="mb-4">Funcionalidades que <span class="text-gradient">alavancam o seu negócio</span></h2>
     <p class="text-muted">Tudo o que você precisa para vender mais, atender melhor e economizar tempo — num só lugar.</p>
   </div>
 
   <div class="features-grid">
-    <div class="card tilt reveal delay-1">
-      <div class="card-icon"><i data-lucide="send" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-1" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="send" aria-hidden="true"></i></div>
       <h4>Disparo</h4>
       <p class="text-muted mt-2">Alcance centenas de clientes de uma só vez: envie texto com imagem, áudio ou arquivo sem que eles precisem ter seu número salvo. Sua promoção, catálogo ou novidade chega a todo mundo no mesmo instante.</p>
     </div>
-    <div class="card tilt reveal delay-2">
-      <div class="card-icon"><i data-lucide="crosshair" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-2" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="crosshair" aria-hidden="true"></i></div>
       <h4>Extrator</h4>
       <p class="text-muted mt-2">Extraia em segundos todos os contatos da sua conta, separando arquivados e bloqueados. É o material pronto para montar públicos-alvo e turbinar campanhas segmentadas no Meta Ads.</p>
     </div>
-    <div class="card tilt reveal delay-3">
-      <div class="card-icon"><i data-lucide="eye" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-3" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="eye" aria-hidden="true"></i></div>
       <h4>Recover</h4>
       <p class="text-muted mt-2">Veja as mensagens que o cliente apagou ou editou. Aquele interessado que desistiu e apagou a dúvida? Você descobre o que ele queria e volta com a oferta certa antes que ele feche com o concorrente.</p>
     </div>
-    <div class="card tilt reveal delay-4">
-      <div class="card-icon"><i data-lucide="trending-up" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-4" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="trending-up" aria-hidden="true"></i></div>
       <h4>CRM</h4>
       <p class="text-muted mt-2">Acompanhe cada negócio do primeiro "oi" ao fechamento: saiba quem é lead, quem está quente e quem já virou cliente. Com etiquetas como VIP, urgente ou novo contato, nenhuma venda se perde no caminho.</p>
     </div>
-    <div class="card tilt reveal delay-5">
-      <div class="card-icon"><i data-lucide="alarm-clock" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-5" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="alarm-clock" aria-hidden="true"></i></div>
       <h4>Tarefas</h4>
       <p class="text-muted mt-2">Agende follow-ups, ligações e contatos com fornecedores e receba o lembrete na hora exata. A extensão organiza sua rotina para que nenhuma oportunidade esfrie por esquecimento.</p>
     </div>
-    <div class="card tilt reveal delay-6">
-      <div class="card-icon"><i data-lucide="users" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-6" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="users" aria-hidden="true"></i></div>
       <h4>Equipe</h4>
       <p class="text-muted mt-2">Coloque todo o seu time no mesmo workspace, trabalhando de forma coordenada e profissional. Cada atendimento e cada negócio fica visível para quem precisa — sem ruído e sem retrabalho.</p>
     </div>
-    <div class="card tilt reveal delay-6">
-      <div class="card-icon"><i data-lucide="settings-2" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-6" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="settings-2" aria-hidden="true"></i></div>
       <h4>Configurações</h4>
       <p class="text-muted mt-2">Agende campanhas para dispararem sozinhas, sem ficar com o WhatsApp aberto, e salve templates das mensagens que você mais usa — remarketing, promoções, catálogo do dia. É só carregar e enviar.</p>
     </div>
-    <div class="card tilt reveal delay-7">
-      <div class="card-icon"><i data-lucide="database" aria-hidden="true"></i></div>
+    <div class="card tilt reveal delay-7" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+      <div class="card-icon" data-magnetic-child><i data-lucide="database" aria-hidden="true"></i></div>
       <h4>Backup</h4>
       <p class="text-muted mt-2">Exporte a conversa de qualquer cliente para gerar relatórios e alinhar com a equipe — ou use esse histórico para treinar a IA e deixá-la cada vez mais afiada. Seus dados sempre seguros e a seu favor.</p>
     </div>
+  </div>
   </div>
 </section>
 
@@ -1941,8 +1950,11 @@
 </section>
 
 <!-- CTA banner with countdown -->
-<section class="container py-16">
-  <div class="cta-banner reveal" id="final-cta">
+<section class="py-16 pfx-section" data-pfx-tone="rays" data-pfx-speed="0.22">
+  <div class="pfx-bg" style="background-image: url('assets/bg-rays.jpg');"></div>
+  <div class="pfx-veil"></div>
+  <div class="container">
+  <div class="cta-banner reveal reveal-blur" id="final-cta">
     <span class="section-eyebrow" style="color:white;">Última chamada</span>
     <h2 class="mb-2">Pronto para automatizar suas vendas?</h2>
     <p class="text-muted mb-4">Comece grátis por 7 dias. Sem cartão de crédito. Cancele com 1 clique.</p>
@@ -1960,11 +1972,12 @@
     <p class="cta-vagas">Apenas <strong>23 vagas</strong> restantes no trial deste mês</p>
 
     <div class="mt-6">
-      <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover">
+      <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover" data-magnetic data-magnetic-strength="0.30" data-magnetic-max="16">
         <i data-lucide="rocket" style="width:20px;height:20px;"></i>
         Garantir minha vaga
       </a>
     </div>
+  </div>
   </div>
 </section>
 
@@ -1995,8 +2008,22 @@
   </a>
 </div>
 
+<!-- Floating WhatsApp button -->
+<a class="wpp-float"
+   href="https://wa.me/5521995800771?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20WhatsHybrid%20Pro."
+   target="_blank"
+   rel="noopener"
+   aria-label="Falar no WhatsApp"
+   data-cursor="hover">
+  <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path fill="currentColor" d="M16.001 3.2c-7.064 0-12.8 5.736-12.8 12.8 0 2.253.589 4.448 1.708 6.385L3.2 28.8l6.572-1.722a12.793 12.793 0 006.229 1.587h.005c7.062 0 12.8-5.738 12.8-12.8 0-3.42-1.331-6.633-3.747-9.052A12.726 12.726 0 0016.001 3.2zm0 2.4c2.785 0 5.401 1.085 7.371 3.054a10.343 10.343 0 013.054 7.371c0 5.747-4.677 10.4-10.425 10.4-1.823 0-3.606-.485-5.166-1.401l-.37-.221-3.9 1.022 1.04-3.8-.241-.391a10.354 10.354 0 01-1.586-5.61c0-5.748 4.677-10.424 10.423-10.424zm-3.84 5.32c-.193 0-.506.07-.77.357-.265.288-1.01.985-1.01 2.404 0 1.418 1.034 2.788 1.178 2.98.144.192 2.005 3.193 4.918 4.353 2.418.962 2.91.77 3.435.722.525-.048 1.69-.69 1.93-1.356.24-.667.24-1.236.168-1.356-.072-.12-.265-.193-.553-.337-.288-.144-1.69-.834-1.952-.93-.265-.096-.457-.144-.65.144-.193.288-.745.93-.913 1.122-.168.193-.337.217-.625.073-.288-.144-1.215-.448-2.314-1.428-.855-.762-1.43-1.702-1.6-1.99-.168-.288-.018-.443.126-.587.13-.13.288-.337.432-.505.144-.169.193-.288.288-.481.097-.193.048-.361-.024-.505-.072-.144-.625-1.594-.89-2.187-.265-.594-.514-.486-.698-.495-.18-.01-.385-.012-.578-.012z"/>
+  </svg>
+  <span class="wpp-float-label">Fale com a gente</span>
+</a>
+
 <script src="js/futuristic.js"></script>
 <script src="js/landing-revamp.js" defer></script>
+<script src="js/landing-fx.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).

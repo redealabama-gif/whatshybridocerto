@@ -1,0 +1,281 @@
+/**
+ * WhatsHybrid Pro — Landing FX
+ * Efeitos "premium" da landing: parallax, magnetic hover, WhatsApp float,
+ * blur-in reveals. Carrega DEPOIS de landing-revamp.css.
+ */
+
+/* ════════════════════════════════════════════════════════
+   PARALLAX SECTIONS
+   Wrapper aplicado em seções com imagem de fundo (#learning,
+   #funcionalidades, #final-cta). O JS translada .pfx-bg
+   conforme o scroll, criando o efeito de profundidade.
+   ════════════════════════════════════════════════════════ */
+.pfx-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.pfx-bg {
+  position: absolute;
+  inset: -10% -5% -10% -5%;
+  z-index: -2;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.pfx-section[data-pfx-tone="brain"] .pfx-bg { opacity: 0.45; }
+.pfx-section[data-pfx-tone="rays"]  .pfx-bg { opacity: 0.55; }
+.pfx-section[data-pfx-tone="net"]   .pfx-bg { opacity: 0.40; }
+
+/* Camada escura para garantir contraste do texto */
+.pfx-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(0, 0, 0, 0.05) 0%, rgba(8, 9, 24, 0.45) 55%, rgba(8, 9, 24, 0.88) 100%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.55) 0%, rgba(8, 9, 24, 0.55) 100%);
+}
+
+.pfx-section[data-pfx-tone="brain"] .pfx-veil {
+  background:
+    radial-gradient(60% 50% at 25% 50%, rgba(111, 0, 255, 0.10) 0%, transparent 70%),
+    radial-gradient(60% 50% at 80% 50%, rgba(0, 255, 255, 0.06) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.65) 0%, rgba(8, 9, 24, 0.78) 100%);
+}
+
+.pfx-section[data-pfx-tone="rays"] .pfx-veil {
+  background:
+    radial-gradient(70% 60% at 50% 90%, rgba(111, 0, 255, 0.12) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.62) 0%, rgba(8, 9, 24, 0.40) 60%, rgba(8, 9, 24, 0.85) 100%);
+}
+
+.pfx-section[data-pfx-tone="net"] .pfx-veil {
+  background:
+    radial-gradient(60% 60% at 70% 30%, rgba(0, 255, 255, 0.08) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.70) 0%, rgba(8, 9, 24, 0.82) 100%);
+}
+
+/* Mobile: desliga a translação JS via classe; já cai para background fixo */
+@media (max-width: 720px) {
+  .pfx-bg {
+    inset: 0;
+    opacity: 0.22;
+    transform: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   MAGNETIC HOVER
+   Aplica em qualquer elemento [data-magnetic]. O JS ajusta
+   --mx / --my conforme a proximidade do cursor. A transição
+   "elástica" volta ao centro com smooth easing.
+   ════════════════════════════════════════════════════════ */
+[data-magnetic] {
+  --mx: 0px;
+  --my: 0px;
+  --mscale: 1;
+  transform: translate3d(var(--mx), var(--my), 0) scale(var(--mscale));
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+[data-magnetic].is-magnetizing {
+  transition: transform 0.12s linear;
+}
+
+/* Filhos que escalam mais que o pai pra um efeito "salto" sutil */
+[data-magnetic] [data-magnetic-child] {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  display: inline-flex;
+}
+
+[data-magnetic].is-magnetizing [data-magnetic-child] {
+  transform: scale(1.08);
+  transition: transform 0.12s linear;
+}
+
+/* Mobile: desabilita */
+@media (hover: none), (max-width: 720px) {
+  [data-magnetic] {
+    --mx: 0px;
+    --my: 0px;
+    --mscale: 1;
+    transform: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   BLUR-IN REVEALS — extensão dos .reveal originais
+   Use .reveal.reveal-blur ou .reveal.reveal-zoom
+   ════════════════════════════════════════════════════════ */
+.reveal.armed.reveal-blur {
+  filter: blur(14px);
+  opacity: 0;
+  transform: translateY(20px);
+}
+.reveal.reveal-blur {
+  transition:
+    filter 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.in.reveal-blur {
+  filter: blur(0);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal.armed.reveal-zoom {
+  opacity: 0;
+  transform: scale(0.92);
+}
+.reveal.reveal-zoom {
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.in.reveal-zoom {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ════════════════════════════════════════════════════════
+   WHATSAPP FLOATING BUTTON
+   ════════════════════════════════════════════════════════ */
+.wpp-float {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 9000;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: #fff;
+  text-decoration: none;
+  box-shadow:
+    0 14px 32px rgba(37, 211, 102, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s;
+}
+
+.wpp-float::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 211, 102, 0.55);
+  animation: wpp-ping 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+.wpp-float::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 211, 102, 0.30);
+  animation: wpp-ping 2.2s ease-out 0.6s infinite;
+  pointer-events: none;
+}
+
+@keyframes wpp-ping {
+  0%   { opacity: 0.7; transform: scale(0.85); }
+  80%  { opacity: 0;   transform: scale(1.45); }
+  100% { opacity: 0;   transform: scale(1.45); }
+}
+
+.wpp-float:hover {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow:
+    0 18px 40px rgba(37, 211, 102, 0.55),
+    0 6px 14px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.wpp-float svg {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.wpp-float-label {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+  background: rgba(20, 24, 38, 0.95);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.wpp-float-label::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: rgba(20, 24, 38, 0.95);
+}
+
+.wpp-float:hover .wpp-float-label,
+.wpp-float:focus-visible .wpp-float-label {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Sobe acima da sticky-cta quando esta aparece (sticky-cta tem z-index menor) */
+.sticky-cta.show ~ .wpp-float,
+.wpp-float.shift-up {
+  bottom: 88px;
+}
+
+@media (max-width: 720px) {
+  .wpp-float {
+    right: 16px;
+    bottom: 16px;
+    width: 54px;
+    height: 54px;
+  }
+  .wpp-float svg { width: 28px; height: 28px; }
+  .sticky-cta.show ~ .wpp-float,
+  .wpp-float.shift-up {
+    bottom: 82px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   REDUCED MOTION — respeita preferência do usuário
+   ════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .pfx-bg { transform: none !important; }
+  [data-magnetic] {
+    --mx: 0px;
+    --my: 0px;
+    --mscale: 1;
+    transform: none !important;
+  }
+  .wpp-float::before,
+  .wpp-float::after { animation: none !important; }
+}
