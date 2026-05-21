@@ -37,6 +37,7 @@
 .pfx-section[data-pfx-tone="dialogue"] .pfx-bg { opacity: 0.32; }
 .pfx-section[data-pfx-tone="contrast"] .pfx-bg { opacity: 0.45; }
 .pfx-section[data-pfx-tone="growth"]   .pfx-bg { opacity: 0.42; }
+.pfx-section[data-pfx-tone="inquiry"]  .pfx-bg { opacity: 0.36; }
 
 /* Camada escura para garantir contraste do texto */
 .pfx-veil {
@@ -103,6 +104,16 @@
   background:
     radial-gradient(70% 50% at 50% 20%, rgba(0, 255, 255, 0.10) 0%, transparent 70%),
     linear-gradient(180deg, rgba(8, 9, 24, 0.45) 0%, rgba(8, 9, 24, 0.78) 70%, rgba(8, 9, 24, 0.85) 100%);
+}
+
+/* Inquiry (FAQ): cérebro brilhante à esquerda + figura escura à direita.
+   Escurece bordas e direita, mantém centro um pouco mais limpo p/ a lista
+   vertical de perguntas. */
+.pfx-section[data-pfx-tone="inquiry"] .pfx-veil {
+  background:
+    radial-gradient(55% 70% at 50% 50%, rgba(8, 9, 24, 0.25) 0%, rgba(8, 9, 24, 0.72) 60%, rgba(8, 9, 24, 0.85) 100%),
+    linear-gradient(90deg, rgba(8, 9, 24, 0.20) 0%, rgba(8, 9, 24, 0.55) 50%, rgba(8, 9, 24, 0.80) 100%),
+    linear-gradient(180deg, rgba(8, 9, 24, 0.50) 0%, rgba(8, 9, 24, 0.70) 100%);
 }
 
 /* Mobile: desliga a translação JS via classe; já cai para background fixo */
