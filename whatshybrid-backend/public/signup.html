@@ -120,6 +120,84 @@
     .plan-option li { padding: 4px 0; display: flex; gap: 6px; align-items: center; }
     .plan-option li i { color: var(--success); width: 14px; height: 14px; }
 
+    /* ── Cupom EXIT50 (?coupon=EXIT50) ───────────────────── */
+    .coupon-banner {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, rgba(0, 255, 255, 0.14), rgba(111, 0, 255, 0.14));
+      border: 1px solid rgba(0, 255, 255, 0.32);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      color: var(--text);
+      font-size: 0.92rem;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.10);
+    }
+    .coupon-banner.show { display: flex; }
+    .coupon-banner > i, .coupon-banner > svg {
+      color: var(--brand-cyan);
+      flex: 0 0 22px;
+      width: 22px; height: 22px;
+    }
+    .coupon-banner code {
+      background: rgba(0, 255, 255, 0.20);
+      color: var(--brand-cyan);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+    }
+    .plan-option.has-discount .price {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .plan-option.has-discount .price-original {
+      text-decoration: line-through;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    .plan-option.has-discount .price-discounted {
+      color: var(--brand-cyan);
+      font-weight: 800;
+    }
+    .plan-option.has-discount .price-period {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+    }
+    .plan-option .price-tag-off {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.18);
+      color: #4ade80;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+    .summary-row.coupon-line { color: var(--success); }
+    .summary-row.coupon-line span:last-child { color: #4ade80; font-weight: 700; }
+    .summary-row code {
+      background: rgba(0, 255, 255, 0.16);
+      color: var(--brand-cyan);
+      padding: 1px 7px;
+      border-radius: 5px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.4px;
+      margin-left: 4px;
+    }
+    .summary-row.recurring-line { color: var(--text-muted); font-size: 0.88rem; }
+    .summary-row.recurring-line span:last-child { color: var(--text-muted); font-weight: 500; }
+
     .summary-row {
       display: flex; justify-content: space-between;
       padding: 12px 0;
@@ -189,6 +267,15 @@
       <span class="step-num">3</span>
       <span class="step-label">Pagamento</span>
     </div>
+  </div>
+
+  <!-- Coupon banner (visible only when ?coupon=EXIT50 in URL) -->
+  <div class="coupon-banner" id="coupon-banner" role="status">
+    <i data-lucide="gift"></i>
+    <span>
+      Cupom <code id="coupon-code">EXIT50</code> ativo ·
+      <strong id="coupon-label">50% OFF no 1º mês</strong>
+    </span>
   </div>
 
   <!-- ── Step 1: Account ── -->
@@ -335,9 +422,21 @@
         <span class="text-muted">Plano</span>
         <span><strong id="summary-plan">Pro</strong></span>
       </div>
-      <div class="summary-row">
-        <span class="text-muted">Preço</span>
+      <div class="summary-row" id="summary-row-price">
+        <span class="text-muted" id="summary-price-label">Preço</span>
         <span><strong id="summary-price">R$ 197/mês</strong></span>
+      </div>
+      <div class="summary-row coupon-line" id="summary-row-coupon" hidden>
+        <span class="text-muted">Cupom aplicado <code id="summary-coupon-code">EXIT50</code></span>
+        <span id="summary-coupon-discount">-50% no 1º mês</span>
+      </div>
+      <div class="summary-row" id="summary-row-discounted" hidden>
+        <span class="text-muted">1º mês</span>
+        <span><strong id="summary-discounted-price">R$ 24,95</strong></span>
+      </div>
+      <div class="summary-row recurring-line" id="summary-row-recurring" hidden>
+        <span>A partir do 2º mês</span>
+        <span id="summary-recurring-price">R$ 49,90/mês</span>
       </div>
       <div class="summary-row">
         <span class="text-muted">Trial</span>
@@ -390,10 +489,12 @@
   let signupData = {
     company: '', name: '', email: '', password: '',
     plan: 'starter', price: 49.90, priceLabel: 'R$ 49,90/mês',
+    coupon: null, discount: 0,
   };
 
   // Pre-select plan from URL ?plan=
-  const urlPlan = new URLSearchParams(window.location.search).get('plan');
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPlan = urlParams.get('plan');
   if (urlPlan && ['free', 'starter', 'pro'].includes(urlPlan)) {
     document.querySelectorAll('.plan-option').forEach(el => {
       el.classList.toggle('selected', el.dataset.plan === urlPlan);
@@ -402,6 +503,53 @@
     signupData.plan = urlPlan;
     signupData.price = parseFloat(opt.dataset.price);
     signupData.priceLabel = opt.dataset.priceLabel;
+  }
+
+  // ── Cupom (?coupon=EXIT50) ──────────────────────────────────────
+  const COUPONS = {
+    EXIT50: { discount: 0.5, label: '50% OFF no 1º mês' }
+  };
+  const urlCoupon = (urlParams.get('coupon') || '').toUpperCase();
+  if (COUPONS[urlCoupon]) {
+    signupData.coupon = urlCoupon;
+    signupData.discount = COUPONS[urlCoupon].discount;
+    const banner = document.getElementById('coupon-banner');
+    if (banner) {
+      banner.classList.add('show');
+      document.getElementById('coupon-code').textContent = urlCoupon;
+      document.getElementById('coupon-label').textContent = COUPONS[urlCoupon].label;
+      document.getElementById('summary-coupon-code').textContent = urlCoupon;
+      document.getElementById('summary-coupon-discount').textContent =
+        '-' + Math.round(COUPONS[urlCoupon].discount * 100) + '% no 1º mês';
+    }
+    applyCouponToPlans();
+  }
+
+  function fmtBRL(n) {
+    return 'R$ ' + n.toFixed(2).replace('.', ',');
+  }
+
+  function applyCouponToPlans() {
+    if (!signupData.coupon) return;
+    document.querySelectorAll('.plan-option').forEach(el => {
+      const price = parseFloat(el.dataset.price);
+      if (price <= 0) return; // Free não tem desconto
+      const discounted = price * (1 - signupData.discount);
+      const priceEl = el.querySelector('.price');
+      if (!priceEl) return;
+      el.classList.add('has-discount');
+      priceEl.innerHTML =
+        '<span class="price-original">' + fmtBRL(price) + '</span>' +
+        '<span class="price-discounted">' + fmtBRL(discounted) + '</span>' +
+        '<span class="price-period">/1º mês</span>';
+      // tag-off chip below
+      if (!el.querySelector('.price-tag-off')) {
+        const tag = document.createElement('div');
+        tag.className = 'price-tag-off';
+        tag.textContent = '50% OFF · 1º mês';
+        priceEl.insertAdjacentElement('afterend', tag);
+      }
+    });
   }
 
   function goToStep(n) {
@@ -474,9 +622,37 @@
   // Step 2 → Step 3
   document.getElementById('form-step-2').addEventListener('submit', (e) => {
     e.preventDefault();
+
     document.getElementById('summary-plan').textContent =
       signupData.plan.charAt(0).toUpperCase() + signupData.plan.slice(1);
-    document.getElementById('summary-price').textContent = signupData.priceLabel;
+
+    const rowCoupon     = document.getElementById('summary-row-coupon');
+    const rowDiscounted = document.getElementById('summary-row-discounted');
+    const rowRecurring  = document.getElementById('summary-row-recurring');
+    const priceLabel    = document.getElementById('summary-price-label');
+    const priceEl       = document.getElementById('summary-price');
+
+    if (signupData.coupon && signupData.price > 0) {
+      const discounted = signupData.price * (1 - signupData.discount);
+      // "Preço cheio" riscado em vez de só "Preço"
+      priceLabel.textContent = 'Preço cheio';
+      priceEl.innerHTML = '<s style="color:var(--text-muted);font-weight:500;">' +
+        fmtBRL(signupData.price) + '/mês</s>';
+      // Exibe as linhas de cupom + 1º mês + recorrente
+      rowCoupon.hidden = false;
+      rowDiscounted.hidden = false;
+      rowRecurring.hidden = false;
+      document.getElementById('summary-discounted-price').textContent = fmtBRL(discounted);
+      document.getElementById('summary-recurring-price').textContent = fmtBRL(signupData.price) + '/mês';
+    } else {
+      // Sem cupom ou plano Free: comportamento original
+      priceLabel.textContent = 'Preço';
+      priceEl.textContent = signupData.priceLabel;
+      rowCoupon.hidden = true;
+      rowDiscounted.hidden = true;
+      rowRecurring.hidden = true;
+    }
+
     goToStep(3);
   });
 
@@ -493,6 +669,7 @@
         email: signupData.email,
         password: signupData.password,
         plan: signupData.plan,
+        coupon: signupData.coupon || undefined,
       });
 
       const token = result.token || result.accessToken;
