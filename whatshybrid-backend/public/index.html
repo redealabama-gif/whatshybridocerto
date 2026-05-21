@@ -751,6 +751,98 @@
       pointer-events: none;
     }
     .cta-banner > * { position: relative; z-index: 1; }
+
+    /* ═══════════════════════════════════════════════════════
+       Chat cycle (typing → approve → send loop)
+       ═══════════════════════════════════════════════════════ */
+    .chat-ai-card.cycle-approving .chat-ai-btn.primary {
+      animation: ai-approve-pulse 0.65s ease-out;
+    }
+    @keyframes ai-approve-pulse {
+      0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7); }
+      50%  { transform: scale(1.10); box-shadow: 0 0 0 12px rgba(0, 255, 255, 0); }
+      100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
+    }
+    .chat-msg.outbound-pop {
+      animation: chat-msg-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes chat-msg-pop {
+      0%   { opacity: 0; transform: translateY(10px) scale(0.94); }
+      100% { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+    .chat-msg.outbound-pop .chat-bubble .seen-check {
+      color: rgba(0, 255, 255, 0.95);
+      margin-left: 6px;
+      font-weight: 600;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       Dashboard charts — enter animations on viewport
+       ═══════════════════════════════════════════════════════ */
+    .dash-mock .chart-line-area,
+    .dash-mock .chart-line-stroke,
+    .dash-mock .chart-line-dot,
+    .dash-mock .chart-donut-arc,
+    .dash-mock svg rect[fill="url(#g-bar)"] { transform-box: fill-box; }
+
+    .dash-mock .chart-line-area { opacity: 0; }
+    .dash-mock.charts-animate .chart-line-area {
+      animation: chart-area-in 1.2s ease-out 0.5s forwards;
+    }
+    @keyframes chart-area-in { to { opacity: 1; } }
+
+    .dash-mock .chart-line-stroke {
+      stroke-dasharray: 620;
+      stroke-dashoffset: 620;
+    }
+    .dash-mock.charts-animate .chart-line-stroke {
+      animation: chart-line-draw 1.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+    }
+    @keyframes chart-line-draw { to { stroke-dashoffset: 0; } }
+
+    .dash-mock .chart-line-dot {
+      opacity: 0;
+      transform: scale(0);
+      transform-origin: 50% 50%;
+    }
+    .dash-mock.charts-animate .chart-line-dot {
+      animation: chart-dot-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+    }
+    @keyframes chart-dot-in { to { opacity: 1; transform: scale(1); } }
+
+    .dash-mock .chart-donut-arc { stroke-dashoffset: 280.5; }
+    .dash-mock.charts-animate .chart-donut-arc {
+      animation: chart-donut-fill 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+    }
+    @keyframes chart-donut-fill { to { stroke-dashoffset: 8.4; } }
+
+    .dash-mock svg rect[fill="url(#g-bar)"] {
+      transform: scaleY(0);
+      transform-origin: 50% 100%;
+    }
+    .dash-mock.charts-animate svg rect[fill="url(#g-bar)"] {
+      animation: chart-bar-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes chart-bar-rise { to { transform: scaleY(1); } }
+
+    /* ═══════════════════════════════════════════════════════
+       ROI calculator — flash cyan on every slider input
+       ═══════════════════════════════════════════════════════ */
+    .roi-output-value { transition: color 0.3s, text-shadow 0.3s; }
+    .roi-output-value.flash-cyan {
+      color: var(--brand-cyan);
+      text-shadow: 0 0 14px rgba(0, 255, 255, 0.6);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dash-mock.charts-animate .chart-line-area { opacity: 1 !important; animation: none !important; }
+      .dash-mock.charts-animate .chart-line-stroke { stroke-dashoffset: 0 !important; animation: none !important; }
+      .dash-mock.charts-animate .chart-line-dot { opacity: 1 !important; transform: scale(1) !important; animation: none !important; }
+      .dash-mock.charts-animate .chart-donut-arc { stroke-dashoffset: 8.4 !important; animation: none !important; }
+      .dash-mock.charts-animate svg rect[fill="url(#g-bar)"] { transform: scaleY(1) !important; animation: none !important; }
+      .chat-msg.outbound-pop,
+      .chat-ai-card.cycle-approving .chat-ai-btn.primary { animation: none !important; }
+    }
   </style>
 </head>
 <body class="has-cursor">
@@ -1252,7 +1344,7 @@
           <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
           Sugestão da IA · alta confiança
         </div>
-        <div class="chat-ai-text" id="chat-ai-typing"></div>
+        <div class="chat-ai-text" id="chat-ai-cycle"></div>
         <div class="chat-ai-actions">
           <button type="button" class="chat-ai-btn"><i data-lucide="refresh-cw"></i>Reescrever</button>
           <button type="button" class="chat-ai-btn primary"><i data-lucide="send"></i>Aprovar e enviar</button>
@@ -1307,13 +1399,13 @@
               <line x1="0" y1="90" x2="320" y2="90"/>
             </g>
             <!-- area fill -->
-            <path d="M 10 110 L 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22 L 310 110 Z"
+            <path class="chart-line-area" d="M 10 110 L 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22 L 310 110 Z"
                   fill="url(#g-area)"/>
             <!-- line -->
-            <path d="M 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22"
+            <path class="chart-line-stroke" d="M 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22"
                   fill="none" stroke="url(#g-stroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             <!-- end dot -->
-            <circle cx="310" cy="22" r="4" fill="#00ffff" filter="drop-shadow(0 0 6px #00ffff)"/>
+            <circle class="chart-line-dot" cx="310" cy="22" r="4" fill="#00ffff" filter="drop-shadow(0 0 6px #00ffff)"/>
             <!-- x labels -->
             <g fill="rgba(148,163,184,0.7)" font-family="Inter" font-size="9">
               <text x="10" y="125">seg</text>
@@ -1332,7 +1424,7 @@
           <h5>Taxa de aprovação</h5>
           <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-label="Donut de aprovação 97%">
             <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12"/>
-            <circle cx="60" cy="60" r="46" fill="none" stroke="url(#g-donut)" stroke-width="12"
+            <circle class="chart-donut-arc" cx="60" cy="60" r="46" fill="none" stroke="url(#g-donut)" stroke-width="12"
                     stroke-linecap="round"
                     stroke-dasharray="280.5"
                     stroke-dashoffset="8.4"
@@ -1344,7 +1436,7 @@
               </linearGradient>
             </defs>
           </svg>
-          <div class="donut-value">97%</div>
+          <div class="donut-value" data-donut-target="97">97%</div>
         </div>
 
         <!-- Bars: tokens by hour -->
@@ -2083,6 +2175,179 @@
       a.textContent = 'Meu painel';
     });
   }
+
+  // ════════════════════════════════════════════════════════
+  // Chat cycle / chart entry animations / ROI flash
+  // (escopo isolado num IIFE; respeita prefers-reduced-motion)
+  // ════════════════════════════════════════════════════════
+  (function () {
+    const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ── 1. Chat cycle: typing → approve → enviado ──────────
+    function setupChatCycle() {
+      const typingEl = document.getElementById('chat-ai-cycle');
+      const card = document.querySelector('.chat-ai-card');
+      const chatMock = document.querySelector('.chat-mock');
+      if (!typingEl || !card || !chatMock) return;
+
+      const messages = [
+        {
+          full: 'Oi, Maria! Obrigado pelo interesse no plano Premium 🚀\nO valor é R$ 297/mês e já inclui suporte 24h. Posso te enviar o link de pagamento?',
+          sent: 'Oi, Maria! O valor é R$ 297/mês, inclui suporte 24h. Te envio o link de pagamento?'
+        },
+        {
+          full: 'Boa tarde! O nosso horário de entrega para a sua região é até quinta-feira. Quer que eu reserve a peça em seu nome agora?',
+          sent: 'Boa tarde! Entregamos na sua região até quinta. Posso reservar em seu nome?'
+        },
+        {
+          full: 'Olá! Esse modelo está com 15% de desconto até amanhã. Posso garantir a sua na cor preta tamanho M?',
+          sent: 'Olá! 15% de desconto até amanhã. Garanto a sua, preta tamanho M?'
+        }
+      ];
+      let idx = 0;
+
+      function typeText(text, done) {
+        let i = 0;
+        typingEl.innerHTML = '<span class="cursor-blink"></span>';
+        const cursor = typingEl.firstChild;
+        function tick() {
+          if (i >= text.length) { done(); return; }
+          const ch = text[i++];
+          const node = ch === '\n' ? document.createElement('br') : document.createTextNode(ch);
+          typingEl.insertBefore(node, cursor);
+          setTimeout(tick, 18 + Math.random() * 24);
+        }
+        tick();
+      }
+
+      function approveAndSend(sentText, onDone) {
+        card.classList.add('cycle-approving');
+        setTimeout(() => card.classList.remove('cycle-approving'), 700);
+
+        setTimeout(() => {
+          const msg = document.createElement('div');
+          msg.className = 'chat-msg outbound outbound-pop chat-msg-temp';
+          const bubble = document.createElement('div');
+          bubble.className = 'chat-bubble';
+          bubble.appendChild(document.createTextNode(sentText));
+          const time = document.createElement('small');
+          time.textContent = '14:23';
+          const check = document.createElement('span');
+          check.className = 'seen-check';
+          check.textContent = '✓✓';
+          time.appendChild(check);
+          bubble.appendChild(time);
+          msg.appendChild(bubble);
+          chatMock.insertBefore(msg, card);
+
+          setTimeout(() => {
+            msg.style.transition = 'opacity 0.4s';
+            msg.style.opacity = '0';
+            setTimeout(() => { msg.remove(); onDone(); }, 400);
+          }, 3000);
+        }, 720);
+      }
+
+      function loop() {
+        const m = messages[idx];
+        typeText(m.full, () => {
+          setTimeout(() => {
+            approveAndSend(m.sent, () => {
+              idx = (idx + 1) % messages.length;
+              typingEl.innerHTML = '';
+              setTimeout(loop, 500);
+            });
+          }, 1500);
+        });
+      }
+
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) { io.disconnect(); loop(); }
+          });
+        }, { threshold: 0.3 });
+        io.observe(typingEl);
+      } else {
+        loop();
+      }
+    }
+
+    // ── 2. Dashboard charts: animate when in view ──────────
+    function animateDonutNumber(el, target) {
+      if (prefersReduced) { el.textContent = target + '%'; return; }
+      const start = performance.now();
+      const dur = 1600;
+      el.textContent = '0%';
+      function tick(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 4);
+        el.textContent = Math.floor(target * eased) + '%';
+        if (t < 1) requestAnimationFrame(tick);
+        else el.textContent = target + '%';
+      }
+      setTimeout(() => requestAnimationFrame(tick), 600);
+    }
+
+    function setupChartAnimations() {
+      const dashMock = document.querySelector('.dash-mock');
+      if (!dashMock) return;
+      const donutEl = dashMock.querySelector('.donut-value');
+      const donutTarget = donutEl ? parseInt(donutEl.getAttribute('data-donut-target') || '97', 10) : 97;
+
+      // Cascade bar delays — set inline so each rect stagger-rises L→R
+      const bars = dashMock.querySelectorAll('svg rect[fill="url(#g-bar)"]');
+      bars.forEach((bar, i) => {
+        bar.style.animationDelay = (0.4 + i * 0.025) + 's';
+      });
+
+      function fire() {
+        dashMock.classList.add('charts-animate');
+        if (donutEl) animateDonutNumber(donutEl, donutTarget);
+      }
+
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) { io.disconnect(); fire(); }
+          });
+        }, { threshold: 0.3 });
+        io.observe(dashMock);
+      } else {
+        fire();
+      }
+    }
+
+    // ── 3. ROI flash: cyan glow on each slider input ───────
+    function setupROIFlash() {
+      const slider = document.getElementById('roi-slider');
+      if (!slider) return;
+      const outputs = ['#roi-hours', '#roi-cost', '#roi-annual']
+        .map(s => document.querySelector(s))
+        .filter(Boolean);
+      if (!outputs.length) return;
+
+      let timer = null;
+      slider.addEventListener('input', () => {
+        outputs.forEach(el => el.classList.add('flash-cyan'));
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          outputs.forEach(el => el.classList.remove('flash-cyan'));
+        }, 380);
+      });
+    }
+
+    function init() {
+      setupChatCycle();
+      setupChartAnimations();
+      setupROIFlash();
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
 </script>
 
 </body>
