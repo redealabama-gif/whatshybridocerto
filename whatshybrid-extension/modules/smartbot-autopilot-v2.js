@@ -1124,7 +1124,40 @@
   const FORCE_BACKEND = true;
   const DISABLE_LOCAL_FALLBACK = false; // R-002 FIX: Enable local fallback for graceful degradation
   const SHOW_BACKEND_ERRORS = true;
-  
+
+  // v9.X — Throttle do aviso de degradação. Sem isso, em um surto de
+  // mensagens com Tier 0 fora, o autopilot dispararia 50 toasts em 10s.
+  // 60s entre avisos é suficiente pra alertar sem floodar.
+  const DEGRADED_NOTIFY_INTERVAL_MS = 60 * 1000;
+  let _lastDegradedNotify = 0;
+
+  function notifyAutopilotDegraded(chatId) {
+    const now = Date.now();
+    if (now - _lastDegradedNotify < DEGRADED_NOTIFY_INTERVAL_MS) {
+      // Throttled — só emite evento pra analytics, sem toast.
+      if (window.EventBus) {
+        window.EventBus.emit('autopilot:tier:degraded:throttled', { chatId });
+      }
+      return;
+    }
+    _lastDegradedNotify = now;
+
+    const msg = '⚠️ Autopilot em modo degradado: IA do servidor (com seu treinamento) está fora. Respostas estão sendo geradas localmente e podem não usar suas FAQs/produtos. Verifique o backend.';
+
+    // Toast persistente (8s) — usuário PRECISA ver, porque o autopilot
+    // está mandando resposta sem revisão.
+    if (window.NotificationsModule?.toast) {
+      window.NotificationsModule.toast(msg, 'warning', 8000);
+    } else {
+      console.warn(`[Autopilot] ${msg}`);
+    }
+
+    if (window.EventBus) {
+      window.EventBus.emit('autopilot:tier:degraded', { chatId, message: msg });
+    }
+    emitRuntimeEvent('tier-degraded', { chatId, message: msg });
+  }
+
   async function generateResponse(item) {
     const chatId = item.chatId || (item.phone ? `${String(item.phone).replace(/\D/g, '')}@c.us` : '');
     const messageText = item.message || item.text || '';
@@ -1140,8 +1173,17 @@
     // portanto NÃO PODE ser menos inteligente que a sugestão manual. Os comentários
     // antigos diziam "mesma lógica robusta", mas era enganoso: era outro endpoint.
     //
+    // v9.X — rastreia se o Tier 0 foi tentado. Usado pra alertar o usuário
+    // quando o autopilot manda resposta de Tier 1 (sem treinamento do
+    // backend) — risco real, porque o autopilot envia sem confirmação
+    // humana e o cliente final pode receber resposta degradada sem ninguém
+    // perceber.
+    let tier0Attempted = false;
+    let tier0Failed = false;
+
     // PRIORIDADE 1: BackendClient.ai.process — orchestrator completo
     if (window.BackendClient?.ai?.process) {
+      tier0Attempted = true;
       try {
         const result = await window.BackendClient.ai.process(chatId, messageText, {
           language: 'pt-BR',
@@ -1156,7 +1198,9 @@
           return text;
         }
         console.warn('[Autopilot] ⚠️ ai.process devolveu resposta vazia', result);
+        tier0Failed = true;
       } catch (e) {
+        tier0Failed = true;
         console.error('[Autopilot] ❌ ai.process falhou:', e.message);
 
         // FORCE_BACKEND + DISABLE_LOCAL_FALLBACK → propaga erro (cliente NÃO recebe template)
@@ -1186,7 +1230,17 @@
         }
         const analysis = await window.CopilotEngine.analyzeMessage(messageText, chatId);
         const result = await window.CopilotEngine.generateResponse(chatId, analysis);
-        if (result && result.content) return result.content;
+        if (result && result.content) {
+          // v9.X — Tier 0 foi tentado e falhou; estamos servindo resposta
+          // do Tier 1 (CopilotEngine local, sem treinamento do banco).
+          // Sinaliza pro usuário porque o autopilot envia automaticamente
+          // sem revisão humana — risco real de cliente final receber resposta
+          // degradada e ninguém perceber.
+          if (tier0Attempted && tier0Failed) {
+            notifyAutopilotDegraded(chatId);
+          }
+          return result.content;
+        }
       } catch (e) {
         console.error('[Autopilot] ❌ CopilotEngine fallback falhou:', e.message);
       }

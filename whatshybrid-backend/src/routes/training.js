@@ -39,6 +39,22 @@ router.use(authenticate);
 // pra starter+.
 router.use(checkSubscription('training'));
 
+// v9.X — Preserva o ID enviado pelo cliente (training.js usa Date.now() ao
+// criar localmente). Antes geramos uuid() novo em cada sync, o que quebrava
+// alinhamento: o frontend tinha id=1700000000000, o backend gerava
+// uuid-v4, e operações cruzadas (ex: POST /products/:id/sell) não achavam
+// o registro. Agora o id sobrevive ao sync; só gera novo quando o cliente
+// não mandou ou mandou algo inválido.
+function preserveOrUuid(rawId) {
+  if (rawId !== undefined && rawId !== null) {
+    const s = String(rawId).trim();
+    // Aceita 1-100 chars alfanuméricos + underscore/hífen/ponto. Conservador
+    // pra não quebrar PRIMARY KEY TEXT com input estranho.
+    if (s.length > 0 && s.length <= 100 && /^[\w.\-]+$/.test(s)) return s;
+  }
+  return uuid();
+}
+
 /**
  * POST /api/v1/training/sync
  * Body: { examples?: [...], faqs?: [...], products?: [...], businessInfo?: {...} }
@@ -71,7 +87,7 @@ router.post('/sync',
                (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              uuid(), workspaceId, userId,
+              preserveOrUuid(ex.id), workspaceId, userId,
               input, output,
               (ex.intent || '').toString().slice(0, 200),
               (ex.category || 'geral').toString().slice(0, 100),
@@ -102,7 +118,7 @@ router.post('/sync',
                (id, workspace_id, question, answer, category, keywords, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              uuid(), workspaceId,
+              preserveOrUuid(f.id), workspaceId,
               question, answer,
               (f.category || 'general').toString().slice(0, 100),
               JSON.stringify(Array.isArray(f.keywords) ? f.keywords.slice(0, 30) : []),
@@ -152,7 +168,7 @@ router.post('/sync',
                 created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              uuid(), workspaceId,
+              preserveOrUuid(p.id), workspaceId,
               name,
               (p.description || '').toString().slice(0, 5000),
               (p.shortDescription || p.short_description || '').toString().slice(0, 500),

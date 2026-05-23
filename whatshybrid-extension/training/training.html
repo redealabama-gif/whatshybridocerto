@@ -30,6 +30,9 @@
                 <div class="connection-status" id="connectionStatus">
                     <span class="status-dot"></span>
                     <span class="status-text">Conectando...</span>
+                    <!-- v9.X — Indicador relativo "Sincronizado há X". Atualizado
+                         a cada 30s. Vazio quando nunca sincronizou. -->
+                    <span class="status-sync" id="statusSyncTime" style="margin-left:8px;opacity:0.6;font-size:11px;"></span>
                 </div>
             </div>
         </header>

@@ -33,7 +33,56 @@ class TrainingApp {
     this.updateConnectionStatus();
     this.initSimulation();
 
+    // v9.X — Indicador "Sincronizado há X min" no header. Atualiza a cada
+    // 30s pra ficar live sem precisar de recarregar a página. O timestamp
+    // vive em chrome.storage.local pra sobreviver a reloads.
+    this._renderLastSyncTime();
+    this._lastSyncTimer = setInterval(() => this._renderLastSyncTime(), 30 * 1000);
+
     console.log('[TrainingApp] ✅ Inicializado');
+  }
+
+  // v9.X — Lê chrome.storage.local.whl_last_sync_at e formata como tempo
+  // relativo. Retorna string vazia se nunca sincronizou (mostra label
+  // só quando há valor confirmado).
+  async _renderLastSyncTime() {
+    const el = document.getElementById('statusSyncTime');
+    if (!el) return;
+    try {
+      const data = await chrome.storage.local.get('whl_last_sync_at');
+      const ts = data?.whl_last_sync_at;
+      if (!ts || !Number.isFinite(ts)) {
+        el.textContent = '';
+        el.title = 'Ainda não sincronizado nesta sessão';
+        return;
+      }
+      const diffMs = Date.now() - ts;
+      el.textContent = `· sincronizado ${this._formatRelativeTime(diffMs)}`;
+      el.title = `Última sincronização: ${new Date(ts).toLocaleString('pt-BR')}`;
+    } catch (_) {
+      el.textContent = '';
+    }
+  }
+
+  _formatRelativeTime(diffMs) {
+    if (diffMs < 0) return 'agora';
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 10) return 'agora';
+    if (sec < 60) return `há ${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `há ${min} min`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `há ${hr}h`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `há ${day} dia${day === 1 ? '' : 's'}`;
+    return `em ${new Date(Date.now() - diffMs).toLocaleDateString('pt-BR')}`;
+  }
+
+  async _markSynced() {
+    try {
+      await chrome.storage.local.set({ whl_last_sync_at: Date.now() });
+      this._renderLastSyncTime();
+    } catch (_) {}
   }
 
   // ============================================
@@ -396,7 +445,15 @@ class TrainingApp {
           ${(p.stock !== null && p.stock !== undefined)
             ? `<div class="product-stock" style="margin-top:6px;font-size:12px;${p.stock <= 0 ? 'color:#DC2626;font-weight:600;' : p.stock <= 3 ? 'color:#D97706;' : 'color:#059669;'}">
                  📦 ${p.stock <= 0 ? 'Esgotado' : `${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} em estoque`}
-               </div>`
+               </div>
+               <button class="btn-sell-product"
+                       data-pid="${this.escapeHtml(String(p.id))}"
+                       style="margin-top:8px;width:100%;padding:6px 10px;font-size:12px;
+                              background:#059669;color:white;border:none;border-radius:6px;
+                              cursor:pointer;font-weight:600;${p.stock <= 0 ? 'opacity:0.5;cursor:not-allowed;' : ''}"
+                       ${p.stock <= 0 ? 'disabled' : ''}>
+                 💸 Marcar Venda
+               </button>`
             : ''}
         </div>
       `;
@@ -404,6 +461,17 @@ class TrainingApp {
 
     grid.removeEventListener('click', this._handleProductClick);
     this._handleProductClick = (e) => {
+      // v9.X — Botão "Marcar Venda" tem prioridade sobre o clique no card
+      // (que abre o modal de edição). Sem stopPropagation, o clique vazaria
+      // pro card e abriria o modal junto.
+      const sellBtn = e.target.closest('.btn-sell-product');
+      if (sellBtn) {
+        e.stopPropagation();
+        const pid = sellBtn.dataset.pid;
+        if (pid) this.sellProduct(pid);
+        return;
+      }
+
       const card = e.target.closest('.product-card');
       if (card) {
         const id = parseInt(card.dataset.id);
@@ -411,6 +479,93 @@ class TrainingApp {
       }
     };
     grid.addEventListener('click', this._handleProductClick);
+  }
+
+  // v9.X — Marca venda de N unidades. Decremento atômico no backend via
+  // POST /api/v1/products/:id/sell. Antes o estoque era só um número
+  // estático no dashboard — quando o usuário vendia, ele tinha que entrar
+  // no modal, editar manualmente e sincronizar. Agora 1 clique resolve.
+  async sellProduct(productId) {
+    const product = this.products.find(p => String(p.id) === String(productId));
+    if (!product) {
+      this.showToast('Produto não encontrado', 'error');
+      return;
+    }
+    if (product.stock === null || product.stock === undefined) {
+      this.showToast('Cadastre o estoque numérico primeiro (editando o produto)', 'warning');
+      return;
+    }
+    if (product.stock <= 0) {
+      this.showToast('Produto esgotado — reabasteça antes de vender', 'warning');
+      return;
+    }
+
+    // eslint-disable-next-line no-alert
+    const ansStr = prompt(
+      `Marcar venda de "${product.name}"\n\nEstoque atual: ${product.stock} ${product.stock === 1 ? 'unidade' : 'unidades'}\n\nQuantas unidades vendeu?`,
+      '1'
+    );
+    if (ansStr === null) return; // cancelou
+    const quantity = parseInt(ansStr, 10);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      this.showToast('Quantidade inválida', 'error');
+      return;
+    }
+    if (quantity > product.stock) {
+      this.showToast(`Estoque insuficiente — tem ${product.stock}, tentou vender ${quantity}`, 'error');
+      return;
+    }
+
+    // Tenta backend primeiro (decremento atômico). Se falhar, decrementa
+    // localmente e sinaliza pra sincronizar depois.
+    try {
+      if (window.BackendClient?.post) {
+        const result = await window.BackendClient.post(
+          `/api/v1/products/${encodeURIComponent(productId)}/sell`,
+          { quantity }
+        );
+        if (result?.ok) {
+          // Backend confirmou. Atualiza local com o newStock que veio
+          // pra evitar drift se houver venda concorrente.
+          product.stock = result.newStock;
+          await this.saveKnowledgeBase();
+          this.renderProducts();
+          this.showToast(`✅ Venda registrada: ${result.sold} ${result.sold === 1 ? 'unidade' : 'unidades'}. Restam ${result.newStock}.`, 'success');
+          return;
+        }
+        // Resposta sem ok pode vir de stock_not_tracked / insufficient_stock.
+        // O backend retorna 4xx pra esses casos → cai no catch abaixo.
+      }
+    } catch (err) {
+      const status = err?.status || err?.response?.status;
+      const code = err?.body?.error || err?.response?.data?.error;
+
+      if (status === 404 || code === 'product_not_found') {
+        // O produto existe localmente mas não no backend. Provável: nunca
+        // sincronizou OU sync limpou e recriou com novo ID antes do fix
+        // v9.X de preserveOrUuid. Sugere sincronizar.
+        this.showToast('Produto não está no backend. Clique em Sincronizar primeiro.', 'warning');
+        return;
+      }
+      if (code === 'stock_not_tracked') {
+        this.showToast('Backend ainda não tem estoque numérico deste produto. Sincronize antes.', 'warning');
+        return;
+      }
+      if (code === 'insufficient_stock') {
+        this.showToast('Estoque insuficiente no backend (alguém vendeu antes?). Recarregue a página.', 'error');
+        return;
+      }
+      console.warn('[TrainingApp] /sell falhou, decrementando local apenas:', err?.message);
+    }
+
+    // Fallback offline: decrementa local e marca como dessincronizado.
+    product.stock = Math.max(0, product.stock - quantity);
+    await this.saveKnowledgeBase();
+    this.renderProducts();
+    this.showToast(
+      `⚠️ Venda registrada localmente. Sincronize quando reconectar (restam ${product.stock}).`,
+      'warning'
+    );
   }
 
   loadBusinessForm() {
@@ -995,6 +1150,7 @@ class TrainingApp {
       if (response?.success) {
         this.showToast('Sincronizado com sucesso!', 'success');
         this.updateConnectionStatus(true);
+        await this._markSynced();
       } else {
         this.showToast('Falha na sincronização', 'warning');
       }
@@ -1867,7 +2023,10 @@ class TrainingApp {
         },
       });
       const ok = !!(response && response.success);
-      if (ok) this.updateConnectionStatus(true);
+      if (ok) {
+        this.updateConnectionStatus(true);
+        await this._markSynced();
+      }
       return ok;
     } catch (err) {
       console.warn('[TrainingApp] Auto-sync após import falhou:', err?.message);
