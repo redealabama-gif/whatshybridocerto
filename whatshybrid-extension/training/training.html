@@ -523,6 +523,20 @@
                             </div>
                         </div>
 
+                        <!-- v9.X — Estoque numérico. A IA usa este número
+                             pra responder "quantas tem?" com a verdade e
+                             pra parar de oferecer produto esgotado. Deixe
+                             vazio se você não controla estoque por unidade
+                             (a IA cai pro campo "Disponibilidade" acima). -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Estoque (unidades)
+                                    <span style="font-weight:normal;opacity:0.6;font-size:11px;">— opcional, mas recomendado</span>
+                                </label>
+                                <input type="number" id="productStock" min="0" step="1" placeholder="Ex: 12 (deixe vazio se não controla)">
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Informações Adicionais</label>
                             <textarea id="productInfo" placeholder="Especificações técnicas, tamanhos disponíveis, etc." rows="3"></textarea>

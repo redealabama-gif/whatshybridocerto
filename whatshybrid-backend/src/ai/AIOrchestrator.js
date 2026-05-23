@@ -813,7 +813,7 @@ class AIOrchestrator {
     // ── Products ────────────────────────────────────────────────────
     try {
       const products = db.all(
-        `SELECT name, description, short_description, sku, category, price, currency, stock_status
+        `SELECT name, description, short_description, sku, category, price, currency, stock, stock_status
            FROM products
           WHERE workspace_id = ? AND is_active = 1
           ORDER BY updated_at DESC
@@ -824,6 +824,18 @@ class AIOrchestrator {
       const scored = products
         .map(p => {
           const blob = `${p.name} ${p.short_description || ''} ${p.description || ''} ${p.category || ''} ${p.sku || ''}`;
+          // v9.X — Estoque numérico tem prioridade sobre stock_status legado.
+          // Decisão importante: a IA precisa de informação confiável sobre
+          // disponibilidade pra NÃO mentir ao cliente ("temos!" quando não
+          // tem). O stock numérico vem do dashboard onde o usuário controla.
+          let stockLine = '';
+          if (Number.isFinite(p.stock) && p.stock !== null) {
+            stockLine = p.stock > 0
+              ? `\nEstoque: ${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} disponível${p.stock === 1 ? '' : 'eis'}`
+              : `\nEstoque: ESGOTADO — não oferecer este produto até reposição`;
+          } else if (p.stock_status) {
+            stockLine = `\nDisponibilidade: ${p.stock_status}`;
+          }
           return {
             content: `Produto: ${p.name}` +
                      (p.sku ? ` (SKU ${p.sku})` : '') +
@@ -832,7 +844,7 @@ class AIOrchestrator {
                         : '') +
                      (p.short_description ? `\nResumo: ${p.short_description}` : '') +
                      (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : '') +
-                     (p.stock_status ? `\nDisponibilidade: ${p.stock_status}` : ''),
+                     stockLine,
             source: `Catálogo${p.category ? ` / ${p.category}` : ''}`,
             score: scoreOf(blob),
           };
