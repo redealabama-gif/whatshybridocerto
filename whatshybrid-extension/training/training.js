@@ -1690,6 +1690,21 @@ class TrainingApp {
     const resultsDiv = document.getElementById('importResults');
     const resultsGrid = document.getElementById('resultsGrid');
 
+    // v9.X — Contabiliza o batch inteiro pra decidir DEPOIS se sincroniza.
+    // Antes: cada arquivo só salvava em chrome.storage.local e o usuário tinha
+    // que clicar manualmente em "Sincronizar" pra que a IA do servidor
+    // enxergasse o conhecimento importado. Quem esquecia ficava com o
+    // treinamento "fantasma" — só local, invisível pro backend.
+    const batch = {
+      products: 0,
+      faqs: 0,
+      examples: 0,
+      knowledge: 0,
+      unknown: 0,
+      skipped: 0,
+      failed: 0,
+    };
+
     for (const file of files) {
       if (queue) {
         const safeFileName = this.escapeHtml(file.name);
@@ -1716,18 +1731,55 @@ class TrainingApp {
             itemEl.querySelector('.upload-item-status').textContent = '✅';
           }
 
-          if (result.type === 'products' && result.items.length > 0) {
-            this.products.push(...result.items);
+          // v9.X — Trata TODOS os tipos que o documentImporter pode retornar
+          // (csv/txt/json/xlsx/xls/ods). Antes os tipos `knowledge` e `unknown`
+          // eram descartados silenciosamente — usuário importava um TXT com
+          // política da loja e nada acontecia.
+          const items = Array.isArray(result.items) ? result.items : [];
+          if (result.type === 'products' && items.length > 0) {
+            this.products.push(...items);
             await this.saveKnowledgeBase();
-            this.showToast(`${result.items.length} produtos importados!`, 'success');
-          } else if (result.type === 'faqs' && result.items.length > 0) {
-            this.faqs.push(...result.items);
+            batch.products += items.length;
+            this.showToast(`${items.length} produtos importados de ${file.name}`, 'success');
+          } else if (result.type === 'faqs' && items.length > 0) {
+            this.faqs.push(...items);
             await this.saveKnowledgeBase();
-            this.showToast(`${result.items.length} FAQs importadas!`, 'success');
-          } else if (result.type === 'examples' && result.items.length > 0) {
-            this.examples.push(...result.items);
+            batch.faqs += items.length;
+            this.showToast(`${items.length} FAQs importadas de ${file.name}`, 'success');
+          } else if (result.type === 'examples' && items.length > 0) {
+            this.examples.push(...items);
             await this.saveExamples();
-            this.showToast(`${result.items.length} exemplos importados!`, 'success');
+            batch.examples += items.length;
+            this.showToast(`${items.length} exemplos importados de ${file.name}`, 'success');
+          } else if (result.type === 'knowledge' && items.length > 0) {
+            // Parágrafos extraídos de TXT — anexa em businessInfo.extraNotes
+            // (string concatenada). O backend já injeta TUDO de
+            // workspace_knowledge no prompt do AIOrchestrator, então isto
+            // passa a ser contexto disponível pra resposta.
+            this.businessInfo = this.businessInfo || {};
+            const existing = typeof this.businessInfo.extraNotes === 'string'
+              ? this.businessInfo.extraNotes
+              : '';
+            const newNotes = items
+              .map(it => (it && typeof it.content === 'string') ? it.content.trim() : '')
+              .filter(Boolean)
+              .join('\n\n');
+            this.businessInfo.extraNotes = existing
+              ? `${existing}\n\n--- ${file.name} ---\n${newNotes}`
+              : `--- ${file.name} ---\n${newNotes}`;
+            await this.saveKnowledgeBase();
+            batch.knowledge += items.length;
+            this.showToast(`${items.length} parágrafos anexados ao conhecimento de ${file.name}`, 'success');
+          } else if (result.type === 'unknown') {
+            // JSON com estrutura não-reconhecida — não dá pra adivinhar
+            // categoria. Avisa o usuário em vez de descartar silenciosamente.
+            batch.unknown++;
+            this.showToast(`${file.name}: formato não reconhecido — ajuste o JSON pra ter chaves products/faqs/examples`, 'warning');
+          } else if (result.type === 'empty') {
+            batch.skipped++;
+            this.showToast(`${file.name}: arquivo vazio`, 'warning');
+          } else {
+            batch.skipped++;
           }
 
           if (resultsDiv && resultsGrid) {
@@ -1747,12 +1799,58 @@ class TrainingApp {
         if (itemEl) {
           itemEl.querySelector('.upload-item-status').textContent = '❌';
         }
-        this.showToast(`Erro ao processar ${file.name}`, 'error');
+        batch.failed++;
+        this.showToast(`Erro ao processar ${file.name}: ${error.message || ''}`, 'error');
       }
     }
 
     this.updateStats();
     this.renderAll();
+
+    // v9.X — Sync automático após o batch inteiro. Roda UMA vez só (não por
+    // arquivo) pra evitar N requisições paralelas. Sem isto, o caminho
+    // "importar Excel + IA passar a usar" exigia clique manual em "Sincronizar"
+    // — e a maioria dos usuários não clicava, deixando o treinamento fantasma.
+    const totalImported = batch.products + batch.faqs + batch.examples + batch.knowledge;
+    if (totalImported > 0) {
+      const syncOk = await this._autoSyncAfterImport(batch);
+      if (syncOk) {
+        this.showToast(
+          `✅ ${totalImported} itens importados e sincronizados com a IA`,
+          'success'
+        );
+      } else {
+        this.showToast(
+          `⚠️ ${totalImported} itens importados localmente — backend offline, sincronizando quando reconectar`,
+          'warning'
+        );
+      }
+    } else if (batch.unknown > 0 || batch.failed > 0) {
+      // Nenhum item válido. Não sincroniza pra não sobrescrever dados antigos.
+    }
+  }
+
+  // v9.X — Wrapper de syncWithBackend que não toasta sucesso/falha por conta
+  // própria (chamador já mostra o toast consolidado com contagem do batch).
+  // Retorna true/false só pra orientar o feedback.
+  async _autoSyncAfterImport(_batch) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'SYNC_TRAINING_DATA',
+        data: {
+          examples: this.examples,
+          faqs: this.faqs,
+          products: this.products,
+          businessInfo: this.businessInfo,
+        },
+      });
+      const ok = !!(response && response.success);
+      if (ok) this.updateConnectionStatus(true);
+      return ok;
+    } catch (err) {
+      console.warn('[TrainingApp] Auto-sync após import falhou:', err?.message);
+      return false;
+    }
   }
 
   openModal(modalId) {
