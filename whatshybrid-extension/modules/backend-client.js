@@ -12,9 +12,14 @@
     STORAGE_KEY: 'whl_backend_client',
     DEFAULT_BASE_URL: (globalThis.WHL_ENDPOINTS?.BACKEND_DEFAULT || 'http://localhost:3000'),
     // FIX PEND-MED-001: Fallback backend URLs for high availability
+    // localhost:3001 era um fallback fantasma — ninguém roda backend nessa porta
+    // em dev. Resultado: qualquer falha transiente em :3000 disparava failover
+    // para :3001 (ERR_CONNECTION_REFUSED), o estado era persistido em storage
+    // e a extensão ficava presa numa URL morta entre reloads. Default agora é
+    // só a própria DEFAULT_BASE_URL — failover real só com BACKEND_FALLBACKS
+    // explícito no WHL_ENDPOINTS (ex: produção com hosts redundantes).
     FALLBACK_URLS: (globalThis.WHL_ENDPOINTS?.BACKEND_FALLBACKS || [
-      'http://localhost:3000',
-      'http://localhost:3001'
+      (globalThis.WHL_ENDPOINTS?.BACKEND_DEFAULT || 'http://localhost:3000')
     ]),
     REQUEST_TIMEOUT: 30000,
     RETRY_ATTEMPTS: 3,
@@ -195,10 +200,33 @@
     const currentIndex = state.backendHealth.currentUrlIndex;
     const nextIndex = (currentIndex + 1) % CONFIG.FALLBACK_URLS.length;
 
-    // If we've tried all URLs, stay on last one but log error
+    // Esgotou todas as URLs do anel de failover. Antes ficávamos parados na
+    // última URL ("Staying on current URL") — péssimo, porque essa URL morta
+    // era persistida via saveState() e a extensão herdava o estado quebrado
+    // entre reloads. Agora: reseta pro DEFAULT_BASE_URL e persiste. A próxima
+    // request tenta a URL canônica de novo; se o backend voltar, sai do estado
+    // ruim sem precisar limpar chrome.storage.local manualmente.
     if (nextIndex === 0 && state.backendHealth.failoverHistory.length > 0) {
-      console.error('[BackendClient] All fallback backends failed. Staying on current URL.');
+      console.error('[BackendClient] All fallback backends failed. Recovering to DEFAULT_BASE_URL.');
       state.backendHealth.isHealthy = false;
+
+      if (state.baseUrl !== CONFIG.DEFAULT_BASE_URL) {
+        const previousUrl = state.baseUrl;
+        console.warn(`[BackendClient] Recovery: ${previousUrl} → ${CONFIG.DEFAULT_BASE_URL}`);
+        state.baseUrl = CONFIG.DEFAULT_BASE_URL;
+        state.backendHealth.currentUrlIndex = 0;
+        state.backendHealth.consecutiveFailures = 0;
+        await syncLegacyBackendConfig();
+        await saveState();
+
+        if (window.EventBus) {
+          window.EventBus.emit('backend:failover', {
+            from: previousUrl,
+            to: CONFIG.DEFAULT_BASE_URL,
+            reason: 'recovery_all_failed'
+          });
+        }
+      }
       return;
     }
 
@@ -292,6 +320,25 @@
 
     try {
       await loadState();
+
+      // Sanity-check no boot: se a URL persistida não é a DEFAULT, verifica
+      // se ainda responde /health antes de servir requests. Sem isso, uma URL
+      // que foi alvo de failover (ex: localhost:3001 morto) sobrevive a
+      // reloads indefinidamente porque saveState persistiu o estado quebrado.
+      // Timeout curto (HEALTH_CHECK_TIMEOUT=5s) pra não atrasar o boot quando
+      // o backend está realmente vivo.
+      if (state.baseUrl && state.baseUrl !== CONFIG.DEFAULT_BASE_URL) {
+        const persistedUrl = state.baseUrl;
+        const persistedOk = await checkBackendHealth();
+        if (!persistedOk) {
+          console.warn(`[BackendClient] Persisted URL ${persistedUrl} failed /health on boot — resetting to DEFAULT_BASE_URL`);
+          state.baseUrl = CONFIG.DEFAULT_BASE_URL;
+          state.backendHealth.currentUrlIndex = 0;
+          state.backendHealth.consecutiveFailures = 0;
+          await syncLegacyBackendConfig();
+          await saveState();
+        }
+      }
 
       // Auto-connect se tiver tokens
       if (state.accessToken) {
