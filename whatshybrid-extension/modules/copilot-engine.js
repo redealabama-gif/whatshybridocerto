@@ -1611,7 +1611,12 @@ Diretrizes:
     const confidence = calculateResponseConfidence(response, analysis, result);
 
     // v7.7.0: Salvar no cache
-    if (window.aiResponseCache && confidence > 0.7) {
+    // v9.X: NÃO cachear se o caller indicou que esta geração é um fallback
+    // pós-falha do Tier 0 (backend orchestrator). Esse caminho roda com a KB
+    // local que pode estar antiga ou incompleta — gravar no cache faria com
+    // que respostas degradadas persistissem por 24h e fossem servidas para
+    // perguntas futuras mesmo depois do backend voltar.
+    if (window.aiResponseCache && confidence > 0.7 && !options.skipCacheWrite) {
       try {
         window.aiResponseCache.set(
           analysis.originalMessage || '',

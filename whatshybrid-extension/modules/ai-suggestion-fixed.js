@@ -1133,7 +1133,12 @@
       // crua via AIGateway, perdendo todas as 12 camadas de inteligência.
       //
       // Fallback automático: se backend offline ou timeout > 28s, cai pros métodos abaixo.
+      // v9.X — rastreia se o Tier 0 foi tentado. Se foi e falhou, os caminhos
+      // de fallback abaixo precisam evitar gravar a resposta degradada no cache
+      // local (aiResponseCache), pra não servirem essa resposta por 24h.
+      let tier0Attempted = false;
       if (!suggestion && window.BackendClient?.isConnected?.() && typeof window.BackendClient.ai?.process === 'function') {
+        tier0Attempted = true;
         try {
           log('🧠 Tentando MÉTODO 0: Backend AIOrchestrator');
           // Atualiza loading pra dar feedback visual (orchestrator pode levar 5-15s)
@@ -1185,6 +1190,19 @@
             state.backendReady = true;
             applyReadinessClass(null);
 
+            // v9.X — Tier 0 retornou "ground truth" do backend (com treinamento
+            // do workspace). Se o aiResponseCache local tem entradas pra esse
+            // intent vindas de fallback Tier 1 anterior (KB possivelmente
+            // antiga), elas viraram informação obsoleta — invalida pra próxima
+            // queda em Tier 1 não servir a resposta velha.
+            try {
+              const intent = orchestrated.metadata?.intent;
+              if (intent && window.aiResponseCache?.invalidateByIntent) {
+                const removed = window.aiResponseCache.invalidateByIntent(intent);
+                if (removed > 0) log(`🧹 Invalidou ${removed} entrada(s) de cache local stale para intent "${intent}"`);
+              }
+            } catch (_) { /* invalidação é best-effort */ }
+
             // Emite evento — UI pode mostrar metadados de inteligência
             if (window.EventBus) {
               window.EventBus.emit('ai:orchestrator:success', {
@@ -1219,7 +1237,13 @@
           }
 
           const analysis = await window.CopilotEngine.analyzeMessage(lastUserMsg, chatKey);
-          const resp = await window.CopilotEngine.generateResponse(chatKey, analysis, { maxTokens: 260 });
+          // v9.X — Se o Tier 0 foi tentado e falhou, NÃO grava no cache: essa
+          // resposta é fallback degradado, não deve ser servida nas próximas
+          // 24h pra perguntas similares no mesmo workspace.
+          const resp = await window.CopilotEngine.generateResponse(chatKey, analysis, {
+            maxTokens: 260,
+            skipCacheWrite: tier0Attempted,
+          });
           if (resp?.content) {
             suggestion = resp.content.trim();
             tierUsed = 'tier_1_copilot_engine';
