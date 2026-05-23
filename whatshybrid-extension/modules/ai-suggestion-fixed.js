@@ -38,6 +38,11 @@
     lastInteractionId: null,
     lastMetadata: null,
     lastIntelligence: null,
+    // v9.X: readiness tracking — null = não verificado, true = Tier 0 disponível,
+    // false = Tier 0 indisponível (degradado a fallback local). Usado pra
+    // mostrar o estado visual do botão e avisar o usuário antes do clique.
+    backendReady: null,
+    readinessPollHandle: null,
   };
 
   // ============================================
@@ -599,6 +604,52 @@
         50% { box-shadow: 0 4px 24px rgba(59, 130, 246, 0.8); }
       }
 
+      /* v9.X — readiness states. Until the backend pipeline (BackendClient +
+         CopilotEngine + SubscriptionManager) finishes initializing, the user
+         can still click, but we want them to know that clicking now risks
+         falling into a local fallback without the trained knowledge base. */
+      #${CONFIG.BUTTON_ID}.warming-up {
+        background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+        box-shadow: 0 4px 16px rgba(75, 85, 99, 0.4);
+        animation: ai-warming 1.6s ease-in-out infinite;
+      }
+      #${CONFIG.BUTTON_ID}.warming-up::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        border-top-color: rgba(255, 255, 255, 0.85);
+        animation: ai-warming-spin 0.9s linear infinite;
+      }
+      @keyframes ai-warming {
+        0%, 100% { box-shadow: 0 4px 16px rgba(75, 85, 99, 0.35); }
+        50%      { box-shadow: 0 4px 20px rgba(75, 85, 99, 0.65); }
+      }
+      @keyframes ai-warming-spin {
+        to { transform: rotate(360deg); }
+      }
+      #${CONFIG.BUTTON_ID}.offline {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        box-shadow: 0 4px 16px rgba(217, 119, 6, 0.45);
+      }
+      #${CONFIG.BUTTON_ID}.offline::before {
+        content: '⚠';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        background: #DC2626;
+        color: white;
+        border-radius: 50%;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(20, 20, 40, 0.95);
+      }
+
       #${CONFIG.PANEL_ID} {
         position: absolute;
         bottom: 100px;
@@ -860,7 +911,81 @@
 
     state.injected = true;
     log('✅ Botão de IA injetado');
+
+    // v9.X — dispara monitoring de readiness do backend pra o usuário ver
+    // visualmente que o pipeline com treinamento ainda não está pronto.
+    startReadinessMonitor();
+
     return true;
+  }
+
+  // v9.X — Monitora se o pipeline Tier 0 (BackendClient + CopilotEngine +
+  // SubscriptionManager) está pronto, e reflete no botão.
+  //
+  // Sem esse indicador, o usuário clicava no botão durante a janela de 1-2s
+  // pós-reload em que o service worker do Chrome ainda estava reconectando, e
+  // a sugestão caía silenciosamente em Tier 1 (CopilotEngine local) que não
+  // consulta o treinamento real do banco do backend. Resultado: resposta
+  // genérica sem o usuário entender por quê.
+  function startReadinessMonitor() {
+    // Para se já estiver rodando (re-inject após troca de chat).
+    if (state.readinessPollHandle) {
+      clearInterval(state.readinessPollHandle);
+      state.readinessPollHandle = null;
+    }
+
+    // Estado inicial: assume "warming up" se ainda não confirmou conexão.
+    const bc = window.BackendClient;
+    const connected = !!(bc && typeof bc.isConnected === 'function' && bc.isConnected());
+    applyReadinessClass(connected ? null : 'warming-up');
+    state.backendReady = connected ? true : null;
+
+    let attempts = 0;
+    const POLL_MS = 300;
+    const MAX_ATTEMPTS = 50; // ~15s — cobre o cold-start típico do SW pós-reload
+
+    state.readinessPollHandle = setInterval(() => {
+      attempts++;
+
+      const bcOk = !!(window.BackendClient?.isConnected?.());
+      const cpOk = !window.CopilotEngine ||
+                   (window.CopilotEngine.debug && window.CopilotEngine.debug()?.initialized === true);
+      const subOk = !window.SubscriptionManager ||
+                    (window.SubscriptionManager.getStatus && !!window.SubscriptionManager.getStatus()?.subscription);
+
+      if (bcOk && cpOk && subOk) {
+        state.backendReady = true;
+        applyReadinessClass(null);
+        clearInterval(state.readinessPollHandle);
+        state.readinessPollHandle = null;
+        return;
+      }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        // Desistiu: marca como degradado (offline) e para de pollar. Continua
+        // permitindo o clique — só avisa o usuário no toast / no estado visual
+        // que vai cair em fallback local sem o treinamento do backend.
+        state.backendReady = false;
+        applyReadinessClass('offline');
+        clearInterval(state.readinessPollHandle);
+        state.readinessPollHandle = null;
+        log('⚠️ Backend readiness não confirmado após 15s — botão em modo offline');
+      }
+    }, POLL_MS);
+  }
+
+  function applyReadinessClass(cls) {
+    const btn = document.getElementById(CONFIG.BUTTON_ID);
+    if (!btn) return;
+    btn.classList.remove('warming-up', 'offline');
+    if (cls) {
+      btn.classList.add(cls);
+      btn.title = cls === 'warming-up'
+        ? 'Conectando IA com seu treinamento…'
+        : 'IA offline — sugestões usarão fallback local (sem treinamento do backend)';
+    } else {
+      btn.title = 'Gerar Sugestão de IA';
+    }
   }
 
   // ============================================
@@ -873,9 +998,27 @@
 
     if (state.panelVisible) {
       hidePanel();
-    } else {
-      await generateSuggestion();
+      return;
     }
+
+    // v9.X — Se o pipeline Tier 0 (backend + persona + plan) ainda está
+    // inicializando, abre o painel mostrando o aviso e aguarda até 5s antes
+    // de gerar. Sem essa espera, o clique imediato pós-reload caía em Tier 1
+    // (fallback local sem treinamento) silenciosamente.
+    if (state.backendReady === null) {
+      showPanel();
+      showLoading('Conectando IA com seu treinamento…');
+      try {
+        const ready = await waitForBackendReady(5000);
+        state.backendReady = !!ready;
+        applyReadinessClass(ready ? null : 'offline');
+      } catch (_) {
+        state.backendReady = false;
+        applyReadinessClass('offline');
+      }
+    }
+
+    await generateSuggestion();
   }
 
   async function generateSuggestion() {
@@ -990,7 +1133,12 @@
       // crua via AIGateway, perdendo todas as 12 camadas de inteligência.
       //
       // Fallback automático: se backend offline ou timeout > 28s, cai pros métodos abaixo.
+      // v9.X — rastreia se o Tier 0 foi tentado. Se foi e falhou, os caminhos
+      // de fallback abaixo precisam evitar gravar a resposta degradada no cache
+      // local (aiResponseCache), pra não servirem essa resposta por 24h.
+      let tier0Attempted = false;
       if (!suggestion && window.BackendClient?.isConnected?.() && typeof window.BackendClient.ai?.process === 'function') {
+        tier0Attempted = true;
         try {
           log('🧠 Tentando MÉTODO 0: Backend AIOrchestrator');
           // Atualiza loading pra dar feedback visual (orchestrator pode levar 5-15s)
@@ -1038,6 +1186,23 @@
 
             log(`✅ Sugestão via BACKEND ORCHESTRATOR (intent=${orchestrated.metadata?.intent}, quality=${orchestrated.metadata?.qualityScore?.toFixed?.(2) || '?'})`);
 
+            // v9.X — Marca o botão como conectado (sucesso confirmado do Tier 0).
+            state.backendReady = true;
+            applyReadinessClass(null);
+
+            // v9.X — Tier 0 retornou "ground truth" do backend (com treinamento
+            // do workspace). Se o aiResponseCache local tem entradas pra esse
+            // intent vindas de fallback Tier 1 anterior (KB possivelmente
+            // antiga), elas viraram informação obsoleta — invalida pra próxima
+            // queda em Tier 1 não servir a resposta velha.
+            try {
+              const intent = orchestrated.metadata?.intent;
+              if (intent && window.aiResponseCache?.invalidateByIntent) {
+                const removed = window.aiResponseCache.invalidateByIntent(intent);
+                if (removed > 0) log(`🧹 Invalidou ${removed} entrada(s) de cache local stale para intent "${intent}"`);
+              }
+            } catch (_) { /* invalidação é best-effort */ }
+
             // Emite evento — UI pode mostrar metadados de inteligência
             if (window.EventBus) {
               window.EventBus.emit('ai:orchestrator:success', {
@@ -1050,6 +1215,10 @@
           }
         } catch (e) {
           // Backend offline / timeout / 401 / 402 → cai pros métodos seguintes
+          // v9.X — marca botão como offline (Tier 0 indisponível) — a próxima
+          // resposta vai vir de fallback local sem treinamento do backend.
+          state.backendReady = false;
+          applyReadinessClass('offline');
           log('Backend orchestrator falhou (cairá pra fallback):', e?.message || e);
           // Se foi 402 (sem créditos), interrompe — não chame OpenAI direto sem cobrar
           if (e?.status === 402 || /payment.required|insufficient.*token/i.test(String(e?.message))) {
@@ -1068,7 +1237,13 @@
           }
 
           const analysis = await window.CopilotEngine.analyzeMessage(lastUserMsg, chatKey);
-          const resp = await window.CopilotEngine.generateResponse(chatKey, analysis, { maxTokens: 260 });
+          // v9.X — Se o Tier 0 foi tentado e falhou, NÃO grava no cache: essa
+          // resposta é fallback degradado, não deve ser servida nas próximas
+          // 24h pra perguntas similares no mesmo workspace.
+          const resp = await window.CopilotEngine.generateResponse(chatKey, analysis, {
+            maxTokens: 260,
+            skipCacheWrite: tier0Attempted,
+          });
           if (resp?.content) {
             suggestion = resp.content.trim();
             tierUsed = 'tier_1_copilot_engine';
@@ -1499,12 +1674,29 @@ Responda APENAS com o texto da sugestão:`;
       });
     }
 
+    // v9.X — Se a sugestão NÃO veio do Tier 0 (backend orchestrator), avisa o
+    // usuário explicitamente. Sem esse banner ele acha que está usando o
+    // treinamento que cadastrou no dashboard, quando na verdade caiu em fallback
+    // local que não consulta o banco do backend.
+    const tierUsed = state.lastTierUsed || null;
+    const isDegraded = tierUsed && tierUsed !== 'tier_0_backend_orchestrator';
+    const degradedBanner = isDegraded
+      ? `<div class="whl-ai-degraded-banner"
+              style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);
+                     color:#FCD34D;padding:6px 10px;border-radius:8px;font-size:11px;
+                     margin-bottom:8px;display:flex;gap:6px;align-items:flex-start;">
+           <span>⚠️</span>
+           <span>Resposta local — IA do servidor (com seu treinamento) indisponível agora. Tente novamente em alguns segundos.</span>
+         </div>`
+      : '';
+
     // Sugestão + 3 botões 3D claros:
     //   ✏️ Editar  → torna a sugestão editável AQUI no painel (não envia nada)
     //   ❌ Reprovar → descarta + feedback negativo
     //   ✅ Aprovar  → envia o texto (editado ou não) ao chat
     // CSP MV3 compliant — listeners via addEventListener, sem onclick inline.
     body.innerHTML = `
+      ${degradedBanner}
       <div class="whl-ai-suggestion" id="whl-ai-sug-text">
         ${escapeHtml(text)}
       </div>
