@@ -158,11 +158,26 @@
             <!-- Tab: Exemplos de Resposta -->
             <div class="tab-content" id="tabExamples">
                 <div class="content-header">
-                    <h2>📚 Exemplos de Resposta (Few-Shot Learning)</h2>
-                    <p>Ensine a IA como responder mostrando exemplos de perguntas e respostas ideais.</p>
+                    <h2>📚 Exemplos de Resposta <span style="font-weight:normal;opacity:0.6;font-size:14px;">(ensina o TOM)</span></h2>
+                    <p>Mostre como você fala com o cliente. A IA aprende o seu jeito de responder e improvisa no mesmo tom para perguntas parecidas.</p>
                     <button class="btn btn-primary" id="btnAddExample">
                         <span>➕</span> Novo Exemplo
                     </button>
+                </div>
+
+                <!-- v9.X — Card explicativo "FAQ vs Exemplo" pra resolver
+                     a confusão clássica: usuário acha que são a mesma coisa
+                     porque os dois aceitam pergunta+resposta. -->
+                <div class="info-card" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5;">
+                    <strong style="color:#3B82F6;">💡 Quando usar Exemplo ao invés de FAQ?</strong>
+                    <div style="margin-top:6px;opacity:0.9;">
+                        Use <strong>Exemplo</strong> quando você quer ensinar o <em>jeito</em> de falar — tom, gírias, estilo, ordem dos argumentos. A IA não vai copiar a resposta literal, vai usar como referência de estilo para perguntas similares.
+                    </div>
+                    <div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:6px;font-family:monospace;font-size:12px;">
+                        <strong>Cliente:</strong> "Quanto custa?"<br>
+                        <strong>Você (exemplo ideal):</strong> "Olha, vou ser direto: é R$ 99 e cabe no orçamento. Quer fechar agora ou tem alguma dúvida antes?"<br>
+                        <em style="opacity:0.7;">→ A IA vai aprender que você é direto e fecha vendas no mesmo turno.</em>
+                    </div>
                 </div>
 
                 <div class="examples-grid" id="examplesGrid">
@@ -172,18 +187,31 @@
                 <div class="empty-state" id="emptyExamples" style="display: none;">
                     <span class="empty-icon">📚</span>
                     <h3>Nenhum exemplo cadastrado</h3>
-                    <p>Adicione exemplos de perguntas e respostas para treinar a IA</p>
+                    <p>Adicione exemplos para a IA aprender o seu tom de voz</p>
                 </div>
             </div>
 
             <!-- Tab: FAQs -->
             <div class="tab-content" id="tabFaqs">
                 <div class="content-header">
-                    <h2>❓ Perguntas Frequentes (FAQs)</h2>
-                    <p>Cadastre perguntas comuns e suas respostas para a IA responder automaticamente.</p>
+                    <h2>❓ Perguntas Frequentes <span style="font-weight:normal;opacity:0.6;font-size:14px;">(resposta canônica)</span></h2>
+                    <p>Pergunta + resposta exata. Quando o cliente perguntar algo similar, a IA responde com este texto literal — bom pra informações que não mudam (horário, política, formas de pagamento).</p>
                     <button class="btn btn-primary" id="btnAddFaq">
                         <span>➕</span> Nova FAQ
                     </button>
+                </div>
+
+                <!-- v9.X — Card explicativo "FAQ vs Exemplo" -->
+                <div class="info-card" style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5;">
+                    <strong style="color:#22C55E;">💡 Quando usar FAQ ao invés de Exemplo?</strong>
+                    <div style="margin-top:6px;opacity:0.9;">
+                        Use <strong>FAQ</strong> quando a resposta é <em>fato</em>, não estilo — informação fixa que não deve mudar entre clientes. A IA usa o texto da resposta praticamente literal (com pequenas adaptações de saudação).
+                    </div>
+                    <div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:6px;font-family:monospace;font-size:12px;">
+                        <strong>Pergunta:</strong> "Quais formas de pagamento aceitam?"<br>
+                        <strong>Resposta:</strong> "Aceitamos PIX, cartão (até 12x) e boleto."<br>
+                        <em style="opacity:0.7;">→ A IA vai responder isso sempre que aparecer uma pergunta sobre pagamento, com o mesmo conteúdo.</em>
+                    </div>
                 </div>
 
                 <div class="faqs-list" id="faqsList">
@@ -193,7 +221,7 @@
                 <div class="empty-state" id="emptyFaqs" style="display: none;">
                     <span class="empty-icon">❓</span>
                     <h3>Nenhuma FAQ cadastrada</h3>
-                    <p>Adicione perguntas frequentes para a IA responder automaticamente</p>
+                    <p>Cadastre as 5-10 perguntas que mais aparecem no seu dia a dia</p>
                 </div>
             </div>
 
@@ -374,6 +402,13 @@
                     <button class="modal-close" id="closeExampleModal">&times;</button>
                 </div>
                 <div class="modal-body">
+                    <!-- v9.X — Banner no topo do modal pra reforçar o que Exemplo é
+                         e não é (diferente de FAQ). -->
+                    <div style="background:rgba(59,130,246,0.08);border-left:3px solid #3B82F6;padding:10px 12px;margin-bottom:14px;border-radius:4px;font-size:12px;line-height:1.5;color:#1E40AF;">
+                        <strong>📚 Exemplo</strong> ensina <strong>o tom</strong> que você usa. A IA vai aprender o estilo,
+                        não copiar a resposta literal. Pra resposta fixa (horário, política), use a aba <strong>FAQs</strong>.
+                    </div>
+
                     <form id="exampleForm">
                         <input type="hidden" id="exampleId">
 
@@ -391,13 +426,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Mensagem do Cliente (Entrada)</label>
-                            <textarea id="exampleInput" placeholder="Ex: Qual o preço do produto X?" rows="3"></textarea>
+                            <label>Mensagem do Cliente (Entrada)
+                                <span style="font-weight:normal;opacity:0.6;font-size:11px;">— o que o cliente escreveu</span>
+                            </label>
+                            <textarea id="exampleInput" placeholder="Ex: tá caro, dá pra fazer melhor?" rows="3"></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>Resposta Ideal (Saída)</label>
-                            <textarea id="exampleOutput" placeholder="Ex: O produto X custa R$ 99,90. Temos disponibilidade imediata! Posso ajudar com mais alguma informação?" rows="4"></textarea>
+                            <label>Resposta Ideal (Saída)
+                                <span style="font-weight:normal;opacity:0.6;font-size:11px;">— como VOCÊ responderia (use seu tom natural)</span>
+                            </label>
+                            <textarea id="exampleOutput" placeholder="Ex: Entendo seu lado, mas esse já é o melhor preço que consigo. O que posso fazer é dividir em 3x sem juros. Topa?" rows="4"></textarea>
                         </div>
 
                         <div class="form-row">
@@ -442,22 +481,34 @@
                     <button class="modal-close" id="closeFaqModal">&times;</button>
                 </div>
                 <div class="modal-body">
+                    <!-- v9.X — Banner pra distinguir FAQ de Exemplo. -->
+                    <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22C55E;padding:10px 12px;margin-bottom:14px;border-radius:4px;font-size:12px;line-height:1.5;color:#166534;">
+                        <strong>❓ FAQ</strong> é resposta <strong>literal</strong> pra uma informação fixa (horário, política, formas de pagamento).
+                        A IA usa o texto da resposta praticamente sem alterar. Pra ensinar o seu tom de voz, use a aba <strong>Exemplos</strong>.
+                    </div>
+
                     <form id="faqForm">
                         <input type="hidden" id="faqId">
 
                         <div class="form-group">
-                            <label>Pergunta</label>
+                            <label>Pergunta
+                                <span style="font-weight:normal;opacity:0.6;font-size:11px;">— como o cliente pergunta no dia a dia</span>
+                            </label>
                             <input type="text" id="faqQuestion" placeholder="Ex: Qual o horário de funcionamento?">
                         </div>
 
                         <div class="form-group">
-                            <label>Resposta</label>
-                            <textarea id="faqAnswer" placeholder="Ex: Funcionamos de segunda a sexta, das 9h às 18h." rows="4"></textarea>
+                            <label>Resposta
+                                <span style="font-weight:normal;opacity:0.6;font-size:11px;">— texto que a IA vai usar (quase) literal</span>
+                            </label>
+                            <textarea id="faqAnswer" placeholder="Ex: Funcionamos de segunda a sexta, das 9h às 18h. Sábado das 9h às 13h. Não abrimos aos domingos." rows="4"></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>Palavras-chave (separadas por vírgula)</label>
-                            <input type="text" id="faqKeywords" placeholder="Ex: horário, funcionamento, aberto">
+                            <label>Palavras-chave
+                                <span style="font-weight:normal;opacity:0.6;font-size:11px;">— sinônimos que disparam esta FAQ (separe por vírgula)</span>
+                            </label>
+                            <input type="text" id="faqKeywords" placeholder="Ex: horário, funcionamento, aberto, expediente, atendimento">
                         </div>
                     </form>
                 </div>

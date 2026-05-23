@@ -150,23 +150,61 @@ router.post('/analyze', authenticate, asyncHandler(async (req, res) => {
 }));
 
 /**
- * POST /api/v2/ai/replies
- * Gera sugestões de resposta
+ * POST /api/v2/ai/replies — DEPRECATED (v9.X)
+ *
+ * @deprecated Use POST /api/v2/ai/process (AIOrchestrator) instead.
+ *
+ * Esta rota usa o CopilotEngine "magro" que NÃO carrega o treinamento
+ * persistido do workspace (FAQs, produtos, business_knowledge, few-shot
+ * graduados) — só faz template-based replies. Foi mantida durante a
+ * transição mas a extensão e o dashboard hoje usam /process (Tier 0).
+ *
+ * Headers de deprecation seguem RFC 8594 (Deprecation/Sunset) pra
+ * integradores externos receberem aviso programático antes da remoção.
+ * Sunset: 2026-08-01 (~3 meses de janela).
  */
+const REPLIES_SUNSET_DATE = 'Sat, 01 Aug 2026 00:00:00 GMT';
+let _repliesDeprecationWarnings = 0;
 router.post('/replies', authenticate, asyncHandler(async (req, res) => {
+  // Aviso programático ao cliente (RFC 8594 + Warning header legado).
+  res.set('Deprecation', 'true');
+  res.set('Sunset', REPLIES_SUNSET_DATE);
+  res.set('Link', '</api/v2/ai/process>; rel="successor-version"');
+  res.set('Warning', '299 - "POST /api/v2/ai/replies is deprecated; migrate to POST /api/v2/ai/process (AIOrchestrator)"');
+
+  // Log throttled — não polui em alta carga, mas sinaliza no boot e a
+  // cada 100 hits que ainda há cliente nessa rota.
+  _repliesDeprecationWarnings++;
+  if (_repliesDeprecationWarnings === 1 || _repliesDeprecationWarnings % 100 === 0) {
+    logger.warn(
+      `[deprecated] POST /api/v2/ai/replies chamado (total nesta instância: ${_repliesDeprecationWarnings}). ` +
+      `Migre pra POST /api/v2/ai/process — esta rota NÃO carrega FAQs/produtos/business do banco e ` +
+      `será removida em ${REPLIES_SUNSET_DATE}. ` +
+      `User-Agent: ${req.get('user-agent') || 'unknown'} workspace=${req.workspaceId || 'unknown'}`
+    );
+  }
+
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
-  
+
   const { message, context, count } = req.body;
-  
+
   if (!message) {
     const e = new AppError('Validation failed', 400, 'VALIDATION_ERROR');
     e.details = [{ field: 'message', message: 'message é obrigatório' }];
     throw e;
   }
-  
+
   const result = await CopilotEngine.generateReplies(message, context || {}, count || 3);
+
+  // Também sinaliza no body — alguns clientes ignoram headers mas
+  // mostram metadata da resposta.
+  if (result && typeof result === 'object') {
+    result.deprecated = true;
+    result.deprecationNotice = `This endpoint is deprecated. Migrate to POST /api/v2/ai/process. Sunset: ${REPLIES_SUNSET_DATE}.`;
+  }
+
   res.json(result);
 }));
 
