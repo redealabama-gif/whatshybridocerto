@@ -393,6 +393,11 @@ class TrainingApp {
             ${p.promoPrice && p.price ? `<span class="original">R$ ${p.price.toFixed(2)}</span>` : ''}
           </div>
           ${p.category ? `<div class="product-category">📁 ${this.escapeHtml(p.category)}</div>` : ''}
+          ${(p.stock !== null && p.stock !== undefined)
+            ? `<div class="product-stock" style="margin-top:6px;font-size:12px;${p.stock <= 0 ? 'color:#DC2626;font-weight:600;' : p.stock <= 3 ? 'color:#D97706;' : 'color:#059669;'}">
+                 📦 ${p.stock <= 0 ? 'Esgotado' : `${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} em estoque`}
+               </div>`
+            : ''}
         </div>
       `;
     }).join('');
@@ -634,6 +639,13 @@ class TrainingApp {
       document.getElementById('productPromoPrice').value = product.promoPrice || '';
       document.getElementById('productCategory').value = product.category || '';
       document.getElementById('productAvailability').value = product.availability || 'available';
+      // v9.X — Estoque numérico: null/undefined → input vazio (não controla).
+      const stockInput = document.getElementById('productStock');
+      if (stockInput) {
+        stockInput.value = (product.stock === null || product.stock === undefined)
+          ? ''
+          : String(product.stock);
+      }
       document.getElementById('productInfo').value = product.info || '';
     } else {
       this.currentEditId = null;
@@ -653,6 +665,15 @@ class TrainingApp {
       return;
     }
 
+    // v9.X — Estoque numérico opcional. Vazio = null (não rastreia por
+    // unidade, IA usa apenas o campo "availability" como fallback).
+    const stockRaw = document.getElementById('productStock')?.value;
+    let stockNumber = null;
+    if (stockRaw !== undefined && String(stockRaw).trim() !== '') {
+      const n = Number(stockRaw);
+      if (Number.isFinite(n)) stockNumber = Math.max(0, Math.floor(n));
+    }
+
     const product = {
       id: this.currentEditId || Date.now(),
       name: name,
@@ -662,6 +683,7 @@ class TrainingApp {
       promoPrice: parseFloat(document.getElementById('productPromoPrice').value) || null,
       category: document.getElementById('productCategory').value.trim(),
       availability: document.getElementById('productAvailability').value,
+      stock: stockNumber,
       info: document.getElementById('productInfo').value.trim(),
       createdAt: this.currentEditId ? (this.products.find(p => p.id === this.currentEditId)?.createdAt || Date.now()) : Date.now(),
       updatedAt: Date.now()

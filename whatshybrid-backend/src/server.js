@@ -388,6 +388,9 @@ app.use('/api/v1/billing', billingRoutes);
 // v9.7.x: Training sync — extensão chama no botão "Sincronizar" da página de treinamento.
 // Antes o endpoint não existia (404 silencioso) e a UI mostrava sucesso falso.
 app.use('/api/v1/training', require('./routes/training'));
+// v9.X: Operações de inventário em runtime (sell/restock). Decremento atômico
+// pra a IA nunca dizer "tem estoque" depois que o produto zera.
+app.use('/api/v1/products', require('./routes/products'));
 // v9.0.0: Funnel tracking
 app.use('/api/v1/funnel', require('./routes/funnel'));
 // v9.0.0: Referrals

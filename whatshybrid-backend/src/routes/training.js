@@ -125,12 +125,32 @@ router.post('/sync',
           const name = (p.name || '').toString().slice(0, 300);
           if (!name) continue;
 
+          // v9.X — Estoque NUMÉRICO. O usuário cadastra "tenho 2 unidades"
+          // no dashboard; a IA precisa saber quantas restam pra não mentir
+          // dizendo que tem estoque quando zerou. Aceita `stock` ou
+          // `stockQuantity` (camelCase do frontend). Negativo → 0. Valor
+          // não-numérico → NULL (cai no fallback do stock_status).
+          let stockNumeric = null;
+          const rawStock = p.stock ?? p.stockQuantity ?? p.stock_quantity;
+          if (rawStock !== undefined && rawStock !== null && rawStock !== '') {
+            const n = Number(rawStock);
+            if (Number.isFinite(n)) stockNumeric = Math.max(0, Math.floor(n));
+          }
+          // Se o usuário não mandou stock_status mas mandou stock numérico,
+          // deriva o status automaticamente (mantém back-compat com leitores
+          // antigos que só olham stock_status).
+          let stockStatusText = (p.availability || p.stock_status || '').toString().slice(0, 50);
+          if (!stockStatusText && stockNumeric !== null) {
+            stockStatusText = stockNumeric > 0 ? 'available' : 'out_of_stock';
+          }
+          if (!stockStatusText) stockStatusText = 'available';
+
           db.run(
             `INSERT INTO products
                (id, workspace_id, name, description, short_description, sku, category,
-                price, price_original, currency, stock_status, tags, is_active,
+                price, price_original, currency, stock, stock_status, tags, is_active,
                 created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
               uuid(), workspaceId,
               name,
@@ -141,7 +161,8 @@ router.post('/sync',
               Number.isFinite(p.price) ? p.price : (Number.isFinite(p.promoPrice) ? p.promoPrice : 0),
               Number.isFinite(p.price) ? p.price : null,
               (p.currency || 'BRL').toString().slice(0, 10),
-              (p.availability || p.stock_status || 'available').toString().slice(0, 50),
+              stockNumeric,
+              stockStatusText,
               JSON.stringify(Array.isArray(p.tags) ? p.tags.slice(0, 30) : []),
             ]
           );
