@@ -553,6 +553,14 @@
     <script src="../modules/knowledge-base.js"></script>
     <script src="../modules/few-shot-learning.js"></script>
 
+    <!-- v9.X — BackendClient é necessário pra o simulador usar a MESMA rota da
+         sugestão real (POST /api/v2/ai/process → AIOrchestrator com FAQs,
+         produtos, business e few-shot graduados). Sem isto carregado, o
+         simulador caía em CopilotEngine local — Tier 1 — que não consulta o
+         treinamento persistido, causando divergência entre o que o usuário
+         testava aqui e o que via no WhatsApp. -->
+    <script src="../modules/backend-client.js"></script>
+
     <!-- AI Client (expõe CopilotEngine/AIService para esta página) -->
     <script src="modules/ai-client.js"></script>
 

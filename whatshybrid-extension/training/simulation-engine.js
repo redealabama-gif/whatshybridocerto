@@ -460,11 +460,65 @@ REGRAS:
 
     console.log('[SimulationEngine] 🚀 [MOTOR: BACKEND] Gerando resposta do executor...');
 
+    // v9.X — fonte que produziu a resposta. Surfaced no objeto da mensagem
+    // pra UI mostrar quando a simulação caiu em fallback local — caso em
+    // que o teste aqui não reflete o que o WhatsApp real vai gerar.
+    let tierUsed = null;
+
     try {
-      // IMPORTANTE: Usar o CopilotEngine real (cérebro único)
-      if (window.CopilotEngine) {
-        console.log('[SimulationEngine] 🤖 [MOTOR: BACKEND/CopilotEngine] Iniciando...');
-        
+      // v9.X — Tier 0: Backend AIOrchestrator (mesma rota da sugestão real
+      // no WhatsApp). Esse caminho consulta FAQs/produtos/business do banco
+      // do workspace + few-shot graduados, então o simulador passa a testar
+      // EXATAMENTE o que o usuário vê em produção. Antes o simulador caía
+      // direto em CopilotEngine local e mostrava resultado divergente.
+      if (window.BackendClient?.isConnected?.() && typeof window.BackendClient.ai?.process === 'function') {
+        try {
+          console.log('[SimulationEngine] 🧠 [MOTOR: BACKEND/AIOrchestrator] Tentando Tier 0...');
+
+          // Persona do simulador → vira o systemPrompt enviado ao backend.
+          // O AIOrchestrator concatena com o tom default do workspace.
+          const personaPayload = (executorProfile && typeof executorProfile.systemPrompt === 'string' && executorProfile.systemPrompt.trim())
+            ? {
+                id: executorProfile.id || 'simulator',
+                name: executorProfile.name || 'Simulador',
+                description: theme?.name || '',
+                systemPrompt: `${executorProfile.systemPrompt}\n\nCONTEXTO DA SIMULAÇÃO: ${theme?.name || ''} — ${theme?.description || ''}`,
+              }
+            : null;
+
+          // chatKey estável por sessão pra o backend acumular histórico.
+          const chatKey = `simulation_${this.state.sessionId || 'default'}`;
+
+          // Timeout 18s alinhado com o Tier 0 do botão da extensão.
+          const orchestrated = await Promise.race([
+            window.BackendClient.ai.process(chatKey, clientMessage, {
+              language: 'pt-BR',
+              persona: personaPayload,
+            }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 18000)),
+          ]);
+
+          if (orchestrated?.success && orchestrated?.response) {
+            content = String(orchestrated.response).trim();
+            confidence = (orchestrated.metadata?.qualityScore != null)
+              ? Math.max(0, Math.min(1, Number(orchestrated.metadata.qualityScore)))
+              : 0.9;
+            latency = Date.now() - startTime;
+            tierUsed = 'tier_0_backend_orchestrator';
+            console.log(`[SimulationEngine] ✅ [MOTOR: BACKEND/AIOrchestrator] Tier 0 ${latency}ms intent=${orchestrated.metadata?.intent || '?'}`);
+          } else if (orchestrated?.error) {
+            console.warn('[SimulationEngine] Tier 0 retornou erro, caindo pra Tier 1:', orchestrated.error);
+          }
+        } catch (e) {
+          console.warn('[SimulationEngine] Tier 0 falhou, caindo pra Tier 1:', e?.message || e);
+        }
+      }
+
+      // Tier 1: CopilotEngine (local, sem treinamento do backend) — fallback
+      // se Tier 0 falhou ou BackendClient indisponível.
+      if (!content && window.CopilotEngine) {
+        console.log('[SimulationEngine] 🤖 [MOTOR: LOCAL/CopilotEngine] Iniciando (Tier 1 fallback)...');
+
         // Criar análise fake para o CopilotEngine
         const analysis = {
           originalMessage: clientMessage,
@@ -486,8 +540,12 @@ ${executorProfile.systemPrompt}`;
         const response = await window.CopilotEngine.generateResponse(
           `simulation_${this.state.sessionId}`,
           analysis,
-          { 
+          {
             skipCache: true, // Não usar cache em simulações
+            // v9.X — alinhado com o botão real: se chegamos aqui é porque Tier 0
+            // falhou ou estava offline. Não polui o cache local com resposta
+            // degradada.
+            skipCacheWrite: true,
             additionalContext: themeContext
           }
         );
@@ -495,13 +553,17 @@ ${executorProfile.systemPrompt}`;
         content = response.content;
         confidence = response.confidence;
         latency = Date.now() - startTime;
-        
-        console.log(`[SimulationEngine] ✅ [MOTOR: BACKEND] Resposta gerada em ${latency}ms`);
+        tierUsed = 'tier_1_copilot_engine';
 
-      } else if (window.AIService && !SimulationEngine.FORCE_BACKEND) {
-        // Fallback: usar AIService diretamente (APENAS se FORCE_BACKEND = false)
-        console.warn('[SimulationEngine] ⚠️ [MOTOR: LOCAL] Usando AIService como fallback');
-        
+        console.log(`[SimulationEngine] ✅ [MOTOR: LOCAL] Resposta gerada em ${latency}ms (Tier 1)`);
+
+      }
+
+      // Tier 2: AIService direto (último fallback antes do erro) — só usado
+      // quando CopilotEngine não está carregado E FORCE_BACKEND=false.
+      if (!content && window.AIService && !SimulationEngine.FORCE_BACKEND) {
+        console.warn('[SimulationEngine] ⚠️ [MOTOR: LOCAL/AIService] Usando AIService como fallback (Tier 2)');
+
         const conversationHistory = this.state.conversation
           .slice(-8)
           .map(m => ({
@@ -528,10 +590,12 @@ Responda de forma natural e profissional.`;
         content = result.content;
         confidence = 0.8;
         latency = Date.now() - startTime;
+        tierUsed = 'tier_2_ai_service';
+      }
 
-      } else {
+      if (!content) {
         // v7.9.13: Se FORCE_BACKEND, propagar erro
-        console.error('[SimulationEngine] ❌ [MOTOR: BLOQUEADO] CopilotEngine não disponível');
+        console.error('[SimulationEngine] ❌ [MOTOR: BLOQUEADO] Nenhuma fonte de IA disponível');
         throw new Error('❌ Backend obrigatório indisponível. CopilotEngine não carregado.');
       }
 
@@ -556,6 +620,10 @@ Responda de forma natural e profissional.`;
       profile: executorProfile,
       confidence: confidence,
       latency: latency,
+      // v9.X — tier que gerou a resposta. UI usa pra mostrar banner amarelo
+      // quando NÃO é tier_0 (avisa que o teste aqui não reflete o que o
+      // WhatsApp real vai gerar com o treinamento do backend).
+      tierUsed: tierUsed,
       approved: null // Pendente de aprovação
     };
 
