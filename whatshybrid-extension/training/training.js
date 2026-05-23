@@ -1180,7 +1180,11 @@ class TrainingApp {
       content: aiText,
       latency,
       userInput: userText,
-      providerInfo
+      providerInfo,
+      // v9.X — surface qual tier produziu a resposta. UI mostra banner âmbar
+      // quando ≠ tier_0_backend_orchestrator pra deixar claro que o simulador
+      // não está testando exatamente o que o WhatsApp real vai gerar.
+      tierUsed: this._lastTierUsed || null
     };
 
     // Mantém um histórico local + alimenta o state.conversation que o
@@ -1217,7 +1221,48 @@ class TrainingApp {
       .filter(m => m && m.content)
       .map(m => ({ role: m.role === 'executor' ? 'assistant' : 'user', content: m.content }));
 
-    // 1ª opção: AIService.complete (caminho oficial do backend / provider configurado).
+    // v9.X — Tier 0: backend AIOrchestrator (POST /api/v2/ai/process)
+    //
+    // ANTES: o simulador testava com AIService.complete/CopilotEngine, que
+    // NÃO consulta o treinamento persistido no banco (FAQs, produtos, business,
+    // few-shot graduados). Resultado: o que o usuário aprovava aqui não
+    // batia com o que o WhatsApp real gerava — divergência confusa.
+    //
+    // AGORA: tenta primeiro o mesmo endpoint do botão 🤖 do WhatsApp.
+    // O `_lastTierUsed` é guardado pra UI poder mostrar quando caiu em fallback.
+    this._lastTierUsed = null;
+    if (window.BackendClient?.isConnected?.() && typeof window.BackendClient.ai?.process === 'function') {
+      try {
+        const personaPayload = (typeof window.CopilotEngine?.getActivePersona === 'function')
+          ? (() => {
+              const ap = window.CopilotEngine.getActivePersona();
+              return (ap && typeof ap.systemPrompt === 'string' && ap.systemPrompt.trim())
+                ? { id: ap.id || '', name: ap.name || '', description: ap.description || '', systemPrompt: ap.systemPrompt }
+                : null;
+            })()
+          : null;
+
+        const chatKey = `training_sim_${this._simSessionId || (this._simSessionId = `s_${Date.now()}`)}`;
+
+        const orchestrated = await Promise.race([
+          window.BackendClient.ai.process(chatKey, userText, {
+            language: 'pt-BR',
+            persona: personaPayload,
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 18000)),
+        ]);
+
+        if (orchestrated?.success && orchestrated?.response) {
+          this._lastTierUsed = 'tier_0_backend_orchestrator';
+          this._lastInteractionId = orchestrated.metadata?.interactionId || null;
+          return String(orchestrated.response).trim();
+        }
+      } catch (err) {
+        console.warn('[TrainingApp] Tier 0 (backend orchestrator) falhou, caindo pra fallback local:', err?.message);
+      }
+    }
+
+    // 1ª opção (fallback): AIService.complete (caminho oficial do backend / provider configurado).
     // O wrapper em training/modules/ai-client.js espera { messages, lastMessage, temperature }.
     // Sem `lastMessage` setado, o _callBackend manda content vazio.
     if (window.AIService?.complete) {
@@ -1230,7 +1275,10 @@ class TrainingApp {
           context: buildContext()
         });
         const content = r?.content || r?.text || r?.reply || (typeof r === 'string' ? r : null);
-        if (content) return content;
+        if (content) {
+          this._lastTierUsed = 'tier_2_ai_service';
+          return content;
+        }
       } catch (err) {
         console.warn('[TrainingApp] AIService falhou, tentando CopilotEngine:', err);
       }
@@ -1245,11 +1293,16 @@ class TrainingApp {
         }
         const r = await window.CopilotEngine.generateResponse('training-sim', analysis || { text: userText }, {
           skipCache: true,
+          // v9.X — não polui o cache local quando o Tier 0 já foi tentado.
+          skipCacheWrite: true,
           maxTokens: 350,
           context: buildContext({ userText })
         });
         const content = r?.content || r?.text || r?.reply;
-        if (content) return content;
+        if (content) {
+          this._lastTierUsed = 'tier_1_copilot_engine';
+          return content;
+        }
       } catch (err) {
         console.warn('[TrainingApp] CopilotEngine falhou, tentando TrainingAIClient:', err);
       }
@@ -1264,7 +1317,10 @@ class TrainingApp {
           temperature: 0.7
         });
         const content = typeof r === 'string' ? r : (r?.content || r?.text || r?.reply);
-        if (content) return content;
+        if (content) {
+          this._lastTierUsed = 'tier_3_training_ai_client';
+          return content;
+        }
       } catch (err) {
         console.warn('[TrainingApp] TrainingAIClient falhou:', err);
       }
@@ -1304,6 +1360,24 @@ class TrainingApp {
 
     if (type === 'executor') {
       msgEl.classList.add('pending');
+
+      // v9.X — Banner âmbar quando a resposta NÃO veio do Tier 0 (backend
+      // AIOrchestrator). Sem isto, o usuário aprovava no simulador algo que
+      // foi gerado SEM o treinamento (FAQs/produtos/business) e ficava
+      // surpreso quando o WhatsApp real devolvia resposta diferente.
+      const tier = message.tierUsed || null;
+      if (tier && tier !== 'tier_0_backend_orchestrator') {
+        content =
+          `<div class="message-degraded-banner"
+                style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);
+                       color:#92400E;padding:6px 10px;border-radius:8px;font-size:11px;
+                       margin-bottom:6px;display:flex;gap:6px;align-items:flex-start;">
+             <span>⚠️</span>
+             <span>Resposta gerada localmente (IA do servidor indisponível).
+             O WhatsApp real pode gerar resposta diferente quando o backend voltar.</span>
+           </div>` + content;
+      }
+
       content += `
         <div class="message-approval">
           <button class="btn-approve btn-approve-msg">✅ Aprovar</button>
