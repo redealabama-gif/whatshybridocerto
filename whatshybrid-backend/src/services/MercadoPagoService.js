@@ -17,10 +17,15 @@ const logger = require('../utils/logger');
 
 const MP_API = 'https://api.mercadopago.com';
 
+// Fase 2 — preços alinhados com a landing (signup.html, pricing card,
+// exit-modal cupom EXIT50). Antes: 97/197/497 (legado pré-relaunch).
+// Este objeto é o SOURCE OF TRUTH de preços do produto. Qualquer outro
+// lugar que mostre preço (admin dashboard, emails, validação de webhook)
+// deve referenciar `PLAN_PRICES` ou seguir manualmente os mesmos valores.
 const PLAN_PRICES = {
-  starter: 97.00,
-  pro: 197.00,
-  agency: 497.00,
+  starter: 49.90,
+  pro: 99.90,
+  agency: 199.90,
 };
 
 class MercadoPagoService {

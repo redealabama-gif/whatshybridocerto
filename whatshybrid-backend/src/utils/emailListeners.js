@@ -123,16 +123,37 @@ function setup() {
     try {
       const owner = getOwnerInfo(payload.workspace_id);
       if (!owner) return;
-      const planPrices = { starter: 97, pro: 197, agency: 497 };
+      // Fase 2: alinhado com PLAN_PRICES do MercadoPagoService.
+      const planPrices = { starter: 49.90, pro: 99.90, agency: 199.90 };
       await emailService.sendTrialEnding({
         to: owner.email,
         name: owner.name,
         daysLeft: payload.days_left,
         plan: owner.plan,
-        planPrice: planPrices[owner.plan] || 197,
+        planPrice: planPrices[owner.plan] || 99.90,
       });
     } catch (err) {
       logger.warn('[EmailListener] trial_ending failed:', err.message);
+    }
+  });
+
+  // ── Trial expirou: link de pagamento da 1ª fatura (Fase 2) ──
+  events.on('subscription.first_invoice_pending', async (payload) => {
+    try {
+      const owner = getOwnerInfo(payload.workspace_id);
+      if (!owner) return;
+      const planPrices = { starter: 49.90, pro: 99.90, agency: 199.90 };
+      await emailService.sendFirstInvoiceLink({
+        to: owner.email,
+        name: owner.name,
+        plan: owner.plan,
+        planPrice: planPrices[owner.plan] || 99.90,
+        paymentUrl: payload.payment_url,
+        expiresAt: payload.expires_at,
+        couponLabel: payload.coupon_label,
+      });
+    } catch (err) {
+      logger.warn('[EmailListener] first_invoice_pending failed:', err.message);
     }
   });
 
