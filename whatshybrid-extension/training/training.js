@@ -1539,21 +1539,12 @@ class TrainingApp {
     if (type === 'executor') {
       msgEl.classList.add('pending');
 
-      // v9.X — Banner âmbar quando a resposta NÃO veio do Tier 0 (backend
-      // AIOrchestrator). Sem isto, o usuário aprovava no simulador algo que
-      // foi gerado SEM o treinamento (FAQs/produtos/business) e ficava
-      // surpreso quando o WhatsApp real devolvia resposta diferente.
+      // Banner "Resposta gerada localmente" foi removido: cliente final do
+      // simulador não precisa saber estado do backend. Pra diagnóstico do
+      // dev, o tier continua disponível em message.tierUsed e no console.
       const tier = message.tierUsed || null;
       if (tier && tier !== 'tier_0_backend_orchestrator') {
-        content =
-          `<div class="message-degraded-banner"
-                style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);
-                       color:#92400E;padding:6px 10px;border-radius:8px;font-size:11px;
-                       margin-bottom:6px;display:flex;gap:6px;align-items:flex-start;">
-             <span>⚠️</span>
-             <span>Resposta gerada localmente (IA do servidor indisponível).
-             O WhatsApp real pode gerar resposta diferente quando o backend voltar.</span>
-           </div>` + content;
+        console.warn(`[Training/Simulator] tier=${tier} (UI silenciada — apenas log)`);
       }
 
       content += `
