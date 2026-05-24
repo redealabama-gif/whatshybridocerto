@@ -433,8 +433,14 @@ async function handleSyncTrainingData(message, sender, sendResponse) {
     .then(r => r.whl_backend_url)
     .catch(() => null);
 
-  const token = await chrome.storage.local.get('whl_backend_token')
-    .then(r => r.whl_backend_token)
+  // Token vive em `whl_backend_config.token` (canonical, escrito pelo BackendClient
+  // após login) ou `backend_token` (legacy, mantido por compat). A chave antiga
+  // `whl_backend_token` nunca é populada por ninguém — ler ela retornava `null`
+  // e fazia o sync silenciar pro modo local-only, deixando FAQs/Products órfãos
+  // (training_examples e businessInfo seguiam outra rota e por isso chegavam).
+  const token = await chrome.storage.local
+    .get(['whl_backend_config', 'backend_token'])
+    .then(r => r?.whl_backend_config?.token || r?.backend_token || null)
     .catch(() => null);
 
   if (backendUrl && token) {
