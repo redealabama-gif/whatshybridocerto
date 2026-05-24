@@ -159,9 +159,15 @@ class AIOrchestrator {
       }
 
       // ── 3. RAG / HybridSearch ───────────────────────────────────────────────
+      // HybridSearch.search() retorna { query, results, method, ... } — NÃO um
+      // array. O `|| []` só pega null/undefined; um objeto cai direto em
+      // knowledgeResults e quebra o DynamicPromptBuilder mais adiante com
+      // `knowledge.filter is not a function` (objeto não tem .filter). Sempre
+      // extrai .results e cai em [] em qualquer formato inesperado.
       let knowledgeResults = [];
       try {
-        knowledgeResults = (await this.hybridSearch.search(message, 5)) || [];
+        const searchResult = await this.hybridSearch.search(message, 5);
+        knowledgeResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
 
       // ── 3b. v9.7.x — Conhecimento treinado pelo usuário (FAQs / produtos /
