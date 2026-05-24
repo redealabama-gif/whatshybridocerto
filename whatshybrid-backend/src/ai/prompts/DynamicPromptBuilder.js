@@ -401,7 +401,11 @@ class DynamicPromptBuilder {
    * @returns {string|null} Knowledge section text or null if no knowledge provided
    */
   buildKnowledgeSection(knowledge, minScore = 0.3, language = 'pt-BR') {
-    if (!knowledge || knowledge.length === 0) {
+    // Defesa contra caller que passa um objeto-resultado (ex.: shape do
+    // HybridSearch `{ results, query, method }`) em vez do array em si.
+    // Antes a checagem `length === 0` deixava o objeto passar e estourava
+    // logo abaixo no `.filter`. Agora rejeita qualquer não-array em silêncio.
+    if (!Array.isArray(knowledge) || knowledge.length === 0) {
       return null;
     }
 
