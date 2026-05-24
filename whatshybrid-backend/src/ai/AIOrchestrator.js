@@ -14,7 +14,14 @@ const ResponseABTester = require('./learning/ResponseABTester');
 const AIAnalyticsCollector = require('./analytics/AIAnalyticsCollector');
 const ResponseSafetyFilter = require('./safety/ResponseSafetyFilter');
 const HybridSearch = require('./search/HybridSearch');
-const DynamicPromptBuilder = require('./prompts/DynamicPromptBuilder');
+// DynamicPromptBuilder exporta INSTÂNCIA (singleton) como default e a CLASSE
+// como propriedade nomeada. Aqui precisamos da CLASSE pra instanciar com
+// config customizada por tenant (linha ~61: new DynamicPromptBuilder(config.prompts)).
+// Antes esta linha pegava a instância e o `new` quebrava com
+// 'DynamicPromptBuilder is not a constructor' → orchestrator falhava no
+// construtor → ai-v2.js engolia o erro e respondia 503 'AIOrchestrator not
+// available' pra TODA chamada de IA. Bug fatal pra produto.
+const { DynamicPromptBuilder } = require('./prompts/DynamicPromptBuilder');
 // FIX: importa proxy do singleton + classe nomeada para casos de instância dedicada
 const AIRouterModule = require('./services/AIRouterService');
 const { AIRouterService } = AIRouterModule;

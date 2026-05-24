@@ -488,7 +488,18 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
     };
     orchestrator = orchestratorRegistry.get(tenantId, workspaceConfig);
   } catch (e) {
-    return res.status(503).json({ error: 'AIOrchestrator not available' });
+    // Antes este catch engolia o erro silenciosamente, devolvendo só
+    // "AIOrchestrator not available" pro cliente. Bug do
+    // DynamicPromptBuilder (instance vs class) ficou invisível semanas
+    // porque ninguém via o stack trace real. Agora logamos sempre.
+    require('../utils/logger').error(
+      `[AI/process] orchestrator init failed tenantId=${tenantId}: ${e.message}`,
+      { stack: e.stack }
+    );
+    return res.status(503).json({
+      error: 'AIOrchestrator not available',
+      reason: e.message,
+    });
   }
 
   // CORREÇÃO P1: Fila BullMQ assíncrona com fallback síncrono
