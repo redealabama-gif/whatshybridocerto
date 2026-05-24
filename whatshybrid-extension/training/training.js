@@ -133,11 +133,36 @@ class TrainingApp {
   // SALVAR DADOS
   // ============================================
 
+  // Detecta erro de quota estourada (kQuotaBytes) e avisa o usuário com
+  // toast em vez de spam silencioso no console. O manifest agora pede
+  // "unlimitedStorage", mas extensões antigas instaladas sem essa permission
+  // continuam batendo no limite até serem recarregadas. Este handler garante
+  // mensagem clara em qualquer caso.
+  _isQuotaError(error) {
+    const msg = String(error?.message || '');
+    return msg.includes('quota') || msg.includes('QUOTA') ||
+           msg.includes('kQuotaBytes') || msg.includes('Resource');
+  }
+
+  _handleStorageError(scope, error) {
+    if (this._isQuotaError(error)) {
+      console.error(`[TrainingApp] ${scope}: storage cheio (quota exceeded).`, error);
+      this.showToast(
+        'Storage local cheio. Recarregue a extensão (chrome://extensions) ' +
+        'pra ativar storage ilimitado — dados continuam no backend.',
+        'error',
+        8000
+      );
+    } else {
+      console.error(`[TrainingApp] Erro ao salvar ${scope}:`, error);
+    }
+  }
+
   async saveExamples() {
     try {
       await chrome.storage.local.set({ whl_few_shot_examples: JSON.stringify(this.examples) });
     } catch (error) {
-      console.error('[TrainingApp] Erro ao salvar exemplos:', error);
+      this._handleStorageError('exemplos', error);
     }
   }
 
@@ -165,7 +190,7 @@ class TrainingApp {
 
       await chrome.storage.local.set({ whl_knowledge_base: kb });
     } catch (error) {
-      console.error('[TrainingApp] Erro ao salvar KB:', error);
+      this._handleStorageError('knowledge base', error);
     }
   }
 
