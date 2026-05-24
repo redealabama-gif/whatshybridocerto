@@ -770,10 +770,85 @@ router.get('/learn/context/:chatId', authenticate, asyncHandler(async (req, res)
     feedbackCount = fb?.c || 0;
   } catch (_) {}
 
+  // Knowledge base: FAQs + Produtos + Negócio. O copilot lê isso de
+  // `data.context.knowledge` (copilot-engine.js:1184) e formata como bloco
+  // "CONHECIMENTO (servidor)" no prompt do LLM (linhas 2047-2055). Sem
+  // mensagem específica pra scorar, retornamos top-N por recência — o
+  // copilot já faz seu próprio scoring local com a mensagem do cliente.
+  // Shape esperado pelo consumidor: `{ question, answer }` por item.
+  const knowledge = [];
+
+  try {
+    const faqs = db.all(
+      `SELECT question, answer FROM faqs
+         WHERE workspace_id = ? AND is_active = 1
+         ORDER BY updated_at DESC LIMIT 15`,
+      [req.workspaceId]
+    ) || [];
+    for (const f of faqs) {
+      knowledge.push({ type: 'faq', question: f.question, answer: f.answer });
+    }
+  } catch (e) { logger.warn(`[ai/learn/context] faqs query failed: ${e.message}`); }
+
+  try {
+    const products = db.all(
+      `SELECT name, description, short_description, price, currency, stock, stock_status
+         FROM products
+         WHERE workspace_id = ? AND is_active = 1
+         ORDER BY updated_at DESC LIMIT 20`,
+      [req.workspaceId]
+    ) || [];
+    for (const p of products) {
+      const parts = [];
+      if (p.short_description || p.description) {
+        parts.push(String(p.short_description || p.description).slice(0, 400));
+      }
+      if (Number.isFinite(p.price) && p.price > 0) {
+        parts.push(`Preço: ${p.currency || 'BRL'} ${Number(p.price).toFixed(2)}`);
+      }
+      if (Number.isFinite(p.stock) && p.stock !== null) {
+        parts.push(p.stock > 0 ? `Estoque: ${p.stock}` : 'Esgotado');
+      } else if (p.stock_status) {
+        parts.push(`Disponibilidade: ${p.stock_status}`);
+      }
+      knowledge.push({
+        type: 'product',
+        question: p.name,
+        answer: parts.join(' — ') || 'Sem informações adicionais',
+      });
+    }
+  } catch (e) { logger.warn(`[ai/learn/context] products query failed: ${e.message}`); }
+
+  try {
+    const wk = db.get(
+      `SELECT data FROM workspace_knowledge WHERE workspace_id = ?`,
+      [req.workspaceId]
+    );
+    if (wk?.data) {
+      const bi = JSON.parse(wk.data);
+      const lines = [];
+      if (bi.hours)              lines.push(`Horário: ${bi.hours}`);
+      if (bi.phone)              lines.push(`Telefone: ${bi.phone}`);
+      if (bi.email)              lines.push(`Email: ${bi.email}`);
+      if (Array.isArray(bi.paymentMethods) && bi.paymentMethods.length) {
+        lines.push(`Pagamento: ${bi.paymentMethods.join(', ')}`);
+      }
+      if (bi.deliveryPolicy)     lines.push(`Entrega: ${String(bi.deliveryPolicy).slice(0, 300)}`);
+      if (bi.returnPolicy)       lines.push(`Trocas: ${String(bi.returnPolicy).slice(0, 300)}`);
+      if (bi.customInstructions) lines.push(`Instruções: ${String(bi.customInstructions).slice(0, 500)}`);
+      if (lines.length) {
+        knowledge.push({
+          type: 'business',
+          question: bi.name ? `Sobre a empresa (${bi.name})` : 'Sobre a empresa',
+          answer: lines.join(' | '),
+        });
+      }
+    }
+  } catch (e) { logger.warn(`[ai/learn/context] businessInfo failed: ${e.message}`); }
+
   // Cliente (copilot-engine.js:1180) lê `data.success && data.context` e
-  // extrai memory/examples/messages de dentro de context. A shape antiga
-  // (chaves no top level) sempre caía em `return null` no cliente — mesmo
-  // se a tabela existisse, o contexto nunca chegava no copilot.
+  // extrai memory/examples/messages/knowledge de dentro de context. A shape
+  // antiga (chaves no top level) sempre caía em `return null` no cliente.
   res.json({
     success: true,
     context: {
@@ -781,10 +856,12 @@ router.get('/learn/context/:chatId', authenticate, asyncHandler(async (req, res)
       memory,
       messages,
       examples,
+      knowledge,
       feedbackCount,
       stats: {
         totalMessages: messages.length,
         examplesFound: examples.length,
+        knowledgeFound: knowledge.length,
         hasMemory: !!memory,
       },
       timestamp: new Date().toISOString(),

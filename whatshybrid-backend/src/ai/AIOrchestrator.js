@@ -903,6 +903,42 @@ class AIOrchestrator {
       }
     } catch (e) { logger.debug?.(`[Orchestrator] BusinessInfo load failed: ${e.message}`); }
 
+    // ── Training Examples ───────────────────────────────────────────
+    // Aba "Exemplos" do dashboard de treinamento. Sem esse bloco, os
+    // exemplos cadastrados pelo operador só chegavam na IA principal
+    // depois de "graduarem" via ValidatedLearningPipeline — caminho
+    // que exige dezenas de feedbacks positivos do mesmo padrão. Para
+    // um operador que cadastra 50 exemplos curados, isso é meses.
+    // Aqui injetamos os mais relevantes à mensagem atual diretamente
+    // no knowledge, no mesmo shape de FAQs/produtos.
+    try {
+      const examples = db.all(
+        `SELECT input, output, category
+           FROM training_examples
+          WHERE workspace_id = ?
+          ORDER BY usage_count DESC, updated_at DESC
+          LIMIT 100`,
+        [this.tenantId]
+      ) || [];
+
+      const scored = examples
+        .map(ex => ({
+          // Format escolhido pra ser auto-evidente no prompt: o LLM
+          // entende como "exemplo do que fazer" sem precisar de instrução
+          // adicional. Aspas duplas no input/output ajudam o parser a
+          // tratar como bloco citado.
+          content: `Exemplo aprovado — quando o cliente disser "${ex.input}", responda no estilo: "${ex.output}"`,
+          source: `Exemplo${ex.category && ex.category !== 'geral' && ex.category !== 'Geral' ? ` / ${ex.category}` : ''}`,
+          // Input pesa mais que output: o match relevante é com o que o
+          // cliente está falando AGORA, não com o que vamos responder.
+          score: Math.max(scoreOf(ex.input) * 1.2, scoreOf(ex.output) * 0.5),
+        }))
+        .filter(x => x.score >= 0.3)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      out.push(...scored);
+    } catch (e) { logger.debug?.(`[Orchestrator] Examples query failed: ${e.message}`); }
+
     // Limita ao topN final mantendo a ordenação por score
     return out
       .sort((a, b) => b.score - a.score)
