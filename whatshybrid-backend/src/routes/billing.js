@@ -63,17 +63,31 @@ router.post('/create-checkout',
     }
 
     try {
+      // Resgata cupom pendente do workspace (se houver). createPreference
+      // já é defensivo — passar undefined é seguro, e cupom expirado/usado
+      // é tratado lá dentro.
+      let couponCode;
+      try {
+        const couponService = require('../services/CouponService');
+        const pending = couponService.getPendingCouponForWorkspace(ws.id, plan);
+        if (pending) couponCode = pending.code;
+      } catch (e) {
+        logger.warn('[Billing] coupon lookup failed:', e.message);
+      }
+
       const pref = await mpService.createPreference({
         workspaceId: ws.id,
         plan,
         email: ws.email,
         name: ws.name,
+        couponCode,
       });
 
-      // Salva intent de pagamento (auditoria)
+      // Salva intent de pagamento (auditoria). Inclui o cupom no metadata
+      // pra rastrear, se aplicado.
       db.run(
-        `INSERT INTO billing_intents (id, workspace_id, plan, provider, provider_ref, status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO billing_intents (id, workspace_id, plan, provider, provider_ref, status, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           require('../utils/uuid-wrapper').v4(),
           ws.id,
@@ -81,6 +95,7 @@ router.post('/create-checkout',
           'mercadopago',
           pref.id,
           'pending',
+          couponCode ? JSON.stringify({ coupon: couponCode }) : null,
         ]
       );
 
@@ -90,6 +105,7 @@ router.post('/create-checkout',
         checkout_url: process.env.MERCADOPAGO_USE_SANDBOX === 'true'
           ? pref.sandbox_init_point
           : pref.init_point,
+        coupon_applied: couponCode || null,
       });
     } catch (err) {
       logger.error('[Billing] create-checkout failed:', err);

@@ -385,6 +385,8 @@ app.use('/api/v1/users/api-keys', apiKeysRoutes);
 app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/extension', extensionRoutes);
 app.use('/api/v1/billing', billingRoutes);
+// Cupom: endpoint público pra signup.html validar código antes de enviar.
+app.use('/api/v1/coupons', require('./routes/coupons'));
 // v9.7.x: Training sync — extensão chama no botão "Sincronizar" da página de treinamento.
 // Antes o endpoint não existia (404 silencioso) e a UI mostrava sucesso falso.
 app.use('/api/v1/training', require('./routes/training'));

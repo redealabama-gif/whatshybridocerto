@@ -84,6 +84,10 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
   const nextBilling = new Date(now);
   nextBilling.setDate(nextBilling.getDate() + 30); // +30 dias
 
+  // invoiceId pré-gerado pra que recordRedemption (fora da transaction
+  // principal) consiga referenciar a invoice criada aqui.
+  const invoiceId = uuidv4();
+
   db.transaction(() => {
     // Atualiza workspace
     db.run(
@@ -111,7 +115,7 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
         amount, currency, period_start, period_end, paid_at
       ) VALUES (?, ?, ?, 'mercadopago', ?, 'paid', ?, ?, ?, ?, ?)`,
       [
-        uuidv4(),
+        invoiceId,
         workspaceId,
         plan,
         paymentId,
@@ -123,6 +127,41 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
       ]
     );
   });
+
+  // Fase 1 cupons: se workspace tinha cupom pendente, registra redenção
+  // como 'paid'. Idempotente — recordRedemption checa first_invoice_only
+  // e marca workspaces.coupon_first_invoice_used_at, então cobrar de novo
+  // mais tarde não dispara nova redenção. Fora da transação principal
+  // pra não acoplar (cupom é auditoria; pagamento é dado primário).
+  try {
+    const wsRow = db.get(
+      `SELECT coupon_code, coupon_first_invoice_used_at FROM workspaces WHERE id = ?`,
+      [workspaceId]
+    );
+    if (wsRow?.coupon_code && !wsRow.coupon_first_invoice_used_at) {
+      const couponService = require('../services/CouponService');
+      const couponSnap = couponService.validate(wsRow.coupon_code, plan);
+      if (couponSnap.valid) {
+        const c = couponSnap.coupon;
+        const expectedFull = (mpService.PLAN_PRICES || {})[plan];
+        const original = (typeof expectedFull === 'number') ? expectedFull : Number(amount);
+        const discount = Math.max(0, Math.round((original - Number(amount)) * 100) / 100);
+        couponService.recordRedemption({
+          couponCode: c.code,
+          workspaceId,
+          plan,
+          originalAmount: original,
+          discountAmount: discount,
+          finalAmount: Number(amount),
+          invoiceId,
+          status: 'paid',
+        });
+      }
+    }
+  } catch (err) {
+    logger.warn(`[WebhookSaaS] Coupon redemption record failed: ${err.message}`);
+    // não falha o webhook — pagamento já foi processado
+  }
 
   logger.info(`[WebhookSaaS] Workspace ${workspaceId} ativado: plano ${plan}, próxima cobrança ${nextBilling.toISOString()}`);
 
