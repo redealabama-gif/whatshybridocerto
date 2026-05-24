@@ -13,9 +13,16 @@
   const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
   // Pode ser sobrescrito em runtime via storage/config.
+  //
+  // BACKEND_FALLBACKS: contém SÓ a URL canônica. Antes incluía
+  // 'http://localhost:3001' como fallback — porta fantasma que ninguém
+  // roda em dev. Resultado: falha transiente em :3000 disparava failover
+  // pra :3001, ERR_CONNECTION_REFUSED em loop, e a extensão ficava presa
+  // numa URL morta. Pra setup com hosts redundantes em produção, sobrescreva
+  // WHL_ENDPOINTS.BACKEND_FALLBACKS antes deste módulo carregar.
   const DEFAULTS = {
     BACKEND_DEFAULT: 'http://localhost:3000',
-    BACKEND_FALLBACKS: ['http://localhost:3000', 'http://localhost:3001'],
+    BACKEND_FALLBACKS: ['http://localhost:3000'],
     OLLAMA_CHAT: 'http://localhost:11434/api/chat'
   };
 

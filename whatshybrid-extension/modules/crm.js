@@ -167,7 +167,14 @@
     });
   }
 
+  // Fingerprint da última escrita feita por nós. O listener storage.onChanged
+  // compara com newValue.lastSync pra ignorar ecos das próprias escritas e
+  // evitar o loop load → sync → save → onChanged → load.
+  let _lastSelfWriteSync = null;
+
   async function saveToLocalStorage() {
+    const lastSync = new Date().toISOString();
+    _lastSelfWriteSync = lastSync;
     return new Promise(resolve => {
       chrome.storage.local.set({
         [STORAGE_KEY]: {
@@ -175,7 +182,7 @@
           deals: state.deals,
           activities: state.activities,
           pipeline: state.pipeline,
-          lastSync: new Date().toISOString()
+          lastSync
         }
       }, resolve);
     });
@@ -1529,16 +1536,41 @@
   };
 
   // ==================== SINCRONIZAÇÃO COM STORAGE ====================
-  // Escuta mudanças do storage (quando CRM em aba separada salva dados)
+  // Escuta mudanças do storage (outra aba salvou dados → atualizar UI).
+  //
+  // ⚠️ Histórico: antes este listener chamava `loadData()`, que por sua vez
+  // chama `syncWithBackend()` (network) e em caso de sucesso chama
+  // `saveToLocalStorage()` — e ESSE save dispara este mesmo listener de
+  // volta. Loop: load → sync → save → onChanged → load → … Cada iteração
+  // fazia um fetch. Em ~1s o Chrome esgotava o pool de sockets e disparava
+  // ERR_INSUFFICIENT_RESOURCES em TODOS os outros módulos (IA, treinamento,
+  // sugestão, autopilot) — quebrando a extensão inteira só pra "atualizar
+  // CRM de outra aba".
+  //
+  // Fix: atualiza state direto do payload do change (sem network, sem
+  // chamar saveToLocalStorage), e ignora ecos das nossas próprias escritas
+  // via fingerprint do timestamp lastSync. Cross-tab continua funcionando
+  // — só não dispara loop nem network extra.
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes[STORAGE_KEY]) {
-      console.log('[CRM] 🔄 Dados alterados externamente, recarregando...');
-      loadData().then(() => {
-        // Re-renderizar se a função existir
-        if (typeof window.renderModuleViews === 'function') {
-          window.renderModuleViews();
-        }
-      });
+    if (areaName !== 'local' || !changes[STORAGE_KEY]) return;
+
+    const newValue = changes[STORAGE_KEY].newValue;
+    if (!newValue) return;
+
+    // Eco da nossa própria escrita: o lastSync casa com o último que
+    // gravamos. Pula sem recarregar nada — o state já está atualizado.
+    if (newValue.lastSync && newValue.lastSync === _lastSelfWriteSync) {
+      return;
+    }
+
+    console.log('[CRM] 🔄 Dados alterados por outra aba — atualizando state local');
+    state.contacts = newValue.contacts || state.contacts;
+    state.deals = newValue.deals || state.deals;
+    state.activities = newValue.activities || state.activities;
+    state.pipeline = newValue.pipeline || state.pipeline;
+
+    if (typeof window.renderModuleViews === 'function') {
+      window.renderModuleViews();
     }
   });
 
