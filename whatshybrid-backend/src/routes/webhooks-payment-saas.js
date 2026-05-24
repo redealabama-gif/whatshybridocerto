@@ -87,21 +87,50 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
   }
 
   const now = new Date();
-  const nextBilling = new Date(now);
-  nextBilling.setDate(nextBilling.getDate() + 30); // +30 dias
+
+  // Fase 3 — next_billing_at cumulativo:
+  // Antes: nextBilling = now + 30d (sempre). Problema: se o webhook chega
+  // com 1-3 dias de atraso (retry MP, congestionamento, etc), o ciclo
+  // mensal "desliza" pra frente todo mês — cliente que assinou dia 5
+  // acaba sendo cobrado dia 8, depois 10, etc.
+  // Agora: base = max(current_next_billing_at, now); next = base + 30d.
+  // Assim o ciclo mantém o dia do mês original mesmo com atrasos pontuais.
+  let baseForNext = now;
+  try {
+    const wsRow = db.get(
+      'SELECT next_billing_at FROM workspaces WHERE id = ?',
+      [workspaceId]
+    );
+    if (wsRow?.next_billing_at) {
+      const current = new Date(wsRow.next_billing_at);
+      if (current.getTime() > now.getTime()) {
+        // ainda no futuro (pagamento adiantado) → estende a partir dele
+        baseForNext = current;
+      }
+      // se já passou: usa now (atraso já existia; recomeçar daqui)
+    }
+  } catch (_) {}
+  const nextBilling = new Date(baseForNext);
+  nextBilling.setDate(nextBilling.getDate() + 30);
 
   // invoiceId pré-gerado pra que recordRedemption (fora da transaction
   // principal) consiga referenciar a invoice criada aqui.
   const invoiceId = uuidv4();
 
   db.transaction(() => {
-    // Atualiza workspace
+    // Atualiza workspace. Fase 3: zera past_due_since + dunning_attempts
+    // quando ativar pra não carregar "antiguidade fantasma" no próximo
+    // ciclo. Se esse workspace cair past_due de novo daqui 30d, o
+    // dunning começa em dia 1, não em dia ∞.
     db.run(
       `UPDATE workspaces SET
          plan = ?,
          subscription_status = 'active',
          payment_provider = 'mercadopago',
          next_billing_at = ?,
+         past_due_since = NULL,
+         dunning_attempts = 0,
+         last_dunning_at = NULL,
          updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [plan, nextBilling.toISOString(), workspaceId]

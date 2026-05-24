@@ -138,6 +138,92 @@ router.get('/invoices', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * POST /api/v1/billing/recover-link — Fase 3 da cobrança real
+ *
+ * Endpoint chamado pelo dashboard quando o usuário está past_due ou
+ * trialing-prestes-a-expirar e quer um link de pagamento agora (perdeu
+ * email, link expirado, etc).
+ *
+ * Body:
+ *   { force?: boolean }
+ *     - false (default): respeita idempotência de 24h (BillingLinkService)
+ *     - true: força nova preference no MP mesmo se já existe pending
+ *       recente. Use quando o usuário insiste "gera de novo".
+ *
+ * Resposta sucesso:
+ *   200 { payment_url, intent_id, coupon_applied?, plan, expires_at? }
+ *
+ * Resposta erro:
+ *   - 400 plan_not_billable: workspace em plano free
+ *   - 400 already_active: workspace já está active (sem renovação pendente)
+ *   - 503 mp_not_configured: MP não configurado no servidor
+ *   - 409 recent_intent_exists: link recente existe; cliente deve usar
+ *     ou enviar force=true. Inclui intent_id pra cliente buscar histórico.
+ */
+router.post('/recover-link',
+  authorize('owner'),
+  asyncHandler(async (req, res) => {
+    const ws = db.get(
+      `SELECT id, plan, owner_id, subscription_status
+       FROM workspaces WHERE id = ?`,
+      [req.workspaceId]
+    );
+    if (!ws) throw new AppError('Workspace not found', 404);
+
+    // Estados elegíveis pra gerar link:
+    //   - past_due:        cobrança vencida (trial expirou ou renovação falhou)
+    //   - trialing:        ainda tá no trial (pode pagar adiantado)
+    //   - canceling:       pediu cancelar mas ainda tá no ciclo pago
+    // Estados rejeitados:
+    //   - active:          já paga em dia, nada a fazer
+    //   - suspended:       suspensão precisa contato com suporte
+    const eligible = ['past_due', 'trialing', 'canceling'];
+    if (!eligible.includes(ws.subscription_status)) {
+      throw new AppError(
+        `Workspace está com status ${ws.subscription_status}; não há cobrança pendente`,
+        400,
+        'NOT_ELIGIBLE'
+      );
+    }
+
+    const force = !!req.body?.force;
+    const billingLinkService = require('../services/BillingLinkService');
+    const result = await billingLinkService.generatePaymentLink(ws, null, {
+      source: 'manual_recover',
+      force,
+    });
+
+    if (!result.ok) {
+      const reason = result.reason || 'unknown';
+      const map = {
+        mp_not_configured: { code: 503, msg: 'Pagamento indisponível no momento' },
+        plan_not_billable: { code: 400, msg: 'Plano não-cobrável (free)' },
+        no_owner_email:    { code: 500, msg: 'Workspace sem email do owner' },
+        recent_intent_exists: {
+          code: 409,
+          msg: 'Já existe um link de pagamento ativo. Envie force=true pra gerar um novo.',
+        },
+      };
+      const m = map[reason] || { code: 500, msg: 'Falha ao gerar link de pagamento' };
+      return res.status(m.code).json({
+        error: m.msg,
+        reason,
+        intent_id: result.intent_id || null,
+      });
+    }
+
+    logger.info(`[Billing] recover-link ws=${ws.id} force=${force} ok`);
+    res.json({
+      payment_url: result.payment_url,
+      intent_id: result.intent_id,
+      provider_ref: result.provider_ref,
+      coupon_applied: result.coupon_label ? result.coupon_label : null,
+      plan: ws.plan,
+    });
+  })
+);
+
+/**
  * POST /api/v1/billing/create-token-checkout — v8.4.0
  * Cria preference no MP para comprar pacote AVULSO de tokens.
  * Body: { package_id: 'pack_10k' | 'pack_50k' | 'pack_200k' | 'pack_1M' }
@@ -289,11 +375,22 @@ router.post('/subscribe-recurring',
     }
 
     try {
+      // Fase 3: passa cupom pendente (só será aplicado se for permanente —
+      // EXIT50 é first_invoice_only, será ignorado aqui mas continua
+      // pendente pra uma cobrança one-shot via createPreference).
+      let couponCode;
+      try {
+        const couponService = require('../services/CouponService');
+        const pending = couponService.getPendingCouponForWorkspace(ws.id, plan);
+        if (pending) couponCode = pending.code;
+      } catch (_) {}
+
       const pre = await mpService.createPreapproval({
         workspaceId: ws.id,
         plan,
         email: ws.email,
         name: ws.name,
+        couponCode,
       });
 
       // Salva o preapproval_id para referência futura
@@ -302,14 +399,20 @@ router.post('/subscribe-recurring',
         [pre.id, ws.id]
       );
 
-      logger.info(`[Billing] Preapproval created: ${pre.id} for ws=${ws.id} plan=${plan}`);
+      logger.info(
+        `[Billing] Preapproval created: ${pre.id} for ws=${ws.id} plan=${plan}` +
+        (pre.coupon_applied ? ` coupon=${pre.coupon_applied.code}` : '')
+      );
 
       res.json({
         provider: 'mercadopago',
         preapproval_id: pre.id,
         status: pre.status,
         authorize_url: pre.init_point,
-        message: 'Acesse o link para autorizar a assinatura recorrente. Após autorizar, o MP cobrará automaticamente todo mês.',
+        coupon_applied: pre.coupon_applied,
+        message: pre.coupon_applied
+          ? `Acesse o link para autorizar a assinatura recorrente com ${pre.coupon_applied.label} aplicado em todas as cobranças.`
+          : 'Acesse o link para autorizar a assinatura recorrente. Após autorizar, o MP cobrará automaticamente todo mês.',
       });
     } catch (err) {
       logger.error('[Billing] subscribe-recurring failed:', err.message);
