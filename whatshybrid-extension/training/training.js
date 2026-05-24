@@ -334,7 +334,7 @@ class TrainingApp {
         : `<span class="quality-badge quality-approved" title="Aprovado sem edição">${quality}/10</span>`;
       const ageLabel = this.formatRelativeAge(ex.createdAt || ex.id);
       return `
-      <div class="example-card" data-id="${parseInt(ex.id) || 0}">
+      <div class="example-card" data-id="${this.escapeHtml(String(ex.id ?? ''))}">
         <div class="example-header">
           <span class="example-category">${this.escapeHtml(ex.category || 'Geral')}</span>
           <div class="example-quality">
@@ -359,8 +359,10 @@ class TrainingApp {
     this._handleExampleClick = (e) => {
       const card = e.target.closest('.example-card');
       if (card) {
-        const id = parseInt(card.dataset.id);
-        if (!isNaN(id)) this.openExampleModal(id);
+        // IDs são UUIDs (strings). parseInt aqui retornava NaN ou um número
+        // truncado, daí o find por f.id === id NUNCA batia e o modal não abria.
+        const id = card.dataset.id;
+        if (id) this.openExampleModal(id);
       }
     };
     grid.addEventListener('click', this._handleExampleClick);
@@ -381,7 +383,7 @@ class TrainingApp {
     if (empty) empty.style.display = 'none';
 
     list.innerHTML = this.faqs.map(faq => `
-      <div class="faq-card" data-id="${parseInt(faq.id) || 0}">
+      <div class="faq-card" data-id="${this.escapeHtml(String(faq.id ?? ''))}">
         <div class="faq-question">${this.escapeHtml(faq.q || faq.question || '')}</div>
         <div class="faq-answer">${this.escapeHtml(faq.a || faq.answer || '')}</div>
         ${faq.keywords?.length ? `
@@ -396,8 +398,9 @@ class TrainingApp {
     this._handleFaqClick = (e) => {
       const card = e.target.closest('.faq-card');
       if (card) {
-        const id = parseInt(card.dataset.id);
-        if (!isNaN(id)) this.openFaqModal(id);
+        // Ver comentário no _handleExampleClick — mesmo bug com UUID/parseInt.
+        const id = card.dataset.id;
+        if (id) this.openFaqModal(id);
       }
     };
     list.addEventListener('click', this._handleFaqClick);
@@ -426,7 +429,7 @@ class TrainingApp {
       };
 
       return `
-        <div class="product-card" data-id="${parseInt(p.id) || 0}">
+        <div class="product-card" data-id="${this.escapeHtml(String(p.id ?? ''))}">
           <div class="product-header">
             <div>
               <div class="product-name">${this.escapeHtml(p.name || '')}</div>
@@ -474,8 +477,9 @@ class TrainingApp {
 
       const card = e.target.closest('.product-card');
       if (card) {
-        const id = parseInt(card.dataset.id);
-        if (!isNaN(id)) this.openProductModal(id);
+        // Ver comentário no _handleExampleClick — mesmo bug com UUID/parseInt.
+        const id = card.dataset.id;
+        if (id) this.openProductModal(id);
       }
     };
     grid.addEventListener('click', this._handleProductClick);
