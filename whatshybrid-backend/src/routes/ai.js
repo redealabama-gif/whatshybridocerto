@@ -421,31 +421,54 @@ router.post('/few-shot/sync', authenticate, asyncHandler(async (req, res) => {
 
   logger.info(`[FewShot] Syncing ${clientExamples.length} examples for workspace ${workspaceId}`);
 
-  // Inserir exemplos do cliente que não existem
+  // Inserir exemplos do cliente que não existem.
+  //
+  // ⚠️ Antes, qualquer exemplo com input/output vazio (vinha do simulator ou
+  // import quebrado) violava o NOT NULL de training_examples.input e o INSERT
+  // jogava SqliteError, fazendo a rota inteira responder 500 e perder os
+  // outros 274 exemplos válidos. Replicamos aqui a normalização defensiva que
+  // já existe em routes/training.js:
+  //   - coerce pra string e aceita aliases (ex.user, ex.response)
+  //   - skip se input OU output vazio (não há por que sincronizar)
+  //   - slice cap defensivo de 5000 chars (igual training.js)
+  //   - try/catch por linha: um exemplo ruim não derruba os outros
   let inserted = 0;
+  let skipped = 0;
+  let failed = 0;
   for (const ex of clientExamples) {
-    const existing = db.get(
-      'SELECT id FROM training_examples WHERE id = ? AND workspace_id = ?',
-      [ex.id, workspaceId]
-    );
+    if (!ex || typeof ex !== 'object') { skipped++; continue; }
 
-    if (!existing) {
-      db.run(`
-        INSERT INTO training_examples
-        (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-      `, [
-        ex.id || uuidv4(),
-        workspaceId,
-        userId,
-        ex.input,
-        ex.output,
-        ex.context || '',
-        ex.category || 'Geral',
-        JSON.stringify(ex.tags || []),
-        ex.usageCount || 0
-      ]);
-      inserted++;
+    const input  = (ex.input  || ex.user     || '').toString().slice(0, 5000);
+    const output = (ex.output || ex.response || '').toString().slice(0, 5000);
+    if (!input || !output) { skipped++; continue; }
+
+    try {
+      const existing = db.get(
+        'SELECT id FROM training_examples WHERE id = ? AND workspace_id = ?',
+        [ex.id, workspaceId]
+      );
+
+      if (!existing) {
+        db.run(`
+          INSERT INTO training_examples
+          (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `, [
+          ex.id || uuidv4(),
+          workspaceId,
+          userId,
+          input,
+          output,
+          (ex.context || '').toString().slice(0, 200),
+          (ex.category || 'Geral').toString().slice(0, 100),
+          JSON.stringify(Array.isArray(ex.tags) ? ex.tags.slice(0, 20) : []),
+          Number.isFinite(ex.usageCount) ? ex.usageCount : 0
+        ]);
+        inserted++;
+      }
+    } catch (e) {
+      failed++;
+      logger.warn(`[FewShot] Insert failed for example ${ex.id || '(no id)'}: ${e.message}`);
     }
   }
 
@@ -464,13 +487,15 @@ router.post('/few-shot/sync', authenticate, asyncHandler(async (req, res) => {
     usageCount: ex.usage_count
   }));
 
-  logger.info(`[FewShot] Sync complete: ${inserted} inserted, ${formattedExamples.length} total`);
+  logger.info(`[FewShot] Sync complete: ${inserted} inserted, ${skipped} skipped, ${failed} failed, ${formattedExamples.length} total`);
 
   res.json({
     success: true,
     examples: formattedExamples,
     synced: clientExamples.length,
     inserted,
+    skipped,
+    failed,
     total: formattedExamples.length
   });
 }));
