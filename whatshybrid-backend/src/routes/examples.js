@@ -200,56 +200,97 @@ router.post('/sync', async (req, res) => {
   try {
     const workspaceId = req.user.workspace_id;
     const userId = req.user.id;
-    const { examples: clientExamples = [] } = req.body;
-    
-    // Inserir exemplos do cliente que não existem
+    let { examples: clientExamples = [] } = req.body;
+
+    // ⚠️ Defesa contra string serializada vinda do cliente.
+    // Mesmo bug que atinge /api/v1/ai/few-shot/sync — o frontend salva no
+    // chrome.storage.local com JSON.stringify(array), o knowledge-sync-manager
+    // envia direto em body.examples. Se chega como string, for...of itera
+    // caractere por caractere e tudo é descartado. Parse defensivo aqui:
+    if (typeof clientExamples === 'string') {
+      try {
+        const parsed = JSON.parse(clientExamples);
+        clientExamples = Array.isArray(parsed) ? parsed : [];
+        if (Array.isArray(parsed)) {
+          logger.info(`[Examples] body.examples veio como string serializada — parsed (${parsed.length} items)`);
+        }
+      } catch (e) {
+        logger.warn(`[Examples] body.examples era string inválida: ${e.message}`);
+        clientExamples = [];
+      }
+    } else if (!Array.isArray(clientExamples)) {
+      clientExamples = [];
+    }
+
+    // Inserir exemplos do cliente que não existem.
+    // Validação defensiva igual a /api/v1/ai/few-shot/sync e /api/v1/training/sync:
+    // skip se input/output vazio (NOT NULL constraint), try/catch por linha,
+    // aceita aliases ex.user/ex.response/ex.assistant.
+    let inserted = 0, skipped = 0, failed = 0;
     for (const ex of clientExamples) {
-      const existing = db.get(
-        'SELECT id FROM training_examples WHERE id = ? AND workspace_id = ?',
-        [ex.id, workspaceId]
-      );
-      
-      if (!existing) {
-        db.run(`
-          INSERT INTO training_examples 
-          (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-        `, [
-          ex.id,
-          workspaceId,
-          userId,
-          ex.input,
-          ex.output,
-          ex.context || '',
-          ex.category || 'Geral',
-          JSON.stringify(ex.tags || []),
-          ex.usageCount || 0
-        ]);
+      if (!ex || typeof ex !== 'object') { skipped++; continue; }
+
+      const input  = (ex.input  || ex.user     || '').toString().slice(0, 5000);
+      const output = (ex.output || ex.response || ex.assistant || '').toString().slice(0, 5000);
+      if (!input || !output) { skipped++; continue; }
+
+      try {
+        const existing = db.get(
+          'SELECT id FROM training_examples WHERE id = ? AND workspace_id = ?',
+          [ex.id, workspaceId]
+        );
+
+        if (!existing) {
+          db.run(`
+            INSERT INTO training_examples
+            (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+          `, [
+            ex.id,
+            workspaceId,
+            userId,
+            input,
+            output,
+            (ex.context || '').toString().slice(0, 200),
+            (ex.category || 'Geral').toString().slice(0, 100),
+            JSON.stringify(Array.isArray(ex.tags) ? ex.tags.slice(0, 20) : []),
+            Number.isFinite(ex.usageCount) ? ex.usageCount : 0
+          ]);
+          inserted++;
+        }
+      } catch (e) {
+        failed++;
+        logger.warn(`[Examples] Insert falhou para ${ex.id || '(no id)'}: ${e.message}`);
       }
     }
-    
+
     // Retornar todos os exemplos do servidor
     const serverExamples = db.all(`
       SELECT id, input, output, context, category, tags, usage_count, created_at, updated_at
-      FROM training_examples 
+      FROM training_examples
       WHERE workspace_id = ?
       ORDER BY usage_count DESC
       LIMIT 100
     `, [workspaceId]);
-    
+
     const formattedExamples = serverExamples.map(ex => ({
       ...ex,
       tags: ex.tags ? JSON.parse(ex.tags) : [],
       usageCount: ex.usage_count
     }));
-    
-    res.json({ 
-      success: true, 
+
+    logger.info(`[Examples] Sync complete: ${inserted} inserted, ${skipped} skipped, ${failed} failed, ${formattedExamples.length} total`);
+
+    res.json({
+      success: true,
       examples: formattedExamples,
       synced: clientExamples.length,
+      inserted,
+      skipped,
+      failed,
       total: formattedExamples.length
     });
-    
+
   } catch (error) {
     logger.error('[Examples] Erro ao sincronizar:', error);
     res.status(500).json({ success: false, error: error.message });
