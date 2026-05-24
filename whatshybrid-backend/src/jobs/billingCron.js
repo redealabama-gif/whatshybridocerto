@@ -78,7 +78,122 @@ const SCHEDULE = process.env.BILLING_CRON_SCHEDULE || '0 3 * * *'; // 03:00 todo
  * Encontra workspaces cujo trial acabou e ainda está em status 'trialing'.
  * Marca como 'past_due' (precisa pagar) ou 'active' se já tem invoice paga.
  */
-function processExpiredTrials() {
+// Fase 2 cobrança real: idempotência da geração de 1ª invoice no cron.
+// Se já criamos um link de pagamento (billing_intent pending) nas últimas
+// PENDING_INTENT_WINDOW_MS, NÃO criamos outro. Evita spam de invoices se
+// o cron rodar mais de uma vez ou se o usuário ignorar o email por dias.
+const PENDING_INTENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function hasRecentPendingIntent(workspaceId) {
+  try {
+    const row = db.get(
+      `SELECT id, created_at FROM billing_intents
+       WHERE workspace_id = ? AND status = 'pending'
+       ORDER BY created_at DESC LIMIT 1`,
+      [workspaceId]
+    );
+    if (!row) return false;
+    const age = Date.now() - new Date(row.created_at).getTime();
+    return age < PENDING_INTENT_WINDOW_MS;
+  } catch (_) {
+    return false; // erro = não bloqueia criação (melhor double-link que zero)
+  }
+}
+
+/**
+ * Fase 2 cobrança real: gera preference de pagamento no MP pra um trial
+ * expirado, com cupom pendente se houver. Persiste billing_intent +
+ * emite evento `subscription.first_invoice_pending` (listener envia email).
+ *
+ * Retorna { ok, payment_url, coupon_label } em sucesso, ou { ok:false }
+ * em qualquer falha. NUNCA throw — chamada dentro do loop do cron.
+ */
+async function generateFirstInvoicePaymentLink(ws, ownerInfo) {
+  try {
+    const mpService = require('../services/MercadoPagoService');
+    if (!mpService.isConfigured()) {
+      logger.warn('[BillingCron] MP não configurado; trial expirado sem link de pagamento');
+      return { ok: false, reason: 'mp_not_configured' };
+    }
+
+    if (!['starter', 'pro', 'agency'].includes(ws.plan)) {
+      // Plano 'free' não cobra; trial 'free' não faz sentido — só pula.
+      return { ok: false, reason: 'plan_not_billable' };
+    }
+
+    // Pega cupom pendente (se EXIT50 atribuído no signup)
+    let couponCode, couponLabel;
+    try {
+      const couponService = require('../services/CouponService');
+      const pending = couponService.getPendingCouponForWorkspace(ws.id, ws.plan);
+      if (pending) {
+        couponCode = pending.code;
+        couponLabel = pending.description || pending.code;
+      }
+    } catch (_) {}
+
+    const email = ownerInfo?.email;
+    const name = ownerInfo?.name;
+    if (!email) {
+      logger.warn(`[BillingCron] Owner sem email pra ws=${ws.id}; pulando preference`);
+      return { ok: false, reason: 'no_owner_email' };
+    }
+
+    const pref = await mpService.createPreference({
+      workspaceId: ws.id,
+      plan: ws.plan,
+      email,
+      name: name || email,
+      couponCode,
+    });
+
+    // Persiste a intent pra UI/billing endpoint enxergar
+    try {
+      db.run(
+        `INSERT INTO billing_intents (id, workspace_id, plan, provider, provider_ref, status, metadata)
+         VALUES (?, ?, ?, 'mercadopago', ?, 'pending', ?)`,
+        [
+          crypto.randomUUID(),
+          ws.id,
+          ws.plan,
+          pref.id,
+          JSON.stringify({
+            source: 'billing_cron_first_invoice',
+            coupon: couponCode || null,
+          }),
+        ]
+      );
+    } catch (e) {
+      logger.warn('[BillingCron] insert billing_intent falhou:', e.message);
+      // Não bloqueia o restante — o link de pagamento ainda é válido.
+    }
+
+    const paymentUrl = process.env.MERCADOPAGO_USE_SANDBOX === 'true'
+      ? (pref.sandbox_init_point || pref.init_point)
+      : pref.init_point;
+
+    // Dispara email via listener (ver utils/emailListeners.js)
+    try {
+      const events = require('../utils/events');
+      events.emit('subscription.first_invoice_pending', {
+        workspace_id: ws.id,
+        plan: ws.plan,
+        payment_url: paymentUrl,
+        coupon_label: couponLabel,
+        // expires_at é opcional; MP preference dura ~30d por padrão
+      });
+    } catch (e) {
+      logger.warn('[BillingCron] emit first_invoice_pending falhou:', e.message);
+    }
+
+    return { ok: true, payment_url: paymentUrl, coupon_label: couponLabel };
+  } catch (err) {
+    logger.error(`[BillingCron] generateFirstInvoicePaymentLink falhou ws=${ws.id}:`, err.message);
+    return { ok: false, reason: err.message };
+  }
+}
+
+async function processExpiredTrials() {
   const now = new Date();
 
   let expiredTrials = [];
@@ -145,7 +260,27 @@ function processExpiredTrials() {
             WHERE id = ?`,
           [ws.id]
         );
-        results.push({ workspace_id: ws.id, action: 'past_due', plan: ws.plan });
+
+        // Fase 2: gera link de pagamento via MP + envia email (uma vez por
+        // ciclo de 24h por workspace). Só pra planos pagos, e só se MP
+        // está configurado. Sem link, dunning ainda alerta o owner do SaaS.
+        let linkResult = { ok: false, skipped: true };
+        if (!hasRecentPendingIntent(ws.id)) {
+          let ownerInfo = null;
+          try {
+            ownerInfo = db.get('SELECT email, name FROM users WHERE id = ?', [ws.owner_id]);
+          } catch (_) {}
+          linkResult = await generateFirstInvoicePaymentLink(ws, ownerInfo);
+        } else {
+          logger.debug(`[BillingCron] ws=${ws.id} já tem pending intent < 24h; pulando MP`);
+        }
+
+        results.push({
+          workspace_id: ws.id,
+          action: 'past_due',
+          plan: ws.plan,
+          payment_link_generated: !!linkResult.ok,
+        });
 
         if (alertManager) {
           alertManager.send('warning', '⏰ Trial expirado sem pagamento', {
@@ -153,6 +288,8 @@ function processExpiredTrials() {
             workspace_name: ws.name,
             plan: ws.plan,
             trial_end: ws.trial_end_at,
+            payment_link_generated: !!linkResult.ok,
+            payment_url: linkResult.payment_url || null,
           });
         }
       } catch (e) {
@@ -593,7 +730,10 @@ async function runAll() {
   const start = Date.now();
   logger.info('[BillingCron] Iniciando ciclo diário');
   try {
-    const trials = processExpiredTrials();
+    // Fase 2: processExpiredTrials agora é async porque gera link de
+    // pagamento via MP (HTTP call). Sem o await, o cron retorna antes
+    // dos intents serem persistidos e o relatório fica subcontado.
+    const trials = await processExpiredTrials();
     const renewals = processExpiredSubscriptions();
     // v9.6.x: dunning ANTES de suspendDelinquent — assim a tentativa 3
     // (dia 7) é registrada no mesmo dia em que o workspace cruza o limite

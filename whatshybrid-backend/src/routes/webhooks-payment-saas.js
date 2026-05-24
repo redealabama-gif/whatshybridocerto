@@ -23,10 +23,16 @@ const mpService = require('../services/MercadoPagoService');
 // v9.3.9: tabela de preços oficiais por plano (em BRL).
 // Backend valida que amount recebido do gateway bate com o esperado.
 // Sem isso, atacante (ou bug do gateway) podia ativar plano agency por R$ 0.01.
+//
+// Fase 2 (cobrança real): preços alinhados com PLAN_PRICES do MercadoPagoService.
+// Ranges acomodam:
+//   - preço cheio do plano
+//   - desconto agressivo até 75% (futuro BLACKFRIDAY etc; EXIT50 já está dentro)
+//   - margem de R$ 5-10 acima pra eventuais taxas/conversão do gateway
 const PLAN_PRICES_BRL = {
-  starter: { min: 19, max: 99 },     // R$ 19-99 (descontos promocionais OK)
-  pro: { min: 49, max: 199 },         // R$ 49-199
-  agency: { min: 199, max: 999 },     // R$ 199-999
+  starter: { min: 12, max: 60 },     // 49,90 cheio; 24,95 c/ EXIT50; 12 mínimo (75% off)
+  pro: { min: 24, max: 110 },         // 99,90 cheio; 49,95 c/ EXIT50; 24 mínimo
+  agency: { min: 49, max: 220 },      // 199,90 cheio; 99,95 c/ EXIT50; 49 mínimo
 };
 
 function validatePaymentAmount(plan, amount, currency = 'BRL') {

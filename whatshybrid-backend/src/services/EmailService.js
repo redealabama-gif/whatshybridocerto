@@ -270,6 +270,45 @@ class EmailService {
     return this.send({ to, subject: `⏰ ${daysLeft} dias para o fim do trial — WhatsHybrid Pro`, html });
   }
 
+  /**
+   * Fase 2 cobrança real — disparado quando o billingCron detecta um
+   * trial expirado e gera a primeira preference de pagamento no MP.
+   * O `paymentUrl` é o init_point retornado pelo MP (PIX/boleto/cartão).
+   *
+   * Diferente do trial_ending (preventivo, 3 dias antes), este email é
+   * o "trial acabou — clique aqui pra continuar sem perder dados".
+   */
+  async sendFirstInvoiceLink({ to, name, plan, planPrice, paymentUrl, expiresAt, couponLabel }) {
+    const formatted = `R$ ${Number(planPrice).toFixed(2).replace('.', ',')}`;
+    const expiresLine = expiresAt
+      ? `<p style="color:#94a3b8;font-size:13px;">Este link expira em ${new Date(expiresAt).toLocaleDateString('pt-BR')}.</p>`
+      : '';
+    const couponLine = couponLabel
+      ? `<p style="color:#22d3ee;"><strong>🎁 ${this._escape(couponLabel)}</strong> aplicado neste pagamento.</p>`
+      : '';
+    const html = this._wrap({
+      title: '✨ Seu trial terminou — ative seu plano',
+      preheader: 'Pague em 1 clique pra continuar sem interrupção.',
+      body: `
+        <p>Olá ${this._escape(name)},</p>
+        <p>Seu trial gratuito do WhatsHybrid Pro acabou. Pra continuar usando o plano
+        <strong>${plan.toUpperCase()}</strong> (${formatted}/mês) sem perder seus dados,
+        clique no botão abaixo e finalize o pagamento.</p>
+        ${couponLine}
+        <p style="color:#94a3b8;font-size:14px;">Aceitamos PIX, boleto e cartão de crédito via MercadoPago.</p>
+        ${expiresLine}
+      `,
+      ctaLabel: 'Pagar e ativar plano',
+      ctaUrl: paymentUrl,
+    });
+
+    return this.send({
+      to,
+      subject: '✨ Pague seu plano WhatsHybrid Pro pra continuar — link rápido',
+      html,
+    });
+  }
+
   async sendChargeFailed({ to, name, plan, retryDate }) {
     const html = this._wrap({
       title: '⚠️ Não conseguimos processar seu pagamento',

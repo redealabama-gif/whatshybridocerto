@@ -1,11 +1,11 @@
 /**
  * LicenseService — validação de licença/plano e enforcement de limites.
  *
- * Plans:
+ * Plans (preços alinhados com landing/signup/MP em Fase 2 cobrança):
  *   free       — trial 7d, 100k tokens
- *   starter    — R$97/mês, 100k tokens, 1 atendente
- *   pro        — R$197/mês, 500k tokens, 5 atendentes
- *   business   — R$397/mês, 1M tokens, 15 atendentes
+ *   starter    — R$49,90/mês, 100k tokens, 1 atendente
+ *   pro        — R$99,90/mês, 500k tokens, 5 atendentes
+ *   agency     — R$199,90/mês, 1M tokens, 15 atendentes
  *
  * @module services/LicenseService
  */
