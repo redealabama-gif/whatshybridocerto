@@ -719,18 +719,38 @@ router.get('/learn/context/:chatId', authenticate, asyncHandler(async (req, res)
   const maxExamples = Math.min(parseInt(req.query.maxExamples, 10) || 3, 20);
 
   let messages = [];
+  let memory = null;
   let examples = [];
   let feedbackCount = 0;
 
-  // Últimas mensagens (de conversations se existir)
+  // Mensagens vivem em ai_conversations.messages como JSON array, populadas
+  // pelo POST /ai/ingest. A versão v9.4.0 desta rota tentava ler de uma tabela
+  // ai_messages que nunca foi criada — caía no catch silencioso e retornava
+  // sempre vazio. Lemos agora da fonte real e mapeamos o schema interno
+  // (message/timestamp/sender) pro que o copilot consome (content/role).
   try {
-    messages = db.all(
-      `SELECT role, content, created_at FROM ai_messages
-       WHERE workspace_id = ? AND chat_id = ?
-       ORDER BY created_at DESC LIMIT ?`,
-      [req.workspaceId, chatId, maxMessages]
-    ).reverse();
-  } catch (_) { /* tabela pode não existir */ }
+    const conv = db.get(
+      `SELECT messages, context FROM ai_conversations
+       WHERE workspace_id = ? AND conversation_id = ?`,
+      [req.workspaceId, chatId]
+    );
+    if (conv) {
+      try {
+        const parsed = JSON.parse(conv.messages || '[]');
+        messages = parsed.slice(-maxMessages).map(m => ({
+          role: m.role || (m.sender === 'assistant' || m.isFromMe ? 'assistant' : 'user'),
+          content: m.content || m.message || '',
+          created_at: m.created_at || m.timestamp || null,
+        }));
+        const ctx = JSON.parse(conv.context || '{}');
+        memory = ctx.memory || null;
+      } catch (e) {
+        logger.warn(`[ai/learn/context] parse falhou (chat=${chatId}): ${e.message}`);
+      }
+    }
+  } catch (e) {
+    logger.warn(`[ai/learn/context] read ai_conversations falhou: ${e.message}`);
+  }
 
   if (includeExamples) {
     try {
@@ -750,12 +770,25 @@ router.get('/learn/context/:chatId', authenticate, asyncHandler(async (req, res)
     feedbackCount = fb?.c || 0;
   } catch (_) {}
 
+  // Cliente (copilot-engine.js:1180) lê `data.success && data.context` e
+  // extrai memory/examples/messages de dentro de context. A shape antiga
+  // (chaves no top level) sempre caía em `return null` no cliente — mesmo
+  // se a tabela existisse, o contexto nunca chegava no copilot.
   res.json({
-    chatId,
-    messages,
-    examples,
-    feedbackCount,
-    timestamp: new Date().toISOString(),
+    success: true,
+    context: {
+      chatId,
+      memory,
+      messages,
+      examples,
+      feedbackCount,
+      stats: {
+        totalMessages: messages.length,
+        examplesFound: examples.length,
+        hasMemory: !!memory,
+      },
+      timestamp: new Date().toISOString(),
+    },
   });
 }));
 
