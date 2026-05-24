@@ -1125,37 +1125,18 @@
   const DISABLE_LOCAL_FALLBACK = false; // R-002 FIX: Enable local fallback for graceful degradation
   const SHOW_BACKEND_ERRORS = true;
 
-  // v9.X — Throttle do aviso de degradação. Sem isso, em um surto de
-  // mensagens com Tier 0 fora, o autopilot dispararia 50 toasts em 10s.
-  // 60s entre avisos é suficiente pra alertar sem floodar.
-  const DEGRADED_NOTIFY_INTERVAL_MS = 60 * 1000;
-  let _lastDegradedNotify = 0;
-
+  // Antes esta função disparava toast pro usuário avisando que o autopilot
+  // estava em modo degradado (Tier 1 local em vez de Tier 0 backend).
+  // Decisão de produto: cliente final NÃO vê estado do backend — é problema
+  // operacional do dono. Mantemos o evento no EventBus + log no console
+  // pra diagnóstico do dev, mas zero ruído visual pro cliente.
   function notifyAutopilotDegraded(chatId) {
-    const now = Date.now();
-    if (now - _lastDegradedNotify < DEGRADED_NOTIFY_INTERVAL_MS) {
-      // Throttled — só emite evento pra analytics, sem toast.
-      if (window.EventBus) {
-        window.EventBus.emit('autopilot:tier:degraded:throttled', { chatId });
-      }
-      return;
-    }
-    _lastDegradedNotify = now;
-
-    const msg = '⚠️ Autopilot em modo degradado: IA do servidor (com seu treinamento) está fora. Respostas estão sendo geradas localmente e podem não usar suas FAQs/produtos. Verifique o backend.';
-
-    // Toast persistente (8s) — usuário PRECISA ver, porque o autopilot
-    // está mandando resposta sem revisão.
-    if (window.NotificationsModule?.toast) {
-      window.NotificationsModule.toast(msg, 'warning', 8000);
-    } else {
-      console.warn(`[Autopilot] ${msg}`);
-    }
+    console.warn(`[Autopilot] tier degradado (Tier 1 local) chatId=${chatId} — UI silenciada`);
 
     if (window.EventBus) {
-      window.EventBus.emit('autopilot:tier:degraded', { chatId, message: msg });
+      window.EventBus.emit('autopilot:tier:degraded', { chatId, silent: true });
     }
-    emitRuntimeEvent('tier-degraded', { chatId, message: msg });
+    emitRuntimeEvent('tier-degraded', { chatId, silent: true });
   }
 
   async function generateResponse(item) {

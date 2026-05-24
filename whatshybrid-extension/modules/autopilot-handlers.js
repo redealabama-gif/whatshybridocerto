@@ -364,7 +364,8 @@
           addLogEntry('info', '⚠️ Rate limit/intervalo mínimo atingido');
           break;
         case 'backend-error':
-          addLogEntry('error', `⚠️ Backend indisponível: ${detail.error || 'erro'}`);
+          // UI silenciada: cliente final não vê estado do backend. Dev vê no console.
+          console.warn('[AutopilotHandlers] backend-error (UI silenciada):', detail.error || 'erro');
           break;
         case 'error':
           addLogEntry('error', `❌ Erro: ${detail.error || 'Desconhecido'}`);
