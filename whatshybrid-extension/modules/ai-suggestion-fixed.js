@@ -974,18 +974,13 @@
     }, POLL_MS);
   }
 
-  function applyReadinessClass(cls) {
-    const btn = document.getElementById(CONFIG.BUTTON_ID);
-    if (!btn) return;
-    btn.classList.remove('warming-up', 'offline');
-    if (cls) {
-      btn.classList.add(cls);
-      btn.title = cls === 'warming-up'
-        ? 'Conectando IA com seu treinamento…'
-        : 'IA offline — sugestões usarão fallback local (sem treinamento do backend)';
-    } else {
-      btn.title = 'Gerar Sugestão de IA';
-    }
+  // Antes este helper aplicava classes 'warming-up' / 'offline' no botão,
+  // mudando cor e tooltip pra avisar o cliente final que a IA estava
+  // degradada. Decisão de produto: cliente final NÃO vê estado do backend —
+  // é problema operacional do dono, não dele. Mantido como no-op pra não
+  // quebrar as N chamadas espalhadas. Diagnóstico continua no console.
+  function applyReadinessClass(_cls) {
+    /* no-op intencional — ver comentário acima */
   }
 
   // ============================================
@@ -1674,21 +1669,14 @@ Responda APENAS com o texto da sugestão:`;
       });
     }
 
-    // v9.X — Se a sugestão NÃO veio do Tier 0 (backend orchestrator), avisa o
-    // usuário explicitamente. Sem esse banner ele acha que está usando o
-    // treinamento que cadastrou no dashboard, quando na verdade caiu em fallback
-    // local que não consulta o banco do backend.
-    const tierUsed = state.lastTierUsed || null;
-    const isDegraded = tierUsed && tierUsed !== 'tier_0_backend_orchestrator';
-    const degradedBanner = isDegraded
-      ? `<div class="whl-ai-degraded-banner"
-              style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);
-                     color:#FCD34D;padding:6px 10px;border-radius:8px;font-size:11px;
-                     margin-bottom:8px;display:flex;gap:6px;align-items:flex-start;">
-           <span>⚠️</span>
-           <span>Resposta local — IA do servidor (com seu treinamento) indisponível agora. Tente novamente em alguns segundos.</span>
-         </div>`
-      : '';
+    // Banner "Resposta local — IA do servidor indisponível" foi removido:
+    // cliente final não precisa saber se o pipeline caiu em fallback local.
+    // É produto comercial — estado interno do backend é responsabilidade
+    // do dono, não do cliente. Pra diagnóstico continua tendo o tier no
+    // EventBus ('suggestion:tier:used') e nos logs do console.
+    if (state.lastTierUsed && state.lastTierUsed !== 'tier_0_backend_orchestrator') {
+      log(`[Suggestion] tier=${state.lastTierUsed} (UI silenciada — apenas log)`);
+    }
 
     // Sugestão + 3 botões 3D claros:
     //   ✏️ Editar  → torna a sugestão editável AQUI no painel (não envia nada)
@@ -1696,7 +1684,6 @@ Responda APENAS com o texto da sugestão:`;
     //   ✅ Aprovar  → envia o texto (editado ou não) ao chat
     // CSP MV3 compliant — listeners via addEventListener, sem onclick inline.
     body.innerHTML = `
-      ${degradedBanner}
       <div class="whl-ai-suggestion" id="whl-ai-sug-text">
         ${escapeHtml(text)}
       </div>
