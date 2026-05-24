@@ -415,9 +415,40 @@ router.delete('/knowledge/:id', authenticate, asyncHandler(async (req, res) => {
  * @desc Sync few-shot learning examples (alias for /api/v1/examples/sync)
  */
 router.post('/few-shot/sync', authenticate, asyncHandler(async (req, res) => {
-  const { examples: clientExamples = [] } = req.body;
+  let { examples: clientExamples = [] } = req.body;
   const workspaceId = req.workspaceId;
   const userId = req.userId;
+
+  // ⚠️ Defesa contra string serializada vinda do cliente.
+  //
+  // O frontend (few-shot-learning.js, training.js) salva no chrome.storage.local
+  // como JSON.stringify(array). O knowledge-sync-manager.js lê esse valor e
+  // envia direto em body.examples — sem fazer JSON.parse antes. Resultado:
+  //   - body.examples chega aqui como string `'[{"id":1,...},...]'`
+  //   - `for (const ex of clientExamples)` itera CARACTERE POR CARACTERE
+  //   - cada ex (char) não tem .input/.output → todos skipados
+  //   - log diz "Syncing 429 examples" mas 429 é só `String.length`
+  // Logs reais confirmaram: 429 "examples", 0 inseridos, 429 skipados, 0 falhas.
+  //
+  // Parse defensivo aqui resolve sem precisar mudar 2 lugares no frontend.
+  if (typeof clientExamples === 'string') {
+    try {
+      const parsed = JSON.parse(clientExamples);
+      if (Array.isArray(parsed)) {
+        clientExamples = parsed;
+        logger.info(`[FewShot] body.examples veio como string serializada — parsed (${parsed.length} items)`);
+      } else {
+        logger.warn(`[FewShot] body.examples era string mas não parseou pra array: ${typeof parsed}`);
+        clientExamples = [];
+      }
+    } catch (e) {
+      logger.warn(`[FewShot] body.examples era string inválida (JSON parse falhou): ${e.message}`);
+      clientExamples = [];
+    }
+  } else if (!Array.isArray(clientExamples)) {
+    logger.warn(`[FewShot] body.examples não é array nem string: ${typeof clientExamples}`);
+    clientExamples = [];
+  }
 
   logger.info(`[FewShot] Syncing ${clientExamples.length} examples for workspace ${workspaceId}`);
 
