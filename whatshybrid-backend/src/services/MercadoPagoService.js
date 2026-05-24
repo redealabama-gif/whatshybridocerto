@@ -47,8 +47,10 @@ class MercadoPagoService {
    * @param {string} opts.email — email do pagador
    * @param {string} opts.name — nome do pagador
    * @param {string} [opts.successUrl] — URL para onde voltar após sucesso
+   * @param {string} [opts.couponCode] — código do cupom pra aplicar desconto
+   *                                     na 1ª cobrança (ex.: 'EXIT50')
    */
-  async createPreference({ workspaceId, plan, email, name, successUrl }) {
+  async createPreference({ workspaceId, plan, email, name, successUrl, couponCode }) {
     if (!this.isConfigured()) {
       throw new Error('MercadoPago não configurado (MERCADOPAGO_ACCESS_TOKEN ausente)');
     }
@@ -58,17 +60,43 @@ class MercadoPagoService {
 
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
 
+    // Aplica desconto se o cupom for válido pra esse plano. Se não, segue
+    // com preço cheio sem falhar — caller pode ter passado código inválido.
+    let finalPrice = price;
+    let appliedCoupon = null;
+    if (couponCode) {
+      try {
+        const couponService = require('./CouponService');
+        const preview = couponService.previewDiscount(couponCode, plan, price);
+        if (preview.valid) {
+          finalPrice = preview.finalAmount;
+          appliedCoupon = preview;
+        } else {
+          logger.info(`[MP] Coupon ${couponCode} not applied: ${preview.reason}`);
+        }
+      } catch (e) {
+        logger.warn(`[MP] Coupon preview failed: ${e.message}`);
+      }
+    }
+
+    const title = `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
+      (appliedCoupon ? ` (${appliedCoupon.label})` : '');
+
     const payload = {
       items: [{
         id: `whp_${plan}_monthly`,
-        title: `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}`,
-        description: `Assinatura mensal WhatsHybrid Pro - ${plan}`,
+        title,
+        description: appliedCoupon
+          ? `Assinatura mensal — 1ª fatura com cupom ${appliedCoupon.code}`
+          : `Assinatura mensal WhatsHybrid Pro - ${plan}`,
         quantity: 1,
         currency_id: 'BRL',
-        unit_price: price,
+        unit_price: finalPrice,
       }],
       payer: { email, name },
-      external_reference: `${workspaceId}|${plan}`,
+      external_reference: appliedCoupon
+        ? `${workspaceId}|${plan}|coupon:${appliedCoupon.code}`
+        : `${workspaceId}|${plan}`,
       notification_url: this.notificationUrl,
       back_urls: {
         success: successUrl || `${baseUrl}/dashboard.html?paid=1`,
@@ -84,6 +112,9 @@ class MercadoPagoService {
       metadata: {
         workspace_id: workspaceId,
         plan,
+        original_amount: price,
+        coupon_code: appliedCoupon ? appliedCoupon.code : null,
+        discount_amount: appliedCoupon ? appliedCoupon.discountAmount : 0,
       },
     };
 

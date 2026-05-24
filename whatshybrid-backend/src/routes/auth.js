@@ -153,6 +153,7 @@ router.post('/signup',
     body('name').trim().notEmpty(),
     body('company').trim().isLength({ min: 2, max: 100 }),
     body('plan').optional().isIn(['starter', 'pro', 'agency', 'free']),
+    body('coupon').optional().isString().isLength({ min: 3, max: 32 }),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -160,12 +161,36 @@ router.post('/signup',
       return res.status(400).json({ errors: errors.array(), error: errors.array()[0]?.msg });
     }
 
-    const { email, password, name, company, plan = 'pro' } = req.body;
+    const { email, password, name, company, plan = 'pro', coupon } = req.body;
 
     // Email já existe?
     const existing = db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existing) {
       throw new AppError('Email já cadastrado', 400, 'EMAIL_EXISTS');
+    }
+
+    // Valida cupom ANTES de criar a conta. Se for inválido, não falha o
+    // signup — só ignora silenciosamente (UX importa mais que a promo).
+    // Plano 'free' ignora cupom porque não cobra nada.
+    let validatedCoupon = null;
+    if (coupon && plan !== 'free') {
+      try {
+        const couponService = require('../services/CouponService');
+        const v = couponService.validate(coupon, plan);
+        if (v.valid) {
+          validatedCoupon = {
+            code: v.coupon.code,
+            label: v.coupon.description || v.coupon.code,
+          };
+        } else {
+          // Log mas não falha — usuário não deve perder o signup por isso
+          require('../utils/logger').info(
+            `[Signup] Coupon "${coupon}" ignored: ${v.reason} (email=${email})`
+          );
+        }
+      } catch (e) {
+        require('../utils/logger').warn('[Signup] Coupon validation error:', e.message);
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -179,16 +204,29 @@ router.post('/signup',
 
     db.transaction(() => {
       db.run(
-        `INSERT INTO users (id, email, password, name, role, workspace_id) 
+        `INSERT INTO users (id, email, password, name, role, workspace_id)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [userId, email, hashedPassword, name, 'owner', workspaceId]
       );
 
-      db.run(
-        `INSERT INTO workspaces (id, name, owner_id, plan, trial_end_at, subscription_status, credits) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [workspaceId, company, userId, plan, trialEndISO, 'trialing', 100]
-      );
+      // workspaces.coupon_code é populado já na criação se tiver cupom
+      // válido. coupon_applied_at = agora; coupon_first_invoice_used_at
+      // permanece NULL até a 1ª invoice ser gerada.
+      if (validatedCoupon) {
+        db.run(
+          `INSERT INTO workspaces (id, name, owner_id, plan, trial_end_at,
+             subscription_status, credits, coupon_code, coupon_applied_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+          [workspaceId, company, userId, plan, trialEndISO, 'trialing', 100,
+           validatedCoupon.code]
+        );
+      } else {
+        db.run(
+          `INSERT INTO workspaces (id, name, owner_id, plan, trial_end_at, subscription_status, credits)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [workspaceId, company, userId, plan, trialEndISO, 'trialing', 100]
+        );
+      }
 
       // Pipeline stages padrão (mesmo que /register)
       const stages = [
@@ -220,7 +258,10 @@ router.post('/signup',
     // Tenta enviar alerta para o owner do SaaS (você) sobre novo signup
     try {
       const alertManager = require('../observability/alertManager');
-      alertManager.send('info', '🎉 Novo signup', { email, company, plan });
+      alertManager.send('info', '🎉 Novo signup', {
+        email, company, plan,
+        coupon: validatedCoupon ? validatedCoupon.code : null,
+      });
     } catch (_) {}
 
     // v8.4.0 — concede tokens iniciais do plano para o trial
@@ -241,6 +282,7 @@ router.post('/signup',
       message: 'Conta criada com sucesso',
       user: { id: userId, email, name, workspaceId, role: 'owner' },
       workspace: { id: workspaceId, name: company, plan, trial_end_at: trialEndISO },
+      coupon: validatedCoupon, // null se não houve cupom ou se foi inválido
       ...tokens,
     });
   })
