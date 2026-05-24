@@ -239,14 +239,24 @@ class MercadoPagoService {
    * Cria uma assinatura recorrente (preapproval) no MP.
    * Cliente autoriza uma vez no init_point, e MP cobra automaticamente todo mês.
    *
+   * Fase 3 — cupom:
+   *   MP preapproval NÃO suporta "1º mês com desconto, depois cheio" — o
+   *   transaction_amount é fixo pra TODAS as cobranças. Por isso:
+   *     - couponCode com first_invoice_only=1  → log warning, NÃO aplica
+   *       (use createPreference one-shot pra cobrar 1ª fatura com desconto
+   *       e depois ative preapproval com preço cheio)
+   *     - couponCode com first_invoice_only=0  → aplica permanentemente
+   *       (transaction_amount recorrente já vem com desconto). Útil pra
+   *       cupons tipo "AMIGO10" (-10% pra sempre como benefício).
+   *
    * @param {Object} opts
    * @param {string} opts.workspaceId
    * @param {string} opts.plan
    * @param {string} opts.email
-   * @param {string} opts.name
-   * @returns {Object} { id, init_point, status }
+   * @param {string} [opts.couponCode]   — código do cupom (opcional)
+   * @returns {Object} { id, init_point, status, couponApplied }
    */
-  async createPreapproval({ workspaceId, plan, email }) {
+  async createPreapproval({ workspaceId, plan, email, couponCode }) {
     if (!this.isConfigured()) {
       throw new Error('MercadoPago não configurado (MERCADOPAGO_ACCESS_TOKEN ausente)');
     }
@@ -254,17 +264,52 @@ class MercadoPagoService {
     const price = PLAN_PRICES[plan];
     if (!price) throw new Error(`Plano inválido: ${plan}`);
 
+    // Fase 3: aplica cupom SE for permanente (first_invoice_only=0).
+    // Cupons one-shot são silenciosamente ignorados aqui — o caller
+    // (billing.js /subscribe-recurring) deve usar createPreference se
+    // quiser aplicar desconto na 1ª cobrança.
+    let finalPrice = price;
+    let appliedCoupon = null;
+    if (couponCode) {
+      try {
+        const couponService = require('./CouponService');
+        const preview = couponService.previewDiscount(couponCode, plan, price);
+        if (preview.valid) {
+          if (preview.firstInvoiceOnly) {
+            logger.info(
+              `[MP] Cupom ${couponCode} é first_invoice_only — não aplicável em ` +
+              `preapproval recorrente. Use createPreference pra cobrar 1ª fatura.`
+            );
+          } else {
+            finalPrice = preview.finalAmount;
+            appliedCoupon = preview;
+            logger.info(
+              `[MP] Cupom permanente ${couponCode} aplicado no preapproval ` +
+              `ws=${workspaceId}: ${price} → ${finalPrice}`
+            );
+          }
+        } else {
+          logger.info(`[MP] Cupom ${couponCode} inválido pra preapproval: ${preview.reason}`);
+        }
+      } catch (e) {
+        logger.warn(`[MP] preapproval coupon preview falhou: ${e.message}`);
+      }
+    }
+
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
 
     const payload = {
-      reason: `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}`,
-      external_reference: `subscription|${workspaceId}|${plan}`,
+      reason: `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
+        (appliedCoupon ? ` (${appliedCoupon.label})` : ''),
+      external_reference: appliedCoupon
+        ? `subscription|${workspaceId}|${plan}|coupon:${appliedCoupon.code}`
+        : `subscription|${workspaceId}|${plan}`,
       payer_email: email,
       back_url: `${baseUrl}/dashboard.html?subscription=ok`,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
-        transaction_amount: price,
+        transaction_amount: finalPrice,
         currency_id: 'BRL',
       },
       // status pendente até cliente autorizar
@@ -286,6 +331,9 @@ class MercadoPagoService {
         id: r.data.id,
         init_point: r.data.init_point,
         status: r.data.status,
+        coupon_applied: appliedCoupon
+          ? { code: appliedCoupon.code, label: appliedCoupon.label, monthlyAmount: finalPrice }
+          : null,
       };
     } catch (err) {
       logger.error('[MP] createPreapproval failed:', err.response?.data || err.message);
