@@ -239,28 +239,21 @@ async function handleGetConfidence(message, sender, sendResponse) {
 
 /**
  * Handler: UPDATE_CONFIDENCE
+ *
+ * Histórico: este handler tentava persistir o evento de confiança chamando
+ * POST /api/v1/ai/learn/feedback. Mas o payload do ConfidenceSystem é
+ * `{type, data, score, level, timestamp}` — sem chatId, rating, userMessage
+ * nem assistantResponse, que são exigidos pelo handler de feedback do
+ * backend. Resultado: toda chamada respondia 400 e poluía o log do servidor
+ * sem persistir nada (perdíamos o sinal de confiança E gerávamos ruído).
+ *
+ * Por ora, o ack é local-only: o ConfidenceSystem segue rastreando confiança
+ * no chrome.storage.local. Se um dia quisermos persistir esses eventos
+ * agregados, deve ser numa rota dedicada (ex: /api/v1/ai/confidence/event),
+ * não na de feedback de resposta.
  */
 async function handleUpdateConfidence(message, sender, sendResponse) {
   try {
-    const event = message.event || {};
-    
-    // Envia para backend se configurado
-    const settings = await chrome.storage.local.get(['backend_token', 'backend_url']);
-    const backendUrl = settings?.backend_url || (globalThis.WHL_ENDPOINTS?.BACKEND_DEFAULT || 'http://localhost:3000');
-    const token = settings?.backend_token;
-    
-    if (token) {
-      // Rota corrigida para Node.js
-      fetch(`${backendUrl}/api/v1/ai/learn/feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(event)
-      }).catch(err => console.warn('[Background] Erro ao enviar confidence:', err));
-    }
-    
     sendResponse({ success: true });
   } catch (error) {
     console.error('[Background] Erro em UPDATE_CONFIDENCE:', error);
