@@ -390,8 +390,8 @@
         'few-shot-learning': 'FewShotLearning',
         'smartbot-autopilot-v2': 'AutopilotV2',      // era 'SmartBotAutopilot' — módulo exporta AutopilotV2
         'campaign-manager': 'CampaignManager',
-        'crm': 'CRM',
-        'analytics': 'Analytics',
+        'crm': 'CRMModule',                          // era 'CRM' — módulo exporta CRMModule (e isso fazia a etiqueta do chat sumir após F5: CRMBadgeInjector lia dados do mundo errado quando o CRMModule era reinjetado em page world)
+        'analytics': 'Analytics',                    // ⚠️ módulo analytics.js não existe (só ai-analytics.js que exporta AIAnalytics/aiAnalytics) — esta entrada está morta e sempre cairá em 404. Mantida pra rastreabilidade; remover ou apontar pra módulo real em PR futuro.
         'recover-advanced': 'RecoverAdvanced',
         'text-to-speech': 'TextToSpeech',
         'team-system': 'TeamSystem',
