@@ -64,26 +64,27 @@ router.post('/ingest', authenticate, asyncHandler(async (req, res) => {
     contactName
   };
   
-  // 1. Salvar na tabela de mensagens
-  db.run(`
-    INSERT INTO messages (id, conversation_id, workspace_id, content, sender, role, message_type, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `, [
-    msgId,
-    chatId,
-    workspaceId,
-    normalizedMessage.message,
-    normalizedMessage.sender,
-    normalizedMessage.role,
-    normalizedMessage.type
-  ]);
-  
-  // 2. Atualizar ou criar conversa no ai_conversations
+  // 1. Atualizar ou criar conversa no ai_conversations
+  //
+  // ⚠️ ANTES havia um INSERT INTO messages aqui que crashava 100% das chamadas
+  // com SQLITE_ERROR: no such column: workspace_id. A query mencionava colunas
+  // (workspace_id, sender, role) que NUNCA existiram no schema real da tabela
+  // `messages` — essa tabela é do CRM e tem (sender_type, sender_id), populada
+  // por routes/conversations.js. O INSERT errado vinha desde o primeiro commit,
+  // efeito colateral: como crashava antes do passo 2, `ai_conversations` nunca
+  // recebia as mensagens, e o copilot nunca tinha histórico server-side. Além
+  // disso, MessageCapture batia em max retries e poluía os logs com 500s, o
+  // que provavelmente também era o vetor do bug "IA dá fallback genérico
+  // depois de F5 na página".
+  //
+  // Decisão: remover o INSERT. ai_conversations.messages (JSON) já é a fonte
+  // de verdade do pipeline de aprendizado. A tabela `messages` continua
+  // recebendo dado do CRM via routes/conversations.js (caminho separado).
   const existingConv = db.get(
     'SELECT id, messages, context FROM ai_conversations WHERE workspace_id = ? AND conversation_id = ?',
     [workspaceId, chatId]
   );
-  
+
   if (existingConv) {
     // Append à conversa existente
     let messages = [];
@@ -92,13 +93,13 @@ router.post('/ingest', authenticate, asyncHandler(async (req, res) => {
     } catch (e) {
       messages = [];
     }
-    
+
     // Manter apenas as últimas 100 mensagens para não sobrecarregar
     messages.push(normalizedMessage);
     if (messages.length > 100) {
       messages = messages.slice(-100);
     }
-    
+
     // SECURITY FIX (RISK-003): Adicionar workspace_id ao UPDATE para defense-in-depth
     db.run(
       'UPDATE ai_conversations SET messages = ?, updated_at = datetime(\'now\') WHERE id = ? AND workspace_id = ?',
@@ -118,11 +119,11 @@ router.post('/ingest', authenticate, asyncHandler(async (req, res) => {
       JSON.stringify({ contactName, groupName })
     ]);
   }
-  
-  // 3. Pilar 4: Enriquecimento automático (extração de intenção básica)
+
+  // 2. Pilar 4: Enriquecimento automático (extração de intenção básica)
   const enrichment = extractBasicIntentAndSentiment(normalizedMessage.message);
-  
-  // 4. Emitir evento via WebSocket se disponível
+
+  // 3. Emitir evento via WebSocket se disponível
   if (req.app.get('io')) {
     req.app.get('io').to(`workspace:${workspaceId}`).emit('ai:message:ingested', {
       chatId,
