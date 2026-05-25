@@ -370,13 +370,25 @@
     }
 
     _getModuleExport(moduleName) {
-      // Mapear nomes de módulo para exports globais
+      // Mapear nomes de módulo para exports globais.
+      //
+      // ⚠️ Estes nomes PRECISAM bater com window.X que cada módulo realmente
+      // exporta. Quando não bate, _getModuleExport retorna undefined mesmo
+      // com o módulo já carregado no isolated world via content-bundle ou
+      // advanced-bundle — e aí o LazyLoader cai no fallback de injetar
+      // <script src=…> no DOM. O `<script src>` em content script SEMPRE
+      // executa no PAGE WORLD (não no isolated world), então acaba criando
+      // uma SEGUNDA cópia da classe num mundo onde ela não consegue ver
+      // BackendClient/CopilotEngine/EventBus (que ficam no isolated). O
+      // sintoma é o botão de IA disparar Tier 5 fallback ("Entendi! Posso
+      // ajudar com mais alguma informação?") porque o handler nunca acha
+      // window.BackendClient pra rodar o orquestrador do backend.
       const exportMappings = {
         'copilot-engine': 'CopilotEngine',
-        'ai-suggestion-fixed': 'AISuggestion',
+        'ai-suggestion-fixed': 'AISuggestionFixed',  // era 'AISuggestion' — módulo exporta AISuggestionFixed
         'knowledge-base': 'KnowledgeBase',
         'few-shot-learning': 'FewShotLearning',
-        'smartbot-autopilot-v2': 'SmartBotAutopilot',
+        'smartbot-autopilot-v2': 'AutopilotV2',      // era 'SmartBotAutopilot' — módulo exporta AutopilotV2
         'campaign-manager': 'CampaignManager',
         'crm': 'CRM',
         'analytics': 'Analytics',
@@ -385,7 +397,7 @@
         'team-system': 'TeamSystem',
         'escalation-system': 'EscalationSystem'
       };
-      
+
       const exportName = exportMappings[moduleName];
       return exportName ? window[exportName] : window[moduleName];
     }
