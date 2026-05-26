@@ -18,7 +18,7 @@
   const PLANS = {
     free: {
       id: 'free',
-      name: 'Gratuito',
+      name: 'Free Lite',
       price: 0,
       color: '#6b7280',
       icon: '🆓',
@@ -29,21 +29,29 @@
         maxFlows: 0,
         maxTeamMembers: 1,
         aiCredits: 0,
-        smartReplies: false,
+        smartReplies: 'limited',
         copilot: false,
-        analytics: false,
+        autopilot: false,
+        analytics: 'lite',
         exportFormats: ['csv'],
-        bulkMessages: false,
+        bulkMessages: 'limited',
         customLabels: false,
         apiAccess: false,
         prioritySupport: false,
         recover: true,
-        crm: 'basic'
+        crm: 'basic',
+        training: 'read-only',
+        maxTemplates: 10,
+        maxKanbanBoards: 1,
+        maxScheduledActive: 2,
+        backupsPerWeek: 1
       },
       limits: {
         messagesPerDay: 30,
         mediaPerDay: 5,
-        exportsPerDay: 1
+        exportsPerDay: 1,
+        aiRepliesPerDay: 3,
+        bulkContactsPerDay: 5
       }
     },
     starter: {
@@ -61,6 +69,7 @@
         aiCredits: 100,
         smartReplies: true,
         copilot: false,
+        autopilot: true,
         analytics: 'basic',
         exportFormats: ['csv', 'xlsx'],
         bulkMessages: true,
@@ -68,12 +77,19 @@
         apiAccess: false,
         prioritySupport: false,
         recover: true,
-        crm: 'full'
+        crm: 'full',
+        training: true,
+        maxTemplates: -1,
+        maxKanbanBoards: -1,
+        maxScheduledActive: -1,
+        backupsPerWeek: -1
       },
       limits: {
         messagesPerDay: 500,
         mediaPerDay: 100,
-        exportsPerDay: 10
+        exportsPerDay: 10,
+        aiRepliesPerDay: -1,
+        bulkContactsPerDay: -1
       }
     },
     pro: {
@@ -91,6 +107,7 @@
         aiCredits: 500,
         smartReplies: true,
         copilot: true,
+        autopilot: true,
         analytics: 'advanced',
         exportFormats: ['csv', 'xlsx', 'json'],
         bulkMessages: true,
@@ -98,12 +115,19 @@
         apiAccess: true,
         prioritySupport: true,
         recover: true,
-        crm: 'full'
+        crm: 'full',
+        training: true,
+        maxTemplates: -1,
+        maxKanbanBoards: -1,
+        maxScheduledActive: -1,
+        backupsPerWeek: -1
       },
       limits: {
         messagesPerDay: 2000,
         mediaPerDay: 500,
-        exportsPerDay: -1
+        exportsPerDay: -1,
+        aiRepliesPerDay: -1,
+        bulkContactsPerDay: -1
       }
     },
     enterprise: {
@@ -121,6 +145,7 @@
         aiCredits: 2000,
         smartReplies: true,
         copilot: true,
+        autopilot: true,
         analytics: 'full',
         exportFormats: ['csv', 'xlsx', 'json', 'pdf'],
         bulkMessages: true,
@@ -129,12 +154,19 @@
         prioritySupport: true,
         recover: true,
         crm: 'full',
-        whiteLabel: true
+        whiteLabel: true,
+        training: true,
+        maxTemplates: -1,
+        maxKanbanBoards: -1,
+        maxScheduledActive: -1,
+        backupsPerWeek: -1
       },
       limits: {
         messagesPerDay: -1,
         mediaPerDay: -1,
-        exportsPerDay: -1
+        exportsPerDay: -1,
+        aiRepliesPerDay: -1,
+        bulkContactsPerDay: -1
       }
     }
   };
@@ -153,6 +185,10 @@
     syncInterval: 300000, // 5 minutos
     warningThreshold: 20, // % de créditos restantes para avisar
     trialDays: 7,
+    // Orçamento de IA fixo pro trial inteiro (não por dia). ~7 chamadas/dia
+    // num trial de 7 dias — generoso o bastante pra testar features sem
+    // permitir abuso de autopilot consumindo tokens da nossa conta.
+    trialAICredits: 50,
     // v9.6.0 — chave-mestra do desenvolvedor (Cristiano). Quando inserida no
     // campo de assinatura, libera plano enterprise localmente SEM precisar de
     // backend. Validada também server-side via MASTER_KEY env do backend.
@@ -221,6 +257,8 @@
       messagesToday: 0,
       mediaToday: 0,
       exportsToday: 0,
+      aiRepliesToday: 0,
+      bulkContactsToday: 0,
       contactsTotal: 0,
       campaignsActive: 0,
       flowsActive: 0,
@@ -242,6 +280,9 @@
     console.log('[SubscriptionManager] Inicializando...');
 
     await loadState();
+    // Rebaixa pra Free Lite se o trial local expirou antes do init (ex.:
+    // usuário sem cadastro, sem sync com backend, abre o navegador no dia 8).
+    await _checkTrialExpiry();
     // Cacheia a URL do backend pra getUpgradeUrl/getBuyCreditsUrl (síncronas)
     // poderem apontar pro dashboard real (#billing / #tokens).
     try { _backendBaseCache = await getBackendUrl(); } catch (_) { _backendBaseCache = null; }
@@ -607,7 +648,10 @@
   }
 
   /**
-   * Inicia período trial
+   * Inicia período trial — 7 dias com features Pro mas orçamento de IA fixo
+   * (não a allowance mensal Pro). Após o trial, o usuário cai para Free Lite
+   * via _checkTrialExpiry(), mantendo acesso reduzido a IA (3/dia) e CRM
+   * básico — não é cortado do produto, apenas rebaixado.
    */
   async function startTrial() {
     const trialEnd = new Date();
@@ -623,13 +667,46 @@
       lastSync: null
     };
 
-    state.credits.total = PLANS.pro.features.aiCredits;
-    state.credits.monthlyAllowance = PLANS.pro.features.aiCredits;
+    // Orçamento fixo de 50 chamadas IA pro trial inteiro (~7/dia). Suficiente
+    // pra testar smart replies, copilot e autopilot, criando urgência sem
+    // permitir abuso (rodar autopilot 24h queimando tokens da nossa conta).
+    state.credits.total = CONFIG.trialAICredits;
+    state.credits.used = 0;
+    state.credits.monthlyAllowance = CONFIG.trialAICredits;
 
     await saveState();
     emit('trial_started', { endsAt: trialEnd });
 
     return { success: true, endsAt: trialEnd };
+  }
+
+  /**
+   * Verifica se o trial expirou e rebaixa o usuário pro Free Lite.
+   * Chamado no init e no reset diário. Útil pra quem não está sincronizado
+   * com o backend (instalou pela Chrome Web Store sem cadastrar) — o trial
+   * iniciado localmente expira pela data local.
+   */
+  async function _checkTrialExpiry() {
+    if (state.subscription.status !== 'trial') return;
+    if (!state.subscription.trialEndsAt) return;
+
+    const ended = new Date(state.subscription.trialEndsAt) <= new Date();
+    if (!ended) return;
+
+    console.log('[SubscriptionManager] Trial expirado — rebaixando para Free Lite');
+    state.subscription.planId = 'free';
+    state.subscription.status = 'inactive';
+    state.subscription.trialExpired = true;
+    state.subscription.trialExpiredAt = new Date().toISOString();
+    state.credits = {
+      total: 0,
+      used: 0,
+      monthlyAllowance: 0,
+      bonusCredits: 0,
+      lastReset: state.credits.lastReset
+    };
+    await saveState();
+    emit('trial_expired', { downgradedTo: 'free' });
   }
 
   // ============================================
@@ -763,7 +840,17 @@
   function canUseAI() {
     // Master key sempre pode usar IA
     if (state.subscription.isMasterKey) return true;
-    
+
+    // Free Lite: IA liberada dentro do cap diário (aiRepliesPerDay).
+    // Quem instalou pela Chrome Web Store sem cadastrar começa aqui e
+    // testa a feature até o cap, criando hábito sem queimar tokens infinitos.
+    if (state.subscription.planId === 'free') {
+      const limit = getLimit('aiRepliesPerDay');
+      if (limit === -1) return true;
+      if (typeof limit !== 'number' || limit <= 0) return false;
+      return (state.usage.aiRepliesToday || 0) < limit;
+    }
+
     if (!isActive()) return false;
     const credits = getCredits();
     return credits.remaining > 0;
@@ -771,16 +858,22 @@
 
   function checkLimit(limitName) {
     const limit = getLimit(limitName);
-    if (limit === -1) return { allowed: true, remaining: -1 };
+    // Limite ausente no plano é tratado como ilimitado — evita NaN em planos
+    // que não declaram explicitamente o limite (ex.: starter sem aiRepliesPerDay).
+    if (limit === -1 || limit === undefined || limit === null) {
+      return { allowed: true, remaining: -1 };
+    }
 
     const usageMap = {
       messagesPerDay: 'messagesToday',
       mediaPerDay: 'mediaToday',
-      exportsPerDay: 'exportsToday'
+      exportsPerDay: 'exportsToday',
+      aiRepliesPerDay: 'aiRepliesToday',
+      bulkContactsPerDay: 'bulkContactsToday'
     };
 
     const usageKey = usageMap[limitName];
-    const current = usageKey ? state.usage[usageKey] : 0;
+    const current = usageKey ? (state.usage[usageKey] || 0) : 0;
     const remaining = limit - current;
 
     return {
@@ -839,10 +932,21 @@
 
       case 'bulk_message':
         if (!plan.features.bulkMessages) {
-          return { 
-            allowed: false, 
-            reason: 'feature_locked', 
-            message: 'Envios em massa não disponíveis no seu plano' 
+          return {
+            allowed: false,
+            reason: 'feature_locked',
+            message: 'Envios em massa não disponíveis no seu plano'
+          };
+        }
+        // Free Lite: bulkMessages='limited' passa no check acima, mas tem
+        // teto diário de contatos (bulkContactsPerDay). Starter+ retorna -1
+        // em checkLimit (ilimitado) e ignora.
+        const bulkCheck = checkLimit('bulkContactsPerDay');
+        if (!bulkCheck.allowed) {
+          return {
+            allowed: false,
+            reason: 'limit_reached',
+            message: `Limite de ${bulkCheck.limit} contatos em massa/dia atingido`
           };
         }
         break;
@@ -905,6 +1009,16 @@
       throw new Error('Sem créditos de IA disponíveis');
     }
 
+    // Free Lite: não há saldo mensal — contabiliza a chamada no contador
+    // diário (aiRepliesToday) e retorna sem mexer em credits. O upsell
+    // dispara naturalmente quando aiRepliesPerDay é atingido.
+    if (state.subscription.planId === 'free' && !state.subscription.isMasterKey) {
+      await incrementUsage('ai_reply', 1);
+      const credits = getCredits();
+      emit('credits_consumed', { amount: 1, operation, remaining: credits.remaining, freeLite: true });
+      return credits;
+    }
+
     state.credits.used += amount;
     await saveState();
 
@@ -939,7 +1053,9 @@
     const usageMap = {
       message: 'messagesToday',
       media: 'mediaToday',
-      export: 'exportsToday'
+      export: 'exportsToday',
+      ai_reply: 'aiRepliesToday',
+      bulk_contact: 'bulkContactsToday'
     };
 
     const key = usageMap[type];
@@ -951,7 +1067,9 @@
       const limitMap = {
         message: 'messagesPerDay',
         media: 'mediaPerDay',
-        export: 'exportsPerDay'
+        export: 'exportsPerDay',
+        ai_reply: 'aiRepliesPerDay',
+        bulk_contact: 'bulkContactsPerDay'
       };
 
       const check = checkLimit(limitMap[type]);
@@ -971,6 +1089,8 @@
       state.usage.messagesToday = 0;
       state.usage.mediaToday = 0;
       state.usage.exportsToday = 0;
+      state.usage.aiRepliesToday = 0;
+      state.usage.bulkContactsToday = 0;
       state.usage.lastResetDate = today;
     }
   }
@@ -994,8 +1114,14 @@
     state.usage.messagesToday = 0;
     state.usage.mediaToday = 0;
     state.usage.exportsToday = 0;
+    state.usage.aiRepliesToday = 0;
+    state.usage.bulkContactsToday = 0;
     state.usage.lastResetDate = new Date().toISOString().split('T')[0];
     await saveState();
+    // Trial expira por data, não por reset diário — mas o reset é uma boa
+    // janela pra rebaixar o usuário pro Free Lite caso o backend não tenha
+    // sincronizado (ex.: extensão usada sem cadastro).
+    await _checkTrialExpiry();
     emit('daily_reset', state.usage);
   }
 
