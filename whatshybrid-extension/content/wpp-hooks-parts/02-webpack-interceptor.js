@@ -178,6 +178,16 @@
         const _senderIsPhone = _participant.includes(':0@') || !_participant.includes(':');
         const _deviceType = _senderIsPhone ? 'phone' : 'computer';
 
+        // FIX v9.6.4: classifica action e MESSAGE_STATE conforme deletionType real.
+        // Antes: action='deleted' fixo e estado hardcoded em DELETED_LOCAL —
+        // resultado: revoke global (contato apagou pra todos) caía no filtro
+        // "Apagada" em vez de "Revogada". detectDeletionType já calcula
+        // corretamente; só faltava propagar.
+        const isRevoke = deletionType === 'revoked_by_sender' || deletionType === 'deleted_by_admin';
+        const messageState = isRevoke
+            ? window.RecoverAdvanced?.MESSAGE_STATES?.REVOKED_GLOBAL
+            : window.RecoverAdvanced?.MESSAGE_STATES?.DELETED_LOCAL;
+
         const entrada = {
             id: msg.id?.id || Date.now().toString(),
             chatId: chatId,
@@ -185,7 +195,7 @@
             to,
             body,
             type: detectMessageType(body, msg.type),
-            action: 'deleted',
+            action: isRevoke ? 'revoked' : 'deleted',
             mediaType: msg.type,
             mediaData: null,
             deviceType: _deviceType,
@@ -200,18 +210,18 @@
             },
             // BUG 2: Add persistent notification
             notification: {
-                type: 'deleted',
+                type: isRevoke ? 'revoked' : 'deleted',
                 text: getNotificationText(deletionType),
                 timestamp: Date.now(),
                 persistent: true  // BUG 2: Flag to keep visible always
             }
         };
-        
+
         // PHASE 2: Usar novo sistema de versões via RecoverAdvanced
-        if (window.RecoverAdvanced?.registerMessageEvent) {
+        if (window.RecoverAdvanced?.registerMessageEvent && messageState) {
             window.RecoverAdvanced.registerMessageEvent(
                 entrada,
-                window.RecoverAdvanced.MESSAGE_STATES.DELETED_LOCAL,
+                messageState,
                 'wpp_hooks_delete'
             );
         }
