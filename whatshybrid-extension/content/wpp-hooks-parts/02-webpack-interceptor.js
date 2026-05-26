@@ -810,34 +810,65 @@
                 console.log('[WHL Hooks] EditMessageHook plural registered');
             }
 
-            // ── Hook SINGULAR (per-message). args[0] é UM objeto. ──────────
-            // Crítico para edits incoming em WA 2.3000+ que disparam essa
-            // função direto do decoder de websocket, sem passar pela versão
-            // batch. Versões antigas do código aliasavam plural→singular,
-            // mas isso quebrava porque o handler chama .filter num objeto.
-            if (typeof EditMessageHook.originalMsg === 'function') {
-                mod.processEditProtocolMsg = function (...args) {
+            // ── Hook updateMessageEditsLocally ─────────────────────────────
+            // FIX v9.6.2: diagnóstico no console do usuário (WA 2.3300+)
+            // mostrou que `processEditProtocolMsg` (singular) NÃO existe
+            // no módulo — só plural + `updateMessageEditsLocally` +
+            // `generateMessageEdit`. Edits do CONTATO chegam via socket
+            // já decifrados e vão direto pra `updateMessageEditsLocally`
+            // que aplica a mudança no Msg store local. Plural só fica no
+            // caminho de OUTGOING (você editou). Por isso outgoing
+            // funcionava e incoming não — a função certa nunca era
+            // interceptada.
+            //
+            // A assinatura exata do `updateMessageEditsLocally` varia entre
+            // builds, então o wrapper aceita args dinâmicos: procura o
+            // primeiro objeto que pareça uma mensagem (tem body, id,
+            // protocolMessageKey ou caption) e despacha pro handler comum.
+            // SEMPRE delega ao original, mesmo se nosso processamento
+            // falhar — não bloqueia o pipeline nativo do WhatsApp.
+            EditMessageHook.originalUpdate = mod.updateMessageEditsLocally;
+            if (typeof EditMessageHook.originalUpdate === 'function') {
+                mod.updateMessageEditsLocally = function (...args) {
                     try {
-                        const msg = args[0];
-                        if (msg && typeof msg === 'object' && !Array.isArray(msg)) {
-                            const shouldFilter = EditMessageHook.handle_edited_message(msg, ...args);
-                            if (shouldFilter) return undefined; // edit já foi re-renderizado
+                        let msg = null;
+                        for (let i = 0; i < args.length; i++) {
+                            const a = args[i];
+                            if (a && typeof a === 'object' && !Array.isArray(a) &&
+                                (a.body !== undefined || a.caption !== undefined ||
+                                 a.id !== undefined || a.protocolMessageKey !== undefined)) {
+                                msg = a;
+                                break;
+                            }
+                        }
+                        if (msg) {
+                            try {
+                                console.log('[WHL Hooks] 🔔 updateMessageEditsLocally edit detectado',
+                                    msg?.id?._serialized || msg?.id?.id || '?');
+                            } catch (_) {}
+                            // Não filtramos nem reinjetamos via processRenderableMessages —
+                            // só salvamos no histórico. O WA aplica o edit nativo no chat
+                            // (label "Editada" + novo texto). Anotação visual fica a cargo
+                            // do fallback DOM em recover-dom.js.
+                            try { salvarMensagemEditada(msg); } catch (saveErr) {
+                                console.warn('[WHL Hooks] salvarMensagemEditada error:', saveErr);
+                            }
                         }
                     } catch (e) {
-                        console.warn('[WHL Hooks] processEditProtocolMsg wrapper error:', e);
+                        console.warn('[WHL Hooks] updateMessageEditsLocally wrapper error:', e);
                     }
-                    return EditMessageHook.originalMsg.apply(this, args);
+                    return EditMessageHook.originalUpdate.apply(this, args);
                 };
-                console.log('[WHL Hooks] EditMessageHook singular registered');
+                console.log('[WHL Hooks] EditMessageHook updateMessageEditsLocally registered');
             }
 
             // Alias mantido para callers antigos que liam EditMessageHook.originalEdit.
             EditMessageHook.originalEdit = EditMessageHook.originalMsgs;
             this.original_function = EditMessageHook.originalMsgs;
 
-            console.log('[WHL Hooks] EditMessageHook registered (plural:%s, singular:%s)',
+            console.log('[WHL Hooks] EditMessageHook registered (plural:%s, updateLocal:%s)',
                 typeof EditMessageHook.originalMsgs === 'function',
-                typeof EditMessageHook.originalMsg === 'function');
+                typeof EditMessageHook.originalUpdate === 'function');
         }
 
         static handle_edited_message(message, arg1, arg2) {
