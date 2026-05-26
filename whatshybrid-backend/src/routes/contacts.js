@@ -11,6 +11,7 @@ const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
 const { makeLikeTerm, safeInt } = require('../utils/sql-helpers');
+const { checkSubscription, checkLimit } = require('../middleware/subscription');
 
 /**
  * @route GET /api/v1/contacts
@@ -121,6 +122,8 @@ router.get('/:id',
  */
 router.post('/',
   authenticate,
+  checkSubscription('crm_create'),
+  checkLimit('contacts'),
   [
     body('phone').notEmpty().trim()
   ],
