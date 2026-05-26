@@ -181,6 +181,58 @@
     return results;
   }
 
+  // ─── Selectors de container de mensagem ─────────────────────────────────
+  // FIX crítico v9.6.3: WA Web 2.3300+ removeu `[data-testid="msg-container"]`.
+  // O DOM Monitor log do usuário confirmou que agora o WA usa
+  // `#main [role="row"]` e/ou `div.message-in/.message-out` pra mensagens.
+  //
+  // Antes deste fix, 13 querySelectors hardcoded com o testid antigo
+  // retornavam ZERO matches — o observer ficava cego, scan periódico não
+  // cacheava nada, isEditedMessage nunca era chamado pra mensagens reais,
+  // e edits incoming passavam invisíveis. Deletes continuavam aparecendo
+  // só porque vêm pelo hook protocolar do wpp-hooks.js.
+  //
+  // Ordem importa: tentamos seletores mais específicos primeiro pra evitar
+  // capturar wrappers irmãos. `[data-id]` é um ótimo fallback porque toda
+  // mensagem renderizada tem o atributo.
+  const MSG_CONTAINER_SELECTORS = [
+    '[data-testid="msg-container"]',  // legacy (mantido por safety se WA voltar)
+    'div.message-in',
+    'div.message-out',
+    '#main [role="row"] [data-id]',
+    '[role="row"] > div[tabindex] > div[role="row"]',
+    '[data-id]'
+  ];
+
+  // Sobe da target node até o container de mensagem mais próximo.
+  // Substitui `element.closest('[data-testid="msg-container"]')` que ficou
+  // null em todos os calls após o WA mudar o markup.
+  function findMsgContainer(element) {
+    if (!element || !element.closest) return null;
+    for (const sel of MSG_CONTAINER_SELECTORS) {
+      try {
+        const found = element.closest(sel);
+        if (found) return found;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // querySelectorAll resiliente: pega TODAS as mensagens dentro de parent
+  // independente de qual selector o WA está usando nesta versão. Deduplica
+  // por instância de Node (Set).
+  function findMsgContainers(parent) {
+    if (!parent || typeof parent.querySelectorAll !== 'function') return [];
+    const seen = new Set();
+    for (const sel of MSG_CONTAINER_SELECTORS) {
+      try {
+        const matches = parent.querySelectorAll(sel);
+        for (const m of matches) seen.add(m);
+      } catch (_) {}
+    }
+    return Array.from(seen);
+  }
+
   function findContainer() {
     for (const sel of SELECTORS.MESSAGES_CONTAINER) {
       try {
@@ -199,8 +251,8 @@
     if (dataId) return dataId;
 
     // Fallback: criar key única baseada em posição e conteúdo
-    const parent = element.closest('[data-testid="msg-container"]') || element;
-    const allMsgs = document.querySelectorAll('[data-testid="msg-container"]');
+    const parent = findMsgContainer(element) || element;
+    const allMsgs = findMsgContainers(document);
     const index = Array.from(allMsgs).indexOf(parent);
     const text = (element.textContent || '').slice(0, 50);
     
@@ -234,7 +286,7 @@
   // ============================================
 
   function extractMessageData(element) {
-    const msgContainer = element.closest('[data-testid="msg-container"]') || element;
+    const msgContainer = findMsgContainer(element) || element;
     
     // Texto
     const textEl = findElement(msgContainer, SELECTORS.MESSAGE_TEXT);
@@ -367,15 +419,24 @@
     const msgKey = generateMsgKey(element);
     const data = extractMessageData(element);
 
-    // Não cachear mensagens apagadas ou vazias
+    // Não cachear mensagens apagadas ou vazias (sem texto E sem mídia).
     if (data.isDeleted || (!data.text && !data.mediaUrl)) {
       return;
     }
 
-    // Verificar se já temos essa mensagem cacheada com conteúdo melhor
+    // FIX v9.6.3: cache write-once. Antes a lógica era
+    // `if (existing.text.length >= data.text.length) return` — mantinha
+    // o cache se o novo texto fosse MENOR, mas SOBRESCREVIA se fosse
+    // MAIOR. Isso quebrava a detecção de edits que ampliam o texto:
+    // quando o contato editava "ok" → "ok valeu", o scan periódico
+    // (5s) varria, o body novo era maior, o cache era sobrescrito com
+    // "ok valeu" — aí quando handleEditedMessage rodava, cached.text já
+    // era "ok valeu" === currentBody, considerava "sem mudança" e nada
+    // aparecia. Agora: 1ª gravação válida fica imutável. Atualizações
+    // explícitas ficam por conta do handleEditedMessage.
     const existing = state.messageCache.get(msgKey);
-    if (existing && existing.text && existing.text.length >= data.text.length) {
-      return; // Manter cache existente se tiver mais conteúdo
+    if (existing && existing.text) {
+      return; // já cacheado — não sobrescreve
     }
 
     state.messageCache.set(msgKey, {
@@ -468,7 +529,7 @@
    * registro a cada tick do scan.
    */
   function handleEditedMessage(element) {
-    const msgContainer = element.closest('[data-testid="msg-container"]') || element;
+    const msgContainer = findMsgContainer(element) || element;
 
     // Evita reprocessar a mesma edição em ticks subsequentes do observer/scan.
     if (msgContainer.dataset?.whlEditHandled === 'true') return;
@@ -593,7 +654,7 @@
 
   function injectRecoveredContent(element, cached) {
     try {
-      const msgContainer = element.closest('[data-testid="msg-container"]') || element;
+      const msgContainer = findMsgContainer(element) || element;
       
       // Verificar se já foi processado
       if (msgContainer.querySelector('.whl-recovered-marker')) {
@@ -781,7 +842,7 @@ ${entry.body}
       if (!container) throw new Error('Container não encontrado');
 
       // Buscar todas as mensagens com mídia
-      const allMsgs = container.querySelectorAll('[data-testid="msg-container"]');
+      const allMsgs = findMsgContainers(container);
       
       for (let i = allMsgs.length - 1; i >= 0; i--) {
         const msg = allMsgs[i];
@@ -885,9 +946,11 @@ ${entry.body}
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-          const messages = node.matches?.('[data-testid="msg-container"]')
-            ? [node]
-            : node.querySelectorAll?.('[data-testid="msg-container"]') || [];
+          // FIX v9.6.3: resiliente a múltiplos selectors (WA mudou markup).
+          const selfMatches = MSG_CONTAINER_SELECTORS.some(sel => {
+            try { return node.matches?.(sel); } catch (_) { return false; }
+          });
+          const messages = selfMatches ? [node] : findMsgContainers(node);
 
           for (const msg of messages) {
             if (isDeletedMessage(msg)) {
@@ -906,7 +969,7 @@ ${entry.body}
         // edit/revoke acontecem aqui mais frequentemente que em addedNodes)
         if (mutation.type === 'characterData' || mutation.type === 'childList') {
           const target = mutation.target;
-          const msgContainer = target.closest?.('[data-testid="msg-container"]');
+          const msgContainer = findMsgContainer(target);
 
           if (msgContainer) {
             if (isDeletedMessage(msgContainer)) {
@@ -944,7 +1007,7 @@ ${entry.body}
    * Usa dataset.whlEditHandled como sentinela pra não reprocessar.
    */
   function checkForEditedMessages(container) {
-    const messages = container.querySelectorAll('[data-testid="msg-container"]');
+    const messages = findMsgContainers(container);
     for (const msg of messages) {
       if (msg.dataset?.whlEditHandled === 'true') continue;
       if (isDeletedMessage(msg)) continue;  // delete tem prioridade
@@ -955,7 +1018,7 @@ ${entry.body}
   }
 
   function scanAndCacheMessages(container) {
-    const messages = container.querySelectorAll('[data-testid="msg-container"]');
+    const messages = findMsgContainers(container);
     let cached = 0;
 
     for (const msg of messages) {
@@ -974,7 +1037,7 @@ ${entry.body}
   }
 
   function checkForDeletedMessages(container) {
-    const messages = container.querySelectorAll('[data-testid="msg-container"]');
+    const messages = findMsgContainers(container);
 
     for (const msg of messages) {
       if (isDeletedMessage(msg)) {
