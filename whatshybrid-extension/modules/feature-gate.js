@@ -23,32 +23,38 @@
     'module:chats': { minPlan: 'free' },
     'module:contacts': { minPlan: 'free' },
     'module:recover': { minPlan: 'free' },
-    'module:bulk': { minPlan: 'starter', feature: 'bulkMessages' },
+    // Free Lite: pode ABRIR o módulo de envio em massa (bulkMessages='limited');
+    // o teto por dia é cobrado no action:send_bulk pra dar UX de "tente um envio
+    // pequeno" e disparar upsell quando estourar.
+    'module:bulk': { minPlan: 'free', feature: 'bulkMessages' },
     'module:campaigns': { minPlan: 'starter' },
     'module:flows': { minPlan: 'starter' },
+    // Analytics ainda não está implementado de fato — mantemos gate antigo
+    // (starter+) pra não expor entrada de menu pra módulo morto. Quando
+    // voltar à vida, descer pra free com 'analytics':'lite' já está plumbed.
     'module:analytics': { minPlan: 'starter', feature: 'analytics' },
     'module:team': { minPlan: 'starter' },
     'module:extractor': { minPlan: 'starter' },
-    'module:smart-replies': { minPlan: 'starter', feature: 'smartReplies', requiresCredits: true },
+    // Free Lite: smartReplies='limited' + aiRepliesPerDay=3. canUseAI() devolve
+    // true enquanto o cap diário não estoura, sem precisar de saldo mensal.
+    'module:smart-replies': { minPlan: 'free', feature: 'smartReplies', limit: 'aiRepliesPerDay', requiresCredits: true },
     'module:copilot': { minPlan: 'pro', feature: 'copilot', requiresCredits: true },
     'module:crm': { minPlan: 'free', feature: 'crm' },
     'module:tasks': { minPlan: 'free' },
+    // Training continua starter+ — Free Lite usa training='read-only' caso o
+    // módulo queira permitir leitura de docs já enviados (não bloqueamos no
+    // gate aqui pra não engessar; o módulo decide via SM.getFeature).
     'module:training': { minPlan: 'starter' },
-    // v9.7.x — Autopilot exige plano pago. Autopilot atua sozinho consumindo
-    // tokens — mantê-lo bloqueado pra free é consistente com smart-replies
-    // (que também exige starter+). Mesmo gate de IA.
-    // NÃO usa `feature:` porque a flag 'autopilot' não existe no PLANS
-    // do SubscriptionManager — o gate é só por minPlan + créditos.
-    // Master key (enterprise local) passa pelo minPlan (enterprise > starter)
-    // e pelos créditos (999999 alocados na ativação), liberando autopilot.
+    // Autopilot continua starter+: roda sozinho consumindo tokens, não pode
+    // estar no Free Lite ou viraria custo aberto da nossa conta de IA.
     'module:autopilot': { minPlan: 'starter', requiresCredits: true },
-    // v9.7.x — Aba "IA" do painel lateral. Hoje o gate de smart-replies
-    // bloqueia o envio mas a aba abre normal — sem esse mapeamento, o
-    // top-panel não consegue decidir "abre ou mostra upsell" pra view='ai'.
-    'module:ai': { minPlan: 'starter', feature: 'smartReplies', requiresCredits: true },
+    // Aba "IA" do painel lateral — mesmo gate do smart-replies pra que o
+    // Free Lite consiga abrir a view e ver upsell ao estourar 3/dia.
+    'module:ai': { minPlan: 'free', feature: 'smartReplies', limit: 'aiRepliesPerDay', requiresCredits: true },
 
     // === AÇÕES ===
-    'action:send_bulk': { minPlan: 'starter', feature: 'bulkMessages' },
+    // send_bulk no Free Lite é micro-bulk (até bulkContactsPerDay=5).
+    'action:send_bulk': { minPlan: 'free', feature: 'bulkMessages', limit: 'bulkContactsPerDay' },
     'action:create_flow': { minPlan: 'starter', limit: 'maxFlows' },
     'action:create_campaign': { minPlan: 'starter', limit: 'maxCampaigns' },
     'action:export_csv': { minPlan: 'free' },
@@ -56,13 +62,14 @@
     'action:export_json': { minPlan: 'pro' },
     'action:export_pdf': { minPlan: 'enterprise' },
     'action:add_team_member': { minPlan: 'starter', limit: 'maxTeamMembers' },
-    'action:use_ai': { minPlan: 'starter', requiresCredits: true },
+    // use_ai herda o mesmo gate de smart-replies — Free Lite com cap diário.
+    'action:use_ai': { minPlan: 'free', limit: 'aiRepliesPerDay', requiresCredits: true },
     'action:custom_labels': { minPlan: 'starter', feature: 'customLabels' },
     'action:send_message': { minPlan: 'free', limit: 'messagesPerDay' },
     'action:send_media': { minPlan: 'free', limit: 'mediaPerDay' },
 
     // === FUNCIONALIDADES ===
-    'feature:smart_replies': { minPlan: 'starter', feature: 'smartReplies', requiresCredits: true },
+    'feature:smart_replies': { minPlan: 'free', feature: 'smartReplies', limit: 'aiRepliesPerDay', requiresCredits: true },
     'feature:copilot': { minPlan: 'pro', feature: 'copilot', requiresCredits: true },
     'feature:advanced_analytics': { minPlan: 'pro', feature: 'analytics', value: 'advanced' },
     'feature:full_analytics': { minPlan: 'enterprise', feature: 'analytics', value: 'full' },
