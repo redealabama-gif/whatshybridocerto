@@ -19,6 +19,10 @@
     { name: 'BackendClient', global: 'BackendClient', priority: 7 },
     { name: 'ChartEngine', global: 'ChartEngine', priority: 10 },
     { name: 'NotificationsModule', global: 'NotificationsModule', priority: 20 },
+    // SubscriptionUI roda depois de SubscriptionManager (p3), FeatureGate
+    // (p4) e NotificationsModule (p20) — depende dos três pra renderizar
+    // o banner e mostrar o toast de trial expirado.
+    { name: 'SubscriptionUI', global: 'SubscriptionUI', priority: 25 },
     { name: 'AnalyticsModule', global: 'AnalyticsModule', priority: 30 },
     { name: 'ContactManager', global: 'ContactManager', priority: 35 },
     // LabelsModule precisa inicializar ANTES de CRMModule. O CRM no init

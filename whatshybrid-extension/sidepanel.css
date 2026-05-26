@@ -2860,3 +2860,90 @@ button[id*="recover"]:not([disabled]):hover {
     font-size: 12px;
   }
 }
+
+/* ============================================
+   Subscription Status Banner (subscription-ui.js)
+   Banner persistente abaixo do header mostrando
+   trial em curso, Free Lite com cap diário, ou
+   chip discreto pra planos pagos.
+   ============================================ */
+.whl-status-banner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:8px 12px;
+  margin:8px;
+  border-radius:10px;
+  background:rgba(0,0,0,0.30);
+  border:1px solid rgba(255,255,255,0.10);
+  color:#fff;
+  font-size:12px;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.whl-banner-chip{
+  padding:6px 12px;
+  font-size:11px;
+  gap:8px;
+}
+.whl-banner-trial{
+  background:linear-gradient(135deg, rgba(139,92,246,0.20), rgba(59,130,246,0.18));
+  border-color:rgba(139,92,246,0.30);
+}
+.whl-banner-free{
+  background:rgba(107,114,128,0.20);
+}
+.whl-banner-warn{
+  background:rgba(251,191,36,0.18);
+  border-color:rgba(251,191,36,0.32);
+}
+.whl-banner-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  flex:1 1 auto;
+  min-width:0;
+}
+.whl-banner-label{
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.whl-banner-sub{
+  opacity:0.75;
+  font-size:11px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.whl-banner-actions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+}
+.whl-banner-cta{
+  padding:5px 10px;
+  border-radius:6px;
+  background:var(--gradient-primary, linear-gradient(135deg,#8b5cf6,#3b82f6));
+  color:#fff;
+  border:none;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.whl-banner-cta:hover{ filter:brightness(1.1); }
+.whl-banner-cta-secondary{
+  padding:5px 10px;
+  border-radius:6px;
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+  border:1px solid rgba(255,255,255,0.12);
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.whl-banner-cta-secondary:hover{ background:rgba(255,255,255,0.14); }

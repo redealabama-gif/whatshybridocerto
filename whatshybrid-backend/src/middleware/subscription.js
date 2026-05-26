@@ -69,7 +69,18 @@ const FEATURE_PLANS = {
 };
 
 /**
- * Limites por plano
+ * Limites por plano.
+ *
+ * Espelho dos limites do client em
+ * `whatshybrid-extension/modules/subscription-manager.js` (Free Lite tier).
+ * O client já enforça localmente; este middleware é a barreira server-side
+ * pra impedir bypass via edição do storage da extensão.
+ *
+ * - `ai_requests_per_day` = `aiRepliesPerDay` no client (free: 3)
+ * - `bulk_contacts_per_day` = `bulkContactsPerDay` no client (free: 5).
+ *   Declarado aqui pro client conseguir consultar via /subscription/sync;
+ *   enforcement server-side em /campaigns ainda é TODO (requer counter de
+ *   destinatários por dia — schema separado).
  */
 const PLAN_LIMITS = {
   free: {
@@ -77,28 +88,32 @@ const PLAN_LIMITS = {
     deals: 10,
     tasks: 50,
     campaigns: 0,
-    ai_requests_per_day: 10
+    ai_requests_per_day: 3,
+    bulk_contacts_per_day: 5
   },
   starter: {
     contacts: 1000,
     deals: 50,
     tasks: 200,
     campaigns: 5,
-    ai_requests_per_day: 100
+    ai_requests_per_day: 100,
+    bulk_contacts_per_day: -1
   },
   pro: {
     contacts: -1, // unlimited
     deals: -1,
     tasks: -1,
     campaigns: -1,
-    ai_requests_per_day: 500
+    ai_requests_per_day: 500,
+    bulk_contacts_per_day: -1
   },
   enterprise: {
     contacts: -1,
     deals: -1,
     tasks: -1,
     campaigns: -1,
-    ai_requests_per_day: -1 // unlimited
+    ai_requests_per_day: -1, // unlimited
+    bulk_contacts_per_day: -1
   }
 };
 
