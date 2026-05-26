@@ -588,7 +588,12 @@
     }
 
     // Se já contém nossa anotação (hook protocolar processou), não duplica.
-    if (currentBody && currentBody.startsWith('✏️ Esta mensagem foi editada para:')) {
+    // FIX v9.6.5: cobre os 3 formatos de marcador possíveis (combo "Antes",
+    // "Esta mensagem foi editada para", e "Editada para" sozinho).
+    if (currentBody && (
+        currentBody.startsWith('📝 Antes:') ||
+        currentBody.startsWith('✏️ Esta mensagem foi editada para:') ||
+        currentBody.startsWith('✏️ Editada para:'))) {
       msgContainer.dataset.whlEditHandled = 'true';
       return;
     }
@@ -622,77 +627,33 @@
       });
     }
 
-    // FIX v9.6.1: para edits INCOMING o EditMessageHook protocolar de
-    // wpp-hooks.js às vezes não dispara (WA Web 2.3000+ pode mudar a
-    // chamada singular/plural). Como fallback, injetamos a anotação
-    // visual diretamente no DOM aqui. Idempotente — não duplica se o
-    // hook protocolar já processou (verificação acima via prefix).
-    injectEditedContent(msgContainer, currentBody, cached?.text);
+    // FIX v9.6.5: NÃO injetamos mais marker visual via DOM. O hook
+    // protocolar (updateMessageEditsLocally em wpp-hooks.js) já modifica
+    // o msg.body diretamente no Msg store com o formato combo
+    // "📝 Antes: ...\n✏️ Editada para: ..." — o WA renderiza isso
+    // nativamente sem precisar de injeção HTML separada. A injeção
+    // antiga via DOM causava:
+    //   - markers duplicados ou vazios quando extractMessageData não
+    //     conseguia ler o texto (emojis, mídia, selectors WA mudados)
+    //   - poluição visual com 2 blocos azuis quando o hook protocolar
+    //     também tinha processado mas o startsWith não match'ou
+    //   - dependência de selectors DOM frágeis que quebram a cada
+    //     update do WA Web
+    //
+    // Se o hook protocolar NÃO disparar (ex.: WA renomeou módulo), o
+    // user vê só a label "Editada" nativa + entrada salva no histórico
+    // do Recover (acessível pelo painel). Sem poluição visual no chat.
 
     log('✏️ Mensagem editada registrada:', msgKey, currentBody?.slice(0, 40));
     notifyRecovery(entry);
   }
 
-  function injectEditedContent(msgContainer, newText, oldText) {
-    try {
-      if (!msgContainer) return;
-
-      // Já marcamos visualmente essa mensagem — não duplica.
-      if (msgContainer.querySelector('.whl-edited-marker')) return;
-
-      // Container do texto. Cai pra alternativas se selector primário falhar.
-      const textContainer = findElement(msgContainer, SELECTORS.MESSAGE_TEXT) ||
-                            msgContainer.querySelector('.copyable-text') ||
-                            msgContainer.querySelector('span[dir="ltr"]') ||
-                            msgContainer.querySelector('span.selectable-text');
-
-      if (!textContainer) return;
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'whl-edited-marker';
-      wrapper.style.cssText = [
-        'margin-top:4px',
-        'padding:4px 8px',
-        'border-left:3px solid #3498db',
-        'background:rgba(52,152,219,0.1)',
-        'font-size:12px',
-        'border-radius:3px',
-        'line-height:1.4'
-      ].join(';');
-
-      if (oldText && oldText !== newText) {
-        wrapper.innerHTML = ''; // limpa
-        const before = document.createElement('div');
-        before.style.cssText = 'color:#95a5a6;font-style:italic';
-        before.textContent = '📝 Antes: ' + oldText;
-        const after = document.createElement('div');
-        after.style.cssText = 'color:#3498db;font-weight:bold;margin-top:2px';
-        after.textContent = '✏️ Editada para: ' + (newText || '');
-        wrapper.appendChild(before);
-        wrapper.appendChild(after);
-      } else {
-        const after = document.createElement('div');
-        after.style.cssText = 'color:#3498db;font-weight:bold';
-        after.textContent = '✏️ Esta mensagem foi editada para: ' + (newText || '');
-        wrapper.appendChild(after);
-      }
-
-      wrapper.title = 'Edição detectada pelo WhatsHybrid Recover';
-
-      // Insere logo após o container de texto (não substitui — mantém o
-      // texto editado nativo do WA visível pra contexto).
-      const insertTarget = textContainer.closest('.copyable-text') || textContainer;
-      insertTarget.parentNode?.insertBefore(wrapper, insertTarget.nextSibling);
-
-      // Destaque sutil no container inteiro.
-      msgContainer.style.borderLeft = '3px solid #3498db';
-      msgContainer.style.background = msgContainer.style.background || 'rgba(52,152,219,0.05)';
-
-      log('✅ Marca de edição injetada no DOM');
-    } catch (e) {
-      log('Erro ao injetar marca de edição:', e);
-    }
-  }
+  // FIX v9.6.5: injectEditedContent removida. O hook protocolar em
+  // wpp-hooks.js (updateMessageEditsLocally) agora muta msg.body com o
+  // formato "📝 Antes: ...\n✏️ Editada para: ..." direto no Msg store,
+  // e o WA renderiza isso nativamente. A injeção HTML separada gerava
+  // markers vazios/duplicados quando extractMessageData não conseguia
+  // ler o texto (emojis, mídia, selectors mudados) e poluía o chat.
 
   function injectRecoveredContent(element, cached) {
     try {
@@ -942,8 +903,11 @@ ${entry.body}
   // ============================================
 
   function notifyRecovery(entry) {
-    // Toast visual
-    if (window.NotificationsModule?.toast) {
+    // FIX v9.6.5: toast pop-up só pra deletes — edits ficam só com a
+    // marca inline no chat (mesmo comportamento que mensagens apagadas
+    // recuperadas). Antes mostrava notification "Mensagem de X recuperada!"
+    // toda vez que o contato editava, poluindo a tela.
+    if (entry.action !== 'edited' && window.NotificationsModule?.toast) {
       window.NotificationsModule.toast(
         `🗑️ Mensagem de ${entry.from} recuperada!`,
         'warning',
@@ -951,7 +915,7 @@ ${entry.body}
       );
     }
 
-    // Enviar para sidepanel
+    // Enviar para sidepanel SEMPRE (UI do Recover precisa do registro).
     try {
       chrome.runtime?.sendMessage({
         type: 'WHL_RECOVER_NEW_MESSAGE',

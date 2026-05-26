@@ -276,6 +276,73 @@
     }
 
     /**
+     * v9.6.5: Constrói o marcador visual de edição que vai pro body da
+     * mensagem. Espelha o padrão "🚫 Apagada: [original]" que é usado
+     * para mensagens apagadas, mas estendido pra incluir antes + depois.
+     *
+     * Casos:
+     *  - oldBody e newBody diferentes e ambos não vazios:
+     *      "📝 Antes: <old>\n✏️ Editada para: <new>"
+     *  - apenas newBody (cache não tinha o body anterior):
+     *      "✏️ Esta mensagem foi editada para: <new>"
+     *  - newBody vazio: retorna null (caller decide o que fazer).
+     *
+     * Idempotência: se newBody já vier com marcador (chamadas duplicadas
+     * em ticks subsequentes), strip antes de re-marcar pra evitar
+     * "📝 Antes: <old>\n✏️ Editada para: 📝 Antes: <old>\n✏️ Editada para: ...".
+     */
+    function stripEditMarker(text) {
+        if (typeof text !== 'string' || !text) return '';
+        // Combo: "📝 Antes: ... \n✏️ Editada para: <real>"
+        let m = text.match(/^📝 Antes: [\s\S]*?\n✏️ Editada para: ([\s\S]*)$/);
+        if (m) return m[1];
+        // Simples: "✏️ Esta mensagem foi editada para: <real>"
+        m = text.match(/^✏️ Esta mensagem foi editada para: ([\s\S]*)$/);
+        if (m) return m[1];
+        // Outras variações: "✏️ Editada para: <real>"
+        m = text.match(/^✏️ Editada para: ([\s\S]*)$/);
+        if (m) return m[1];
+        return text;
+    }
+
+    function composeEditMarker(oldBody, newBody) {
+        const o = stripEditMarker(String(oldBody || '').trim());
+        const n = stripEditMarker(String(newBody || '').trim());
+        if (!n) return null; // sem novo conteúdo: nada a marcar
+        if (o && o !== n) {
+            return `📝 Antes: ${o}\n✏️ Editada para: ${n}`;
+        }
+        return `✏️ Esta mensagem foi editada para: ${n}`;
+    }
+
+    function hasEditMarker(text) {
+        if (typeof text !== 'string' || !text) return false;
+        return text.startsWith('📝 Antes: ') ||
+               text.startsWith('✏️ Esta mensagem foi editada para: ') ||
+               text.startsWith('✏️ Editada para: ');
+    }
+
+    /**
+     * Tenta achar o body anterior do msg no messageCache (populado pelo
+     * MessageCreatedHook em Msg.on('add')). Testa todos os IDs possíveis
+     * porque WA usa shapes diferentes em pontos diferentes do pipeline.
+     */
+    function getCachedPreviousBody(msg) {
+        if (!msg) return '';
+        const ids = [
+            msg.protocolMessageKey?.id,
+            msg.id?.id,
+            msg.id?._serialized,
+            msg.quotedStanzaID
+        ].filter(Boolean);
+        for (const id of ids) {
+            const cached = messageCache.get(id);
+            if (cached?.body) return stripEditMarker(String(cached.body));
+        }
+        return '';
+    }
+
+    /**
      * Bug fix + BUG 2: Save edited message to history with persistent notification
      */
     function salvarMensagemEditada(message) {
@@ -856,36 +923,42 @@
                                 console.log('[WHL Hooks] 🔔 updateMessageEditsLocally edit detectado',
                                     msg?.id?._serialized || msg?.id?.id || '?');
                             } catch (_) {}
-                            // FIX v9.6.4: salva no histórico ANTES de mutar o body —
-                            // salvarMensagemEditada lê msg.body no início pra registrar
-                            // a versão nova; depois mutamos pra incluir o prefixo.
+
+                            // FIX v9.6.5: pega o body anterior do cache ANTES de
+                            // qualquer mutação. messageCache foi populado pelo
+                            // MessageCreatedHook quando o contato mandou a msg
+                            // original. (Esse cache estava quebrado por bug
+                            // separado — cacheMessage→cachearMensagem — corrigido
+                            // junto. Sem o body anterior caímos no fallback
+                            // "✏️ Esta mensagem foi editada para: <novo>".)
+                            const previousBody = getCachedPreviousBody(msg);
+
+                            // Salva no histórico ANTES de mutar — salvarMensagemEditada
+                            // lê msg.body cru pra registrar o body novo, e procura o
+                            // anterior no cache pra registrar como previousContent.
                             try { salvarMensagemEditada(msg); } catch (saveErr) {
                                 console.warn('[WHL Hooks] salvarMensagemEditada error:', saveErr);
                             }
-                            // FIX v9.6.4: para edits INCOMING o fallback DOM em
-                            // recover-dom.js era frágil — `isEditedMessage` não
-                            // detectava a label "Editada" nativa em WA 2.3300+
-                            // (sem `data-icon="edited"`, sem `<Editada>`/`(Editada)`,
-                            // só plain "Editada" no meta). Edits do contato ficavam
-                            // visualmente invisíveis embora estivessem no histórico.
+
+                            // FIX v9.6.5: muta msg.body/caption pra incluir o
+                            // marcador "📝 Antes: ... \n✏️ Editada para: ..." ANTES
+                            // de delegar pro original updateMessageEditsLocally.
+                            // Como o original aplica a mudança no Msg store local,
+                            // o body que vai pra store já vem com o marcador — o
+                            // render nativo do WA mostra antes+depois sem depender
+                            // de DOM hack frágil. Mesmo padrão de "🚫 Apagada: ..."
+                            // usado para mensagens deletadas.
                             //
-                            // Espelha o que `handle_edited_message` faz para OUTGOING:
-                            // muta msg.body/caption para incluir o prefixo "✏️" ANTES
-                            // de delegar pro original `updateMessageEditsLocally`.
-                            // Como o original aplica a mudança no Msg store local, o
-                            // body que vai pra store já vem com o prefixo — o render
-                            // nativo do WA mostra o marcador sem precisar de DOM hack.
-                            //
-                            // Idempotência: check startsWith evita prefixar duas vezes
-                            // se a função for chamada novamente com o mesmo msg.
+                            // Idempotência: composeEditMarker chama stripEditMarker
+                            // no input pra evitar dupla-marcação se a função for
+                            // chamada de novo com o body já marcado.
                             try {
-                                const MARKER = '✏️ Esta mensagem foi editada para: ';
-                                if (typeof msg.body === 'string' && msg.body.length > 0 &&
-                                    !msg.body.startsWith(MARKER)) {
-                                    msg.body = MARKER + msg.body;
-                                } else if (typeof msg.caption === 'string' && msg.caption.length > 0 &&
-                                           !msg.caption.startsWith(MARKER)) {
-                                    msg.caption = MARKER + msg.caption;
+                                if (typeof msg.body === 'string' && msg.body.length > 0) {
+                                    const composed = composeEditMarker(previousBody, msg.body);
+                                    if (composed) msg.body = composed;
+                                } else if (typeof msg.caption === 'string' && msg.caption.length > 0) {
+                                    const composed = composeEditMarker(previousBody, msg.caption);
+                                    if (composed) msg.caption = composed;
                                 }
                             } catch (mutErr) {
                                 console.warn('[WHL Hooks] edit body mutation error:', mutErr);
@@ -919,12 +992,17 @@
                                 message.id?._serialized || message.id?.id || '?');
                 } catch (_) {}
 
+                // Pega o body anterior do cache ANTES de salvar/mutar
+                // (precisa do estado pré-edit pra mostrar "Antes: ...").
+                const previousBody = getCachedPreviousBody(message);
+
                 // Salva no histórico ANTES de mutar o objeto.
                 salvarMensagemEditada(message);
 
-                const messageContent = message?.body || message?.caption || '[sem conteúdo]';
+                const messageContent = stripEditMarker(message?.body || message?.caption || '');
                 message.type = 'chat';
-                message.body = `✏️ Esta mensagem foi editada para: ${messageContent}`;
+                const composed = composeEditMarker(previousBody, messageContent || '[sem conteúdo]');
+                if (composed) message.body = composed;
 
                 if (!message.protocolMessageKey) return true;
 
@@ -1048,10 +1126,17 @@
         
         static handle_created_message(message) {
             if (!message) return;
-            
-            // Cache the message
-            cacheMessage(message);
-            
+
+            // FIX v9.6.5: era `cacheMessage(message)` — função inexistente neste
+            // escopo (cacheMessage existe só em recover-dom.js, módulo separado).
+            // Resultado do bug: o handler do Msg.on('add') jogava ReferenceError
+            // silencioso a cada mensagem nova do contato, o messageCache local
+            // do wpp-hooks nunca era populado, e quando o contato editava a
+            // mensagem o `salvarMensagemEditada` não conseguia recuperar o
+            // body anterior do cache pra mostrar "antes/depois". A função
+            // correta é `cachearMensagem` (definida em 01-init-debug.js).
+            cachearMensagem(message);
+
             // Notify RecoverAdvanced via postMessage
             notifyRecoverUI({
                 type: 'WHL_MESSAGE_CREATED',
