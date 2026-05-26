@@ -498,7 +498,7 @@
 
       // Mensagem editada — WhatsApp anexa "<Editada>" ou "<Edited>" ou
       // mostra um label "Editada"/"Edited" ao lado do timestamp.
-      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope span[aria-label*="ditad" i], :scope span[aria-label*="dited" i]');
+      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
       const isEdited = !isRevoked && (hasEditedLabel || (directText && (
         directText.includes('<Editada>') ||
         directText.includes('<Edited>') ||
@@ -595,7 +595,7 @@
     try {
       const directText = extractDirectMessageText(msgEl);
       const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
-      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope span[aria-label*="ditad" i], :scope span[aria-label*="dited" i]');
+      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
 
       const looksRevoked = hasRecalledIcon || (directText && (
         directText.includes('Esta mensagem foi apagada') ||

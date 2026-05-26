@@ -89,6 +89,26 @@
       'Você apagou esta mensagem'
     ],
 
+    // Indicadores de mensagem editada — WhatsApp Web rotula edits com
+    // múltiplos selectors dependendo da versão. Mantemos uma lista
+    // ampla pra resistir a renames sem precisar atualizar o módulo.
+    EDITED_INDICATORS: [
+      '[data-testid="msg-edited"]',
+      '[data-icon="edited"]',
+      '[data-icon="edited-in"]',
+      '[data-icon="edited-out"]',
+      'span[aria-label*="ditad" i]',  // pt-BR: editada
+      'span[aria-label*="dited" i]'   // en: edited
+    ],
+
+    // Padrões textuais que aparecem em mensagens editadas
+    EDITED_TEXT_PATTERNS: [
+      '<Editada>',
+      '<Edited>',
+      '(Editada)',
+      '(Edited)'
+    ],
+
     // Info do remetente (em grupos)
     SENDER_INFO: [
       '[data-testid="author"]',
@@ -306,6 +326,39 @@
     return false;
   }
 
+  /**
+   * Detecta mensagem editada (espelho de isDeletedMessage).
+   *
+   * Mesmo princípio: usa APENAS o texto direto da mensagem pra evitar
+   * falso-positivo via quotes/replies. Combina selector DOM ('msg-edited'
+   * label do WA) + padrões textuais "(Editada)/(Edited)/<Editada>" no
+   * fim do corpo.
+   *
+   * Importante: a checagem de isDeletedMessage tem prioridade. Mensagens
+   * apagadas NUNCA são consideradas editadas (caller deve checar deleted
+   * primeiro).
+   */
+  function isEditedMessage(element, text = '') {
+    if (findElement(element, SELECTORS.EDITED_INDICATORS)) {
+      return true;
+    }
+    let msgText = text;
+    if (!msgText) {
+      const textEl = findElement(element, SELECTORS.MESSAGE_TEXT);
+      msgText = textEl?.textContent?.trim() || '';
+    }
+    if (!msgText) return false;
+    for (const pattern of SELECTORS.EDITED_TEXT_PATTERNS) {
+      if (msgText.includes(pattern)) return true;
+    }
+    // (Editada) / (Edited) só na ponta da string (evita falso-positivo
+    // de mensagens que mencionam "editada" no meio do texto livre).
+    if (/\b\(Editada\)\s*$/.test(msgText) || /\b\(Edited\)\s*$/.test(msgText)) {
+      return true;
+    }
+    return false;
+  }
+
   // ============================================
   // CACHE DE MENSAGENS
   // ============================================
@@ -397,6 +450,70 @@
     injectRecoveredContent(element, cached);
 
     // Notificar
+    notifyRecovery(entry);
+  }
+
+  /**
+   * Espelho de handleDeletedMessage, mas para edits.
+   *
+   * Diferença-chave: pra edição precisamos do body ATUAL (texto novo
+   * pós-edit, lido do DOM) E do body ANTERIOR (texto antes, vindo do
+   * messageCache). O `cached.text` foi guardado antes do edit pelo
+   * cacheMessage no scan periódico — é justamente o que queremos como
+   * `originalBody`.
+   *
+   * Sem cache prévio (cliente nunca viu a msg pré-edit), registramos
+   * só o "depois" como fallback parcial, igual fazemos para deletes.
+   * Idempotência via flag whl-edit-marker no container — não duplica
+   * registro a cada tick do scan.
+   */
+  function handleEditedMessage(element) {
+    const msgContainer = element.closest('[data-testid="msg-container"]') || element;
+
+    // Evita reprocessar a mesma edição em ticks subsequentes do observer/scan.
+    if (msgContainer.dataset?.whlEditHandled === 'true') return;
+
+    const msgKey = generateMsgKey(element);
+    const cached = getCachedMessage(msgKey);
+    const currentData = extractMessageData(element);
+    const currentBody = currentData?.text || '';
+
+    // Se body atual é igual ao cacheado, não houve mudança real
+    // (selector EDITED_INDICATORS pegou ruído). Não registra.
+    if (cached?.text && currentBody && cached.text === currentBody) {
+      return;
+    }
+
+    const entry = {
+      key: msgKey,
+      body: currentBody || '[texto editado não capturado]',
+      originalBody: cached?.text || null,
+      from: currentData?.from || cached?.from || '',
+      chatId: currentData?.chatId || cached?.chatId || '',
+      isOutgoing: cached?.isOutgoing ?? currentData?.isOutgoing ?? false,
+      mediaUrl: cached?.mediaUrl || null,
+      mediaType: cached?.mediaType || null,
+      action: 'edited',
+      recovered: !!cached?.text,
+      timestamp: Date.now()
+    };
+
+    addToHistory(entry);
+    msgContainer.dataset.whlEditHandled = 'true';
+
+    // Atualiza cache com o body atual pra que próximas edições
+    // tenham o "antes" certo (último estado conhecido).
+    if (currentBody) {
+      state.messageCache.set(msgKey, {
+        ...(cached || {}),
+        ...currentData,
+        key: msgKey,
+        text: currentBody,
+        cachedAt: Date.now()
+      });
+    }
+
+    log('✏️ Mensagem editada registrada:', msgKey, currentBody?.slice(0, 40));
     notifyRecovery(entry);
   }
 
@@ -701,19 +818,28 @@ ${entry.body}
           for (const msg of messages) {
             if (isDeletedMessage(msg)) {
               handleDeletedMessage(msg);
+            } else if (isEditedMessage(msg)) {
+              // Edição. Cacheia se for a 1ª vez antes (raro, msgs novas
+              // geralmente entram limpas) e despacha pro handler.
+              handleEditedMessage(msg);
             } else {
               cacheMessage(msg);
             }
           }
         }
 
-        // Verificar alterações em nodes existentes
+        // Verificar alterações em nodes existentes (in-place mutations:
+        // edit/revoke acontecem aqui mais frequentemente que em addedNodes)
         if (mutation.type === 'characterData' || mutation.type === 'childList') {
           const target = mutation.target;
           const msgContainer = target.closest?.('[data-testid="msg-container"]');
-          
-          if (msgContainer && isDeletedMessage(msgContainer)) {
-            handleDeletedMessage(msgContainer);
+
+          if (msgContainer) {
+            if (isDeletedMessage(msgContainer)) {
+              handleDeletedMessage(msgContainer);
+            } else if (isEditedMessage(msgContainer)) {
+              handleEditedMessage(msgContainer);
+            }
           }
         }
       }
@@ -730,7 +856,28 @@ ${entry.body}
     state.scanInterval = setInterval(() => {
       scanAndCacheMessages(container);
       checkForDeletedMessages(container);
+      checkForEditedMessages(container);
     }, 5000);
+  }
+
+  /**
+   * Espelha checkForDeletedMessages — varre o container atrás de
+   * mensagens editadas que possam ter escapado do MutationObserver
+   * (race entre injeção do label "editada" e o nosso callback,
+   * ou WhatsApp pintando in-place sem disparar childList em um nó
+   * que observamos diretamente).
+   *
+   * Usa dataset.whlEditHandled como sentinela pra não reprocessar.
+   */
+  function checkForEditedMessages(container) {
+    const messages = container.querySelectorAll('[data-testid="msg-container"]');
+    for (const msg of messages) {
+      if (msg.dataset?.whlEditHandled === 'true') continue;
+      if (isDeletedMessage(msg)) continue;  // delete tem prioridade
+      if (isEditedMessage(msg)) {
+        handleEditedMessage(msg);
+      }
+    }
   }
 
   function scanAndCacheMessages(container) {
