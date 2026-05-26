@@ -92,6 +92,29 @@ services:
       - ORCHESTRATOR_TTL_MS=${ORCHESTRATOR_TTL_MS:-1800000}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://${DOMAIN}}
       - REDIS_DISABLED=${REDIS_DISABLED:-false}
+      # ── Billing (MercadoPago) ──────────────────────────────────────────
+      # Sem essas envs o checkout não consegue criar preference/preapproval
+      # e o webhook rejeita as notificações em prod — fluxo de compra
+      # quebra silenciosamente. Defaults vazios pra dev/staging funcionar;
+      # prod EXIGE setar tudo (ver DEPLOY.md Passo 4).
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
+      - MERCADOPAGO_PUBLIC_KEY=${MERCADOPAGO_PUBLIC_KEY:-}
+      - MERCADOPAGO_WEBHOOK_SECRET=${MERCADOPAGO_WEBHOOK_SECRET:-}
+      - MERCADOPAGO_USE_SANDBOX=${MERCADOPAGO_USE_SANDBOX:-false}
+      # PUBLIC_BASE_URL é usada em (a) notification_url do webhook MP,
+      # (b) CTAs dos emails, (c) redirects de checkout. Default deriva
+      # de DOMAIN — que já é obrigatório acima.
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://${DOMAIN}}
+      # ── Email transacional (SendGrid) ──────────────────────────────────
+      # Sem SENDGRID_API_KEY o EmailService roda em DRY-RUN: emails só
+      # são logados no stdout, nunca chegam no cliente. O código de
+      # assinatura gerado no webhook NÃO é entregue.
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@whatshybrid.com.br}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-WhatsHybrid Pro}
+      # Master key opcional pra acesso enterprise sem código (debug/QA).
+      # Em prod, deixe vazio.
+      - SUBSCRIPTION_MASTER_KEY=${SUBSCRIPTION_MASTER_KEY:-}
     volumes:
       - db_data:/app/data
       - logs_data:/app/logs

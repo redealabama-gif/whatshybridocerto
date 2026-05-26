@@ -77,7 +77,7 @@ Esse script faz tudo:
 nano /opt/whatshybrid/.env
 ```
 
-**Mínimo obrigatório para subir:**
+**Mínimo obrigatório para o backend subir:**
 
 ```bash
 DOMAIN=api.seudominio.com.br          # ← seu domínio
@@ -87,7 +87,37 @@ OPENAI_API_KEY=sk-...                  # ← pelo menos uma key
 CORS_ORIGINS=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
 ```
 
+**Obrigatório para fluxo de compra funcionar** (sem isso o cliente paga e
+não recebe código de ativação por email — o checkout pode até abrir, mas
+ou falha em criar a preference, ou o webhook rejeita a notificação, ou o
+email sai em "dry-run" e nunca chega no cliente):
+
+```bash
+# MercadoPago — credenciais em painel de Desenvolvedores
+# https://www.mercadopago.com.br/developers/panel/credentials
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
+MERCADOPAGO_PUBLIC_KEY=APP_USR-...
+MERCADOPAGO_WEBHOOK_SECRET=<<secret_do_webhook>>   # em "Webhooks" do painel MP
+
+# SendGrid — pra enviar emails transacionais (incluindo o código de
+# assinatura que o cliente cola na extensão pra ativar)
+# https://sendgrid.com → criar API key + verificar domínio do EMAIL_FROM
+SENDGRID_API_KEY=SG.xxxxx
+EMAIL_FROM=noreply@seudominio.com.br     # precisa ser dominio verificado no SG
+EMAIL_FROM_NAME=WhatsHybrid Pro
+```
+
+`PUBLIC_BASE_URL` é derivado automaticamente de `DOMAIN` no `docker-compose.yml`
+(`https://${DOMAIN}`), mas pode ser sobrescrito se o backend rodar em
+subdomínio diferente do site público.
+
 Salva e sai (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+> 💡 **Validando que está tudo OK depois do deploy:**
+> - Faça uma compra de teste em modo sandbox (`MERCADOPAGO_USE_SANDBOX=true`)
+> - Verifique o log do backend: deve aparecer `Subscription code generated: WHL-...`
+> - Verifique a caixa de entrada: o email "Pagamento confirmado" deve mostrar o código WHL-XXXX-XXXX-XXXX
+> - Cole o código na extensão → deve liberar o plano contratado
 
 ### Passo 5 — Deploy
 
