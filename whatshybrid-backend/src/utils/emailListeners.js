@@ -98,6 +98,8 @@ function setup() {
         plan: payload.plan,
         amount: payload.amount,
         paymentId: payload.payment_id,
+        subscriptionCode: payload.subscription_code || null,
+        isNewCode: !!payload.is_new_code,
       });
     } catch (err) {
       logger.warn('[EmailListener] subscription.activated failed:', err.message);
