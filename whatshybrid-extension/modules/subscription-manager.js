@@ -286,6 +286,9 @@
     // Rebaixa pra Free Lite se o trial local expirou antes do init (ex.:
     // usuário sem cadastro, sem sync com backend, abre o navegador no dia 8).
     await _checkTrialExpiry();
+    // Auto-oferta de trial no primeiro install pra quem chegou pela Chrome
+    // Web Store sem cadastro. Só dispara uma vez (flag whl_trial_offered).
+    await _maybeAutoStartTrial();
     // Cacheia a URL do backend pra getUpgradeUrl/getBuyCreditsUrl (síncronas)
     // poderem apontar pro dashboard real (#billing / #tokens).
     try { _backendBaseCache = await getBackendUrl(); } catch (_) { _backendBaseCache = null; }
@@ -681,6 +684,39 @@
     emit('trial_started', { endsAt: trialEnd });
 
     return { success: true, endsAt: trialEnd };
+  }
+
+  /**
+   * Dispara o trial automaticamente na primeira inicialização da extensão
+   * em um device "limpo". Critérios:
+   * - Flag whl_trial_offered não setada (não oferecemos ainda)
+   * - Sem código de assinatura ativo (não é cliente pagante)
+   * - Sem trial expirado anterior (não force re-trial após expirar)
+   * - Sem activatedAt anterior (não é re-init do mesmo perfil)
+   *
+   * A flag fica em chrome.storage.local — sobrevive a reloads, é limpa
+   * quando a extensão é desinstalada (comportamento desejado: reinstalar
+   * concede trial de novo, é raro o suficiente pra não ser exploit).
+   */
+  async function _maybeAutoStartTrial() {
+    try {
+      const got = await new Promise(r => chrome.storage.local.get(['whl_trial_offered'], r));
+      if (got?.whl_trial_offered) return false;
+
+      const sub = state.subscription;
+      if (sub.code) return false;
+      if (sub.activatedAt) return false;
+      if (sub.trialExpired) return false;
+
+      console.log('[SubscriptionManager] 🎁 Primeiro install detectado — iniciando trial automático');
+      await startTrial();
+      await new Promise(r => chrome.storage.local.set({ whl_trial_offered: true }, r));
+      emit('trial_auto_started', getStatus());
+      return true;
+    } catch (e) {
+      console.warn('[SubscriptionManager] Auto-trial falhou:', e?.message || e);
+      return false;
+    }
   }
 
   /**
