@@ -2592,12 +2592,39 @@ window.whl_hooks_main = () => {
                                 console.log('[WHL Hooks] 🔔 updateMessageEditsLocally edit detectado',
                                     msg?.id?._serialized || msg?.id?.id || '?');
                             } catch (_) {}
-                            // Não filtramos nem reinjetamos via processRenderableMessages —
-                            // só salvamos no histórico. O WA aplica o edit nativo no chat
-                            // (label "Editada" + novo texto). Anotação visual fica a cargo
-                            // do fallback DOM em recover-dom.js.
+                            // FIX v9.6.4: salva no histórico ANTES de mutar o body —
+                            // salvarMensagemEditada lê msg.body no início pra registrar
+                            // a versão nova; depois mutamos pra incluir o prefixo.
                             try { salvarMensagemEditada(msg); } catch (saveErr) {
                                 console.warn('[WHL Hooks] salvarMensagemEditada error:', saveErr);
+                            }
+                            // FIX v9.6.4: para edits INCOMING o fallback DOM em
+                            // recover-dom.js era frágil — `isEditedMessage` não
+                            // detectava a label "Editada" nativa em WA 2.3300+
+                            // (sem `data-icon="edited"`, sem `<Editada>`/`(Editada)`,
+                            // só plain "Editada" no meta). Edits do contato ficavam
+                            // visualmente invisíveis embora estivessem no histórico.
+                            //
+                            // Espelha o que `handle_edited_message` faz para OUTGOING:
+                            // muta msg.body/caption para incluir o prefixo "✏️" ANTES
+                            // de delegar pro original `updateMessageEditsLocally`.
+                            // Como o original aplica a mudança no Msg store local, o
+                            // body que vai pra store já vem com o prefixo — o render
+                            // nativo do WA mostra o marcador sem precisar de DOM hack.
+                            //
+                            // Idempotência: check startsWith evita prefixar duas vezes
+                            // se a função for chamada novamente com o mesmo msg.
+                            try {
+                                const MARKER = '✏️ Esta mensagem foi editada para: ';
+                                if (typeof msg.body === 'string' && msg.body.length > 0 &&
+                                    !msg.body.startsWith(MARKER)) {
+                                    msg.body = MARKER + msg.body;
+                                } else if (typeof msg.caption === 'string' && msg.caption.length > 0 &&
+                                           !msg.caption.startsWith(MARKER)) {
+                                    msg.caption = MARKER + msg.caption;
+                                }
+                            } catch (mutErr) {
+                                console.warn('[WHL Hooks] edit body mutation error:', mutErr);
                             }
                         }
                     } catch (e) {

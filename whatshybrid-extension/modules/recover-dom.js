@@ -386,6 +386,12 @@
    * label do WA) + padrões textuais "(Editada)/(Edited)/<Editada>" no
    * fim do corpo.
    *
+   * FIX v9.6.4: WA Web 2.3300+ renderiza a label como plain "Editada"
+   * (sem brackets, sem data-icon, sem aria-label específico) no meta
+   * area da mensagem (entre o body e o timestamp). Adicionada varredura
+   * por <span> contendo APENAS "Editada"/"Edited" como text node, fora
+   * do container do body, pra cobrir esse caso.
+   *
    * Importante: a checagem de isDeletedMessage tem prioridade. Mensagens
    * apagadas NUNCA são consideradas editadas (caller deve checar deleted
    * primeiro).
@@ -399,15 +405,51 @@
       const textEl = findElement(element, SELECTORS.MESSAGE_TEXT);
       msgText = textEl?.textContent?.trim() || '';
     }
-    if (!msgText) return false;
-    for (const pattern of SELECTORS.EDITED_TEXT_PATTERNS) {
-      if (msgText.includes(pattern)) return true;
-    }
-    // (Editada) / (Edited) só na ponta da string (evita falso-positivo
-    // de mensagens que mencionam "editada" no meio do texto livre).
-    if (/\b\(Editada\)\s*$/.test(msgText) || /\b\(Edited\)\s*$/.test(msgText)) {
+
+    // Se nosso próprio prefixo já está no body, é uma mensagem editada
+    // que já foi marcada via hook protocolar — ainda precisamos retornar
+    // true pra que checkForEditedMessages persista no histórico, mas
+    // handleEditedMessage tem early-return pra não duplicar marca DOM.
+    if (msgText && (msgText.startsWith('✏️ Esta mensagem foi editada para:') ||
+                    msgText.startsWith('✏️ Editada para:'))) {
       return true;
     }
+
+    if (msgText) {
+      for (const pattern of SELECTORS.EDITED_TEXT_PATTERNS) {
+        if (msgText.includes(pattern)) return true;
+      }
+      // (Editada) / (Edited) só na ponta da string (evita falso-positivo
+      // de mensagens que mencionam "editada" no meio do texto livre).
+      if (/\b\(Editada\)\s*$/.test(msgText) || /\b\(Edited\)\s*$/.test(msgText)) {
+        return true;
+      }
+    }
+
+    // FIX v9.6.4: varredura por label "Editada" plain no meta area.
+    // WA Web 2.3300+ não usa mais data-icon nem aria-label, só um <span>
+    // com texto puro "Editada" antes do timestamp. Iteramos os <span>
+    // dentro da mensagem (excluindo os que estão dentro do MESSAGE_TEXT,
+    // que é o body) e checamos se algum tem text content exatamente
+    // "Editada" ou "Edited".
+    try {
+      const msgTextEl = findElement(element, SELECTORS.MESSAGE_TEXT);
+      const spans = element.querySelectorAll?.('span') || [];
+      for (const span of spans) {
+        // Skip elements dentro do body (evita falso-positivo de "Editada"
+        // aparecer como palavra normal no texto livre)
+        if (msgTextEl && (msgTextEl === span || msgTextEl.contains(span))) continue;
+        // Skip se o span tem children (queremos só leaf nodes de texto)
+        if (span.children && span.children.length > 0) continue;
+        const t = (span.textContent || '').trim();
+        if (t === 'Editada' || t === 'Edited' ||
+            t === '<Editada>' || t === '<Edited>' ||
+            t === '(Editada)' || t === '(Edited)') {
+          return true;
+        }
+      }
+    } catch (_) {}
+
     return false;
   }
 
