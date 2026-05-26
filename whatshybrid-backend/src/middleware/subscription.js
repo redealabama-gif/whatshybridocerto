@@ -29,9 +29,9 @@ const FEATURE_PLANS = {
   'contacts_1000': ['starter', 'pro', 'enterprise'],
 
   // Campanhas
-  'campaigns': ['pro', 'enterprise'],
+  'campaigns': ['starter', 'pro', 'enterprise'],
   'campaigns_advanced': ['enterprise'],
-  'bulk_send': ['pro', 'enterprise'],
+  'bulk_send': ['starter', 'pro', 'enterprise'],
 
   // Analytics
   'analytics_basic': ['starter', 'pro', 'enterprise'],
@@ -58,6 +58,9 @@ const FEATURE_PLANS = {
   // Equipe
   'team': ['enterprise'],
   'team_roles': ['enterprise'],
+
+  // CRM - criação de registros (bloqueado após trial expirar / past_due / suspended)
+  'crm_create': ['free', 'starter', 'pro', 'enterprise'],
 
   // API & Integrações
   'api_access': ['enterprise'],

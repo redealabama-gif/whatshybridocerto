@@ -11,6 +11,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
 // v9.4.2: helpers de validação de tamanho de input
 const { safeString, safeEnum } = require('../utils/sql-helpers');
+const { checkSubscription, checkLimit } = require('../middleware/subscription');
 
 const TASK_TYPES = ['todo', 'call', 'meeting', 'email', 'whatsapp', 'note'];
 const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -164,7 +165,7 @@ router.get('/:id', authenticate, asyncHandler(async (req, res) => {
   res.json({ task });
 }));
 
-router.post('/', authenticate, asyncHandler(async (req, res) => {
+router.post('/', authenticate, checkSubscription('crm_create'), checkLimit('tasks'), asyncHandler(async (req, res) => {
   const { title, description, type, priority, due_date, contact_id, deal_id, assigned_to } = req.body;
 
   // v9.4.2 BUG #100: validação rigorosa pra prevenir DoS via campos gigantes
