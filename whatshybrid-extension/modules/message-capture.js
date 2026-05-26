@@ -284,6 +284,44 @@
   }
 
   /**
+   * Helper: lê flags de edição de uma msg do Store do WhatsApp Web.
+   *
+   * O WhatsApp Web 2024+ usa MobX proxies no Store; as propriedades
+   * reais ficam com prefixo "__x_". Quando acessamos `msg.isEdited`
+   * a partir de um content script, o getter MobX nem sempre intercepta
+   * (depende de wrapping/isolation entre worlds), e o valor volta
+   * `undefined` — mesmo com a msg estando claramente editada
+   * (visível na UI). As props brutas com __x_ sempre têm o valor.
+   *
+   * Estratégia: tenta o nome "limpo" primeiro (pra versões antigas
+   * que ainda usavam) e cai no __x_ como fallback. Considera "editada"
+   * qualquer msg que tenha latestEditMsgKey OU
+   * latestEditSenderTimestampMs OU editedAt OU isEdited definidos.
+   *
+   * Retorna null quando msg claramente NÃO é editada (pra simplificar
+   * o caller). Quando é, retorna { editedAt, latestEditKey, currentBody }.
+   */
+  function readEditState(msg) {
+    if (!msg || typeof msg !== 'object') return null;
+    const latestEditKey =
+      msg.latestEditMsgKey ?? msg.__x_latestEditMsgKey ?? null;
+    const latestEditTs =
+      msg.latestEditSenderTimestampMs ?? msg.__x_latestEditSenderTimestampMs ?? null;
+    const editedAt =
+      msg.editedAt ?? msg.__x_editedAt ?? latestEditTs ?? null;
+    const isEditedFlag = msg.isEdited ?? msg.__x_isEdited ?? null;
+
+    if (!latestEditKey && !editedAt && isEditedFlag !== true) return null;
+
+    return {
+      editedAt,
+      latestEditKey,
+      currentBody:
+        msg.body ?? msg.__x_body ?? msg.text ?? msg.__x_text ?? msg.caption ?? '',
+    };
+  }
+
+  /**
    * Configura hooks do WhatsApp via Store
    */
   function setupWhatsAppHooks() {
@@ -309,38 +347,63 @@
 
         // Hook para mensagens modificadas (editadas, apagadas).
         //
-        // Bug histórico: o branch único `if (msg.isRevoked)` cobria SÓ
-        // mensagens apagadas; edits eram silenciosamente ignorados, e
-        // o badge de "editada" só aparecia se o fallback de scan DOM
-        // do recover-visual-injector pegasse o seletor `[data-testid=
-        // "msg-edited"]` — que o WhatsApp Web às vezes renomeia.
-        // Resultado: editadas paravam de aparecer no chat e no filtro
-        // do Recover.
+        // Bug histórico (descoberto em prod 2026-05): WhatsApp Web usa
+        // MobX proxies; flags reais ficam em `__x_latestEditMsgKey` etc.
+        // Acessar `msg.isEdited` direto do content script retorna
+        // undefined, então o hook nunca disparava o branch de edited
+        // e mensagens editadas (especialmente incoming) ficavam invisíveis
+        // no Recover. `readEditState` resolve isso lendo ambos os nomes.
         //
-        // Fix: detectar edits via msg.isEdited / editedAt / type, e
-        // garantir que captureMessage seja chamado com action='edited'
-        // pro RecoverAdvanced.messageVersions registrar o histórico.
+        // Mesmo assim, nem sempre o evento `change` dispara em edits
+        // incoming (pode chegar já editada do servidor sem trigger de
+        // change local). Por isso o hook fica como detecção rápida do
+        // outgoing/edição-ao-vivo, e adicionamos um SCAN periódico em
+        // Store.Msg pra varrer todos os edits que existem em memória
+        // mas que nunca disparam `change` — ver `pollStoreForEdits` abaixo.
+        const editedMsgIdsSeen = new Set();
+        const MAX_SEEN_CACHE = 5000;
+
+        function rememberSeen(id) {
+          if (!id) return;
+          editedMsgIdsSeen.add(id);
+          if (editedMsgIdsSeen.size > MAX_SEEN_CACHE) {
+            // drop oldest
+            const it = editedMsgIdsSeen.values();
+            for (let i = 0; i < 1000; i++) {
+              const v = it.next().value;
+              if (v === undefined) break;
+              editedMsgIdsSeen.delete(v);
+            }
+          }
+        }
+
+        function getMsgId(msg) {
+          try {
+            return msg.id?._serialized
+                || (typeof msg.id?.toString === 'function' ? msg.id.toString() : null)
+                || null;
+          } catch (_) { return null; }
+        }
+
+        function dispatchEditCapture(msg, previousBody = null) {
+          const msgId = getMsgId(msg);
+          if (!msgId || editedMsgIdsSeen.has(msgId)) return;
+          rememberSeen(msgId);
+          const normalized = normalizeStoreMessage(msg);
+          if (!normalized) return;
+          normalized.action = 'edited';
+          normalized.previousContent = previousBody;
+          captureMessage(normalized);
+        }
+
         if (window.Store.Msg.on) {
-          // Cache pequeno do último body por msgId pra evitar ruído.
-          // `change` no Store dispara por vários motivos (presence,
-          // ACK, mídia anexada, etc); só queremos os que mudaram o
-          // body real.
           const lastBodyByMsgId = new Map();
           const MAX_BODY_CACHE = 1000;
-
-          function getMsgId(msg) {
-            try {
-              return msg.id?._serialized
-                  || (typeof msg.id?.toString === 'function' ? msg.id.toString() : null)
-                  || null;
-            } catch (_) { return null; }
-          }
 
           function rememberBody(id, body) {
             if (!id) return;
             lastBodyByMsgId.set(id, body);
             if (lastBodyByMsgId.size > MAX_BODY_CACHE) {
-              // Drop o entry mais antigo (Map mantém ordem de inserção)
               const oldest = lastBodyByMsgId.keys().next().value;
               lastBodyByMsgId.delete(oldest);
             }
@@ -358,48 +421,56 @@
                 return;
               }
 
-              // ── 2. Mensagem editada ──
-              // WhatsApp marca a msg com .isEdited (mais comum no Web),
-              // .editedAt (timestamp), ou .type === 'edited' / .editType
-              // === 'message_edit'. Verificar todos pra resistir a
-              // renames de versão.
-              const looksEdited =
-                msg.isEdited === true ||
-                msg.type === 'edited' ||
-                msg.editType === 'message_edit' ||
-                !!msg.editedAt ||
-                !!msg.latestEditMsgKey;
-
-              if (!looksEdited) return;
+              // ── 2. Mensagem editada (via change-event) ──
+              const editState = readEditState(msg);
+              if (!editState) return;
 
               const msgId = getMsgId(msg);
-              const currentBody = (msg.body || msg.text || msg.caption || '');
+              const currentBody = editState.currentBody || '';
               const previousBody = msgId ? lastBodyByMsgId.get(msgId) : undefined;
 
-              // Sem cache prévio: registra o body atual mas NÃO emite
-              // (sem `previous` não há diff útil; segundo `change` dispara
-              // com previousBody preenchido e aí emitimos).
               if (previousBody === undefined) {
                 rememberBody(msgId, currentBody);
+                // Pode ser o 1º change pra esta msg. Não emite agora —
+                // o scan periódico abaixo vai pegar mesmo se nenhum 2º
+                // change disparar (caso de edição incoming que chega
+                // já-editada).
                 return;
               }
-
-              // Mesmo body de antes: ruído, ignora.
               if (previousBody === currentBody) return;
 
-              // Edit real detectado.
               rememberBody(msgId, currentBody);
-              const normalized = normalizeStoreMessage(msg);
-              if (normalized) {
-                normalized.action = 'edited';
-                normalized.previousContent = previousBody;
-                captureMessage(normalized);
-              }
+              dispatchEditCapture(msg, previousBody);
             } catch (e) {
               console.warn('[MessageCapture] Erro ao processar mudança:', e);
             }
           });
         }
+
+        // ── Scan periódico no Store pra capturar edits que nunca
+        // dispararam `change` (incoming já-editada do servidor, etc).
+        // Critério: msg tem editState mas o id ainda não foi visto.
+        // Limites do escaneamento: as 1000 mais recentes em memória.
+        function pollStoreForEdits() {
+          try {
+            const arr = window.Store?.Msg?.getModelsArray?.()
+              || Array.from(window.Store?.Msg?.models || window.Store?.Msg?._models || []);
+            if (!arr.length) return;
+            const slice = arr.length > 1000 ? arr.slice(-1000) : arr;
+            for (const m of slice) {
+              const id = getMsgId(m);
+              if (!id || editedMsgIdsSeen.has(id)) continue;
+              if (m.isRevoked) continue;  // revoke tem prioridade
+              if (!readEditState(m)) continue;
+              dispatchEditCapture(m, null);
+            }
+          } catch (e) {
+            // Não loga em loop pra não poluir console
+          }
+        }
+        // Primeiro tick rápido (3s) e depois a cada 8s
+        setTimeout(pollStoreForEdits, 3000);
+        setInterval(pollStoreForEdits, 8000);
 
         return true;
       }
@@ -482,10 +553,17 @@
       chatId = '';
     }
 
-    // Extrair conteúdo
+    // Extrair conteúdo. WhatsApp Web usa MobX proxies; tenta o nome
+    // normal primeiro e cai no __x_ se vier vazio (ver readEditState).
     let body = '';
     try {
-      body = msg.body || msg.text || msg.caption || '';
+      body = msg.body
+          || msg.__x_body
+          || msg.text
+          || msg.__x_text
+          || msg.caption
+          || msg.__x_caption
+          || '';
       if (typeof body !== 'string') body = '';
     } catch (e) {
       body = '';
