@@ -699,6 +699,7 @@ class TrainingApp {
     }
 
     await this.saveExamples();
+    this._scheduleBackendSync('saveExample');
     this.renderExamples();
     this.updateStats();
     this.closeModal('exampleModal');
@@ -712,6 +713,7 @@ class TrainingApp {
 
     this.examples = this.examples.filter(e => e.id !== this.currentEditId);
     await this.saveExamples();
+    this._scheduleBackendSync('deleteExample');
     this.renderExamples();
     this.updateStats();
     this.closeModal('exampleModal');
@@ -779,6 +781,7 @@ class TrainingApp {
     }
 
     await this.saveKnowledgeBase();
+    this._scheduleBackendSync('saveFaq');
     this.renderFaqs();
     this.updateStats();
     this.closeModal('faqModal');
@@ -792,6 +795,7 @@ class TrainingApp {
 
     this.faqs = this.faqs.filter(f => f.id !== this.currentEditId);
     await this.saveKnowledgeBase();
+    this._scheduleBackendSync('deleteFaq');
     this.renderFaqs();
     this.updateStats();
     this.closeModal('faqModal');
@@ -883,6 +887,7 @@ class TrainingApp {
     }
 
     await this.saveKnowledgeBase();
+    this._scheduleBackendSync('saveProduct');
     this.renderProducts();
     this.updateStats();
     this.closeModal('productModal');
@@ -896,6 +901,7 @@ class TrainingApp {
 
     this.products = this.products.filter(p => p.id !== this.currentEditId);
     await this.saveKnowledgeBase();
+    this._scheduleBackendSync('deleteProduct');
     this.renderProducts();
     this.updateStats();
     this.closeModal('productModal');
@@ -929,6 +935,7 @@ class TrainingApp {
     };
 
     await this.saveKnowledgeBase();
+    this._scheduleBackendSync('saveBusinessInfo');
     this.showToast('Configurações salvas!', 'success');
   }
 
@@ -1951,6 +1958,55 @@ class TrainingApp {
       console.warn('[TrainingApp] Auto-sync após import falhou:', err?.message);
       return false;
     }
+  }
+
+  // Auto-sync após save individual (saveExample/Faq/Product/BusinessInfo).
+  //
+  // Antes desta correção, só o botão "Sincronizar" manual ou o batch de import
+  // enviavam dados pro backend. Adicionar uma única FAQ ou um único produto
+  // não tocava em `/api/v1/training/sync` — então o AIOrchestrator continuava
+  // sem aquele conhecimento e a sugestão de resposta / autopilot davam
+  // respostas genéricas, sem refletir o item recém-cadastrado. Sintoma:
+  // operador cadastrava "horário de atendimento", testava no copiloto, IA
+  // ignorava. Diagnóstico fica óbvio só lendo a rede — pra usuário final
+  // parecia "treinamento não funciona".
+  //
+  // Debounce de 2s pra agrupar bursts (operador editando produtos em
+  // sequência → uma única requisição). Janela curta o suficiente pra
+  // que o próximo teste no copiloto reflita a mudança.
+  _scheduleBackendSync(reason = 'save') {
+    if (this._syncDebounceTimer) {
+      clearTimeout(this._syncDebounceTimer);
+    }
+    this._syncDebounceTimer = setTimeout(async () => {
+      this._syncDebounceTimer = null;
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'SYNC_TRAINING_DATA',
+          data: {
+            examples: this.examples,
+            faqs: this.faqs,
+            products: this.products,
+            businessInfo: this.businessInfo,
+          },
+        });
+        const ok = !!(response && response.success);
+        if (ok) {
+          this.updateConnectionStatus(true);
+          await this._markSynced();
+          this._renderLastSyncTime();
+        } else if (response?.error) {
+          // Só toasta erro real do backend (4xx/5xx, sem token, etc).
+          // Falha de rede silenciosa não vira toast pra não poluir — fica
+          // só no console e o badge "Offline" no header já indica.
+          console.warn(`[TrainingApp] Auto-sync (${reason}) falhou:`, response.error);
+          this.updateConnectionStatus(false);
+        }
+      } catch (err) {
+        console.warn(`[TrainingApp] Auto-sync (${reason}) erro:`, err?.message);
+        this.updateConnectionStatus(false);
+      }
+    }, 2000);
   }
 
   openModal(modalId) {

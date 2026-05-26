@@ -413,7 +413,15 @@ async function handleOpenPopupTab(message, sender, sendResponse) {
 }
 
 // ─── handleSyncTrainingData ────────────────────────────────────────────────
-// Chamado por training.js para sincronizar dados de treinamento com o backend
+// Chamado por training.js (botão "Sincronizar" e auto-sync após save) para
+// gravar exemplos / FAQs / produtos / businessInfo no backend.
+//
+// Endpoint: POST /api/v1/training/sync (routes/training.js) — popula tabelas
+// training_examples, faqs, products, workspace_knowledge. O AIOrchestrator
+// (_loadTrainedKnowledge) lê essas tabelas em cada /api/v2/ai/process, ou
+// seja: é o ÚNICO caminho que efetivamente alimenta a sugestão de resposta
+// e o autopilot. Se este handler falha em silêncio, o treinamento vira
+// "fantasma" — UI mostra sucesso mas a IA continua cega.
 async function handleSyncTrainingData(message, sender, sendResponse) {
   const data = message.data;
   if (!data) {
@@ -428,42 +436,102 @@ async function handleSyncTrainingData(message, sender, sendResponse) {
     console.warn('[WHL Background] Falha ao salvar training data localmente:', e);
   }
 
-  // Tentar sincronizar com backend via FETCH_PROXY
-  const backendUrl = await chrome.storage.local.get('whl_backend_url')
-    .then(r => r.whl_backend_url)
-    .catch(() => null);
+  // ── Resolver URL do backend com cascata de fallbacks ───────────────────
+  // Antes lia SÓ `whl_backend_url` e, se vazio, devolvia synced:'local' sem
+  // tentar nada. Em instalação nova (BackendClient ainda não chamou
+  // syncLegacyBackendConfig) ou pós-limpeza de storage, isto fazia o
+  // "Sincronizar" mostrar sucesso silenciosamente sem nunca atingir o
+  // servidor. Cobre agora todas as chaves canônicas + default global.
+  const storage = await chrome.storage.local
+    .get([
+      'whl_backend_url',
+      'backend_url',
+      'whl_backend_config',
+      'whl_backend_client',
+      'backend_token',
+      'whl_auth_token',
+    ])
+    .catch(() => ({}));
 
-  // Token vive em `whl_backend_config.token` (canonical, escrito pelo BackendClient
-  // após login) ou `backend_token` (legacy, mantido por compat). A chave antiga
-  // `whl_backend_token` nunca é populada por ninguém — ler ela retornava `null`
-  // e fazia o sync silenciar pro modo local-only, deixando FAQs/Products órfãos
-  // (training_examples e businessInfo seguiam outra rota e por isso chegavam).
-  const token = await chrome.storage.local
-    .get(['whl_backend_config', 'backend_token'])
-    .then(r => r?.whl_backend_config?.token || r?.backend_token || null)
-    .catch(() => null);
-
-  if (backendUrl && token) {
-    try {
-      const response = await fetch(`${backendUrl}/api/v1/training/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        sendResponse({ success: true, synced: 'backend' });
-      } else {
-        sendResponse({ success: true, synced: 'local', warning: `Backend retornou ${response.status}` });
-      }
-    } catch (e) {
-      sendResponse({ success: true, synced: 'local', warning: 'Backend inacessível: ' + e.message });
+  let parsedClient = null;
+  try {
+    if (typeof storage.whl_backend_client === 'string') {
+      parsedClient = JSON.parse(storage.whl_backend_client);
+    } else if (storage.whl_backend_client && typeof storage.whl_backend_client === 'object') {
+      parsedClient = storage.whl_backend_client;
     }
-  } else {
-    sendResponse({ success: true, synced: 'local', warning: 'Backend não configurado' });
+  } catch (_) { /* segue pros outros */ }
+
+  const backendUrl =
+    parsedClient?.baseUrl ||
+    storage.whl_backend_url ||
+    storage.backend_url ||
+    storage.whl_backend_config?.url ||
+    (globalThis.WHL_ENDPOINTS?.BACKEND_DEFAULT) ||
+    null;
+
+  // Token vive em múltiplos schemas. Antes lia só whl_backend_config.token +
+  // backend_token; agora também aceita whl_auth_token (alias escrito por
+  // syncLegacyBackendConfig pra compat com CRM/Tasks) e o accessToken
+  // canônico do whl_backend_client.
+  const token =
+    parsedClient?.accessToken ||
+    storage.whl_backend_config?.token ||
+    storage.backend_token ||
+    storage.whl_auth_token ||
+    null;
+
+  if (!backendUrl || !token) {
+    sendResponse({
+      success: false,
+      synced: 'local',
+      error: !token
+        ? 'Sem token de autenticação — faça login no painel antes de sincronizar.'
+        : 'Backend URL não configurada.',
+    });
+    return;
+  }
+
+  // ── Sync ───────────────────────────────────────────────────────────────
+  // Usa fetch direto: este handler roda no service worker (mesmo contexto
+  // que o FETCH_PROXY consumiria), então um wrapper extra só adicionaria
+  // latência sem ganho.
+  try {
+    const response = await fetch(`${backendUrl}/api/v1/training/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    let body = null;
+    try { body = await response.json(); } catch (_) { /* sem body */ }
+
+    if (response.ok) {
+      sendResponse({
+        success: true,
+        synced: 'backend',
+        stats: body?.synced || null,
+      });
+    } else {
+      // 4xx/5xx do backend: NÃO mascarar com success:true. Antes retornava
+      // success:true,synced:'local',warning:'Backend retornou 401' — usuário
+      // via toast verde mas a sugestão da IA continuava sem o treinamento.
+      sendResponse({
+        success: false,
+        synced: 'local',
+        status: response.status,
+        error: body?.message || `Backend retornou ${response.status}`,
+      });
+    }
+  } catch (e) {
+    sendResponse({
+      success: false,
+      synced: 'local',
+      error: 'Backend inacessível: ' + (e?.message || String(e)),
+    });
   }
 }
 

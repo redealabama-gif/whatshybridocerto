@@ -277,12 +277,35 @@ async function handleToggleCopilot(message, sender, sendResponse) {
 
 /**
  * Handler: FEW_SHOT_PUSH
+ *
+ * Notificação de "example_added" disparada pelo few-shot-learning.js após
+ * gravar um novo exemplo localmente. Caller envia:
+ *   { action: 'FEW_SHOT_PUSH', event: { type: 'example_added', example, timestamp } }
+ *
+ * ⚠️ Versão anterior lia `message.examples || []` e gravava esse array em
+ * chrome.storage.local — mas `message.examples` SEMPRE veio `undefined` (o
+ * payload está em `message.event.example`), então cada chamada ZERAVA o
+ * `whl_few_shot_examples`. Bug silencioso: usuário treinava na aba Simulação,
+ * via toast de sucesso, e perdia tudo no próximo reload. E o "push pro
+ * backend" prometido pelo nome nunca acontecia — handler só mexia em storage.
+ *
+ * Agora: NÃO toca em storage (a fonte da verdade é o save() do módulo
+ * caller, que já rodou antes desta mensagem). Apenas confirma recebimento.
+ * A persistência real no backend acontece via knowledge-sync-manager (que
+ * escuta chrome.storage.onChanged em whl_few_shot_examples) ou pelo
+ * SYNC_TRAINING_DATA disparado pelo training.js — caminhos que mandam
+ * arrays completos pro endpoint correto.
  */
 async function handleFewShotPush(message, sender, sendResponse) {
   try {
-    const examples = message.examples || [];
-    await chrome.storage.local.set({ whl_few_shot_examples: examples });
-    sendResponse({ success: true, count: examples.length });
+    const event = message?.event || null;
+    if (event?.type === 'example_added' && event?.example) {
+      // Notificação benigna — caller já gravou local. Não fazemos nada
+      // com storage aqui pra não corromper o array completo.
+      sendResponse({ success: true, acknowledged: true });
+    } else {
+      sendResponse({ success: true, acknowledged: false, reason: 'event ignorado' });
+    }
   } catch (error) {
     console.error('[Background] Erro em FEW_SHOT_PUSH:', error);
     sendResponse({ success: false, error: error.message });
