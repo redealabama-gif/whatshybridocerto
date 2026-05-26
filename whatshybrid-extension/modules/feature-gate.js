@@ -29,9 +29,10 @@
     'module:bulk': { minPlan: 'free', feature: 'bulkMessages' },
     'module:campaigns': { minPlan: 'starter' },
     'module:flows': { minPlan: 'starter' },
-    // Free Lite: analytics='lite' (janela curta, sem export). Pro/Enterprise
-    // usam feature:advanced_analytics / feature:full_analytics pra views ricas.
-    'module:analytics': { minPlan: 'free', feature: 'analytics' },
+    // Analytics ainda não está implementado de fato — mantemos gate antigo
+    // (starter+) pra não expor entrada de menu pra módulo morto. Quando
+    // voltar à vida, descer pra free com 'analytics':'lite' já está plumbed.
+    'module:analytics': { minPlan: 'starter', feature: 'analytics' },
     'module:team': { minPlan: 'starter' },
     'module:extractor': { minPlan: 'starter' },
     // Free Lite: smartReplies='limited' + aiRepliesPerDay=3. canUseAI() devolve

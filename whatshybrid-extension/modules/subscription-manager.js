@@ -32,7 +32,10 @@
         smartReplies: 'limited',
         copilot: false,
         autopilot: false,
-        analytics: 'lite',
+        // Analytics não está implementado hoje — mantemos false no Free Lite
+        // pra não anunciar feature morta. Quando o módulo voltar à vida,
+        // basta promover pra 'lite'.
+        analytics: false,
         exportFormats: ['csv'],
         bulkMessages: 'limited',
         customLabels: false,
