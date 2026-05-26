@@ -11,49 +11,49 @@
 (function() {
   'use strict';
 
+  // Tour alinhado às 4 abas reais do dashboard atual: overview, extension,
+  // tokens, billing. A configuração de IA (tom, FAQ, teste) acontece toda
+  // na extensão — o dashboard é só painel de conta. Steps antigos que
+  // referenciavam [data-tab="ai"], #ai-knowledge-base, #ai-test-btn foram
+  // removidos porque esses elementos não existem mais aqui.
   const STEPS = [
     {
       title: '👋 Bem-vindo ao WhatsHybrid Pro!',
-      content: 'Vamos configurar sua IA em 3 minutos. Pula só se você já é veterano.',
+      content: 'Este é o painel da sua conta — onde você gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Dou um tour rápido?',
       target: null,
       placement: 'center',
       cta: 'Começar tour',
     },
     {
       title: '1. Instale a extensão Chrome',
-      content: 'A extensão é o que conecta a IA ao seu WhatsApp Web. Clique em "Extensão Chrome" no menu.',
+      content: 'A extensão é o que conecta a IA ao seu WhatsApp Web. É lá que você treina a IA, organiza o CRM, dispara em massa e responde clientes. Clique em "Extensão Chrome" no menu.',
       target: '[data-tab="extension"]',
       placement: 'right',
       action: () => switchTab('extension'),
       cta: 'Próximo',
     },
     {
-      title: '2. Configure tom e setor',
-      content: 'A IA precisa saber como falar. Define tom de voz e o nicho do seu negócio na aba "Inteligência Artificial".',
-      target: '[data-tab="ai"]',
+      title: '2. Acompanhe seu saldo de tokens',
+      content: 'Cada resposta da IA consome tokens. Aqui você vê quanto tem, o que foi usado nos últimos 30 dias e compra pacotes avulsos quando precisar de mais.',
+      target: '[data-tab="tokens"]',
       placement: 'right',
-      action: () => switchTab('ai'),
+      action: () => switchTab('tokens'),
       cta: 'Próximo',
     },
     {
-      title: '3. Adicione FAQ na base de conhecimento',
-      content: 'Cole horário, endereço, regras de troca, FAQ. A IA usa isso pra responder com precisão. Quanto mais info, melhor.',
-      target: '#ai-knowledge-base',
-      placement: 'top',
-      cta: 'Próximo',
-    },
-    {
-      title: '4. Teste antes de ativar',
-      content: 'Sempre teste com 5-10 mensagens reais antes de ativar a resposta automática. Use o botão "Testar IA".',
-      target: '#ai-test-btn',
-      placement: 'top',
+      title: '3. Gerencie sua assinatura',
+      content: 'Em "Assinatura" você muda de plano, escolhe entre pagamento único ou recorrente (PIX/cartão via MercadoPago), e baixa suas faturas. Tudo num lugar só.',
+      target: '[data-tab="billing"]',
+      placement: 'right',
+      action: () => switchTab('billing'),
       cta: 'Próximo',
     },
     {
       title: '🎉 Pronto!',
-      content: 'Você está configurado. Agora abra web.whatsapp.com (com a extensão instalada) e teste com mensagens reais.',
+      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar a atender. Qualquer dúvida, fala com a gente em suporte@whatshybrid.com.',
       target: null,
       placement: 'center',
+      action: () => switchTab('overview'),
       cta: 'Concluir',
     },
   ];
