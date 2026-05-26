@@ -686,7 +686,15 @@ router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyn
         else if (fbType === 'thumbs_up' || ratingNum >= 4) normalized = 'positive';
         else if (fbType === 'thumbs_down' || ratingNum <= 2) normalized = 'negative';
 
-        orchestrator.recordFeedback(interactionId, normalized);
+        // Propaga correctedResponse pra que ValidatedLearningPipeline.recordInteraction
+        // possa trocar a `topResponse` candidata pelo texto editado pelo humano
+        // (linha 266 do pipeline: `responseToTrack = wasEdited && editedResponse
+        // ? editedResponse : response`). Sem este 3º argumento, o orquestrador
+        // chamava recordFeedback(id, 'edited') sem o texto novo — pipeline
+        // contava o edit como negativo mas nunca aprendia QUAL era a correção.
+        orchestrator.recordFeedback(interactionId, normalized, {
+          correctedResponse: correctedResponse || null,
+        });
       } catch (err) {
         require('../utils/logger').warn(`[AI/feedback] orchestrator.recordFeedback failed: ${err.message}`);
       }

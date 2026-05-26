@@ -1734,6 +1734,19 @@ Responda APENAS com o texto da sugestão:`;
   function rejectSuggestion() {
     const rejected = state.suggestion;
     const chatId = getActiveChatId() || null;
+    const interactionId = state.lastInteractionId;
+    const metadata = state.lastMetadata;
+
+    // Reconstrói userMessage do DOM. O backend (routes/ai.js#/learn/feedback)
+    // exige userMessage + assistantResponse quando NÃO há interactionId
+    // (Tier 1 / fallback local). Antes só mandávamos assistantResponse, o
+    // que fazia o reject silenciar com 400 nesses cenários — métricas do
+    // ConfidenceSystem subiam mas o backend nunca aprendia o "ruim".
+    let lastUser = '';
+    try {
+      const msgs = extractMessages();
+      lastUser = msgs.filter(m => m.role === 'user').pop()?.content || '';
+    } catch (_) { /* best-effort */ }
 
     if (window.EventBus) {
       window.EventBus.emit('suggestion:rejected', {
@@ -1745,13 +1758,25 @@ Responda APENAS com o texto da sugestão:`;
     }
 
     // Feedback negativo no backend (não-bloqueante).
-    const interactionId = state.lastInteractionId;
-    if (interactionId && window.BackendClient?.ai?.feedback) {
-      window.BackendClient.ai.feedback(interactionId, 'negative', {
+    if (window.BackendClient?.ai?.feedback) {
+      window.BackendClient.ai.feedback(interactionId || null, 'negative', {
         chatId,
+        userMessage: lastUser,
         assistantResponse: rejected || '',
         feedbackType: 'rating',
       }).catch(err => log('Feedback negativo falhou (não crítico):', err?.message));
+    }
+
+    // Maturity tracker: registrar 'rejected' pra que rejectedCount aumente
+    // no AutopilotMaturityService. Sem isto, o cálculo de successRate só
+    // subia (sem ver os rejects) e o autopilot atingia READY com base em
+    // dados enviesados — humanos descartavam sugestões mas a porcentagem
+    // ficava em 100% porque o backend nunca sabia.
+    if (window.BackendClient?.autopilotMaturity?.record) {
+      window.BackendClient.autopilotMaturity.record('rejected', {
+        interactionId: interactionId || null,
+        intent: metadata?.intent || null,
+      }).catch(err => log('Maturity record rejected falhou (não crítico):', err?.message));
     }
 
     if (window.NotificationsModule?.toast) {
@@ -1900,34 +1925,70 @@ Responda APENAS com o texto da sugestão:`;
       // Snapshot garante que o feedback bata com a sugestão que o humano de fato usou.
       const usedInteractionId = state.lastInteractionId;
       const usedMetadata      = state.lastMetadata;
-      const usedSuggestion    = finalText;
+      const usedOriginal      = state.suggestion;       // texto que a IA gerou
+      const usedFinal         = finalText;              // texto enviado ao chat
+      const wasEdited         = !!state.suggestionEdited;
       const usedChatId        = getActiveChatId() || null;
 
-      // v9.3.0: fecha o feedback loop com o backend orchestrator.
-      // Quando o usuário USA a sugestão sem editar, isso é sinal positivo forte
-      // pro ValidatedLearningPipeline e pro AutoLearningLoop.
-      if (usedInteractionId && window.BackendClient?.ai?.feedback) {
-        // Reconstrói userMessage do contexto pra o endpoint de learn/feedback
-        // (ele exige userMessage + assistantResponse pra gravar exemplo de treino)
-        let lastUser = '';
-        try {
-          const msgs = extractMessages();
-          lastUser = msgs.filter(m => m.role === 'user').pop()?.content || '';
-        } catch (_) {}
+      // Reconstrói userMessage do contexto pra o endpoint de learn/feedback
+      // (ele exige userMessage + assistantResponse pra gravar exemplo de treino
+      // quando NÃO há interactionId).
+      let lastUser = '';
+      try {
+        const msgs = extractMessages();
+        lastUser = msgs.filter(m => m.role === 'user').pop()?.content || '';
+      } catch (_) {}
 
-        // Não-bloqueante: feedback async em background
-        window.BackendClient.ai.feedback(usedInteractionId, 'positive', {
-          chatId: usedChatId,
-          userMessage: lastUser,
-          assistantResponse: usedSuggestion,
-          feedbackType: 'rating',
-        }).catch(err => log('Feedback positivo falhou (não crítico):', err?.message));
+      // v9.3.0: fecha o feedback loop com o backend orchestrator.
+      //
+      // Diferencia EDIT vs APPROVE no envio pro backend:
+      //   - APPROVE puro → rating 'positive' + feedbackType 'rating'.
+      //     ValidatedLearningPipeline registra como positive count → topResponse
+      //     é a sugestão original.
+      //
+      //   - EDIT → feedbackType 'correction' + assistantResponse = ORIGINAL +
+      //     correctedResponse = TEXTO_EDITADO. Backend normaliza pra 'edited',
+      //     que no pipeline conta como negative-pro-original + tracking do
+      //     editedResponse como nova top candidate. Sem isto (estado anterior),
+      //     editado virava "positive total" da versão editada, perdendo o
+      //     original — pipeline nunca aprendia que precisava corrigir aquela
+      //     resposta. E `ai_feedback.corrected_response` ficava NULL, derrubando
+      //     também a possibilidade de batch-learning posterior.
+      if (window.BackendClient?.ai?.feedback) {
+        const payload = wasEdited
+          ? {
+              chatId: usedChatId,
+              userMessage: lastUser,
+              assistantResponse: usedOriginal,    // ← o que a IA realmente disse
+              correctedResponse: usedFinal,       // ← o que o humano corrigiu pra
+              feedbackType: 'correction',
+            }
+          : {
+              chatId: usedChatId,
+              userMessage: lastUser,
+              assistantResponse: usedFinal,       // = usedOriginal quando não editou
+              feedbackType: 'rating',
+            };
+
+        // rating 'positive' funciona em ambos os casos: pra correction, o
+        // backend usa o feedbackType pra escolher o normalized ('edited'); o
+        // rating numérico só entra se feedbackType for 'rating'.
+        window.BackendClient.ai.feedback(usedInteractionId || null, 'positive', payload)
+          .catch(err => log('Feedback falhou (não crítico):', err?.message));
       }
 
       // v9.3.0: registra outcome no autopilot maturity tracker.
-      // 'approved' = humano enviou exatamente como sugerido (sucesso pleno).
+      //   approved → humano enviou exatamente como sugerido (sucesso pleno).
+      //   edited   → humano usou mas precisou ajustar (sucesso parcial).
+      //   rejected → tratado em rejectSuggestion().
+      //
+      // Antes, edit também caía em 'approved' — editedCount ficava sempre 0 e
+      // o successRate do AutopilotMaturityService superestimava (qualquer
+      // ajuste do humano contava como 100% acerto). Agora edited entra na
+      // contagem certa e o orquestrador de maturação enxerga a realidade.
       if (window.BackendClient?.autopilotMaturity?.record) {
-        window.BackendClient.autopilotMaturity.record('approved', {
+        const outcome = wasEdited ? 'edited' : 'approved';
+        window.BackendClient.autopilotMaturity.record(outcome, {
           interactionId: usedInteractionId,
           intent: usedMetadata?.intent || null,
         }).then(r => {
