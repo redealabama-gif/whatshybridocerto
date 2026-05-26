@@ -307,16 +307,93 @@
           console.log('[MessageCapture] ✅ Hook Store.Msg.add configurado');
         }
 
-        // Hook para mensagens modificadas (editadas, apagadas)
+        // Hook para mensagens modificadas (editadas, apagadas).
+        //
+        // Bug histórico: o branch único `if (msg.isRevoked)` cobria SÓ
+        // mensagens apagadas; edits eram silenciosamente ignorados, e
+        // o badge de "editada" só aparecia se o fallback de scan DOM
+        // do recover-visual-injector pegasse o seletor `[data-testid=
+        // "msg-edited"]` — que o WhatsApp Web às vezes renomeia.
+        // Resultado: editadas paravam de aparecer no chat e no filtro
+        // do Recover.
+        //
+        // Fix: detectar edits via msg.isEdited / editedAt / type, e
+        // garantir que captureMessage seja chamado com action='edited'
+        // pro RecoverAdvanced.messageVersions registrar o histórico.
         if (window.Store.Msg.on) {
+          // Cache pequeno do último body por msgId pra evitar ruído.
+          // `change` no Store dispara por vários motivos (presence,
+          // ACK, mídia anexada, etc); só queremos os que mudaram o
+          // body real.
+          const lastBodyByMsgId = new Map();
+          const MAX_BODY_CACHE = 1000;
+
+          function getMsgId(msg) {
+            try {
+              return msg.id?._serialized
+                  || (typeof msg.id?.toString === 'function' ? msg.id.toString() : null)
+                  || null;
+            } catch (_) { return null; }
+          }
+
+          function rememberBody(id, body) {
+            if (!id) return;
+            lastBodyByMsgId.set(id, body);
+            if (lastBodyByMsgId.size > MAX_BODY_CACHE) {
+              // Drop o entry mais antigo (Map mantém ordem de inserção)
+              const oldest = lastBodyByMsgId.keys().next().value;
+              lastBodyByMsgId.delete(oldest);
+            }
+          }
+
           window.Store.Msg.on('change', (msg) => {
             try {
+              // ── 1. Mensagem apagada (revoke universal/individual) ──
               if (msg.isRevoked || msg.type === 'revoked') {
                 const normalized = normalizeStoreMessage(msg);
                 if (normalized) {
                   normalized.action = 'revoked';
                   captureMessage(normalized);
                 }
+                return;
+              }
+
+              // ── 2. Mensagem editada ──
+              // WhatsApp marca a msg com .isEdited (mais comum no Web),
+              // .editedAt (timestamp), ou .type === 'edited' / .editType
+              // === 'message_edit'. Verificar todos pra resistir a
+              // renames de versão.
+              const looksEdited =
+                msg.isEdited === true ||
+                msg.type === 'edited' ||
+                msg.editType === 'message_edit' ||
+                !!msg.editedAt ||
+                !!msg.latestEditMsgKey;
+
+              if (!looksEdited) return;
+
+              const msgId = getMsgId(msg);
+              const currentBody = (msg.body || msg.text || msg.caption || '');
+              const previousBody = msgId ? lastBodyByMsgId.get(msgId) : undefined;
+
+              // Sem cache prévio: registra o body atual mas NÃO emite
+              // (sem `previous` não há diff útil; segundo `change` dispara
+              // com previousBody preenchido e aí emitimos).
+              if (previousBody === undefined) {
+                rememberBody(msgId, currentBody);
+                return;
+              }
+
+              // Mesmo body de antes: ruído, ignora.
+              if (previousBody === currentBody) return;
+
+              // Edit real detectado.
+              rememberBody(msgId, currentBody);
+              const normalized = normalizeStoreMessage(msg);
+              if (normalized) {
+                normalized.action = 'edited';
+                normalized.previousContent = previousBody;
+                captureMessage(normalized);
               }
             } catch (e) {
               console.warn('[MessageCapture] Erro ao processar mudança:', e);
