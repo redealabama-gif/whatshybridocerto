@@ -484,6 +484,12 @@
       return;
     }
 
+    // Se já contém nossa anotação (hook protocolar processou), não duplica.
+    if (currentBody && currentBody.startsWith('✏️ Esta mensagem foi editada para:')) {
+      msgContainer.dataset.whlEditHandled = 'true';
+      return;
+    }
+
     const entry = {
       key: msgKey,
       body: currentBody || '[texto editado não capturado]',
@@ -513,8 +519,76 @@
       });
     }
 
+    // FIX v9.6.1: para edits INCOMING o EditMessageHook protocolar de
+    // wpp-hooks.js às vezes não dispara (WA Web 2.3000+ pode mudar a
+    // chamada singular/plural). Como fallback, injetamos a anotação
+    // visual diretamente no DOM aqui. Idempotente — não duplica se o
+    // hook protocolar já processou (verificação acima via prefix).
+    injectEditedContent(msgContainer, currentBody, cached?.text);
+
     log('✏️ Mensagem editada registrada:', msgKey, currentBody?.slice(0, 40));
     notifyRecovery(entry);
+  }
+
+  function injectEditedContent(msgContainer, newText, oldText) {
+    try {
+      if (!msgContainer) return;
+
+      // Já marcamos visualmente essa mensagem — não duplica.
+      if (msgContainer.querySelector('.whl-edited-marker')) return;
+
+      // Container do texto. Cai pra alternativas se selector primário falhar.
+      const textContainer = findElement(msgContainer, SELECTORS.MESSAGE_TEXT) ||
+                            msgContainer.querySelector('.copyable-text') ||
+                            msgContainer.querySelector('span[dir="ltr"]') ||
+                            msgContainer.querySelector('span.selectable-text');
+
+      if (!textContainer) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'whl-edited-marker';
+      wrapper.style.cssText = [
+        'margin-top:4px',
+        'padding:4px 8px',
+        'border-left:3px solid #3498db',
+        'background:rgba(52,152,219,0.1)',
+        'font-size:12px',
+        'border-radius:3px',
+        'line-height:1.4'
+      ].join(';');
+
+      if (oldText && oldText !== newText) {
+        wrapper.innerHTML = ''; // limpa
+        const before = document.createElement('div');
+        before.style.cssText = 'color:#95a5a6;font-style:italic';
+        before.textContent = '📝 Antes: ' + oldText;
+        const after = document.createElement('div');
+        after.style.cssText = 'color:#3498db;font-weight:bold;margin-top:2px';
+        after.textContent = '✏️ Editada para: ' + (newText || '');
+        wrapper.appendChild(before);
+        wrapper.appendChild(after);
+      } else {
+        const after = document.createElement('div');
+        after.style.cssText = 'color:#3498db;font-weight:bold';
+        after.textContent = '✏️ Esta mensagem foi editada para: ' + (newText || '');
+        wrapper.appendChild(after);
+      }
+
+      wrapper.title = 'Edição detectada pelo WhatsHybrid Recover';
+
+      // Insere logo após o container de texto (não substitui — mantém o
+      // texto editado nativo do WA visível pra contexto).
+      const insertTarget = textContainer.closest('.copyable-text') || textContainer;
+      insertTarget.parentNode?.insertBefore(wrapper, insertTarget.nextSibling);
+
+      // Destaque sutil no container inteiro.
+      msgContainer.style.borderLeft = '3px solid #3498db';
+      msgContainer.style.background = msgContainer.style.background || 'rgba(52,152,219,0.05)';
+
+      log('✅ Marca de edição injetada no DOM');
+    } catch (e) {
+      log('Erro ao injetar marca de edição:', e);
+    }
   }
 
   function injectRecoveredContent(element, cached) {

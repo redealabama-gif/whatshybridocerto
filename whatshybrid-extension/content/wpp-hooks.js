@@ -2495,71 +2495,148 @@ window.whl_hooks_main = () => {
     }
 
     // ===== HOOK PARA MENSAGENS EDITADAS =====
+    //
+    // FIX v9.6.1: edits do CONTATO não disparavam o hook em WA Web 2.3000+.
+    //
+    // Bug anterior:
+    //   `processEditProtocolMsg = processEditProtocolMsgs` aliased o hook
+    //   plural (que espera array e chama .filter) em cima do singular,
+    //   onde o WA Web às vezes chama com UM objeto. Resultado: TypeError
+    //   silencioso e edits incoming passavam direto. Outgoing funcionava
+    //   porque o caminho do "você editou" vai pelo plural mesmo.
+    //
+    // Correção: instalar handlers separados para plural (array) e singular
+    // (objeto) preservando assinaturas originais. Falhas no patch nunca
+    // bloqueiam a função nativa — sempre delegam ao original.
     class EditMessageHook extends Hook {
         register() {
             if (this.is_registered) return;
             super.register();
-            
+
             if (!MODULES.PROCESS_EDIT_MESSAGE) {
                 console.warn('[WHL Hooks] PROCESS_EDIT_MESSAGE module not available');
                 return;
             }
-            
-            this.original_function = MODULES.PROCESS_EDIT_MESSAGE.processEditProtocolMsgs;
-            
-            MODULES.PROCESS_EDIT_MESSAGE.processEditProtocolMsgs = function (...args) {
-                args[0] = args[0].filter((message) => {
-                    return !EditMessageHook.handle_edited_message(message, ...args);
-                });
-                return EditMessageHook.originalEdit(...args);
-            };
-            
-            MODULES.PROCESS_EDIT_MESSAGE.processEditProtocolMsg = MODULES.PROCESS_EDIT_MESSAGE.processEditProtocolMsgs;
-            EditMessageHook.originalEdit = this.original_function;
-            console.log('[WHL Hooks] EditMessageHook registered');
-        }
-        
-        static handle_edited_message(message, arg1, arg2) {
-            // CORREÇÃO ISSUE 05: Salvar mensagem editada no histórico ANTES de modificar
-            salvarMensagemEditada(message);
-            
-            // Extract message content - body for text, caption for media
-            const messageContent = message?.body || message?.caption || '[sem conteúdo]';
-            message.type = 'chat';
-            message.body = `✏️ Esta mensagem foi editada para: ${messageContent}`;
-            
-            if (!message.protocolMessageKey) return true;
-            
-            message.quotedStanzaID = message.protocolMessageKey.id;
-            message.quotedParticipant = message.protocolMessageKey?.participant || message.from;
-            message.quotedMsg = { type: 'chat' };
-            delete message.latestEditMsgKey;
-            delete message.protocolMessageKey;
-            delete message.subtype;
-            delete message.editMsgType;
-            delete message.latestEditSenderTimestampMs;
-            
-            // Processar mensagem editada como nova mensagem
-            if (MODULES.PROCESS_RENDERABLE_MESSAGES) {
-                MODULES.PROCESS_RENDERABLE_MESSAGES.processRenderableMessages(
-                    [message],
-                    { 
-                        author: message.from, 
-                        type: 'chat', 
-                        externalId: message.id.id, 
-                        edit: -1, 
-                        isHsm: false, 
-                        chat: message.id.remote 
-                    },
-                    null,
-                    { verifiedLevel: 'unknown' },
-                    null,
-                    0,
-                    arg2 === undefined ? arg1 : arg2
-                );
+
+            const mod = MODULES.PROCESS_EDIT_MESSAGE;
+
+            // Guarda referências separadas ANTES de qualquer patch.
+            EditMessageHook.originalMsgs = mod.processEditProtocolMsgs;
+            EditMessageHook.originalMsg  = mod.processEditProtocolMsg;
+
+            // ── Hook PLURAL (batch). args[0] é array de edits. ─────────────
+            if (typeof EditMessageHook.originalMsgs === 'function') {
+                mod.processEditProtocolMsgs = function (...args) {
+                    try {
+                        if (Array.isArray(args[0])) {
+                            args[0] = args[0].filter((message) => {
+                                try {
+                                    return !EditMessageHook.handle_edited_message(message, ...args);
+                                } catch (innerErr) {
+                                    console.warn('[WHL Hooks] handle_edited_message error (plural):', innerErr);
+                                    return false; // não filtra em caso de erro → não perde a msg
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[WHL Hooks] processEditProtocolMsgs wrapper error:', e);
+                    }
+                    return EditMessageHook.originalMsgs.apply(this, args);
+                };
+                console.log('[WHL Hooks] EditMessageHook plural registered');
             }
-            
-            return true; // Filtrar a mensagem original de edição
+
+            // ── Hook SINGULAR (per-message). args[0] é UM objeto. ──────────
+            // Crítico para edits incoming em WA 2.3000+ que disparam essa
+            // função direto do decoder de websocket, sem passar pela versão
+            // batch. Versões antigas do código aliasavam plural→singular,
+            // mas isso quebrava porque o handler chama .filter num objeto.
+            if (typeof EditMessageHook.originalMsg === 'function') {
+                mod.processEditProtocolMsg = function (...args) {
+                    try {
+                        const msg = args[0];
+                        if (msg && typeof msg === 'object' && !Array.isArray(msg)) {
+                            const shouldFilter = EditMessageHook.handle_edited_message(msg, ...args);
+                            if (shouldFilter) return undefined; // edit já foi re-renderizado
+                        }
+                    } catch (e) {
+                        console.warn('[WHL Hooks] processEditProtocolMsg wrapper error:', e);
+                    }
+                    return EditMessageHook.originalMsg.apply(this, args);
+                };
+                console.log('[WHL Hooks] EditMessageHook singular registered');
+            }
+
+            // Alias mantido para callers antigos que liam EditMessageHook.originalEdit.
+            EditMessageHook.originalEdit = EditMessageHook.originalMsgs;
+            this.original_function = EditMessageHook.originalMsgs;
+
+            console.log('[WHL Hooks] EditMessageHook registered (plural:%s, singular:%s)',
+                typeof EditMessageHook.originalMsgs === 'function',
+                typeof EditMessageHook.originalMsg === 'function');
+        }
+
+        static handle_edited_message(message, arg1, arg2) {
+            try {
+                if (!message || typeof message !== 'object') return false;
+
+                // Diagnóstico — útil pra confirmar se incoming dispara o hook.
+                try {
+                    const isOut = !!(message.isMe || message.from?.isMe || message.id?.fromMe);
+                    console.log('[WHL Hooks] 🔔 Edit detectado (' + (isOut ? 'OUTGOING' : 'INCOMING') + ')',
+                                message.id?._serialized || message.id?.id || '?');
+                } catch (_) {}
+
+                // Salva no histórico ANTES de mutar o objeto.
+                salvarMensagemEditada(message);
+
+                const messageContent = message?.body || message?.caption || '[sem conteúdo]';
+                message.type = 'chat';
+                message.body = `✏️ Esta mensagem foi editada para: ${messageContent}`;
+
+                if (!message.protocolMessageKey) return true;
+
+                message.quotedStanzaID = message.protocolMessageKey.id;
+                message.quotedParticipant = message.protocolMessageKey?.participant || message.from;
+                message.quotedMsg = { type: 'chat' };
+                delete message.latestEditMsgKey;
+                delete message.protocolMessageKey;
+                delete message.subtype;
+                delete message.editMsgType;
+                delete message.latestEditSenderTimestampMs;
+
+                // Re-renderiza como mensagem nova. Para incoming pode faltar
+                // id.id/id.remote em alguns shapes — validamos antes de chamar
+                // pra não derrubar o pipeline inteiro com TypeError.
+                const hasIds = !!(message.id?.id && message.id?.remote);
+                if (MODULES.PROCESS_RENDERABLE_MESSAGES && hasIds) {
+                    try {
+                        MODULES.PROCESS_RENDERABLE_MESSAGES.processRenderableMessages(
+                            [message],
+                            {
+                                author: message.from,
+                                type: 'chat',
+                                externalId: message.id.id,
+                                edit: -1,
+                                isHsm: false,
+                                chat: message.id.remote
+                            },
+                            null,
+                            { verifiedLevel: 'unknown' },
+                            null,
+                            0,
+                            arg2 === undefined ? arg1 : arg2
+                        );
+                    } catch (renderErr) {
+                        console.warn('[WHL Hooks] processRenderableMessages failed:', renderErr);
+                    }
+                }
+
+                return true; // filtra a msg original — já reinjetamos a versão modificada
+            } catch (e) {
+                console.error('[WHL Hooks] handle_edited_message fatal:', e);
+                return false; // não filtra em caso de erro
+            }
         }
     }
 
