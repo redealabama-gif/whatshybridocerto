@@ -589,7 +589,7 @@ class AIOrchestrator {
     return content;
   }
 
-  recordFeedback(interactionId, feedback) {
+  recordFeedback(interactionId, feedback, opts = {}) {
     if (this.config.enableAnalytics) this.analytics.updateFeedback(interactionId, feedback);
 
     // CORREÇÃO P0: Recuperar metadados da interação e chamar recordInteraction com TODOS os campos obrigatórios
@@ -605,11 +605,22 @@ class AIOrchestrator {
       // NENHUMA interação foi registrada para aprendizado em toda a história
       // do produto. Esse é o bug que fazia o usuário sentir "a IA não aprende".
       // Agora passamos a string original (não convertemos para número).
+      //
+      // v9.7.x — Propaga wasEdited + editedResponse quando feedback === 'edited'
+      // e o caller (rota /learn/feedback) forneceu correctedResponse via opts.
+      // Sem este 3º argumento, edits viravam só "negative" pra resposta
+      // original — o pipeline contava o sinal negativo mas nunca via QUAL
+      // foi a correção, então a `topResponse` candidata nunca era atualizada
+      // com o texto que o humano REALMENTE quis enviar (line 266 do pipeline:
+      // `responseToTrack = wasEdited && editedResponse ? editedResponse : response`).
+      const isEdit = feedback === 'edited' && opts && opts.correctedResponse;
       this.learningPipeline.recordInteraction({
         intent:    meta.intent,
         question:  meta.question,
         response:  meta.response,
         feedback,  // string: 'positive' | 'negative' | 'neutral' | 'edited' | 'converted'
+        wasEdited:      isEdit ? true : undefined,
+        editedResponse: isEdit ? opts.correctedResponse : undefined,
       }).catch(err => logger.warn(`[Orchestrator] learningPipeline.recordInteraction error: ${err.message}`));
 
       // Também persistir no StrategySelector e PerformanceScoreEngine via banco
