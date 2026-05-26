@@ -780,6 +780,38 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   _advancedInjected.delete(tabId);
 });
 
+// Cleanup quando tab recarrega ou navega para um novo documento.
+//
+// Sem isto, o Set sobrevive ao reload (mesmo tabId, contexto da página
+// destruído): `ensureAdvancedBundle` vê `has(tabId) === true` e pula a
+// re-injeção, mas advanced-bundle.js já saiu da memória junto com a página.
+// O lazy-loader cai no fallback <script src> (page world ≠ isolated world),
+// AISuggestionFixed perde acesso a window.BackendClient e a UI degrada pro
+// Tier 5 fallback do SmartSuggestions ("Entendi, posso ajudar com mais
+// alguma informação?"). O mesmo afeta CRM, automation-engine, analytics —
+// todos os módulos do advanced-bundle.
+//
+// `changeInfo.status === 'loading'` cobre F5/Ctrl+R e navegação real;
+// hash changes / pushState não disparam (não destroem o documento, então
+// nada precisa ser re-injetado).
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading' && _advancedInjected.has(tabId)) {
+    _advancedInjected.delete(tabId);
+    console.log('[WHL SW] advanced-bundle desmarcado para tab', tabId, '(reload/navegação)');
+  }
+
+  // Re-injeta proativamente quando o documento do WhatsApp Web terminou de
+  // carregar. Sem isto, dependeríamos do lazy-loader pedir sob demanda — o
+  // usuário podia clicar no botão de IA antes disso, pegando o handler do
+  // advanced-bundle ainda fora da memória e caindo no fallback canned. Como
+  // ensureAdvancedBundle já é idempotente (verifica `_advancedInjected`),
+  // chamar aqui é seguro: pula se outro evento (sidepanel/lazy-loader) já
+  // re-injetou.
+  if (changeInfo.status === 'complete' && tab?.url && isWhatsAppWebURL(tab.url)) {
+    ensureAdvancedBundle(tabId).catch(() => { /* logado em ensureAdvancedBundle */ });
+  }
+});
+
 // Side panel abriu? Injeta advanced features na tab do WhatsApp
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'WHL_LOAD_ADVANCED' || msg?.type === 'sidepanel_opened') {
