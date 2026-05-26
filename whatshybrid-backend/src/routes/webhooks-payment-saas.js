@@ -13,12 +13,76 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 
 const db = require('../utils/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('../utils/uuid-wrapper');
 const mpService = require('../services/MercadoPagoService');
+
+// Gera um código de assinatura no formato WHL-XXXX-XXXX-XXXX. Inline aqui
+// (em vez de importar de routes/subscription) pra manter o webhook
+// desacoplado do módulo de rotas — webhook roda no startup mesmo que
+// a rota não esteja montada (ex.: workers separados).
+function generateSubscriptionCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(12);
+  const pick = (offset, n) => {
+    let out = '';
+    for (let i = 0; i < n; i++) out += alphabet[bytes[offset + i] % alphabet.length];
+    return out;
+  };
+  return `WHL-${pick(0, 4)}-${pick(4, 4)}-${pick(8, 4)}`;
+}
+
+/**
+ * Garante que o workspace tenha um código de assinatura ativo.
+ *
+ * - Se já existir um código não-revogado: estende expires_at e atualiza plan
+ *   (caso o cliente tenha trocado de plano). Não mexe em device_id_hash —
+ *   ativação prévia continua válida no mesmo dispositivo.
+ * - Se não existir: gera novo código com status='unused', expirando em
+ *   expiresAt. Cliente cola o código na extensão pra ativar.
+ *
+ * Retorna { code, isNew } pra que o webhook saiba se deve enfatizar
+ * "novo código" ou "renovação" no email.
+ */
+function ensureSubscriptionCode({ workspaceId, plan, expiresAt, paymentId }) {
+  const existing = db.get(
+    `SELECT code, status, device_id_hash FROM subscription_codes
+     WHERE workspace_id = ? AND status != 'revoked'
+     ORDER BY created_at DESC LIMIT 1`,
+    [workspaceId]
+  );
+
+  if (existing) {
+    db.run(
+      `UPDATE subscription_codes
+         SET plan = ?, expires_at = ?, notes = ?
+         WHERE code = ?`,
+      [plan, expiresAt, `payment:${paymentId}`, existing.code]
+    );
+    return { code: existing.code, isNew: false };
+  }
+
+  // Tenta até 3x evitar colisão (probabilidade ínfima, defensivo)
+  let code = null;
+  for (let i = 0; i < 3; i++) {
+    const candidate = generateSubscriptionCode();
+    const collision = db.get('SELECT code FROM subscription_codes WHERE code = ?', [candidate]);
+    if (!collision) { code = candidate; break; }
+  }
+  if (!code) throw new Error('Falha ao gerar código único de assinatura');
+
+  db.run(
+    `INSERT INTO subscription_codes (code, workspace_id, plan, status, expires_at, notes)
+     VALUES (?, ?, ?, 'unused', ?, ?)`,
+    [code, workspaceId, plan, expiresAt, `payment:${paymentId}`]
+  );
+  logger.info(`[WebhookSaaS] Subscription code generated: ${code} → workspace=${workspaceId} plan=${plan}`);
+  return { code, isNew: true };
+}
 
 // v9.3.9: tabela de preços oficiais por plano (em BRL).
 // Backend valida que amount recebido do gateway bate com o esperado.
@@ -200,6 +264,34 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
 
   logger.info(`[WebhookSaaS] Workspace ${workspaceId} ativado: plano ${plan}, próxima cobrança ${nextBilling.toISOString()}`);
 
+  // Gera (ou reusa) o código de assinatura pra que o cliente possa ativar
+  // a extensão. Fora da transação principal: falha aqui não deve reverter
+  // o pagamento — o webhook fica logado e o admin pode recriar o código
+  // via POST /api/v1/subscription/codes se necessário.
+  let subscriptionCode = null;
+  let isNewCode = false;
+  try {
+    const result = ensureSubscriptionCode({
+      workspaceId,
+      plan,
+      expiresAt: nextBilling.toISOString(),
+      paymentId,
+    });
+    subscriptionCode = result.code;
+    isNewCode = result.isNew;
+  } catch (err) {
+    logger.error(`[WebhookSaaS] Falha ao gerar código de assinatura pra ws=${workspaceId}:`, err.message);
+    try {
+      const alertManager = require('../observability/alertManager');
+      alertManager.send('error', '🔑 Falha ao gerar código de assinatura', {
+        workspace_id: workspaceId,
+        plan,
+        payment_id: paymentId,
+        error: err.message,
+      });
+    } catch (_) {}
+  }
+
   // Alerta ao owner do SaaS
   try {
     const alertManager = require('../observability/alertManager');
@@ -209,10 +301,15 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
       amount,
       currency,
       payment_id: paymentId,
+      subscription_code: subscriptionCode,
     });
   } catch (_) {}
 
-  // v8.4.0 — emite evento para email transacional
+  // v8.4.0 — emite evento para email transacional. Inclui o código pra
+  // que o emailListener consiga montar a mensagem com instrução de
+  // ativação. Sem code, o email continua válido mas sem a seção de
+  // ativação (fallback gracioso pra caso ensureSubscriptionCode tenha
+  // falhado e o admin precise gerar manualmente).
   try {
     const events = require('../utils/events');
     events.emit('subscription.activated', {
@@ -221,10 +318,12 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
       amount,
       currency,
       payment_id: paymentId,
+      subscription_code: subscriptionCode,
+      is_new_code: isNewCode,
     });
   } catch (_) {}
 
-  return { activated: true };
+  return { activated: true, subscription_code: subscriptionCode };
 }
 
 /**

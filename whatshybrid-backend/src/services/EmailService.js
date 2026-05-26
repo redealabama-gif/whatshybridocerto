@@ -231,8 +231,38 @@ class EmailService {
     });
   }
 
-  async sendPaymentConfirmed({ to, name, plan, amount, paymentId }) {
+  async sendPaymentConfirmed({ to, name, plan, amount, paymentId, subscriptionCode = null, isNewCode = false }) {
     const formatted = `R$ ${amount.toFixed(2).replace('.', ',')}`;
+
+    // Bloco de ativação só aparece quando temos código. Em caso de falha na
+    // geração (fallback raro), o email continua válido como recibo — o
+    // suporte gera o código manualmente via /api/v1/subscription/codes.
+    const codeBlock = subscriptionCode ? `
+        <div style="margin:24px 0;padding:20px;background:rgba(0,255,255,0.06);border:1px solid rgba(0,255,255,0.30);border-radius:12px;">
+          <div style="font-size:12px;color:#00ffff;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px;">
+            ${isNewCode ? '🔑 Seu código de ativação' : '🔑 Código da sua assinatura'}
+          </div>
+          <div style="font-family:'Cascadia Code',ui-monospace,monospace;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;padding:12px 16px;background:rgba(0,0,0,0.40);border-radius:8px;text-align:center;user-select:all;">
+            ${this._escape(subscriptionCode)}
+          </div>
+          ${isNewCode ? `
+          <div style="margin-top:16px;font-size:14px;color:#cbd5e1;line-height:1.6;">
+            <strong style="color:#ffffff;">Como ativar:</strong>
+            <ol style="margin:8px 0 0;padding-left:20px;color:#cbd5e1;">
+              <li>Instale a extensão Chrome do WhatsHybrid Pro (link abaixo).</li>
+              <li>Abra o painel lateral e clique em "Ativar assinatura".</li>
+              <li>Cole o código acima e pronto — sua conta libera na hora.</li>
+            </ol>
+            <p style="margin:12px 0 0;font-size:13px;color:#94a3b8;">
+              O código vale só pra um dispositivo. Pra mudar de máquina, acesse <a href="${this.baseUrl}/dashboard.html#billing" style="color:#00ffff;">o painel</a> e clique em "Desvincular dispositivo".
+            </p>
+          </div>` : `
+          <div style="margin-top:12px;font-size:13px;color:#94a3b8;">
+            Este é o mesmo código que você já usa na extensão. Sua renovação foi aplicada e não é preciso reativar.
+          </div>`}
+        </div>
+    ` : '';
+
     const html = this._wrap({
       title: '✅ Pagamento confirmado',
       preheader: `Seu pagamento de ${formatted} foi processado com sucesso.`,
@@ -244,9 +274,12 @@ class EmailService {
           <tr><td style="padding:8px 0;color:#94a3b8;">ID do pagamento:</td><td style="padding:8px 0;text-align:right;color:#ffffff;font-family:monospace;font-size:13px;">${this._escape(paymentId)}</td></tr>
           <tr><td style="padding:8px 0;color:#94a3b8;">Valor:</td><td style="padding:8px 0;text-align:right;color:#ffffff;"><strong>${formatted}</strong></td></tr>
         </table>
+        ${codeBlock}
       `,
-      ctaLabel: 'Ver minha assinatura',
-      ctaUrl: `${this.baseUrl}/dashboard.html`,
+      ctaLabel: subscriptionCode && isNewCode ? 'Baixar a extensão' : 'Ver minha assinatura',
+      ctaUrl: subscriptionCode && isNewCode
+        ? `${this.baseUrl}/dashboard.html#extension`
+        : `${this.baseUrl}/dashboard.html`,
     });
 
     return this.send({ to, subject: 'Pagamento confirmado — WhatsHybrid Pro', html });
