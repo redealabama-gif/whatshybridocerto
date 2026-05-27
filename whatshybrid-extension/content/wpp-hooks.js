@@ -2626,80 +2626,143 @@ window.whl_hooks_main = () => {
             }
 
             // ── Hook updateMessageEditsLocally ─────────────────────────────
-            // FIX v9.6.2: diagnóstico no console do usuário (WA 2.3300+)
-            // mostrou que `processEditProtocolMsg` (singular) NÃO existe
-            // no módulo — só plural + `updateMessageEditsLocally` +
-            // `generateMessageEdit`. Edits do CONTATO chegam via socket
-            // já decifrados e vão direto pra `updateMessageEditsLocally`
-            // que aplica a mudança no Msg store local. Plural só fica no
-            // caminho de OUTGOING (você editou). Por isso outgoing
-            // funcionava e incoming não — a função certa nunca era
-            // interceptada.
+            // FIX v9.6.7: diagnóstico real do console do usuário (script
+            // injetado em DevTools) mostrou a estrutura ATUAL que WA Web
+            // 2.3300+ passa pra updateMessageEditsLocally:
             //
-            // A assinatura exata do `updateMessageEditsLocally` varia entre
-            // builds, então o wrapper aceita args dinâmicos: procura o
-            // primeiro objeto que pareça uma mensagem (tem body, id,
-            // protocolMessageKey ou caption) e despacha pro handler comum.
-            // SEMPRE delega ao original, mesmo se nosso processamento
-            // falhar — não bloqueia o pipeline nativo do WhatsApp.
+            //   args[0] = [ { editedMsgData, parentMsg, protocolMsg,
+            //                 isLatest, mentionOfMe } ]
+            //   args[1] = [ { ...mesma estrutura } ]
+            //
+            // Ambos args são ARRAYS de "envelopes" — não objetos soltos.
+            // Cada envelope tem:
+            //   - parentMsg.body  = body ANTIGO (msg ainda não atualizada no store)
+            //   - editedMsgData.body = body NOVO (vai ser aplicado pelo original)
+            //
+            // O wrapper anterior (v9.6.2 a v9.6.6) procurava "primeiro objeto
+            // com body/caption/id/protocolMessageKey", mas FILTRAVA arrays
+            // com `!Array.isArray(a)`. Resultado: msg ficava null, nenhum
+            // log "🔔 updateMessageEditsLocally edit detectado" disparava,
+            // e a mutação nunca acontecia. 4 PRs anteriores tentaram fixar
+            // sem dados — só sabíamos com o diagnóstico que NADA do wrapper
+            // rodava na vida real.
+            //
+            // Novo wrapper: itera arrays nos args, identifica envelopes pelo
+            // shape (tem editedMsgData OU parentMsg), e muta editedMsgData.body
+            // pra incluir o marcador combo "📝 Antes: <antigo>\n✏️ Editada
+            // para: <novo>". O original pega editedMsgData.body e aplica em
+            // parentMsg.body — o body marcado vai pro store e o WA renderiza
+            // sem precisar de DOM hack.
+            //
+            // Bônus: parentMsg.body JÁ tem o "antes" — não precisamos mais
+            // do messageCache pra isso (cache fica como fallback se shape
+            // mudar de novo).
+            //
+            // SEMPRE delega ao original — falha de processamento não bloqueia.
             EditMessageHook.originalUpdate = mod.updateMessageEditsLocally;
             if (typeof EditMessageHook.originalUpdate === 'function') {
                 mod.updateMessageEditsLocally = function (...args) {
                     try {
-                        let msg = null;
-                        for (let i = 0; i < args.length; i++) {
-                            const a = args[i];
-                            if (a && typeof a === 'object' && !Array.isArray(a) &&
-                                (a.body !== undefined || a.caption !== undefined ||
-                                 a.id !== undefined || a.protocolMessageKey !== undefined)) {
-                                msg = a;
-                                break;
+                        // Coleta envelopes de qualquer arg (array ou objeto solto).
+                        // Defensivo contra mudança de signature: itera tudo.
+                        const envelopes = [];
+                        const seen = new Set();
+                        const pushIfEnvelope = (e) => {
+                            if (!e || typeof e !== 'object' || seen.has(e)) return;
+                            if (e.editedMsgData || e.parentMsg) {
+                                seen.add(e);
+                                envelopes.push(e);
+                            }
+                        };
+                        for (const a of args) {
+                            if (Array.isArray(a)) {
+                                for (const item of a) pushIfEnvelope(item);
+                            } else {
+                                pushIfEnvelope(a);
                             }
                         }
-                        if (msg) {
-                            try {
-                                console.log('[WHL Hooks] 🔔 updateMessageEditsLocally edit detectado',
-                                    msg?.id?._serialized || msg?.id?.id || '?');
-                            } catch (_) {}
 
-                            // FIX v9.6.5: pega o body anterior do cache ANTES de
-                            // qualquer mutação. messageCache foi populado pelo
-                            // MessageCreatedHook quando o contato mandou a msg
-                            // original. (Esse cache estava quebrado por bug
-                            // separado — cacheMessage→cachearMensagem — corrigido
-                            // junto. Sem o body anterior caímos no fallback
-                            // "✏️ Esta mensagem foi editada para: <novo>".)
-                            const previousBody = getCachedPreviousBody(msg);
-
-                            // Salva no histórico ANTES de mutar — salvarMensagemEditada
-                            // lê msg.body cru pra registrar o body novo, e procura o
-                            // anterior no cache pra registrar como previousContent.
-                            try { salvarMensagemEditada(msg); } catch (saveErr) {
-                                console.warn('[WHL Hooks] salvarMensagemEditada error:', saveErr);
-                            }
-
-                            // FIX v9.6.5: muta msg.body/caption pra incluir o
-                            // marcador "📝 Antes: ... \n✏️ Editada para: ..." ANTES
-                            // de delegar pro original updateMessageEditsLocally.
-                            // Como o original aplica a mudança no Msg store local,
-                            // o body que vai pra store já vem com o marcador — o
-                            // render nativo do WA mostra antes+depois sem depender
-                            // de DOM hack frágil. Mesmo padrão de "🚫 Apagada: ..."
-                            // usado para mensagens deletadas.
-                            //
-                            // Idempotência: composeEditMarker chama stripEditMarker
-                            // no input pra evitar dupla-marcação se a função for
-                            // chamada de novo com o body já marcado.
-                            try {
-                                if (typeof msg.body === 'string' && msg.body.length > 0) {
-                                    const composed = composeEditMarker(previousBody, msg.body);
-                                    if (composed) msg.body = composed;
-                                } else if (typeof msg.caption === 'string' && msg.caption.length > 0) {
-                                    const composed = composeEditMarker(previousBody, msg.caption);
-                                    if (composed) msg.caption = composed;
+                        if (envelopes.length === 0) {
+                            // Fallback pro shape antigo (objeto solto com .body
+                            // direto) — mantém compatibilidade caso WA volte.
+                            for (const a of args) {
+                                if (a && typeof a === 'object' && !Array.isArray(a) &&
+                                    (a.body !== undefined || a.caption !== undefined)) {
+                                    envelopes.push({ legacyMsg: a });
+                                    break;
                                 }
-                            } catch (mutErr) {
-                                console.warn('[WHL Hooks] edit body mutation error:', mutErr);
+                            }
+                        }
+
+                        for (const env of envelopes) {
+                            try {
+                                // Legacy: shape antigo onde msg é o próprio objeto
+                                if (env.legacyMsg) {
+                                    const msg = env.legacyMsg;
+                                    const prev = getCachedPreviousBody(msg);
+                                    try { salvarMensagemEditada(msg); } catch (e) {}
+                                    const target = typeof msg.body === 'string' && msg.body.length > 0 ? 'body' : 'caption';
+                                    const composed = composeEditMarker(prev, msg[target] || '');
+                                    if (composed) msg[target] = composed;
+                                    continue;
+                                }
+
+                                // Shape novo (WA 2.3300+)
+                                const parent = env.parentMsg || {};
+                                const edit = env.editedMsgData || {};
+                                const proto = env.protocolMsg || {};
+
+                                // Body anterior: vem direto no parentMsg (limpo do marker
+                                // se já estava marcado de uma edição anterior).
+                                const rawOld = parent.body || parent.caption || '';
+                                const oldBody = stripEditMarker(String(rawOld).trim());
+
+                                // Body novo: vem em editedMsgData
+                                const rawNew = edit.body || edit.caption || '';
+                                const newBody = stripEditMarker(String(rawNew).trim());
+
+                                if (!newBody) continue; // nada a marcar
+
+                                console.log('[WHL Hooks] 🔔 Edit incoming detectado:',
+                                    'antes=', oldBody?.slice(0, 60), '→ depois=', newBody?.slice(0, 60),
+                                    'msgId=', parent.id?._serialized || parent.id?.id || '?');
+
+                                // Salva no histórico ANTES de mutar editedMsgData
+                                // (salvarMensagemEditada lê message.body — passa o
+                                // body novo limpo pra registrar, e previousBody pra
+                                // virar previousContent).
+                                try {
+                                    salvarMensagemEditada({
+                                        id: parent.id,
+                                        from: parent.from,
+                                        to: parent.to,
+                                        chatId: parent.id?.remote,
+                                        body: newBody,
+                                        previousBody: oldBody,
+                                        protocolMessageKey: proto.id || parent.id,
+                                        type: parent.type || 'chat'
+                                    });
+                                } catch (saveErr) {
+                                    console.warn('[WHL Hooks] salvarMensagemEditada error:', saveErr);
+                                }
+
+                                // Compõe e injeta o marcador em editedMsgData
+                                // (que é o que o original vai aplicar no parentMsg).
+                                const composed = composeEditMarker(oldBody, newBody);
+                                if (composed) {
+                                    // Detecta se o body novo veio em .body ou .caption
+                                    if (typeof edit.body === 'string' && edit.body.length > 0) {
+                                        edit.body = composed;
+                                    } else if (typeof edit.caption === 'string' && edit.caption.length > 0) {
+                                        edit.caption = composed;
+                                    } else if (edit.body !== undefined) {
+                                        edit.body = composed;
+                                    } else {
+                                        edit.caption = composed;
+                                    }
+                                }
+                            } catch (envErr) {
+                                console.warn('[WHL Hooks] envelope processing error:', envErr);
                             }
                         }
                     } catch (e) {
@@ -2707,7 +2770,7 @@ window.whl_hooks_main = () => {
                     }
                     return EditMessageHook.originalUpdate.apply(this, args);
                 };
-                console.log('[WHL Hooks] EditMessageHook updateMessageEditsLocally registered');
+                console.log('[WHL Hooks] EditMessageHook updateMessageEditsLocally registered (v9.6.7)');
             }
 
             // Alias mantido para callers antigos que liam EditMessageHook.originalEdit.
