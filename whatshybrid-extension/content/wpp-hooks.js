@@ -2029,14 +2029,14 @@ window.whl_hooks_main = () => {
      */
     function stripEditMarker(text) {
         if (typeof text !== 'string' || !text) return '';
-        // Combo: "📝 Antes: ... \n✏️ Editada para: <real>"
+        // Combo: "📝 Antes: ... \n✏️ Editada para: <real>" — separado
+        // do simples porque captura uma posição diferente.
         let m = text.match(/^📝 Antes: [\s\S]*?\n✏️ Editada para: ([\s\S]*)$/);
         if (m) return m[1];
-        // Simples: "✏️ Esta mensagem foi editada para: <real>"
-        m = text.match(/^✏️ Esta mensagem foi editada para: ([\s\S]*)$/);
-        if (m) return m[1];
-        // Outras variações: "✏️ Editada para: <real>"
-        m = text.match(/^✏️ Editada para: ([\s\S]*)$/);
+        // Simples: "✏️ Esta mensagem foi editada para: <real>" ou
+        // "✏️ Editada para: <real>" — colapsados em uma alternation
+        // (FIX v9.6.6: era duas chamadas .match separadas).
+        m = text.match(/^✏️ (?:Esta mensagem foi editada para|Editada para): ([\s\S]*)$/);
         if (m) return m[1];
         return text;
     }
@@ -2049,13 +2049,6 @@ window.whl_hooks_main = () => {
             return `📝 Antes: ${o}\n✏️ Editada para: ${n}`;
         }
         return `✏️ Esta mensagem foi editada para: ${n}`;
-    }
-
-    function hasEditMarker(text) {
-        if (typeof text !== 'string' || !text) return false;
-        return text.startsWith('📝 Antes: ') ||
-               text.startsWith('✏️ Esta mensagem foi editada para: ') ||
-               text.startsWith('✏️ Editada para: ');
     }
 
     /**
@@ -2082,18 +2075,27 @@ window.whl_hooks_main = () => {
      * Bug fix + BUG 2: Save edited message to history with persistent notification
      */
     function salvarMensagemEditada(message) {
-        const messageContent = message?.body || message?.caption || '[sem conteúdo]';
+        // FIX v9.6.6: strip do marker no body lido — em edits subsequentes
+        // a msg pode chegar com .body já marcado de um tick anterior (ou de
+        // re-render via processRenderableMessages que jogou marker no cache).
+        // Sem strip, o history record gravava o marker text como "body" novo.
+        const messageContent = stripEditMarker(message?.body || message?.caption || '') || '[sem conteúdo]';
         let from = extractPhoneNumber(message);
-        
+
         if (!from || from === 'Desconhecido') from = 'Número desconhecido';
-        
+
         // CORREÇÃO 3: Recuperar previousContent do cache (usar ID original quando existir)
         const originalId = message.protocolMessageKey?.id || message.quotedStanzaID || message.id?.id || Date.now().toString();
         const protocolId = message.id?.id || message.id?._serialized || null;
         const chatId = (message.id?.remote?._serialized || message.chatId?._serialized || message.chatId || message.id?.remote || null);
 
         const originalCached = messageCache.get(originalId) || messageCache.get(message.id?.id);
-        const previousContent = message.previousBody || originalCached?.body || null;
+        // FIX v9.6.6: strip do marker no body cacheado — handle_edited_message
+        // re-renderiza via processRenderableMessages que repõe o marker em
+        // messageCache via cachearMensagem. Sem strip aqui, o previousContent
+        // gravado em re-edits virava o marker da edição anterior (nested).
+        const rawPrevious = message.previousBody || originalCached?.body || null;
+        const previousContent = rawPrevious ? stripEditMarker(rawPrevious) : null;
         
         const entrada = {
             id: originalId,

@@ -410,7 +410,12 @@
     // que já foi marcada via hook protocolar — ainda precisamos retornar
     // true pra que checkForEditedMessages persista no histórico, mas
     // handleEditedMessage tem early-return pra não duplicar marca DOM.
-    if (msgText && (msgText.startsWith('✏️ Esta mensagem foi editada para:') ||
+    // FIX v9.6.6: inclui o prefixo combo '📝 Antes:' (era ausente — o
+    // hook protocolar atual emite esse formato como caso preferencial,
+    // e o check assimétrico fazia o body marcado cair no fallback
+    // cacheMessage, poluindo state.messageCache com texto-marcador).
+    if (msgText && (msgText.startsWith('📝 Antes:') ||
+                    msgText.startsWith('✏️ Esta mensagem foi editada para:') ||
                     msgText.startsWith('✏️ Editada para:'))) {
       return true;
     }
