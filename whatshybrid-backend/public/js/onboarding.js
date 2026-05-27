@@ -16,44 +16,56 @@
   // na extensão — o dashboard é só painel de conta. Steps antigos que
   // referenciavam [data-tab="ai"], #ai-knowledge-base, #ai-test-btn foram
   // removidos porque esses elementos não existem mais aqui.
+  //
+  // v9.6.6: spotlight agora aponta para o CONTEÚDO de cada tab após o
+  // switch (não pro botão da sidebar que acabamos de clicar — era
+  // redundante). step.action prepara a tab que o PRÓXIMO step vai usar.
+  // Sequência: welcome → overview → extension → tokens → billing → fim.
   const STEPS = [
     {
       title: '👋 Bem-vindo ao WhatsHybrid Pro!',
-      content: 'Este é o painel da sua conta — onde você gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Dou um tour rápido?',
+      content: 'Este é o painel da sua conta — gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Em 1 minuto te mostro onde fica cada coisa.',
       target: null,
       placement: 'center',
       cta: 'Começar tour',
     },
     {
-      title: '1. Instale a extensão Chrome',
-      content: 'A extensão é o que conecta a IA ao seu WhatsApp Web. É lá que você treina a IA, organiza o CRM, dispara em massa e responde clientes. Clique em "Extensão Chrome" no menu.',
-      target: '[data-tab="extension"]',
-      placement: 'right',
+      title: '📋 Sua Visão Geral',
+      content: 'Aqui na visão geral você vê tudo o que ganha com a extensão (12 funcionalidades) e tem 3 atalhos diretos: instalar, treinar e acompanhar. Sempre que voltar ao painel, essa é a tela inicial.',
+      target: '.welcome-steps',
+      placement: 'top',
       action: () => switchTab('extension'),
       cta: 'Próximo',
     },
     {
-      title: '2. Acompanhe seu saldo de tokens',
-      content: 'Cada resposta da IA consome tokens. Aqui você vê quanto tem, o que foi usado nos últimos 30 dias e compra pacotes avulsos quando precisar de mais.',
-      target: '[data-tab="tokens"]',
-      placement: 'right',
+      title: '🌐 Instalar a Extensão Chrome',
+      content: 'A extensão é o coração do produto — onde a IA roda, o CRM organiza e os disparos saem. Clique em "Instalar agora" pra adicionar ao Chrome (também funciona no Edge e Brave).',
+      target: '#install-extension-btn',
+      placement: 'bottom',
       action: () => switchTab('tokens'),
       cta: 'Próximo',
     },
     {
-      title: '3. Gerencie sua assinatura',
-      content: 'Em "Assinatura" você muda de plano, escolhe entre pagamento único ou recorrente (PIX/cartão via MercadoPago), e baixa suas faturas. Tudo num lugar só.',
-      target: '[data-tab="billing"]',
+      title: '🪙 Saldo de Tokens',
+      content: 'Cada resposta da IA consome tokens. Aqui você vê o saldo atual, o consumo dos últimos 30 dias e compra pacotes avulsos quando precisar — eles não expiram.',
+      target: '#tokens-balance',
       placement: 'right',
       action: () => switchTab('billing'),
       cta: 'Próximo',
     },
     {
-      title: '🎉 Pronto!',
-      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar a atender. Qualquer dúvida, fala com a gente em suporte@whatshybrid.com.',
+      title: '💳 Assinatura e Faturas',
+      content: 'Em "Assinatura" você escolhe entre pagamento único ou renovação automática (PIX ou cartão via MercadoPago), muda de plano e baixa suas faturas. Cancela quando quiser.',
+      target: '#current-plan-section',
+      placement: 'bottom',
+      action: () => switchTab('overview'),
+      cta: 'Próximo',
+    },
+    {
+      title: '🎉 Pronto pra vender!',
+      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar. Toda a operação acontece dentro da extensão — o painel aqui é pra acompanhar conta, tokens e faturas. Qualquer dúvida: suporte@whatshybrid.com.',
       target: null,
       placement: 'center',
-      action: () => switchTab('overview'),
       cta: 'Concluir',
     },
   ];
