@@ -152,6 +152,25 @@ async function handleCheckoutCompleted(session) {
     }
   } catch (_) {}
 
+  // Meta CAPI: dispara Subscribe quando o pagamento é confirmado. Server-side
+  // é o único caminho confiável — o browser pode estar fechado, em outro
+  // device, ou bloqueado por adblock. event_id = stripe session.id garante
+  // idempotência (webhook duplicado não duplica evento no Meta).
+  try {
+    const capi = require('../services/MetaCapiService');
+    await capi.sendSubscribeForWorkspace({
+      workspaceId,
+      plan,
+      amount: session.amount_total / 100,
+      currency: (session.currency || 'BRL').toUpperCase(),
+      eventId: `stripe_${session.id}`,
+      provider: 'stripe',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[StripeWebhook] CAPI Subscribe failed: ${e.message}`);
+  }
+
   logger.info(`[StripeWebhook] Activated workspace ${workspaceId} on plan ${plan}`);
 }
 

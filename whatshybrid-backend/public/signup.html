@@ -551,32 +551,52 @@
   };
 
   // Dispara eventos de conversão do Meta Pixel após signup bem-sucedido.
+  //
+  // Dedup com server-side (Meta Conversions API): o backend retorna
+  // `meta_event_ids` no payload de resposta com os mesmos UUIDs que ele
+  // usou para postar os eventos via CAPI. Aqui passamos `{ eventID }` ao
+  // fbq() para a Meta deduplicar pelo par (event_name, event_id).
+  // Sem dedup, browser + server contam dobrado.
+  //
   // - CompleteRegistration sempre (qualquer plano).
-  // - StartTrial só pra planos pagos (starter/pro) — eles começam com 7 dias
-  //   grátis sem cartão, então 'Subscribe' fica pra quando o pagamento real
-  //   for confirmado (via Conversions API server-side, fora deste arquivo).
-  function fireSignupConversionEvents(plan, coupon) {
-    if (typeof window.metaTrack !== 'function') return;
+  // - StartTrial só pra planos pagos (starter/pro).
+  // - Subscribe NÃO sai daqui — só dispara server-side no webhook de pagamento,
+  //   porque planos pagos começam com trial grátis sem cartão.
+  function fireSignupConversionEvents(plan, coupon, metaEventIds) {
+    if (typeof window.fbq !== 'function') return;
     var planName = 'Plano ' + (plan || 'unknown');
+    var ids = metaEventIds || {};
     try {
-      window.metaTrack('CompleteRegistration', {
+      var crData = {
         content_name: planName,
         content_category: 'signup',
         status: true,
         currency: 'BRL',
         value: 0
-      });
+      };
+      if (ids.complete_registration) {
+        window.fbq('track', 'CompleteRegistration', crData, { eventID: ids.complete_registration });
+      } else {
+        window.fbq('track', 'CompleteRegistration', crData);
+      }
+
       if (plan === 'starter' || plan === 'pro') {
         var monthly = plan === 'starter' ? 49.90 : 99.90;
-        window.metaTrack('StartTrial', {
+        var stData = {
           content_name: planName,
           content_category: 'trial',
           currency: 'BRL',
           value: monthly,
           predicted_ltv: monthly * 12
-        });
+        };
+        if (ids.start_trial) {
+          window.fbq('track', 'StartTrial', stData, { eventID: ids.start_trial });
+        } else {
+          window.fbq('track', 'StartTrial', stData);
+        }
       }
-      if (coupon) {
+
+      if (coupon && typeof window.metaTrack === 'function') {
         window.metaTrack('Lead', {
           content_name: 'Coupon redeemed: ' + coupon,
           content_category: 'coupon'
@@ -772,7 +792,7 @@
       api.setToken(token);
       if (result.user) api.setUser(result.user);
 
-      fireSignupConversionEvents(signupData.plan, signupData.coupon);
+      fireSignupConversionEvents(signupData.plan, signupData.coupon, result.meta_event_ids);
 
       toast('Conta criada! Bem-vindo ao WhatsHybrid Pro 🎉', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 600);
@@ -835,7 +855,7 @@
       api.setToken(token);
       if (result.user) api.setUser(result.user);
       if (result.isNewUser) {
-        fireSignupConversionEvents(signupData.plan, signupData.coupon);
+        fireSignupConversionEvents(signupData.plan, signupData.coupon, result.meta_event_ids);
       }
       toast(result.isNewUser ? 'Conta criada! Bem-vindo 🎉' : 'Login realizado!', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 500);
