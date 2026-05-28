@@ -13,6 +13,12 @@
   <meta name="theme-color" content="#6f00ff">
   <link rel="canonical" href="https://whatshybrid.com.br/">
 
+  <!--
+    Meta Pixel — preencha `content` com o Pixel ID (ex.: "1234567890")
+    para ativar. Vazio = pixel inerte (nenhuma requisição é feita).
+  -->
+  <meta name="meta-pixel-id" content="">
+
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
@@ -1416,6 +1422,34 @@
       .sales-card.is-out { opacity: 0; }
     }
   </style>
+
+  <!-- Meta Pixel (Facebook/Instagram Ads) — gated por <meta name="meta-pixel-id"> -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+    (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', pid);
+    window.fbq('track', 'PageView');
+  })();
+  </script>
+  <noscript id="meta-pixel-noscript"></noscript>
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    var ns = document.getElementById('meta-pixel-noscript');
+    if (ns) ns.innerHTML = '<img height="1" width="1" style="display:none" '
+      + 'src="https://www.facebook.com/tr?id=' + encodeURIComponent(pid)
+      + '&ev=PageView&noscript=1" alt="">';
+  })();
+  </script>
 </head>
 <body class="has-cursor">
 
