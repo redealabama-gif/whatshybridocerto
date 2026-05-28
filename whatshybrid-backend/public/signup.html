@@ -8,11 +8,12 @@
   <!--
     Marketing tracking — preencha os `content` dos meta-tags abaixo
     para ativar. Vazios = nenhuma requisição externa é feita.
-    Mantenha os IDs idênticos aos de index.html para o Pixel/Clarity
+    Mantenha os IDs idênticos aos de index.html para Pixel/Clarity/GA4
     rastrearem todo o funil (home → signup → dashboard).
   -->
   <meta name="meta-pixel-id" content="">
   <meta name="ms-clarity-id" content="">
+  <meta name="ga4-measurement-id" content="">
 
   <!-- Meta Pixel loader (gated por meta-pixel-id) -->
   <script>
@@ -59,7 +60,27 @@
   })();
   </script>
 
-  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer) -->
+  <!-- Google Analytics 4 loader (gated por ga4-measurement-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="ga4-measurement-id"]');
+    var mid = meta && meta.content && meta.content.trim();
+    if (!mid) return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(mid);
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', mid, { send_page_view: true });
+    window.ga4Track = function (eventName, params) {
+      try { if (window.gtag) window.gtag('event', eventName, params || {}); } catch (_) {}
+    };
+  })();
+  </script>
+
+  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer + _ga) -->
   <script src="js/marketing-attribution.js"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -550,57 +571,68 @@
     coupon: null, discount: 0,
   };
 
-  // Dispara eventos de conversão do Meta Pixel após signup bem-sucedido.
+  // Dispara eventos de conversão após signup bem-sucedido — Meta + GA4.
   //
-  // Dedup com server-side (Meta Conversions API): o backend retorna
-  // `meta_event_ids` no payload de resposta com os mesmos UUIDs que ele
-  // usou para postar os eventos via CAPI. Aqui passamos `{ eventID }` ao
-  // fbq() para a Meta deduplicar pelo par (event_name, event_id).
-  // Sem dedup, browser + server contam dobrado.
+  // Dedup Meta browser↔server: o backend retorna `meta_event_ids` no payload
+  // de resposta com os mesmos UUIDs que ele usou para postar via CAPI. Aqui
+  // passamos `{ eventID }` ao fbq() para a Meta deduplicar pelo par
+  // (event_name, event_id). Sem dedup, browser + server contam dobrado.
   //
-  // - CompleteRegistration sempre (qualquer plano).
-  // - StartTrial só pra planos pagos (starter/pro).
-  // - Subscribe NÃO sai daqui — só dispara server-side no webhook de pagamento,
-  //   porque planos pagos começam com trial grátis sem cartão.
+  // - CompleteRegistration (Meta) / sign_up (GA4) — sempre, qualquer plano.
+  // - StartTrial (Meta) / start_trial custom (GA4) — só pra starter/pro.
+  // - Subscribe / purchase — não sai daqui; só dispara server-side no webhook
+  //   de pagamento, porque planos pagos começam com trial grátis sem cartão.
   function fireSignupConversionEvents(plan, coupon, metaEventIds) {
-    if (typeof window.fbq !== 'function') return;
     var planName = 'Plano ' + (plan || 'unknown');
     var ids = metaEventIds || {};
-    try {
-      var crData = {
-        content_name: planName,
-        content_category: 'signup',
-        status: true,
-        currency: 'BRL',
-        value: 0
-      };
-      if (ids.complete_registration) {
-        window.fbq('track', 'CompleteRegistration', crData, { eventID: ids.complete_registration });
-      } else {
-        window.fbq('track', 'CompleteRegistration', crData);
-      }
 
+    // Helpers locais — noop quando o respectivo loader não rodou.
+    var meta = function (evt, data, opts) {
+      try {
+        if (!window.fbq) return;
+        if (opts) window.fbq('track', evt, data, opts);
+        else window.fbq('track', evt, data);
+      } catch (_) {}
+    };
+    var ga = function (evt, data) {
+      try { if (window.gtag) window.gtag('event', evt, data || {}); } catch (_) {}
+    };
+
+    try {
+      // CompleteRegistration (Meta) + sign_up (GA4)
+      var crData = {
+        content_name: planName, content_category: 'signup',
+        status: true, currency: 'BRL', value: 0
+      };
+      meta('CompleteRegistration', crData,
+        ids.complete_registration ? { eventID: ids.complete_registration } : null);
+      ga('sign_up', {
+        method: plan === 'free' ? 'email_free' : 'email_paid',
+        content_name: planName
+      });
+
+      // StartTrial (Meta) + start_trial (GA4 custom)
       if (plan === 'starter' || plan === 'pro') {
         var monthly = plan === 'starter' ? 49.90 : 99.90;
         var stData = {
-          content_name: planName,
-          content_category: 'trial',
-          currency: 'BRL',
-          value: monthly,
-          predicted_ltv: monthly * 12
+          content_name: planName, content_category: 'trial',
+          currency: 'BRL', value: monthly, predicted_ltv: monthly * 12
         };
-        if (ids.start_trial) {
-          window.fbq('track', 'StartTrial', stData, { eventID: ids.start_trial });
-        } else {
-          window.fbq('track', 'StartTrial', stData);
-        }
+        meta('StartTrial', stData,
+          ids.start_trial ? { eventID: ids.start_trial } : null);
+        ga('start_trial', {
+          currency: 'BRL', value: monthly,
+          items: [{
+            item_id: 'plan_' + plan, item_name: planName,
+            item_category: 'subscription', price: monthly, quantity: 1
+          }]
+        });
       }
 
-      if (coupon && typeof window.metaTrack === 'function') {
-        window.metaTrack('Lead', {
-          content_name: 'Coupon redeemed: ' + coupon,
-          content_category: 'coupon'
-        });
+      // Cupom (Meta + GA4)
+      if (coupon) {
+        meta('Lead', { content_name: 'Coupon redeemed: ' + coupon, content_category: 'coupon' });
+        ga('coupon_redeemed', { coupon: coupon });
       }
     } catch (_) {}
   }

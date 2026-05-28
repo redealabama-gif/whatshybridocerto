@@ -38,7 +38,32 @@
   })();
   </script>
 
-  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer) -->
+  <!--
+    Google Analytics 4 — Measurement ID no formato "G-XXXXXXXXXX".
+    Preencha para ativar; vazio = nenhum script de tracking é carregado.
+    Crie o stream em https://analytics.google.com → Admin → Data Streams.
+  -->
+  <meta name="ga4-measurement-id" content="">
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="ga4-measurement-id"]');
+    var mid = meta && meta.content && meta.content.trim();
+    if (!mid) return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(mid);
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', mid, { send_page_view: true });
+    window.ga4Track = function (eventName, params) {
+      try { if (window.gtag) window.gtag('event', eventName, params || {}); } catch (_) {}
+    };
+  })();
+  </script>
+
+  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer + _ga cookie) -->
   <script src="js/marketing-attribution.js"></script>
 
   <!-- Favicon -->
@@ -1474,31 +1499,35 @@
   </script>
 
   <!--
-    Meta Pixel — event tracking (CTAs + scroll milestones).
-    Só anexa listeners quando o Pixel ID está preenchido. Sem ID, este IIFE
-    retorna cedo e nenhum listener é adicionado.
+    Conversion tracking (CTAs + scroll milestones) — dispara Meta Pixel
+    e/ou GA4 conforme os IDs preenchidos. Sem nenhum dos dois, IIFE retorna
+    cedo (zero listeners adicionados).
 
-    Mapeamento de eventos:
-      • a[href*="signup.html"] sem plan        → Lead
-      • a[href*="signup.html?plan=free"]       → Lead (Plano Free)
-      • a[href*="signup.html?plan=starter"]    → InitiateCheckout (R$ 49,90 BRL)
-      • a[href*="signup.html?plan=pro"]        → InitiateCheckout (R$ 99,90 BRL)
-      • a[href*="signup.html?coupon=..."]      → Lead (cupom)
-      • Scroll até #pricing (40% visível)      → ViewContent (1× por sessão)
+    Mapeamento Meta / GA4:
+      • CTA signup sem plan      Meta: Lead              GA4: generate_lead
+      • CTA plan=free            Meta: Lead              GA4: generate_lead
+      • CTA plan=starter         Meta: InitiateCheckout  GA4: begin_checkout (R$ 49,90)
+      • CTA plan=pro             Meta: InitiateCheckout  GA4: begin_checkout (R$ 99,90)
+      • Scroll #pricing 40%      Meta: ViewContent       GA4: view_item_list
 
-    Helper público `window.metaTrack(eventName, params)` exposto para
-    chamadas manuais futuras (ex.: na página de obrigado, depois de
-    cadastro confirmado: window.metaTrack('CompleteRegistration')).
+    Helpers públicos `window.metaTrack` e `window.ga4Track` expostos para
+    chamadas manuais futuras (ex.: na página de obrigado pós-pagamento).
   -->
   <script>
   (function () {
-    var meta = document.querySelector('meta[name="meta-pixel-id"]');
-    var pid = meta && meta.content && meta.content.trim();
-    if (!pid) return;
+    var hasPixel = !!(document.querySelector('meta[name="meta-pixel-id"]') || {}).content?.trim();
+    var hasGa4   = !!(document.querySelector('meta[name="ga4-measurement-id"]') || {}).content?.trim();
+    if (!hasPixel && !hasGa4) return;
 
-    window.metaTrack = function (eventName, params) {
+    // Helpers locais — cada um é noop quando o respectivo loader não rodou.
+    var meta = function (eventName, params) {
       try { if (window.fbq) window.fbq('track', eventName, params || {}); } catch (_) {}
     };
+    var ga = function (eventName, params) {
+      try { if (window.gtag) window.gtag('event', eventName, params || {}); } catch (_) {}
+    };
+    if (!window.metaTrack) window.metaTrack = meta;
+    if (!window.ga4Track)  window.ga4Track  = ga;
 
     document.addEventListener('click', function (e) {
       var a = e.target && e.target.closest && e.target.closest('a[href*="signup.html"]');
@@ -1507,46 +1536,48 @@
       var planMatch = href.match(/[?&]plan=([^&]+)/);
       var plan = planMatch ? decodeURIComponent(planMatch[1]).toLowerCase() : '';
 
-      if (plan === 'starter') {
-        window.metaTrack('InitiateCheckout', {
-          content_name: 'Plano Starter',
-          content_category: 'subscription',
-          value: 49.90,
-          currency: 'BRL'
+      if (plan === 'starter' || plan === 'pro') {
+        var value = plan === 'starter' ? 49.90 : 99.90;
+        var label = plan === 'starter' ? 'Plano Starter' : 'Plano Pro';
+        meta('InitiateCheckout', {
+          content_name: label, content_category: 'subscription',
+          value: value, currency: 'BRL'
         });
-      } else if (plan === 'pro') {
-        window.metaTrack('InitiateCheckout', {
-          content_name: 'Plano Pro',
-          content_category: 'subscription',
-          value: 99.90,
-          currency: 'BRL'
+        ga('begin_checkout', {
+          currency: 'BRL', value: value,
+          items: [{
+            item_id: 'plan_' + plan, item_name: label,
+            item_category: 'subscription', price: value, quantity: 1
+          }]
         });
       } else {
-        window.metaTrack('Lead', {
-          content_name: plan === 'free' ? 'Plano Free' : 'Signup geral',
-          content_category: 'signup'
-        });
+        var leadName = plan === 'free' ? 'Plano Free' : 'Signup geral';
+        meta('Lead', { content_name: leadName, content_category: 'signup' });
+        ga('generate_lead', { content_name: leadName, content_category: 'signup' });
       }
     }, true);
 
-    function watchSection(id, eventName, params) {
+    function watchSection(id, fire) {
       var el = document.getElementById(id);
       if (!el || !('IntersectionObserver' in window)) return;
       var fired = false;
       var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
-          if (entry.isIntersecting && !fired) {
-            fired = true;
-            window.metaTrack(eventName, params);
-            io.disconnect();
-          }
+          if (entry.isIntersecting && !fired) { fired = true; fire(); io.disconnect(); }
         });
       }, { threshold: 0.4 });
       io.observe(el);
     }
-    watchSection('pricing', 'ViewContent', {
-      content_name: 'Pricing Section',
-      content_category: 'pricing'
+    watchSection('pricing', function () {
+      meta('ViewContent', { content_name: 'Pricing Section', content_category: 'pricing' });
+      ga('view_item_list', {
+        item_list_name: 'Pricing',
+        items: [
+          { item_id: 'plan_free',    item_name: 'Plano Free',    item_category: 'subscription', price: 0,     quantity: 1 },
+          { item_id: 'plan_starter', item_name: 'Plano Starter', item_category: 'subscription', price: 49.90, quantity: 1 },
+          { item_id: 'plan_pro',     item_name: 'Plano Pro',     item_category: 'subscription', price: 99.90, quantity: 1 }
+        ]
+      });
     });
   })();
   </script>
