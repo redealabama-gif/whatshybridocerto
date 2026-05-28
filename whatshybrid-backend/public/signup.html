@@ -4,6 +4,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Criar conta — WhatsHybrid Pro</title>
+
+  <!--
+    Marketing tracking — preencha os `content` dos meta-tags abaixo
+    para ativar. Vazios = nenhuma requisição externa é feita.
+    Mantenha os IDs idênticos aos de index.html para o Pixel/Clarity
+    rastrearem todo o funil (home → signup → dashboard).
+  -->
+  <meta name="meta-pixel-id" content="">
+  <meta name="ms-clarity-id" content="">
+
+  <!-- Meta Pixel loader (gated por meta-pixel-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+    (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', pid);
+    window.fbq('track', 'PageView');
+    window.metaTrack = function (eventName, params) {
+      try { if (window.fbq) window.fbq('track', eventName, params || {}); } catch (_) {}
+    };
+  })();
+  </script>
+  <noscript id="meta-pixel-noscript"></noscript>
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    var ns = document.getElementById('meta-pixel-noscript');
+    if (ns) ns.innerHTML = '<img height="1" width="1" style="display:none" '
+      + 'src="https://www.facebook.com/tr?id=' + encodeURIComponent(pid)
+      + '&ev=PageView&noscript=1" alt="">';
+  })();
+  </script>
+
+  <!-- Microsoft Clarity loader (gated por ms-clarity-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="ms-clarity-id"]');
+    var cid = meta && meta.content && meta.content.trim();
+    if (!cid) return;
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", cid);
+  })();
+  </script>
+
+  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer) -->
+  <script src="js/marketing-attribution.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
@@ -492,6 +550,41 @@
     coupon: null, discount: 0,
   };
 
+  // Dispara eventos de conversão do Meta Pixel após signup bem-sucedido.
+  // - CompleteRegistration sempre (qualquer plano).
+  // - StartTrial só pra planos pagos (starter/pro) — eles começam com 7 dias
+  //   grátis sem cartão, então 'Subscribe' fica pra quando o pagamento real
+  //   for confirmado (via Conversions API server-side, fora deste arquivo).
+  function fireSignupConversionEvents(plan, coupon) {
+    if (typeof window.metaTrack !== 'function') return;
+    var planName = 'Plano ' + (plan || 'unknown');
+    try {
+      window.metaTrack('CompleteRegistration', {
+        content_name: planName,
+        content_category: 'signup',
+        status: true,
+        currency: 'BRL',
+        value: 0
+      });
+      if (plan === 'starter' || plan === 'pro') {
+        var monthly = plan === 'starter' ? 49.90 : 99.90;
+        window.metaTrack('StartTrial', {
+          content_name: planName,
+          content_category: 'trial',
+          currency: 'BRL',
+          value: monthly,
+          predicted_ltv: monthly * 12
+        });
+      }
+      if (coupon) {
+        window.metaTrack('Lead', {
+          content_name: 'Coupon redeemed: ' + coupon,
+          content_category: 'coupon'
+        });
+      }
+    } catch (_) {}
+  }
+
   // Pre-select plan from URL ?plan=
   const urlParams = new URLSearchParams(window.location.search);
   const urlPlan = urlParams.get('plan');
@@ -670,6 +763,7 @@
         password: signupData.password,
         plan: signupData.plan,
         coupon: signupData.coupon || undefined,
+        attribution: window.WHLAttribution?.get?.() || undefined,
       });
 
       const token = result.token || result.accessToken;
@@ -677,6 +771,8 @@
 
       api.setToken(token);
       if (result.user) api.setUser(result.user);
+
+      fireSignupConversionEvents(signupData.plan, signupData.coupon);
 
       toast('Conta criada! Bem-vindo ao WhatsHybrid Pro 🎉', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 600);
@@ -732,11 +828,15 @@
       const result = await api.post('/api/v1/auth/google', {
         credential: response.credential,
         plan: signupData.plan, // honors ?plan=free|starter|pro from URL
+        attribution: window.WHLAttribution?.get?.() || undefined,
       });
       const token = result.token || result.accessToken;
       if (!token) throw new Error('Resposta do servidor sem token');
       api.setToken(token);
       if (result.user) api.setUser(result.user);
+      if (result.isNewUser) {
+        fireSignupConversionEvents(signupData.plan, signupData.coupon);
+      }
       toast(result.isNewUser ? 'Conta criada! Bem-vindo 🎉' : 'Login realizado!', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 500);
     } catch (err) {
