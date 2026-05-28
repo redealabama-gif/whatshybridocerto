@@ -1450,6 +1450,84 @@
       + '&ev=PageView&noscript=1" alt="">';
   })();
   </script>
+
+  <!--
+    Meta Pixel — event tracking (CTAs + scroll milestones).
+    Só anexa listeners quando o Pixel ID está preenchido. Sem ID, este IIFE
+    retorna cedo e nenhum listener é adicionado.
+
+    Mapeamento de eventos:
+      • a[href*="signup.html"] sem plan        → Lead
+      • a[href*="signup.html?plan=free"]       → Lead (Plano Free)
+      • a[href*="signup.html?plan=starter"]    → InitiateCheckout (R$ 49,90 BRL)
+      • a[href*="signup.html?plan=pro"]        → InitiateCheckout (R$ 99,90 BRL)
+      • a[href*="signup.html?coupon=..."]      → Lead (cupom)
+      • Scroll até #pricing (40% visível)      → ViewContent (1× por sessão)
+
+    Helper público `window.metaTrack(eventName, params)` exposto para
+    chamadas manuais futuras (ex.: na página de obrigado, depois de
+    cadastro confirmado: window.metaTrack('CompleteRegistration')).
+  -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+
+    window.metaTrack = function (eventName, params) {
+      try { if (window.fbq) window.fbq('track', eventName, params || {}); } catch (_) {}
+    };
+
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest && e.target.closest('a[href*="signup.html"]');
+      if (!a) return;
+      var href = a.getAttribute('href') || '';
+      var planMatch = href.match(/[?&]plan=([^&]+)/);
+      var plan = planMatch ? decodeURIComponent(planMatch[1]).toLowerCase() : '';
+
+      if (plan === 'starter') {
+        window.metaTrack('InitiateCheckout', {
+          content_name: 'Plano Starter',
+          content_category: 'subscription',
+          value: 49.90,
+          currency: 'BRL'
+        });
+      } else if (plan === 'pro') {
+        window.metaTrack('InitiateCheckout', {
+          content_name: 'Plano Pro',
+          content_category: 'subscription',
+          value: 99.90,
+          currency: 'BRL'
+        });
+      } else {
+        window.metaTrack('Lead', {
+          content_name: plan === 'free' ? 'Plano Free' : 'Signup geral',
+          content_category: 'signup'
+        });
+      }
+    }, true);
+
+    function watchSection(id, eventName, params) {
+      var el = document.getElementById(id);
+      if (!el || !('IntersectionObserver' in window)) return;
+      var fired = false;
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting && !fired) {
+            fired = true;
+            window.metaTrack(eventName, params);
+            io.disconnect();
+          }
+        });
+      }, { threshold: 0.4 });
+      io.observe(el);
+    }
+    watchSection('pricing', 'ViewContent', {
+      content_name: 'Pricing Section',
+      content_category: 'pricing'
+    });
+  })();
+  </script>
 </head>
 <body class="has-cursor">
 
