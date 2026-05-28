@@ -262,6 +262,23 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
     // não falha o webhook — pagamento já foi processado
   }
 
+  // Meta CAPI: dispara Subscribe quando o pagamento MP é confirmado.
+  // event_id = mp_${paymentId} garante idempotência se o webhook for re-entregue.
+  try {
+    const capi = require('../services/MetaCapiService');
+    await capi.sendSubscribeForWorkspace({
+      workspaceId,
+      plan,
+      amount: Number(amount),
+      currency: currency || 'BRL',
+      eventId: `mp_${paymentId}`,
+      provider: 'mercadopago',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[WebhookSaaS] CAPI Subscribe failed: ${e.message}`);
+  }
+
   logger.info(`[WebhookSaaS] Workspace ${workspaceId} ativado: plano ${plan}, próxima cobrança ${nextBilling.toISOString()}`);
 
   // Gera (ou reusa) o código de assinatura pra que o cliente possa ativar
