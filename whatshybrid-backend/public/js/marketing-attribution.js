@@ -36,6 +36,20 @@
     return out;
   }
 
+  // Extrai client_id do GA4 a partir do cookie _ga. Formato típico:
+  //   _ga = "GA1.1.<random>.<creation_ts>"
+  // GA4 MP espera o client_id como "<random>.<creation_ts>".
+  // Se o cookie ainda não foi setado (gtag.js não rodou), retorna null.
+  function readGaClientId() {
+    try {
+      var match = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
+      if (!match) return null;
+      var raw = decodeURIComponent(match[1]);
+      var m = raw.match(/^GA\d+\.\d+\.(.+)$/);
+      return m ? m[1] : raw;
+    } catch (_) { return null; }
+  }
+
   function loadStored() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -58,7 +72,20 @@
 
   function captureIfFirstTouch() {
     var existing = loadStored();
-    if (existing) return existing;
+    if (existing) {
+      // Mesmo em visita repetida, atualiza o ga_client_id se ainda não tem
+      // (o cookie _ga só existe depois que o gtag.js carregar, então pode
+      // estar ausente no first-touch). Isso preserva first-touch dos UTMs
+      // mas garante que o client_id do GA esteja sempre presente.
+      if (!existing.ga_client_id) {
+        var cid = readGaClientId();
+        if (cid) {
+          existing.ga_client_id = cid;
+          saveStored(existing);
+        }
+      }
+      return existing;
+    }
 
     var params = readQueryParams();
     var hasMarketingParams = Object.keys(params).length > 0;
@@ -70,6 +97,7 @@
       landing_url: window.location.href,
       landing_path: window.location.pathname,
       referrer: document.referrer || null,
+      ga_client_id: readGaClientId(),
       captured_at: new Date().toISOString()
     });
     saveStored(record);
@@ -81,4 +109,17 @@
     clear: function () { try { localStorage.removeItem(STORAGE_KEY); } catch (_) {} },
     _captured: captureIfFirstTouch()
   };
+
+  // _ga é setado de forma assíncrona pelo gtag.js (depois do load). Tentamos
+  // capturar novamente em ~2s para registros criados antes do cookie existir.
+  setTimeout(function () {
+    var existing = loadStored();
+    if (existing && !existing.ga_client_id) {
+      var cid = readGaClientId();
+      if (cid) {
+        existing.ga_client_id = cid;
+        saveStored(existing);
+      }
+    }
+  }, 2000);
 })();
