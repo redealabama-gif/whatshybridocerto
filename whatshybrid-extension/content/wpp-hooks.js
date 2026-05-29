@@ -3845,11 +3845,24 @@ window.whl_hooks_main = () => {
             console.warn('[WHL Hooks] ⚠️ [CAMADA 2/MediaPrep] Stack:', e?.stack);
         }
 
-        // Sem fallback DOM. As antigas Camadas 2.5/3/4 enviavam o áudio como
-        // DOCUMENTO (via ClipboardEvent ou input[type=file]) — o que produzia
-        // exatamente o sintoma reportado: aparecia como arquivo de áudio anexado
-        // em vez de bolha de PTT. Falhar visivelmente é melhor que entregar UX
-        // errada — quem chama (dispatch loop) já trata `false` corretamente.
+        // Fallback de segurança: se as camadas PTT (WPP + MediaPrep) falharem,
+        // tentamos enviar como arquivo via sendFileDirect. Isso degrada a UX
+        // (chega como documento de áudio em vez de bolha de PTT), mas evita
+        // perder a mensagem inteira em campanhas. Os logs warn acima deixam
+        // claro no console quando a degradação aconteceu, para debug futuro
+        // do PTT nativo.
+        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  PTT NATIVO FALHOU — caindo para fallback de arquivo');
+        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  (áudio chegará como documento; ver logs CAMADA 1/2 acima)');
+        try {
+            const fallbackResult = await sendFileDirect(phoneNumber, audioDataUrl, filename, '', '');
+            if (fallbackResult) {
+                console.log('[WHL Hooks] 🎤 [FALLBACK] Áudio enviado como arquivo (não-PTT)');
+                return true;
+            }
+        } catch (e) {
+            console.error('[WHL Hooks] ❌ [FALLBACK] sendFileDirect também falhou:', e?.message);
+        }
+
         console.error('[WHL Hooks] ❌ ========== FALHA NO ENVIO PTT NATIVO ==========');
         console.error('[WHL Hooks] 💡 Verifique se WAWebMediaPrep/MediaOpaqueData estão expostos nesta versão do WA Web');
         return false;
