@@ -1211,6 +1211,86 @@ if (cmd === 'GET_STATE') {
             return;
           }
 
+          // ===== Groups =====
+          // Lista os grupos disponíveis no WhatsApp (ChatCollection via page-world).
+          // Round-trip via postMessage → wpp-hooks responde WHL_LOAD_GROUPS_RESULT.
+          if (cmd === 'LIST_GROUPS') {
+            const timeoutMs = Number(msg.timeoutMs || 10000);
+            try {
+              const result = await new Promise((resolve, reject) => {
+                let timeout = null;
+                const handler = (e) => {
+                  if (e.origin !== window.location.origin) return;
+                  const data = e?.data || {};
+                  if (data.type === 'WHL_LOAD_GROUPS_RESULT') {
+                    window.removeEventListener('message', handler);
+                    if (timeout) clearTimeout(timeout);
+                    resolve(data);
+                  }
+                };
+                window.addEventListener('message', handler);
+                timeout = setTimeout(() => {
+                  window.removeEventListener('message', handler);
+                  reject(new Error('Timeout listando grupos'));
+                }, timeoutMs);
+                window.postMessage({ type: 'WHL_LOAD_GROUPS' }, window.location.origin);
+              });
+              sendResponse({ success: true, groups: result.groups || [] });
+            } catch (e) {
+              sendResponse({ success: false, error: e?.message || String(e), groups: [] });
+            }
+            return;
+          }
+
+          // Extrai membros de um grupo específico via WhatsAppExtractor v4.0 (DOM).
+          // Round-trip via postMessage; pode demorar (até 120s pra grupos grandes).
+          // Progressos intermediários são re-emitidos via runtime.sendMessage
+          // por 07-message-listeners.js (WHL_EXTRACTION_PROGRESS).
+          if (cmd === 'EXTRACT_GROUP_MEMBERS') {
+            const groupId = msg.groupId;
+            if (!groupId) {
+              sendResponse({ success: false, error: 'groupId obrigatório' });
+              return;
+            }
+            const timeoutMs = Number(msg.timeoutMs || 120000);
+            const requestId = msg.requestId || (Date.now().toString() + '_' + Math.random().toString(16).slice(2));
+            try {
+              const result = await new Promise((resolve, reject) => {
+                let timeout = null;
+                const handler = (e) => {
+                  if (e.origin !== window.location.origin) return;
+                  const data = e?.data || {};
+                  if (data.type === 'WHL_EXTRACT_GROUP_MEMBERS_RESULT' && data.requestId === requestId) {
+                    window.removeEventListener('message', handler);
+                    if (timeout) clearTimeout(timeout);
+                    resolve(data);
+                  }
+                };
+                window.addEventListener('message', handler);
+                timeout = setTimeout(() => {
+                  window.removeEventListener('message', handler);
+                  reject(new Error('Timeout extraindo membros (>' + (timeoutMs / 1000) + 's)'));
+                }, timeoutMs);
+                window.postMessage({
+                  type: 'WHL_EXTRACT_GROUP_MEMBERS_BY_ID',
+                  groupId,
+                  requestId,
+                }, window.location.origin);
+              });
+              sendResponse({
+                success: result.success !== false,
+                members: result.members || [],
+                count: result.count || (result.members || []).length,
+                groupName: result.groupName || '',
+                stats: result.stats || {},
+                error: result.error,
+              });
+            } catch (e) {
+              sendResponse({ success: false, error: e?.message || String(e), members: [], count: 0 });
+            }
+            return;
+          }
+
           sendResponse({ success: false, error: 'cmd inválido' });
         } catch (e) {
           sendResponse({ success: false, error: e?.message || String(e) });

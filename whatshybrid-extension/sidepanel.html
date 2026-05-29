@@ -1370,6 +1370,56 @@
   </div>
 </section>
 
+            <section id="whlViewGroups" class="whl-view hidden">
+              <div class="sp-card">
+                <div class="sp-title">👥 Extrator de Grupos</div>
+                <div class="sp-muted">
+                  Lista os grupos do seu WhatsApp e extrai os números de telefone dos membros.
+                  Exporta para CSV, XLSX ou Google Sheets.
+                </div>
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <button id="grp-load-btn" class="sp-btn sp-btn-primary">📂 Carregar Grupos</button>
+                  <input type="text" id="grp-search" class="sp-input" placeholder="🔍 Filtrar grupos..." style="flex:1;min-width:180px;" />
+                </div>
+                <div id="grp-status" class="sp-muted" style="margin-top:8px;font-size:12px;min-height:18px;"></div>
+              </div>
+
+              <div class="sp-card">
+                <div class="sp-title" style="font-size:13px;margin-bottom:8px;">📋 Grupos disponíveis</div>
+                <div id="grp-list" style="max-height:260px;overflow-y:auto;">
+                  <div class="sp-muted" style="padding:14px;text-align:center;">Clique em "Carregar Grupos" pra começar.</div>
+                </div>
+              </div>
+
+              <div class="sp-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <div class="sp-title" style="margin:0;font-size:13px;">👤 Membros extraídos</div>
+                  <span class="sp-muted" style="font-size:11px;"><span id="grp-members-count">0</span> contatos</span>
+                </div>
+                <button id="grp-extract-btn" class="sp-btn sp-btn-primary" style="width:100%;" disabled>📥 Extrair Membros</button>
+                <div style="margin-top:8px;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                  <div id="grp-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#8b5cf6,#3b82f6);transition:width 0.3s;"></div>
+                </div>
+                <div id="grp-progress-text" class="sp-muted" style="margin-top:4px;font-size:11px;min-height:14px;"></div>
+                <div id="grp-members" style="margin-top:10px;max-height:260px;overflow-y:auto;background:rgba(0,0,0,0.18);border-radius:6px;">
+                  <div class="sp-muted" style="padding:14px;text-align:center;">Selecione um grupo e clique em "Extrair Membros".</div>
+                </div>
+              </div>
+
+              <div class="sp-card">
+                <div class="sp-title" style="font-size:13px;margin-bottom:8px;">📤 Exportar</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <button id="grp-export-csv" class="sp-btn">📄 CSV</button>
+                  <button id="grp-export-xlsx" class="sp-btn">📊 XLSX</button>
+                  <button id="grp-export-sheets" class="sp-btn">📋 Google Sheets</button>
+                  <button id="grp-copy-phones" class="sp-btn">📋 Copiar telefones</button>
+                </div>
+                <div class="sp-muted" style="margin-top:8px;font-size:11px;">
+                  CSV/XLSX baixam direto. Google Sheets copia em TSV (cole com Ctrl+V na planilha que abrir).
+                </div>
+              </div>
+            </section>
+
             <section id="whlViewQuickReplies" class="whl-view hidden">
               <div class="sp-card">
                 <div class="sp-title">⚡ Respostas Rápidas</div>
@@ -1472,6 +1522,8 @@
     <script src="modules/tasks.js"></script>
     <script src="modules/smart-replies.js"></script>
     <script src="modules/quick-commands.js"></script>
+    <script src="lib/xlsx.mini.min.js"></script>
+    <script src="modules/groups-manager.js"></script>
     <script src="modules/subscription-manager.js"></script>
     <script src="modules/feature-gate.js"></script>
     <script src="modules/subscription-ui.js"></script>

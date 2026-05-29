@@ -114,8 +114,23 @@ window.addEventListener('message', (e) => {
       
       console.log(`[WHL Progress] ${e.data.phase}: ${e.data.message} (${progress}%)`);
     }
+
+    // Repassa o progresso ao sidepanel via runtime (a View "Grupos" escuta
+    // chrome.runtime.onMessage). Sem isso o sidepanel não fica sabendo do
+    // andamento porque postMessage só atravessa entre content e page-world,
+    // não atinge o painel lateral.
+    try {
+      chrome.runtime.sendMessage({
+        type: 'WHL_GROUPS_PROGRESS',
+        groupId: e.data.groupId,
+        phase: e.data.phase,
+        message: e.data.message,
+        progress: e.data.progress,
+        currentCount: e.data.currentCount,
+      }).catch(() => {}); // sidepanel pode não estar aberto — não fazer nada
+    } catch (_) {}
   }
-  
+
   // PR #76 ULTRA: Handler com estatísticas detalhadas
   if (e.data.type === 'WHL_GROUP_MEMBERS_RESULT' || e.data.type === 'WHL_EXTRACT_GROUP_MEMBERS_RESULT') {
     console.log('[WHL] 📨 Resultado ULTRA recebido:', e.data);
