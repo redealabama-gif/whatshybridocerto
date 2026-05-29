@@ -152,6 +152,42 @@ async function handleCheckoutCompleted(session) {
     }
   } catch (_) {}
 
+  // Marketing server-side: dispara conversões pós-pagamento via Meta CAPI
+  // (Subscribe) + GA4 Measurement Protocol (purchase). Server-side é o único
+  // caminho confiável — browser pode estar fechado, em outro device, ou
+  // bloqueado por adblock. IDs determinísticos (stripe_<session.id>) garantem
+  // idempotência: re-entrega de webhook não duplica evento.
+  const purchaseAmount = session.amount_total / 100;
+  const purchaseCurrency = (session.currency || 'BRL').toUpperCase();
+
+  try {
+    const capi = require('../services/MetaCapiService');
+    await capi.sendSubscribeForWorkspace({
+      workspaceId, plan,
+      amount: purchaseAmount,
+      currency: purchaseCurrency,
+      eventId: `stripe_${session.id}`,
+      provider: 'stripe',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[StripeWebhook] CAPI Subscribe failed: ${e.message}`);
+  }
+
+  try {
+    const ga4 = require('../services/GoogleAnalyticsMpService');
+    await ga4.sendPurchaseForWorkspace({
+      workspaceId, plan,
+      amount: purchaseAmount,
+      currency: purchaseCurrency,
+      transactionId: `stripe_${session.id}`,
+      provider: 'stripe',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[StripeWebhook] GA4 MP purchase failed: ${e.message}`);
+  }
+
   logger.info(`[StripeWebhook] Activated workspace ${workspaceId} on plan ${plan}`);
 }
 

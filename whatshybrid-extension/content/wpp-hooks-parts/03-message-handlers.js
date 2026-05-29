@@ -62,252 +62,212 @@
     }
 
     /**
-     * Envia áudio como PTT (voice note nativo do WhatsApp).
-     *
-     * Estratégia em duas fases:
-     *  - FASE 1 (PTT): tenta 3 caminhos via API interna do WA (MediaPrep,
-     *    chat.sendMessage com File, prepareMedia+chat.sendMessage). Se qualquer
-     *    um dos três funcionar, a mensagem chega como voice note nativo.
-     *  - FASE 2 (FALLBACK): só executa se FASE 1 inteira falhar. Cai para
-     *    sendFileDirect, garantindo que o áudio chegue (mesmo com aparência de
-     *    documento) em vez de simplesmente não enviar. Logs deixam explícito que
-     *    a UX foi degradada para o usuário acompanhar pelo console.
-     *
-     * Chat resolution: prioriza chat já existente em ChatCollection (c.us OU
-     * @lid), e só cria sintético via ChatModel como último recurso. Chats
-     * sintéticos quebram sendMediaMsgToChat internamente em WA 2.3000.x.
-     *
-     * Observação: WhatsApp não permite legenda em PTT; quando há texto junto,
-     * enviamos o texto como mensagem separada antes do áudio.
+     * Envia áudio como arquivo de áudio (não gravação nativa)
+     * @param {string} phoneNumber - Número no formato internacional
+     * @param {string} audioDataUrl - Data URL do áudio (base64)
+     * @param {string} filename - Nome do arquivo
+     * @returns {Promise<boolean>} - true se áudio foi enviado
      */
-    async function sendAudioDirect(phoneNumber, audioDataUrl, filename = 'voice.ogg', extraText = '') {
-        console.log('[WHL Hooks] 🎤 ========== INICIANDO ENVIO DE ÁUDIO ==========');
+    /**
+     * Envia áudio (PTT) e, opcionalmente, envia um texto associado.
+     *
+     * Observação: WhatsApp não permite legenda em PTT; portanto, quando há texto
+     * junto do áudio, enviamos o texto como uma mensagem separada (antes do áudio).
+     */
+    async function sendAudioDirect(phoneNumber, audioDataUrl, filename = 'audio.ogg', extraText = '') {
+        // v9.7.0: reescrita p/ garantir PTT NATIVO (ícone de áudio gravado, não de
+        // arquivo anexado). Causa do bug anterior:
+        //   1) Camada 2 (MediaPrep) resolvia o chat por `chats.find(c => c.active)`,
+        //      retornando um chat com id `@lid` em WA 2.3000.x. Aí
+        //      `sendMediaMsgToChat` quebrava com "Cannot read properties of
+        //      undefined (reading 'id')".
+        //   2) Quando MediaPrep falhava, caía para Camadas 2.5/3/4 que injetavam o
+        //      arquivo via DOM (paste/file input) — WA Web trata mídia colada como
+        //      DOCUMENTO, então o destinatário via "ícone de áudio anexado", não
+        //      uma bolha de PTT.
+        // Fix: resolver chat com WidFactory.createWid(`${phone}@c.us`) +
+        // ChatCollection.get(wid) (cria/adiciona se ausente), forçar mimetype
+        // `audio/ogg;codecs=opus` (sem espaço) e medir duração real via
+        // AudioContext.decodeAudioData. Sem fallback DOM — se PTT nativo falhar,
+        // falha visível em vez de mascarar como documento.
+        console.log('[WHL Hooks] 🎤 ========== INICIANDO ENVIO DE ÁUDIO (PTT NATIVO) ==========');
         console.log('[WHL Hooks] 🎤 Telefone:', phoneNumber);
         console.log('[WHL Hooks] 🎤 Filename:', filename);
         if (extraText) console.log('[WHL Hooks] 🎤 Texto associado (len):', String(extraText).length);
-        console.log('[WHL Hooks] 🎤 DataURL prefix:', audioDataUrl?.substring(0, 50));
 
         await ensureModulesReady(3000);
 
-        // Texto associado vai como mensagem separada (PTT não aceita legenda).
+        const pickAny = (mod, ...names) => {
+            if (!mod) return null;
+            for (const n of names) {
+                if (mod[n] != null) return mod[n];
+                if (mod.default && mod.default[n] != null) return mod.default[n];
+            }
+            return null;
+        };
+        const safeReq = (n) => { try { return typeof require === 'function' ? require(n) : null; } catch (_) { return null; } };
+
         try {
             const textToSend = (extraText || '').trim();
             if (textToSend) {
-                console.log('[WHL Hooks] 🎤 [TEXTO] Enviando texto associado...');
+                console.log('[WHL Hooks] 🎤 [TEXTO] Enviando texto associado ao áudio...');
                 const textRes = await enviarMensagemAPI(phoneNumber, textToSend);
                 if (!textRes?.success) {
                     console.warn('[WHL Hooks] ❌ [TEXTO] Falha:', textRes?.error);
                     return false;
                 }
                 await new Promise(r => setTimeout(r, 650));
-                console.log('[WHL Hooks] 🎤 [TEXTO] ✅ Enviado, prosseguindo com áudio');
+                console.log('[WHL Hooks] 🎤 [TEXTO] ✅ Texto enviado');
             }
         } catch (e) {
             console.warn('[WHL Hooks] ❌ [TEXTO] Erro:', e?.message);
             return false;
         }
 
-        // Mimetype PTT é fixo: WhatsApp só aceita OGG/Opus como voice note.
-        const PTT_MIME = 'audio/ogg; codecs=opus';
         let blob, delayMs;
         try {
+            console.log('[WHL Hooks] 🎤 [CONVERSÃO] Convertendo DataURL para Blob...');
             const response = await fetch(audioDataUrl);
             if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-            const originalBlob = await response.blob();
-            // Re-empacota o buffer com o mimetype PTT (preserva os bytes OGG já
-            // existentes mas garante que o tipo declarado é o que o WA espera).
-            blob = new Blob([await originalBlob.arrayBuffer()], { type: PTT_MIME });
+            blob = await response.blob();
             delayMs = calculatePostSendDelay(blob.size);
-            console.log('[WHL Hooks] 🎤 Blob preparado:', blob.size, 'bytes, mime:', PTT_MIME);
+            console.log('[WHL Hooks] 🎤 [CONVERSÃO] ✅ Blob - Size:', blob.size, 'bytes, Type:', blob.type);
         } catch (e) {
-            console.error('[WHL Hooks] ❌ Erro ao processar áudio:', e.message);
+            console.error('[WHL Hooks] ❌ [CONVERSÃO] Erro:', e.message);
             return false;
         }
 
-        // Duração real via <audio> metadata. Sem fallback para size/10000
-        // porque essa heurística mostra "0:04" pra áudios de 30s em alguns codecs.
-        let durationSec = await new Promise((resolve) => {
-            let done = false;
-            const finish = (d) => {
-                if (done) return;
-                done = true;
-                try { URL.revokeObjectURL(url); } catch (_) {}
-                resolve(d);
-            };
-            const url = URL.createObjectURL(blob);
-            const audio = document.createElement('audio');
-            audio.preload = 'metadata';
-            audio.onloadedmetadata = () => {
-                const d = Math.round(audio.duration);
-                finish(Number.isFinite(d) && d > 0 ? d : null);
-            };
-            audio.onerror = () => finish(null);
-            audio.src = url;
-            setTimeout(() => finish(null), 2000);
-        });
-        if (!durationSec) durationSec = Math.max(1, Math.round(blob.size / 10000));
-        console.log('[WHL Hooks] 🎤 Duração:', durationSec, 'seg');
-
-        // Resolve chat. Prioridade: c.us via WID > chat existente por user >
-        // chat ativo (qualquer server). NÃO cria sintético porque ChatCtor com
-        // só { id: wid } produz objeto que quebra sendMediaMsgToChat internamente.
-        const phoneClean = String(phoneNumber || '').replace(/\D/g, '');
-        let chat = null;
-        try {
-            await abrirChatPorNumero(phoneClean);
-            await new Promise(r => setTimeout(r, 600));
-
-            const safeReq = (n) => { try { return require(n); } catch (_) { return null; } };
-            const WFmod = safeReq('WAWebWidFactory');
-            const CCmod = safeReq('WAWebChatCollection');
-
-            const createWid = WFmod?.createWid
-                || WFmod?.WidFactory?.createWid
-                || WFmod?.default?.createWid
-                || (typeof WFmod === 'function' ? WFmod : null);
-            const ChatCollection = CCmod?.ChatCollection || CCmod?.default || CCmod;
-
-            if (!ChatCollection) throw new Error('ChatCollection indisponível');
-
-            // 1) Tenta WID c.us direto
-            if (createWid) {
-                try {
-                    const widCus = createWid(phoneClean + '@c.us');
-                    chat = ChatCollection.get?.(widCus);
-                } catch (_) {}
-            }
-
-            // 2) Tenta find async (carrega do servidor)
-            if (!chat && createWid && typeof ChatCollection.find === 'function') {
-                try {
-                    const widCus = createWid(phoneClean + '@c.us');
-                    chat = await ChatCollection.find(widCus);
-                } catch (_) {}
-            }
-
-            // 3) Busca por user em models existentes (cobre @lid e @c.us)
-            if (!chat) {
-                const models = ChatCollection.getModelsArray?.() || [];
-                chat = models.find(c => c.id?.user === phoneClean && c.id?.server === 'c.us')
-                    || models.find(c => c.id?.user === phoneClean)
-                    || models.find(c => c.active);
-            }
-
-            if (!chat) throw new Error('Chat não pôde ser resolvido');
-            console.log('[WHL Hooks] 🎤 Chat resolvido:', chat.id?._serialized, '(server:', chat.id?.server, ')');
-        } catch (e) {
-            console.warn('[WHL Hooks] ⚠️ Resolver chat falhou:', e.message, '— indo direto pra fallback de arquivo');
-            return await sendFileDirect(phoneNumber, audioDataUrl, filename, '', '');
+        if (!blob || blob.size === 0) {
+            console.error('[WHL Hooks] ❌ Áudio vazio');
+            return false;
         }
 
-        // ╔══════════════════════════════════════════════════════════════╗
-        // ║ FASE 1 — Tentativas PTT (voice note nativo)                  ║
-        // ╚══════════════════════════════════════════════════════════════╝
+        const PTT_MIMETYPE = 'audio/ogg;codecs=opus';
 
-        // TENTATIVA A: MediaPrep + sendMediaMsgToChat
-        // Caminho principal. Em chats c.us funciona; em @lid pode lançar
-        // "Cannot read properties of undefined (reading 'id')" dependendo da
-        // versão do WA — daí as tentativas B e C.
+        let duration = 0;
         try {
-            const MediaPrep = require('WAWebMediaPrep');
-            const OpaqueData = require('WAWebMediaOpaqueData');
-            if (!MediaPrep || !OpaqueData) throw new Error('MediaPrep/OpaqueData indisponíveis');
+            const ab = await blob.arrayBuffer();
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) {
+                const ctx = new AC();
+                try {
+                    const audio = await ctx.decodeAudioData(ab.slice(0));
+                    duration = Math.max(1, Math.round(audio.duration));
+                    console.log('[WHL Hooks] 🎤 [DURAÇÃO] Real (decodeAudioData):', duration, 's');
+                } finally {
+                    try { ctx.close?.(); } catch (_) {}
+                }
+            }
+        } catch (e) {
+            console.warn('[WHL Hooks] ⚠️ [DURAÇÃO] decodeAudioData falhou:', e?.message);
+        }
+        if (!duration) {
+            duration = Math.max(1, Math.round(blob.size / 12000));
+            console.log('[WHL Hooks] 🎤 [DURAÇÃO] Fallback por tamanho:', duration, 's');
+        }
 
-            const mediaBlob = (typeof OpaqueData.createFromData === 'function')
-                ? await OpaqueData.createFromData(blob, PTT_MIME)
-                : (typeof OpaqueData.create === 'function'
-                    ? await OpaqueData.create(blob, PTT_MIME)
-                    : null);
-            if (!mediaBlob) throw new Error('OpaqueData não produziu mediaBlob');
+        if (window.WPP?.chat?.sendFileMessage) {
+            try {
+                console.log('[WHL Hooks] 🎤 [CAMADA 1/WPP] Tentando via WPP.js...');
+                const chatId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@c.us`;
+                const pttFile = new File([blob], filename, { type: PTT_MIMETYPE });
+                await window.WPP.chat.sendFileMessage(chatId, pttFile, {
+                    type: 'audio',
+                    isPtt: true,
+                    mimetype: PTT_MIMETYPE,
+                    filename: filename
+                });
+                console.log('[WHL Hooks] ✅ [CAMADA 1/WPP] PTT enviado via WPP.js');
+                await new Promise(r => setTimeout(r, delayMs));
+                return true;
+            } catch (e) {
+                console.warn('[WHL Hooks] ⚠️ [CAMADA 1/WPP] Falhou:', e?.message);
+            }
+        } else {
+            console.log('[WHL Hooks] ⚠️ [CAMADA 1/WPP] WPP.js não disponível, pulando...');
+        }
 
+        try {
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Resolvendo módulos do WA...');
+            const WFmod      = safeReq('WAWebWidFactory');
+            const CCmod      = safeReq('WAWebChatCollection');
+            const CMmod      = safeReq('WAWebChatModel');
+            const MediaPrep  = safeReq('WAWebMediaPrep');
+            const OpaqueData = safeReq('WAWebMediaOpaqueData');
+
+            const WFns = pickAny(WFmod, 'WidFactory') || WFmod?.default || WFmod;
+            const createWid =
+                pickAny(WFmod, 'createWid')
+                || (typeof WFns === 'function' ? WFns : null)
+                || pickAny(WFns, 'createWid');
+            const ChatCollection = pickAny(CCmod, 'ChatCollection') || CCmod?.default || CCmod;
+            const ChatCtor = pickAny(CMmod, 'Chat', 'ChatModel');
+
+            if (!createWid)       throw new Error('createWid indisponível');
+            if (!ChatCollection)  throw new Error('ChatCollection indisponível');
+            if (!MediaPrep)       throw new Error('WAWebMediaPrep indisponível');
+            if (!OpaqueData)      throw new Error('WAWebMediaOpaqueData indisponível');
+
+            const phoneClean = String(phoneNumber).replace(/\D/g, '');
+            const wid = createWid(phoneClean + '@c.us');
+            let chat = ChatCollection.get?.(wid);
+            if (!chat && ChatCtor) {
+                chat = new ChatCtor({ id: wid });
+                ChatCollection.add?.(chat);
+            }
+            if (!chat && typeof ChatCollection.find === 'function') {
+                chat = await ChatCollection.find(wid);
+            }
+            if (!chat) throw new Error('Chat não pôde ser criado para ' + phoneClean);
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Chat resolvido (@c.us):', chat.id?._serialized);
+
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Criando OpaqueData (mimetype forçado:', PTT_MIMETYPE + ')');
+            let mediaBlob;
+            if (typeof OpaqueData.createFromData === 'function') {
+                mediaBlob = await OpaqueData.createFromData(blob, PTT_MIMETYPE);
+            } else if (typeof OpaqueData.create === 'function') {
+                mediaBlob = await OpaqueData.create(blob, PTT_MIMETYPE);
+            } else {
+                throw new Error('OpaqueData sem createFromData/create');
+            }
+
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Criando MediaPrep PTT (duration:', duration + 's)');
             const mediaPropsPromise = Promise.resolve({
-                mediaBlob,
-                mimetype: PTT_MIME,
+                mediaBlob: mediaBlob,
+                mimetype: PTT_MIMETYPE,
                 type: 'ptt',
-                duration: durationSec,
-                seconds: durationSec,
+                duration: duration,
+                seconds: duration,
                 isPtt: true,
-                ptt: true,
-                filename
+                ptt: true
             });
+
             const prep = new MediaPrep.MediaPrep('ptt', mediaPropsPromise);
             await prep.waitForPrep();
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Prep pronto, chamando sendMediaMsgToChat...');
 
             const result = await MediaPrep.sendMediaMsgToChat(prep, chat, {});
-            console.log('[WHL Hooks] 🎤 [PTT-A] sendMediaMsgToChat result:', result?.messageSendResult);
+            console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] messageSendResult:', result?.messageSendResult);
+
             if (result?.messageSendResult === 'OK') {
-                console.log('[WHL Hooks] ✅ [PTT-A] Voice note nativo enviado!');
+                console.log('[WHL Hooks] ✅ [CAMADA 2/MediaPrep] PTT enviado com sucesso!');
                 await new Promise(r => setTimeout(r, delayMs));
                 return true;
             }
+            throw new Error('messageSendResult inesperado: ' + JSON.stringify(result));
         } catch (e) {
-            console.warn('[WHL Hooks] ⚠️ [PTT-A] sendMediaMsgToChat falhou:', e?.message);
+            console.warn('[WHL Hooks] ⚠️ [CAMADA 2/MediaPrep] Falhou:', e?.message);
+            console.warn('[WHL Hooks] ⚠️ [CAMADA 2/MediaPrep] Stack:', e?.stack);
         }
 
-        // TENTATIVA B: chat.sendMessage(File, opções) — passa File direto
-        try {
-            if (typeof chat.sendMessage !== 'function') throw new Error('chat.sendMessage indisponível');
-            const file = new File([blob], filename || 'voice.ogg', { type: PTT_MIME });
-            const result = await chat.sendMessage(file, {
-                type: 'audio',
-                isPtt: true,
-                ptt: true,
-                mimetype: PTT_MIME,
-                duration: durationSec,
-                seconds: durationSec,
-                filename
-            });
-            console.log('[WHL Hooks] 🎤 [PTT-B] chat.sendMessage result:', result?.messageSendResult ?? result);
-            if (result?.messageSendResult === 'OK' || result === true || (result && !result.error)) {
-                console.log('[WHL Hooks] ✅ [PTT-B] Voice note nativo enviado!');
-                await new Promise(r => setTimeout(r, delayMs));
-                return true;
-            }
-        } catch (e) {
-            console.warn('[WHL Hooks] ⚠️ [PTT-B] chat.sendMessage falhou:', e?.message);
-        }
-
-        // TENTATIVA C: prepareMedia + chat.sendMessage (padrão sendImageDirect)
-        try {
-            if (typeof chat.sendMessage !== 'function') throw new Error('chat.sendMessage indisponível');
-            const MP = MODULES?.MEDIA_PREP || (() => { try { return require('WAWebMediaPrep'); } catch (_) { return null; } })();
-            if (!MP || typeof MP.prepareMedia !== 'function') throw new Error('prepareMedia indisponível');
-
-            const file = new File([blob], filename || 'voice.ogg', { type: PTT_MIME });
-            const mediaData = await MP.prepareMedia(file);
-            if (mediaData && typeof mediaData === 'object') {
-                mediaData.isPtt = true;
-                mediaData.ptt = true;
-                mediaData.type = 'ptt';
-                mediaData.mimetype = PTT_MIME;
-                mediaData.duration = durationSec;
-                mediaData.seconds = durationSec;
-            }
-            const result = await chat.sendMessage(mediaData, {
-                isPtt: true, ptt: true, type: 'ptt',
-                duration: durationSec, seconds: durationSec
-            });
-            console.log('[WHL Hooks] 🎤 [PTT-C] prepareMedia+sendMessage result:', result?.messageSendResult ?? result);
-            if (result?.messageSendResult === 'OK' || result === true || (result && !result.error)) {
-                console.log('[WHL Hooks] ✅ [PTT-C] Voice note nativo enviado!');
-                await new Promise(r => setTimeout(r, delayMs));
-                return true;
-            }
-        } catch (e) {
-            console.warn('[WHL Hooks] ⚠️ [PTT-C] prepareMedia falhou:', e?.message);
-        }
-
-        // ╔══════════════════════════════════════════════════════════════╗
-        // ║ FASE 2 — Fallback de arquivo (UX degradada, mas envia)       ║
-        // ╚══════════════════════════════════════════════════════════════╝
-        // Chegamos aqui só se TODAS as 3 tentativas PTT falharam. Em vez de
-        // perder a mensagem completamente, manda como documento — fica com
-        // visual de "arquivo de áudio" no WhatsApp, mas o destinatário recebe
-        // e consegue ouvir. Próxima sessão de debug deve focar em descobrir
-        // por que PTT-A/B/C falham nesta build do WA.
-        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  TODAS AS TENTATIVAS PTT FALHARAM');
-        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  Caindo para FALLBACK DE ARQUIVO — áudio vai chegar como documento.');
-        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  (UX degradada vs. voice note nativo; ver logs PTT-A/B/C acima.)');
+        // Fallback de segurança: se as camadas PTT (WPP + MediaPrep) falharem,
+        // tentamos enviar como arquivo via sendFileDirect. Isso degrada a UX
+        // (chega como documento de áudio em vez de bolha de PTT), mas evita
+        // perder a mensagem inteira em campanhas. Os logs warn acima deixam
+        // claro no console quando a degradação aconteceu, para debug futuro
+        // do PTT nativo.
+        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  PTT NATIVO FALHOU — caindo para fallback de arquivo');
+        console.warn('[WHL Hooks] ⚠️ ⚠️ ⚠️  (áudio chegará como documento; ver logs CAMADA 1/2 acima)');
         try {
             const fallbackResult = await sendFileDirect(phoneNumber, audioDataUrl, filename, '', '');
             if (fallbackResult) {
@@ -318,7 +278,8 @@
             console.error('[WHL Hooks] ❌ [FALLBACK] sendFileDirect também falhou:', e?.message);
         }
 
-        console.error('[WHL Hooks] ❌ ========== TODOS OS CAMINHOS FALHARAM ==========');
+        console.error('[WHL Hooks] ❌ ========== FALHA NO ENVIO PTT NATIVO ==========');
+        console.error('[WHL Hooks] 💡 Verifique se WAWebMediaPrep/MediaOpaqueData estão expostos nesta versão do WA Web');
         return false;
     }
 

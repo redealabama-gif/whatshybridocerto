@@ -17,6 +17,86 @@ const { authLimiter } = require('../middleware/rateLimiter');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
+// Preços mensais (BRL) usados para o `value` dos eventos de StartTrial.
+// Mantenha em sincronia com whatshybrid-backend/public/index.html (Pricing
+// section) e MercadoPagoService.PLAN_PRICES.
+const PLAN_MONTHLY_PRICE_BRL = {
+  free: 0,
+  starter: 49.90,
+  pro: 99.90,
+  agency: 199.90,
+};
+
+/**
+ * Dispara eventos Meta CAPI após signup bem-sucedido (manual ou Google).
+ * Retorna { complete_registration, start_trial? } com event_ids para o
+ * front-end ECOAR via `fbq('track', evt, data, { eventID: id })` — sem
+ * isso, browser pixel + CAPI são contabilizados em dobro.
+ */
+async function fireSignupCapi({
+  email, name, plan, userId, attribution, req, includeStartTrial,
+}) {
+  const capi = require('../services/MetaCapiService');
+  const ids = { complete_registration: uuidv4() };
+  if (includeStartTrial) ids.start_trial = uuidv4();
+
+  // Sem env vars do CAPI, retornamos os IDs mesmo assim (o browser pixel
+  // ainda pode usá-los) mas pulamos o HTTP call.
+  if (!capi.isConfigured()) return ids;
+
+  // Split do nome em fn/ln (melhora match rate)
+  const parts = String(name || '').trim().split(/\s+/);
+  const firstName = parts[0] || undefined;
+  const lastName = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
+
+  const baseUserData = capi.buildUserData({
+    email,
+    firstName,
+    lastName,
+    externalId: userId,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    ...capi.userDataFromAttribution(attribution),
+  });
+
+  const sourceUrl = req.headers.referer ||
+    `https://${req.headers.host || 'whatshybrid.com.br'}/signup.html`;
+
+  // Disparos paralelos — não bloqueia resposta. Erros são logados pelo service.
+  capi.sendEvent({
+    eventName: 'CompleteRegistration',
+    eventId: ids.complete_registration,
+    eventSourceUrl: sourceUrl,
+    userData: baseUserData,
+    customData: {
+      content_name: 'Plano ' + plan,
+      content_category: 'signup',
+      status: true,
+      currency: 'BRL',
+      value: 0,
+    },
+  });
+
+  if (includeStartTrial) {
+    const monthly = PLAN_MONTHLY_PRICE_BRL[plan] || 0;
+    capi.sendEvent({
+      eventName: 'StartTrial',
+      eventId: ids.start_trial,
+      eventSourceUrl: sourceUrl,
+      userData: baseUserData,
+      customData: {
+        content_name: 'Plano ' + plan,
+        content_category: 'trial',
+        currency: 'BRL',
+        value: monthly,
+        predicted_ltv: monthly * 12,
+      },
+    });
+  }
+
+  return ids;
+}
+
 // Generate tokens
 function generateTokens(userId) {
   const accessToken = jwt.sign(
@@ -154,6 +234,7 @@ router.post('/signup',
     body('company').trim().isLength({ min: 2, max: 100 }),
     body('plan').optional().isIn(['starter', 'pro', 'agency', 'free']),
     body('coupon').optional().isString().isLength({ min: 3, max: 32 }),
+    body('attribution').optional().isObject(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -161,7 +242,7 @@ router.post('/signup',
       return res.status(400).json({ errors: errors.array(), error: errors.array()[0]?.msg });
     }
 
-    const { email, password, name, company, plan = 'pro', coupon } = req.body;
+    const { email, password, name, company, plan = 'pro', coupon, attribution } = req.body;
 
     // Email já existe?
     const existing = db.get('SELECT id FROM users WHERE email = ?', [email]);
@@ -202,11 +283,13 @@ router.post('/signup',
     trialEnd.setDate(trialEnd.getDate() + 7);
     const trialEndISO = trialEnd.toISOString();
 
+    const attributionJson = attribution ? JSON.stringify(attribution) : null;
+
     db.transaction(() => {
       db.run(
-        `INSERT INTO users (id, email, password, name, role, workspace_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, email, hashedPassword, name, 'owner', workspaceId]
+        `INSERT INTO users (id, email, password, name, role, workspace_id, signup_attribution)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [userId, email, hashedPassword, name, 'owner', workspaceId, attributionJson]
       );
 
       // workspaces.coupon_code é populado já na criação se tiver cupom
@@ -278,11 +361,21 @@ router.post('/signup',
       events.emit('user.signup', { email, name, plan, trialDays: 7, workspace_id: workspaceId });
     } catch (_) {}
 
+    // Meta Conversions API: dispara CompleteRegistration (sempre) + StartTrial
+    // (planos pagos). Event IDs são retornados para o front-end usar como
+    // `eventID` no fbq() do browser e a Meta deduplicar. Não-blocking — falhas
+    // de marketing não devem afetar a criação da conta.
+    const metaEventIds = await fireSignupCapi({
+      email, name, plan, userId, attribution, req,
+      includeStartTrial: plan === 'starter' || plan === 'pro',
+    });
+
     res.status(201).json({
       message: 'Conta criada com sucesso',
       user: { id: userId, email, name, workspaceId, role: 'owner' },
       workspace: { id: workspaceId, name: company, plan, trial_end_at: trialEndISO },
       coupon: validatedCoupon, // null se não houve cupom ou se foi inválido
+      meta_event_ids: metaEventIds,
       ...tokens,
     });
   })
@@ -1013,6 +1106,7 @@ router.post('/google',
   [
     body('credential').isString().notEmpty(),
     body('plan').optional().isIn(['free', 'starter', 'pro']),
+    body('attribution').optional().isObject(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -1029,7 +1123,7 @@ router.post('/google',
       );
     }
 
-    const { credential, plan = 'free' } = req.body;
+    const { credential, plan = 'free', attribution } = req.body;
 
     // Verify id_token with Google. verifyIdToken checks signature, expiry,
     // and `aud` claim against our clientId.
@@ -1107,11 +1201,13 @@ router.post('/google',
 
       const workspaceName = name && name.trim() ? name.trim() : email.split('@')[0];
 
+      const googleAttributionJson = attribution ? JSON.stringify(attribution) : null;
+
       db.transaction(() => {
         db.run(
-          `INSERT INTO users (id, email, password, name, role, workspace_id, google_sub)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [userId, email, placeholderPassword, name, 'owner', workspaceId, googleSub]
+          `INSERT INTO users (id, email, password, name, role, workspace_id, google_sub, signup_attribution)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, email, placeholderPassword, name, 'owner', workspaceId, googleSub, googleAttributionJson]
         );
         db.run(
           `INSERT INTO workspaces (id, name, owner_id, plan, trial_end_at, subscription_status, credits)
@@ -1189,6 +1285,22 @@ router.post('/google',
       }
     }
 
+    // Meta CAPI: só dispara para signups novos (não login). Mesma lógica do
+    // /signup manual — IDs retornados para dedup com browser pixel.
+    let metaEventIds;
+    if (isNewUser) {
+      metaEventIds = await fireSignupCapi({
+        email: user.email,
+        name: user.name,
+        plan: workspace?.plan || plan,
+        userId: user.id,
+        attribution,
+        req,
+        includeStartTrial: (workspace?.plan || plan) === 'starter' ||
+                           (workspace?.plan || plan) === 'pro',
+      });
+    }
+
     res.status(isNewUser ? 201 : 200).json({
       message: isNewUser ? 'Conta criada com sucesso via Google' : 'Login realizado via Google',
       isNewUser,
@@ -1200,6 +1312,7 @@ router.post('/google',
         workspaceId: user.workspace_id,
       },
       workspace,
+      ...(metaEventIds && { meta_event_ids: metaEventIds }),
       ...tokens,
     });
   })

@@ -4,6 +4,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Criar conta — WhatsHybrid Pro</title>
+
+  <!--
+    Marketing tracking — preencha os `content` dos meta-tags abaixo
+    para ativar. Vazios = nenhuma requisição externa é feita.
+    Mantenha os IDs idênticos aos de index.html para Pixel/Clarity/GA4
+    rastrearem todo o funil (home → signup → dashboard).
+  -->
+  <meta name="meta-pixel-id" content="">
+  <meta name="ms-clarity-id" content="">
+  <meta name="ga4-measurement-id" content="">
+
+  <!-- Meta Pixel loader (gated por meta-pixel-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+    (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', pid);
+    window.fbq('track', 'PageView');
+    window.metaTrack = function (eventName, params) {
+      try { if (window.fbq) window.fbq('track', eventName, params || {}); } catch (_) {}
+    };
+  })();
+  </script>
+  <noscript id="meta-pixel-noscript"></noscript>
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="meta-pixel-id"]');
+    var pid = meta && meta.content && meta.content.trim();
+    if (!pid) return;
+    var ns = document.getElementById('meta-pixel-noscript');
+    if (ns) ns.innerHTML = '<img height="1" width="1" style="display:none" '
+      + 'src="https://www.facebook.com/tr?id=' + encodeURIComponent(pid)
+      + '&ev=PageView&noscript=1" alt="">';
+  })();
+  </script>
+
+  <!-- Microsoft Clarity loader (gated por ms-clarity-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="ms-clarity-id"]');
+    var cid = meta && meta.content && meta.content.trim();
+    if (!cid) return;
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", cid);
+  })();
+  </script>
+
+  <!-- Google Analytics 4 loader (gated por ga4-measurement-id) -->
+  <script>
+  (function () {
+    var meta = document.querySelector('meta[name="ga4-measurement-id"]');
+    var mid = meta && meta.content && meta.content.trim();
+    if (!mid) return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(mid);
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', mid, { send_page_view: true });
+    window.ga4Track = function (eventName, params) {
+      try { if (window.gtag) window.gtag('event', eventName, params || {}); } catch (_) {}
+    };
+  })();
+  </script>
+
+  <!-- Marketing attribution capture (first-touch UTMs/click IDs/referrer + _ga) -->
+  <script src="js/marketing-attribution.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
@@ -492,6 +571,72 @@
     coupon: null, discount: 0,
   };
 
+  // Dispara eventos de conversão após signup bem-sucedido — Meta + GA4.
+  //
+  // Dedup Meta browser↔server: o backend retorna `meta_event_ids` no payload
+  // de resposta com os mesmos UUIDs que ele usou para postar via CAPI. Aqui
+  // passamos `{ eventID }` ao fbq() para a Meta deduplicar pelo par
+  // (event_name, event_id). Sem dedup, browser + server contam dobrado.
+  //
+  // - CompleteRegistration (Meta) / sign_up (GA4) — sempre, qualquer plano.
+  // - StartTrial (Meta) / start_trial custom (GA4) — só pra starter/pro.
+  // - Subscribe / purchase — não sai daqui; só dispara server-side no webhook
+  //   de pagamento, porque planos pagos começam com trial grátis sem cartão.
+  function fireSignupConversionEvents(plan, coupon, metaEventIds) {
+    var planName = 'Plano ' + (plan || 'unknown');
+    var ids = metaEventIds || {};
+
+    // Helpers locais — noop quando o respectivo loader não rodou.
+    var meta = function (evt, data, opts) {
+      try {
+        if (!window.fbq) return;
+        if (opts) window.fbq('track', evt, data, opts);
+        else window.fbq('track', evt, data);
+      } catch (_) {}
+    };
+    var ga = function (evt, data) {
+      try { if (window.gtag) window.gtag('event', evt, data || {}); } catch (_) {}
+    };
+
+    try {
+      // CompleteRegistration (Meta) + sign_up (GA4)
+      var crData = {
+        content_name: planName, content_category: 'signup',
+        status: true, currency: 'BRL', value: 0
+      };
+      meta('CompleteRegistration', crData,
+        ids.complete_registration ? { eventID: ids.complete_registration } : null);
+      ga('sign_up', {
+        method: plan === 'free' ? 'email_free' : 'email_paid',
+        content_name: planName
+      });
+
+      // StartTrial (Meta) + start_trial (GA4 custom)
+      if (plan === 'starter' || plan === 'pro') {
+        var monthly = plan === 'starter' ? 49.90 : 99.90;
+        var stData = {
+          content_name: planName, content_category: 'trial',
+          currency: 'BRL', value: monthly, predicted_ltv: monthly * 12
+        };
+        meta('StartTrial', stData,
+          ids.start_trial ? { eventID: ids.start_trial } : null);
+        ga('start_trial', {
+          currency: 'BRL', value: monthly,
+          items: [{
+            item_id: 'plan_' + plan, item_name: planName,
+            item_category: 'subscription', price: monthly, quantity: 1
+          }]
+        });
+      }
+
+      // Cupom (Meta + GA4)
+      if (coupon) {
+        meta('Lead', { content_name: 'Coupon redeemed: ' + coupon, content_category: 'coupon' });
+        ga('coupon_redeemed', { coupon: coupon });
+      }
+    } catch (_) {}
+  }
+
   // Pre-select plan from URL ?plan=
   const urlParams = new URLSearchParams(window.location.search);
   const urlPlan = urlParams.get('plan');
@@ -670,6 +815,7 @@
         password: signupData.password,
         plan: signupData.plan,
         coupon: signupData.coupon || undefined,
+        attribution: window.WHLAttribution?.get?.() || undefined,
       });
 
       const token = result.token || result.accessToken;
@@ -677,6 +823,8 @@
 
       api.setToken(token);
       if (result.user) api.setUser(result.user);
+
+      fireSignupConversionEvents(signupData.plan, signupData.coupon, result.meta_event_ids);
 
       toast('Conta criada! Bem-vindo ao WhatsHybrid Pro 🎉', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 600);
@@ -732,11 +880,15 @@
       const result = await api.post('/api/v1/auth/google', {
         credential: response.credential,
         plan: signupData.plan, // honors ?plan=free|starter|pro from URL
+        attribution: window.WHLAttribution?.get?.() || undefined,
       });
       const token = result.token || result.accessToken;
       if (!token) throw new Error('Resposta do servidor sem token');
       api.setToken(token);
       if (result.user) api.setUser(result.user);
+      if (result.isNewUser) {
+        fireSignupConversionEvents(signupData.plan, signupData.coupon, result.meta_event_ids);
+      }
       toast(result.isNewUser ? 'Conta criada! Bem-vindo 🎉' : 'Login realizado!', 'success');
       setTimeout(() => { window.location.href = '/dashboard.html'; }, 500);
     } catch (err) {

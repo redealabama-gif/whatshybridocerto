@@ -262,6 +262,37 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
     // não falha o webhook — pagamento já foi processado
   }
 
+  // Marketing server-side: Meta CAPI (Subscribe) + GA4 MP (purchase).
+  // ID determinístico mp_<paymentId> garante idempotência se webhook
+  // for re-entregue.
+  try {
+    const capi = require('../services/MetaCapiService');
+    await capi.sendSubscribeForWorkspace({
+      workspaceId, plan,
+      amount: Number(amount),
+      currency: currency || 'BRL',
+      eventId: `mp_${paymentId}`,
+      provider: 'mercadopago',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[WebhookSaaS] CAPI Subscribe failed: ${e.message}`);
+  }
+
+  try {
+    const ga4 = require('../services/GoogleAnalyticsMpService');
+    await ga4.sendPurchaseForWorkspace({
+      workspaceId, plan,
+      amount: Number(amount),
+      currency: currency || 'BRL',
+      transactionId: `mp_${paymentId}`,
+      provider: 'mercadopago',
+      db,
+    });
+  } catch (e) {
+    logger.warn(`[WebhookSaaS] GA4 MP purchase failed: ${e.message}`);
+  }
+
   logger.info(`[WebhookSaaS] Workspace ${workspaceId} ativado: plano ${plan}, próxima cobrança ${nextBilling.toISOString()}`);
 
   // Gera (ou reusa) o código de assinatura pra que o cliente possa ativar

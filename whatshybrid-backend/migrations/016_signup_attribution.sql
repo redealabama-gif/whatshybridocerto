@@ -1,0 +1,25 @@
+-- 016_signup_attribution.sql
+-- Persiste atribuição de marketing (UTMs + click IDs + referrer + landing URL)
+-- capturada pelo front-end (public/js/marketing-attribution.js) no momento
+-- do signup. Usado pelo MetaCapiService para reconstruir `fbc`/`fbp` em
+-- eventos server-side (CompleteRegistration, StartTrial, Subscribe).
+--
+-- Sem isso, eventos server-side perdem o match com fbclid → match rate cai
+-- muito (Meta consegue casar evento com usuário do FB/Insta principalmente
+-- via fbclid/fbp em conjunto com email/IP hashed).
+--
+-- Formato: JSON serializado em TEXT (compatível SQLite + Postgres).
+-- Exemplo:
+--   {
+--     "utm_source": "facebook",
+--     "utm_campaign": "trial_starter_oct",
+--     "fbclid": "IwAR0...",
+--     "referrer": "https://www.facebook.com/",
+--     "landing_url": "https://whatshybrid.com.br/?utm_source=...",
+--     "captured_at": "2026-04-18T18:38:16.000Z"
+--   }
+--
+-- Nullable: usuários antigos (pré-migration) e signups sem UTM continuam
+-- válidos. O service trata signup_attribution=NULL como "sem atribuição".
+
+ALTER TABLE users ADD COLUMN signup_attribution TEXT;
