@@ -36,6 +36,10 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     // Team System
     team: 'whlViewTeam',
 
+    // Grupos (extrator de membros)
+    groups: 'whlViewGroups',
+    grupos: 'whlViewGroups',
+
     // Quick Replies (gatilho `/` no chat)
     quickreplies: 'whlViewQuickReplies',
 
@@ -205,6 +209,9 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     }
     return resp;
   }
+  // Expõe pro escopo global pra outros módulos do sidepanel (ex.: GroupsManager)
+  // reutilizarem o mesmo bridge sem refazer chrome.tabs.sendMessage.
+  window.motor = motor;
 
   // ========= Seletor de arquivos (workaround p/ Chrome Side Panel) =========
   // O painel lateral do Chrome (chrome.sidePanel) NÃO abre o seletor de arquivos
@@ -375,6 +382,15 @@ function showView(viewName) {
       }
       if (typeof window.renderTeamStats === 'function') {
         window.renderTeamStats();
+      }
+    } else if (safeView === 'groups' || safeView === 'grupos') {
+      // Grupos — inicializa o controller (controller faz lazy-load dos grupos
+      // na primeira abertura via motor('LIST_GROUPS')).
+      if (typeof window.GroupsManager?.init === 'function') {
+        window.GroupsManager.init();
+      } else {
+        // Módulo ainda carregando — tenta novamente em 1.5s
+        setTimeout(() => window.GroupsManager?.init?.(), 1500);
       }
     } else if (safeView === 'quickreplies') {
       // Quick Replies — renderiza o gerenciador de gatilhos dentro do container.

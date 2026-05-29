@@ -147,6 +147,10 @@
                             <span class="tab-icon">👥</span>
                             <span class="tab-label">Equipe</span>
                         </button>
+                        <button class="top-panel-tab" data-view="groups" title="Extrator de Grupos — lista grupos e extrai membros">
+                            <span class="tab-icon">📂</span>
+                            <span class="tab-label">Grupos</span>
+                        </button>
                         <button class="top-panel-tab" data-view="quickreplies" title="Respostas Rápidas — gatilho / no chat">
                             <span class="tab-icon">⚡</span>
                             <span class="tab-label">Respostas</span>
