@@ -1421,15 +1421,10 @@
             </section>
 
             <section id="whlViewQuickReplies" class="whl-view hidden">
-              <div class="sp-card">
-                <div class="sp-title">⚡ Resposta Rápida</div>
-                <div class="sp-muted">
-                  Cadastre gatilhos para inserir textos automaticamente no chat. No WhatsApp Web,
-                  digite <strong>/gatilho</strong> no campo de mensagem e selecione a sugestão.
-                </div>
-              </div>
-
-              <!-- Container onde QuickCommands.renderCommandsManager() injeta o gerenciador (form de cadastro, lista, edição). -->
+              <!-- Toda a UI (header + form de cadastro + lista) é renderizada
+                   dinamicamente por QuickCommands.renderCommandsManager() neste
+                   container, usando as classes nativas do sidepanel (sp-card,
+                   sp-btn, sp-input, sp-textarea). -->
               <div id="whlQuickRepliesManager"></div>
 
               <div class="sp-card">

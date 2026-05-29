@@ -23,20 +23,10 @@
 
   const STORAGE_KEY = 'whl_quick_commands_v1';
 
-  // Comandos padrão (integrados com SmartReplies)
-  const DEFAULT_COMMANDS = [
-    { trigger: 'oi', text: 'Olá! Como posso ajudar você hoje?', category: 'Saudações', emoji: '👋' },
-    { trigger: 'obrigado', text: 'Obrigado pelo contato! Estou à disposição.', category: 'Saudações', emoji: '🙏' },
-    { trigger: 'aguarde', text: 'Um momento, por favor. Estou verificando...', category: 'Aguardo', emoji: '⏳' },
-    { trigger: 'verificando', text: 'Vou verificar essa informação e já retorno.', category: 'Aguardo', emoji: '🔍' },
-    { trigger: 'confirmar', text: 'Perfeito! Confirmado. Mais alguma dúvida?', category: 'Confirmação', emoji: '✅' },
-    { trigger: 'preco', text: 'O valor é R$ [VALOR]. Posso ajudar com mais alguma informação?', category: 'Vendas', emoji: '💰' },
-    { trigger: 'pix', text: 'Chave PIX: [SUA CHAVE]. Após o pagamento, envie o comprovante.', category: 'Vendas', emoji: '💳' },
-    { trigger: 'tchau', text: 'Foi um prazer atendê-lo! Tenha um ótimo dia! 😊', category: 'Encerramento', emoji: '👋' },
-    { trigger: 'ausente', text: 'No momento não estou disponível. Retornarei assim que possível.', category: 'Ausência', emoji: '🔕' },
-    { trigger: 'horario', text: 'Nosso horário de atendimento é de segunda a sexta, das 9h às 18h.', category: 'Informações', emoji: '🕐' },
-    { trigger: 'entrega', text: 'O prazo de entrega é de 5 a 7 dias úteis após a confirmação do pagamento.', category: 'Informações', emoji: '📦' }
-  ];
+  // Lista de comandos padrão — começa VAZIA. O usuário cadastra os seus
+  // próprios pela UI. Mantemos `DEFAULT_COMMANDS` (vazio) só pra preservar
+  // compat com código antigo que importava esse identificador.
+  const DEFAULT_COMMANDS = [];
 
   let state = {
     commands: [...DEFAULT_COMMANDS],
@@ -527,112 +517,167 @@
   // UI - GERENCIAMENTO
   // ============================================================
 
+  // Escape utilitário pra evitar HTML injection em triggers/textos do user.
+  function _esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Reescrita usando as classes nativas do sidepanel (`sp-card`, `sp-btn`,
+  // `sp-input`, `sp-textarea`, `sp-muted`) que já estão estilizadas em
+  // `sidepanel.css`. As classes `qc-*` / `mod-*` que existiam antes não tinham
+  // CSS associado → ficava tudo desformatado. Form de cadastro vem inline (sem
+  // dialog flutuante) porque o sidepanel é estreito e overlay quebrava o layout.
   function renderCommandsManager(container) {
-    const categories = [...new Set(state.commands.map(cmd => cmd.category))];
+    const cmds = state.commands.slice().sort((a, b) => (a.trigger || '').localeCompare(b.trigger || ''));
+
+    const listHtml = cmds.length === 0
+      ? `<div class="sp-muted" style="padding:18px;text-align:center;font-size:12px;">
+           Nenhuma resposta cadastrada ainda. Clique em <strong>➕ Nova Resposta</strong> pra começar.
+         </div>`
+      : cmds.map(cmd => `
+          <div class="qr-item" data-trigger="${_esc(cmd.trigger)}"
+               style="display:flex;gap:8px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.03);
+                      border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">
+            <div style="font-size:18px;line-height:1;">${_esc(cmd.emoji || '📝')}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:ui-monospace,Menlo,monospace;color:#a78bfa;font-weight:600;font-size:12px;">
+                /${_esc(cmd.trigger)}
+              </div>
+              <div style="font-size:13px;margin-top:2px;white-space:pre-wrap;word-break:break-word;">${_esc(cmd.text)}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <button class="sp-btn qr-copy" data-trigger="${_esc(cmd.trigger)}"
+                      style="padding:4px 8px;font-size:12px;" title="Copiar texto">📋</button>
+              <button class="sp-btn qr-delete" data-trigger="${_esc(cmd.trigger)}"
+                      style="padding:4px 8px;font-size:12px;color:#f87171;" title="Excluir">🗑️</button>
+            </div>
+          </div>
+        `).join('');
 
     container.innerHTML = `
-      <div class="qc-manager">
-        <div class="qc-header">
-          <h3>⚡ Resposta Rápida</h3>
-          <button id="qc-add-btn" class="mod-btn mod-btn-primary">➕ Nova Resposta</button>
+      <div class="sp-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div class="sp-title" style="margin:0;">⚡ Resposta Rápida</div>
+          <div style="display:flex;gap:6px;">
+            <button id="qr-new-btn" class="sp-btn sp-btn-primary" style="padding:6px 12px;">➕ Nova Resposta</button>
+            ${cmds.length > 0 ? `<button id="qr-clear-btn" class="sp-btn" style="padding:6px 10px;font-size:12px;" title="Apagar TODAS as respostas">🗑️ Limpar tudo</button>` : ''}
+          </div>
+        </div>
+        <div class="sp-muted" style="font-size:11px;margin-top:6px;">
+          Digite <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;">/gatilho</code>
+          no chat do WhatsApp pra inserir a resposta automaticamente.
+        </div>
+      </div>
+
+      <div id="qr-form" class="sp-card" style="display:none;">
+        <div class="sp-title" style="font-size:13px;">Nova Resposta Rápida</div>
+        <label class="sp-label" style="margin-top:8px;">Gatilho</label>
+        <input type="text" id="qr-trigger" class="sp-input" placeholder="ex: preco" maxlength="40" />
+        <div class="sp-muted" style="font-size:11px;margin-top:2px;">
+          Só letras e números (vai virar minúscula). Vai responder a <code>/gatilho</code> no chat.
         </div>
 
-        <div class="qc-info">
-          Digite <strong>/</strong> seguido do gatilho no chat para usar.
-        </div>
+        <label class="sp-label" style="margin-top:10px;">Resposta</label>
+        <textarea id="qr-text" class="sp-textarea" rows="3" placeholder="Texto que vai ser inserido no chat..."></textarea>
 
-        <div class="qc-filters">
-          <button class="qc-filter-btn active" data-category="all">Todos (${state.commands.length})</button>
-          ${categories.map(cat => `
-            <button class="qc-filter-btn" data-category="${cat}">
-              ${cat} (${getCommandsByCategory(cat).length})
-            </button>
-          `).join('')}
-        </div>
+        <label class="sp-label" style="margin-top:10px;">Emoji (opcional)</label>
+        <input type="text" id="qr-emoji" class="sp-input" placeholder="📝" maxlength="4" style="width:80px;" />
 
-        <div class="qc-list" id="qc-commands-list">
-          ${renderCommandsList('all')}
+        <div id="qr-form-err" style="color:#f87171;font-size:12px;margin-top:6px;display:none;"></div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button id="qr-save-btn" class="sp-btn sp-btn-primary" style="flex:1;">💾 Salvar</button>
+          <button id="qr-cancel-btn" class="sp-btn" style="flex:1;">Cancelar</button>
         </div>
+      </div>
+
+      <div class="sp-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="sp-title" style="margin:0;font-size:13px;">📋 Suas respostas</div>
+          <span class="sp-muted" style="font-size:11px;">${cmds.length} cadastrada(s)</span>
+        </div>
+        <div id="qr-list">${listHtml}</div>
       </div>
     `;
 
-    // Event listeners
-    container.querySelectorAll('.qc-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        container.querySelectorAll('.qc-filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const list = container.querySelector('#qc-commands-list');
-        list.innerHTML = renderCommandsList(btn.dataset.category);
+    // Binds — usados aqui (delegação no container) pra sobreviverem ao re-render.
+    container.querySelector('#qr-new-btn')?.addEventListener('click', () => toggleForm(container, true));
+    container.querySelector('#qr-cancel-btn')?.addEventListener('click', () => toggleForm(container, false));
+    container.querySelector('#qr-save-btn')?.addEventListener('click', () => handleSave(container));
+
+    container.querySelector('#qr-clear-btn')?.addEventListener('click', () => {
+      if (!confirm(`Apagar TODAS as ${state.commands.length} respostas cadastradas? Não dá pra desfazer.`)) return;
+      state.commands = [];
+      saveCommands();
+      renderCommandsManager(container);
+    });
+
+    container.querySelectorAll('.qr-copy').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const trig = btn.dataset.trigger;
+        const cmd = state.commands.find(c => c.trigger === trig);
+        if (!cmd) return;
+        try {
+          await navigator.clipboard.writeText(cmd.text);
+          flashStatus(btn, '✓');
+        } catch (_) { flashStatus(btn, '✗'); }
       });
     });
 
-    container.querySelector('#qc-add-btn')?.addEventListener('click', () => {
-      showAddCommandDialog(container);
+    container.querySelectorAll('.qr-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const trig = btn.dataset.trigger;
+        if (!confirm(`Excluir a resposta /${trig}?`)) return;
+        removeCommand(trig);
+        renderCommandsManager(container);
+      });
     });
   }
 
-  function renderCommandsList(category) {
-    const commands = category === 'all'
-      ? state.commands
-      : getCommandsByCategory(category);
+  function toggleForm(container, show) {
+    const form = container.querySelector('#qr-form');
+    if (!form) return;
+    form.style.display = show ? '' : 'none';
+    if (show) {
+      container.querySelector('#qr-trigger')?.focus();
+      const err = container.querySelector('#qr-form-err');
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+    } else {
+      container.querySelector('#qr-trigger').value = '';
+      container.querySelector('#qr-text').value = '';
+      container.querySelector('#qr-emoji').value = '';
+    }
+  }
 
-    if (commands.length === 0) {
-      return '<div class="qc-empty">Nenhum comando nesta categoria.</div>';
+  function handleSave(container) {
+    const triggerRaw = container.querySelector('#qr-trigger').value.trim();
+    const text = container.querySelector('#qr-text').value.trim();
+    const emoji = container.querySelector('#qr-emoji').value.trim() || '📝';
+    const errEl = container.querySelector('#qr-form-err');
+
+    const showErr = (m) => { if (errEl) { errEl.textContent = m; errEl.style.display = ''; } };
+
+    if (!triggerRaw) return showErr('Defina um gatilho.');
+    if (!text) return showErr('Defina a resposta.');
+
+    const trigger = triggerRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!trigger) return showErr('Gatilho precisa ter letras ou números (sem espaços/símbolos).');
+    if (state.commands.some(c => c.trigger === trigger)) {
+      return showErr(`Já existe uma resposta para /${trigger}.`);
     }
 
-    return commands.map(cmd => `
-      <div class="qc-command-item">
-        <span class="qc-command-emoji">${cmd.emoji}</span>
-        <div class="qc-command-info">
-          <div class="qc-command-trigger">/${cmd.trigger}</div>
-          <div class="qc-command-text">${cmd.text}</div>
-          <span class="qc-command-category">${cmd.category}</span>
-        </div>
-        <div class="qc-command-actions">
-          <button class="qc-action-btn" data-action="copy" data-trigger="${cmd.trigger}">📋</button>
-          <button class="qc-action-btn" data-action="delete" data-trigger="${cmd.trigger}">🗑️</button>
-        </div>
-      </div>
-    `).join('');
+    const ok = addCommand(trigger, text, 'Geral', emoji);
+    if (!ok) return showErr('Falha ao salvar.');
+    renderCommandsManager(container);
   }
 
-  function showAddCommandDialog(container) {
-    // Implementar dialog para adicionar comando
-    const dialog = document.createElement('div');
-    dialog.className = 'qc-dialog-overlay';
-    dialog.innerHTML = `
-      <div class="qc-dialog">
-        <h3>Nova Resposta Rápida</h3>
-        <input type="text" id="qc-new-trigger" placeholder="Gatilho (ex: oi, pix)" class="mod-input">
-        <textarea id="qc-new-text" placeholder="Texto da resposta..." class="mod-input" rows="3"></textarea>
-        <input type="text" id="qc-new-category" placeholder="Categoria" class="mod-input">
-        <input type="text" id="qc-new-emoji" placeholder="Emoji" class="mod-input" maxlength="2">
-        <div class="qc-dialog-actions">
-          <button id="qc-cancel-btn" class="mod-btn">Cancelar</button>
-          <button id="qc-save-btn" class="mod-btn mod-btn-primary">Salvar</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-
-    dialog.querySelector('#qc-cancel-btn').addEventListener('click', () => dialog.remove());
-    dialog.querySelector('#qc-save-btn').addEventListener('click', () => {
-      const trigger = dialog.querySelector('#qc-new-trigger').value.trim();
-      const text = dialog.querySelector('#qc-new-text').value.trim();
-      const category = dialog.querySelector('#qc-new-category').value.trim() || 'Geral';
-      const emoji = dialog.querySelector('#qc-new-emoji').value.trim() || '📝';
-
-      if (trigger && text) {
-        if (addCommand(trigger, text, category, emoji)) {
-          renderCommandsManager(container);
-          if (window.NotificationsModule) {
-            window.NotificationsModule.success('Comando adicionado!');
-          }
-        }
-      }
-      dialog.remove();
-    });
+  function flashStatus(el, msg) {
+    const orig = el.textContent;
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = orig; }, 900);
   }
 
   // ============================================================
