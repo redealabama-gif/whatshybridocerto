@@ -246,7 +246,16 @@
             await prep.waitForPrep();
             console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] Prep pronto, chamando sendMediaMsgToChat...');
 
-            const result = await MediaPrep.sendMediaMsgToChat(prep, chat, {});
+            // ⚠️ SHAPE crítica: a partir de WA 2.3000+ tanto prep.sendToChat
+            // quanto MediaPrep.sendMediaMsgToChat recebem UM OBJETO de opções,
+            // não args posicionais (prep, chat, opts). Passar (prep, chat, {})
+            // como antes fazia o WA tentar ler chat.chat → undefined → crash
+            // interno com "Cannot read properties of undefined (reading 'id')".
+            // O source de sendToChat é:
+            //   function(t){var e=t.chat,n=t.earlyUpload,r=t.options;
+            //   return promiseCallSync(x,null,{chat:e,earlyUpload:n,options:r,prep:this})}
+            // O método prep.sendToChat é o caminho oficial e equivalente.
+            const result = await prep.sendToChat({ chat, options: {} });
             console.log('[WHL Hooks] 🎤 [CAMADA 2/MediaPrep] messageSendResult:', result?.messageSendResult);
 
             if (result?.messageSendResult === 'OK') {
