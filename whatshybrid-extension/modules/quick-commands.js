@@ -33,12 +33,14 @@
     isActive: false,
     currentMatches: [],
     selectedIndex: 0,
-    initialized: false
+    initialized: false,
+    editingTrigger: null  // null = modo "novo"; string = trigger sendo editado
   };
 
   let dropdown = null;
   let inputField = null;
   let inputObserver = null;
+  let focusinAttached = false;
 
   // ============================================================
   // INICIALIZAÇÃO
@@ -83,59 +85,106 @@
   // MONITORAMENTO DO INPUT
   // ============================================================
 
-  function setupInputMonitoring() {
-    // Procurar o campo de input do WhatsApp com seletores atualizados 2024/2025
-    const findInput = setInterval(() => {
-      inputField = document.querySelector('[data-testid="conversation-compose-box-input"]') ||
-                   document.querySelector('footer div[contenteditable="true"][data-lexical-editor="true"]') ||
-                   document.querySelector('[data-lexical-editor="true"]') ||
-                   document.querySelector('div[contenteditable="true"][data-tab="10"]') ||
-                   document.querySelector('footer div[contenteditable="true"][role="textbox"]') ||
-                   document.querySelector('#main footer div[contenteditable="true"]') ||
-                   document.querySelector('footer div[contenteditable="true"]');
+  // Lista canônica de seletores do composer do WhatsApp Web (2024/2025).
+  // Mesmo conjunto exposto em modules/selector-engine.js → messageInput.
+  // Mantemos um fallback local pra não depender da ordem de carregamento.
+  const COMPOSER_SELECTORS = [
+    'footer div[contenteditable="true"][role="textbox"]',
+    'footer div[contenteditable="true"][data-lexical-editor="true"]',
+    '[data-lexical-editor="true"][contenteditable="true"]',
+    '#main footer [contenteditable="true"]',
+    'footer [contenteditable="true"]',
+    'div[role="textbox"][contenteditable="true"]',
+    '.copyable-text.selectable-text[contenteditable="true"]',
+    '[data-testid="conversation-compose-box-input"]',
+    '[contenteditable="true"][data-tab="10"]',
+    '[contenteditable="true"][data-tab="6"]',
+    '[contenteditable="true"][data-tab="1"]',
+  ];
 
-      if (inputField) {
-        console.log('[QuickCommands] Campo de input encontrado');
-        clearInterval(findInput);
-        attachInputListeners();
-      }
-    }, 1000);
-
-    // Parar depois de 30 segundos
-    setTimeout(() => clearInterval(findInput), 30000);
+  function isComposerInput(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.getAttribute && el.getAttribute('contenteditable') !== 'true') return false;
+    // Tem que estar dentro do footer / #main; senão é busca, caption de mídia,
+    // ou outro contenteditable que não é o composer.
+    return !!(el.closest && (el.closest('footer') || el.closest('#main footer')));
   }
 
-  function attachInputListeners() {
-    if (!inputField) return;
+  function findComposerInput() {
+    // Preferência: SelectorEngine (cache + ordem consistente com o resto da ext).
+    try {
+      if (window.SelectorEngine?.find) {
+        const el = window.SelectorEngine.find('messageInput');
+        if (el) return el;
+      }
+    } catch (_) {}
 
-    // Monitorar digitação
-    inputField.addEventListener('input', handleInput);
-    inputField.addEventListener('keydown', handleKeyDown);
+    for (const sel of COMPOSER_SELECTORS) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) return el;
+      } catch (_) {}
+    }
+    return null;
+  }
 
-    // Observar mudanças no DOM (troca de chat) com seletores atualizados 2024/2025
-    if (inputObserver) {
-      try { inputObserver.disconnect(); } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
-      inputObserver = null;
+  // v9.5.9+: detecção robusta do composer.
+  //   1. focusin global: pega o input no instante em que o usuário focar nele
+  //      (cobre o caso de o user abrir o chat depois do init).
+  //   2. MutationObserver permanente: pega trocas de chat e re-renderizações
+  //      do composer (lexical editor recria a div em algumas builds).
+  //   3. Tentativa inicial imediata: se já tem chat aberto na hora do init.
+  // Removido o polling de 30s que parava silenciosamente.
+  function setupInputMonitoring() {
+    if (!focusinAttached) {
+      document.addEventListener('focusin', handleFocusIn, true);
+      focusinAttached = true;
     }
 
+    // Tenta achar e atachar agora.
+    const initial = findComposerInput();
+    if (initial) attachInputListeners(initial);
+
+    // Observer permanente — sobrevive a trocas de chat e re-render do composer.
+    if (inputObserver) {
+      try { inputObserver.disconnect(); } catch (_) {}
+      inputObserver = null;
+    }
     inputObserver = new MutationObserver(() => {
-      const newInput = document.querySelector('[data-testid="conversation-compose-box-input"]') ||
-                       document.querySelector('footer div[contenteditable="true"][data-lexical-editor="true"]') ||
-                       document.querySelector('[data-lexical-editor="true"]') ||
-                       document.querySelector('div[contenteditable="true"][data-tab="10"]') ||
-                       document.querySelector('footer div[contenteditable="true"]');
-      if (newInput && newInput !== inputField) {
-        inputField.removeEventListener('input', handleInput);
-        inputField.removeEventListener('keydown', handleKeyDown);
-        inputField = newInput;
-        attachInputListeners();
+      // Se o inputField atual saiu do DOM, descarta.
+      if (inputField && !document.contains(inputField)) {
+        inputField = null;
+      }
+      const candidate = findComposerInput();
+      if (candidate && candidate !== inputField) {
+        attachInputListeners(candidate);
       }
     });
+    inputObserver.observe(document.body, { childList: true, subtree: true });
+  }
 
-    inputObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+  function handleFocusIn(e) {
+    const target = e.target;
+    if (isComposerInput(target) && target !== inputField) {
+      attachInputListeners(target);
+    }
+  }
+
+  function attachInputListeners(newField) {
+    if (!newField || newField === inputField) return;
+
+    // Limpa listeners antigos antes de trocar.
+    if (inputField) {
+      try {
+        inputField.removeEventListener('input', handleInput);
+        inputField.removeEventListener('keydown', handleKeyDown);
+      } catch (_) {}
+    }
+
+    inputField = newField;
+    inputField.addEventListener('input', handleInput);
+    inputField.addEventListener('keydown', handleKeyDown);
+    console.log('[QuickCommands] ✅ Listeners anexados ao composer');
   }
 
   function handleInput(e) {
@@ -548,11 +597,13 @@
               </div>
               <div style="font-size:13px;margin-top:2px;white-space:pre-wrap;word-break:break-word;">${_esc(cmd.text)}</div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px;">
-              <button class="sp-btn qr-copy" data-trigger="${_esc(cmd.trigger)}"
-                      style="padding:4px 8px;font-size:12px;" title="Copiar texto">📋</button>
-              <button class="sp-btn qr-delete" data-trigger="${_esc(cmd.trigger)}"
-                      style="padding:4px 8px;font-size:12px;color:#f87171;" title="Excluir">🗑️</button>
+            <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+              <button class="sp-btn sp-btn-secondary qr-edit" data-trigger="${_esc(cmd.trigger)}"
+                      style="padding:4px 8px;font-size:12px;flex:0 0 auto;min-width:32px;" title="Editar resposta">✏️</button>
+              <button class="sp-btn sp-btn-secondary qr-copy" data-trigger="${_esc(cmd.trigger)}"
+                      style="padding:4px 8px;font-size:12px;flex:0 0 auto;min-width:32px;" title="Copiar texto">📋</button>
+              <button class="sp-btn sp-btn-danger qr-delete" data-trigger="${_esc(cmd.trigger)}"
+                      style="padding:4px 8px;font-size:12px;flex:0 0 auto;min-width:32px;" title="Excluir">🗑️</button>
             </div>
           </div>
         `).join('');
@@ -563,7 +614,7 @@
           <div class="sp-title" style="margin:0;">⚡ Resposta Rápida</div>
           <div style="display:flex;gap:6px;">
             <button id="qr-new-btn" class="sp-btn sp-btn-primary" style="padding:6px 12px;">➕ Nova Resposta</button>
-            ${cmds.length > 0 ? `<button id="qr-clear-btn" class="sp-btn" style="padding:6px 10px;font-size:12px;" title="Apagar TODAS as respostas">🗑️ Limpar tudo</button>` : ''}
+            ${cmds.length > 0 ? `<button id="qr-clear-btn" class="sp-btn sp-btn-danger" style="padding:6px 10px;font-size:12px;" title="Apagar TODAS as respostas">🗑️ Limpar tudo</button>` : ''}
           </div>
         </div>
         <div class="sp-muted" style="font-size:11px;margin-top:6px;">
@@ -573,7 +624,7 @@
       </div>
 
       <div id="qr-form" class="sp-card" style="display:none;">
-        <div class="sp-title" style="font-size:13px;">Nova Resposta Rápida</div>
+        <div class="sp-title" id="qr-form-title" style="font-size:13px;">Nova Resposta Rápida</div>
         <label class="sp-label" style="margin-top:8px;">Gatilho</label>
         <input type="text" id="qr-trigger" class="sp-input" placeholder="ex: preco" maxlength="40" />
         <div class="sp-muted" style="font-size:11px;margin-top:2px;">
@@ -590,7 +641,7 @@
 
         <div style="display:flex;gap:8px;margin-top:12px;">
           <button id="qr-save-btn" class="sp-btn sp-btn-primary" style="flex:1;">💾 Salvar</button>
-          <button id="qr-cancel-btn" class="sp-btn" style="flex:1;">Cancelar</button>
+          <button id="qr-cancel-btn" class="sp-btn sp-btn-secondary" style="flex:1;">Cancelar</button>
         </div>
       </div>
 
@@ -635,20 +686,52 @@
         renderCommandsManager(container);
       });
     });
+
+    container.querySelectorAll('.qr-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const trig = btn.dataset.trigger;
+        const cmd = state.commands.find(c => c.trigger === trig);
+        if (!cmd) return;
+        openEditForm(container, cmd);
+      });
+    });
+  }
+
+  // Abre o form em modo "editar" — preenche os campos e marca editingTrigger
+  // pra `handleSave` saber que tem que chamar updateCommand em vez de addCommand.
+  function openEditForm(container, cmd) {
+    state.editingTrigger = cmd.trigger;
+    toggleForm(container, true);
+
+    const titleEl = container.querySelector('#qr-form-title');
+    const saveBtn = container.querySelector('#qr-save-btn');
+    if (titleEl) titleEl.textContent = `Editar /${cmd.trigger}`;
+    if (saveBtn) saveBtn.textContent = '💾 Atualizar';
+
+    container.querySelector('#qr-trigger').value = cmd.trigger;
+    container.querySelector('#qr-text').value = cmd.text || '';
+    container.querySelector('#qr-emoji').value = cmd.emoji || '';
   }
 
   function toggleForm(container, show) {
     const form = container.querySelector('#qr-form');
     if (!form) return;
     form.style.display = show ? '' : 'none';
+
     if (show) {
       container.querySelector('#qr-trigger')?.focus();
       const err = container.querySelector('#qr-form-err');
       if (err) { err.style.display = 'none'; err.textContent = ''; }
     } else {
+      // Limpar form + sair do modo edit ao fechar/cancelar.
+      state.editingTrigger = null;
       container.querySelector('#qr-trigger').value = '';
       container.querySelector('#qr-text').value = '';
       container.querySelector('#qr-emoji').value = '';
+      const titleEl = container.querySelector('#qr-form-title');
+      const saveBtn = container.querySelector('#qr-save-btn');
+      if (titleEl) titleEl.textContent = 'Nova Resposta Rápida';
+      if (saveBtn) saveBtn.textContent = '💾 Salvar';
     }
   }
 
@@ -665,12 +748,28 @@
 
     const trigger = triggerRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (!trigger) return showErr('Gatilho precisa ter letras ou números (sem espaços/símbolos).');
-    if (state.commands.some(c => c.trigger === trigger)) {
-      return showErr(`Já existe uma resposta para /${trigger}.`);
+
+    const editing = state.editingTrigger;
+
+    if (editing) {
+      // EDIT: se o user mudou o trigger, garante que o novo não colide com outro.
+      if (trigger !== editing && state.commands.some(c => c.trigger === trigger)) {
+        return showErr(`Já existe outra resposta para /${trigger}.`);
+      }
+      const idx = state.commands.findIndex(c => c.trigger === editing);
+      if (idx === -1) return showErr('Resposta original não encontrada.');
+      state.commands[idx] = { trigger, text, category: state.commands[idx].category || 'Geral', emoji };
+      saveCommands();
+    } else {
+      // ADD
+      if (state.commands.some(c => c.trigger === trigger)) {
+        return showErr(`Já existe uma resposta para /${trigger}.`);
+      }
+      const ok = addCommand(trigger, text, 'Geral', emoji);
+      if (!ok) return showErr('Falha ao salvar.');
     }
 
-    const ok = addCommand(trigger, text, 'Geral', emoji);
-    if (!ok) return showErr('Falha ao salvar.');
+    state.editingTrigger = null;
     renderCommandsManager(container);
   }
 
@@ -699,6 +798,10 @@
     if (inputObserver) {
       try { inputObserver.disconnect(); } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
       inputObserver = null;
+    }
+    if (focusinAttached) {
+      try { document.removeEventListener('focusin', handleFocusIn, true); } catch (_) {}
+      focusinAttached = false;
     }
   });
 
