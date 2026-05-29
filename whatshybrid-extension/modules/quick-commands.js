@@ -533,8 +533,8 @@
     container.innerHTML = `
       <div class="qc-manager">
         <div class="qc-header">
-          <h3>⚡ Comandos Rápidos</h3>
-          <button id="qc-add-btn" class="mod-btn mod-btn-primary">➕ Novo Comando</button>
+          <h3>⚡ Resposta Rápida</h3>
+          <button id="qc-add-btn" class="mod-btn mod-btn-primary">➕ Nova Resposta</button>
         </div>
 
         <div class="qc-info">
@@ -602,9 +602,9 @@
     dialog.className = 'qc-dialog-overlay';
     dialog.innerHTML = `
       <div class="qc-dialog">
-        <h3>Novo Comando Rápido</h3>
+        <h3>Nova Resposta Rápida</h3>
         <input type="text" id="qc-new-trigger" placeholder="Gatilho (ex: oi, pix)" class="mod-input">
-        <textarea id="qc-new-text" placeholder="Texto do comando..." class="mod-input" rows="3"></textarea>
+        <textarea id="qc-new-text" placeholder="Texto da resposta..." class="mod-input" rows="3"></textarea>
         <input type="text" id="qc-new-category" placeholder="Categoria" class="mod-input">
         <input type="text" id="qc-new-emoji" placeholder="Emoji" class="mod-input" maxlength="2">
         <div class="qc-dialog-actions">

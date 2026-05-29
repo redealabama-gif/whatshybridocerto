@@ -70,7 +70,7 @@
     },
     {
       id: 'quick-replies',
-      title: '⚡ Respostas Rápidas',
+      title: '⚡ Resposta Rápida',
       content: `
         <p>Configure <strong>atalhos</strong> para suas respostas mais usadas.</p>
         <ul style="margin-top: 12px; text-align: left;">
