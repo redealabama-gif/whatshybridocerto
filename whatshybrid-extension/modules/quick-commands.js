@@ -76,24 +76,6 @@
       if (result[STORAGE_KEY]) {
         state.commands = result[STORAGE_KEY];
       }
-
-      // Sincronizar com SmartRepliesModule se disponível
-      if (window.SmartRepliesModule?.getQuickReplies) {
-        const quickReplies = window.SmartRepliesModule.getQuickReplies();
-        // Adicionar quick replies que não existem ainda
-        quickReplies.forEach(qr => {
-          const trigger = qr.text.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-          const exists = state.commands.some(cmd => cmd.trigger === trigger);
-          if (!exists && trigger.length > 2) {
-            state.commands.push({
-              trigger,
-              text: qr.text,
-              category: qr.category || 'Geral',
-              emoji: qr.emoji || '📝'
-            });
-          }
-        });
-      }
     } catch (e) {
       console.error('[QuickCommands] Erro ao carregar comandos:', e);
     }

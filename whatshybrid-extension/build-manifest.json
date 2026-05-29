@@ -74,6 +74,7 @@
     "modules/business-intelligence.js",
     "modules/copilot-engine.js",
     "modules/smart-replies.js",
+    "modules/quick-commands.js",
     "modules/suggestion-injector.js",
     "modules/trust-system.js",
     "modules/team-system.js",

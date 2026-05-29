@@ -1370,6 +1370,29 @@
   </div>
 </section>
 
+            <section id="whlViewQuickReplies" class="whl-view hidden">
+              <div class="sp-card">
+                <div class="sp-title">⚡ Respostas Rápidas</div>
+                <div class="sp-muted">
+                  Cadastre gatilhos para inserir textos automaticamente no chat. No WhatsApp Web,
+                  digite <strong>/gatilho</strong> no campo de mensagem e selecione a sugestão.
+                </div>
+              </div>
+
+              <!-- Container onde QuickCommands.renderCommandsManager() injeta o gerenciador (form de cadastro, lista, edição). -->
+              <div id="whlQuickRepliesManager"></div>
+
+              <div class="sp-card">
+                <div class="sp-title">💡 Como usar</div>
+                <div class="sp-muted" style="font-size: 12px;">
+                  <p style="margin: 8px 0;">1. Cadastre um gatilho aqui (ex: <code>preco</code>) com a resposta.</p>
+                  <p style="margin: 8px 0;">2. No WhatsApp, digite <strong>/preco</strong> no campo de mensagem.</p>
+                  <p style="margin: 8px 0;">3. Selecione a sugestão que aparece (ou Tab/Enter).</p>
+                  <p style="margin: 8px 0;">4. A resposta é inserida automaticamente. Edite antes de enviar.</p>
+                </div>
+              </div>
+            </section>
+
         </div>
 
 
@@ -1448,6 +1471,7 @@
     <script src="modules/crm.js"></script>
     <script src="modules/tasks.js"></script>
     <script src="modules/smart-replies.js"></script>
+    <script src="modules/quick-commands.js"></script>
     <script src="modules/subscription-manager.js"></script>
     <script src="modules/feature-gate.js"></script>
     <script src="modules/subscription-ui.js"></script>
