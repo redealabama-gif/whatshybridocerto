@@ -153,7 +153,7 @@
                         </button>
                         <button class="top-panel-tab" data-view="quickreplies" title="Resposta Rápida — gatilho / no chat">
                             <span class="tab-icon">⚡</span>
-                            <span class="tab-label">Resposta</span>
+                            <span class="tab-label">Resposta Rápida</span>
                         </button>
                         <button class="top-panel-tab" data-view="config" title="Configurações">
                             <span class="tab-icon">⚙️</span>
