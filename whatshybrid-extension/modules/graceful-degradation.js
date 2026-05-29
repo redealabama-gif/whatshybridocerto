@@ -73,11 +73,11 @@
       fallbackMessage: 'Sistema de equipe indisponível'
     },
     'quickReplies': {
-      name: 'Respostas Rápidas',
+      name: 'Resposta Rápida',
       selectors: ['CHAT_INPUT'],
       dependencies: ['quickReplies'],
       critical: false,
-      fallbackMessage: 'Respostas rápidas indisponíveis'
+      fallbackMessage: 'Resposta Rápida indisponível'
     },
     'analytics': {
       name: 'Analytics',

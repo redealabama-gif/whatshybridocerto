@@ -151,9 +151,9 @@
                             <span class="tab-icon">📂</span>
                             <span class="tab-label">Grupos</span>
                         </button>
-                        <button class="top-panel-tab" data-view="quickreplies" title="Respostas Rápidas — gatilho / no chat">
+                        <button class="top-panel-tab" data-view="quickreplies" title="Resposta Rápida — gatilho / no chat">
                             <span class="tab-icon">⚡</span>
-                            <span class="tab-label">Respostas</span>
+                            <span class="tab-label">Resposta</span>
                         </button>
                         <button class="top-panel-tab" data-view="config" title="Configurações">
                             <span class="tab-icon">⚙️</span>
