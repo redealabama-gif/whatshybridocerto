@@ -36,6 +36,9 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
     // Team System
     team: 'whlViewTeam',
 
+    // Quick Replies (gatilho `/` no chat)
+    quickreplies: 'whlViewQuickReplies',
+
     // System Auto-Protection Layer
     sapl: 'whlViewSapl',
   };
@@ -372,6 +375,22 @@ function showView(viewName) {
       }
       if (typeof window.renderTeamStats === 'function') {
         window.renderTeamStats();
+      }
+    } else if (safeView === 'quickreplies') {
+      // Quick Replies — renderiza o gerenciador de gatilhos dentro do container.
+      // O módulo modules/quick-commands.js já expõe window.QuickCommands com
+      // renderCommandsManager(container) — não precisa de IA nem outras deps.
+      const container = document.getElementById('whlQuickRepliesManager');
+      if (container && typeof window.QuickCommands?.renderCommandsManager === 'function') {
+        window.QuickCommands.renderCommandsManager(container);
+      } else if (container) {
+        container.innerHTML = '<div class="sp-muted" style="padding: 20px; text-align: center;">⏳ Carregando módulo de respostas rápidas...</div>';
+        // Retry após o módulo carregar
+        setTimeout(() => {
+          if (typeof window.QuickCommands?.renderCommandsManager === 'function') {
+            window.QuickCommands.renderCommandsManager(container);
+          }
+        }, 1500);
       }
     } else if (safeView === 'sapl') {
       saplInit();
