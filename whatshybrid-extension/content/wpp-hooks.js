@@ -4897,9 +4897,8 @@ window.whl_hooks_main = () => {
                     chat?.contact?.name || '').trim();
         }
 
-        // v9.6.3: o diagnóstico mostrou que `chat.active` NUNCA vira true nessa
-        // build (build 2.3000.x). O único sinal confiável é o título do header.
-        // Também o `#main [data-id*=...]` mente em chats sem mensagens visíveis.
+        // v9.6.4: usuário diagnosticou que chat.active NUNCA vira true neste WA
+        // build (2.3000.x). O header é o único sinal confiável.
         function headerTitle() {
             const el = document.querySelector('#main header span[title]') ||
                        document.querySelector('#main header span[dir="auto"]');
@@ -4928,10 +4927,37 @@ window.whl_hooks_main = () => {
             return false;
         }
 
-        // v9.6.3: o WhatsApp 2.3000.x NÃO usa role="listitem" — usa role="row"
-        // (descoberto via diagnóstico). A linha clicável tem dentro um
-        // [data-testid="cell-frame-container"]. Clicamos esse, que é o
-        // contêiner clicável real.
+        // v9.6.4: clicar com .click() puro não dispara handlers React/Lexical do
+        // WhatsApp 2.3000.x — o React escuta pointerdown/pointerup, não click.
+        // Simula sequência humana inteira: pointer + mouse + click. Tirado do
+        // padrão usado em quick-commands (mesma raiz: React ignora .click() sem
+        // pointer events em alguns builds).
+        function humanClick(el) {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0 };
+            try {
+                el.dispatchEvent(new PointerEvent('pointerover', opts));
+                el.dispatchEvent(new PointerEvent('pointerenter', opts));
+                el.dispatchEvent(new MouseEvent('mouseover', opts));
+                el.dispatchEvent(new MouseEvent('mouseenter', opts));
+                el.dispatchEvent(new PointerEvent('pointerdown', opts));
+                el.dispatchEvent(new MouseEvent('mousedown', opts));
+                el.focus?.();
+                el.dispatchEvent(new PointerEvent('pointerup', opts));
+                el.dispatchEvent(new MouseEvent('mouseup', opts));
+                el.dispatchEvent(new MouseEvent('click', opts));
+                return true;
+            } catch (_) {
+                try { el.click(); return true; } catch { return false; }
+            }
+        }
+
+        // v9.6.4: build atual usa role="row" (não listitem). Linha clicável é o
+        // [data-testid="cell-frame-container"] dentro da row. Comparação por
+        // título normalizado (sem acento, sem case, espaços colapsados).
         function findRowByName(name) {
             const pane = document.querySelector('#pane-side');
             if (!pane) return null;
@@ -4941,76 +4967,86 @@ window.whl_hooks_main = () => {
                 const titleEl = row.querySelector('span[title]');
                 const t = titleEl?.getAttribute('title') || '';
                 if (norm(t) === target) {
-                    // Devolve o cell-frame (clicável real); se não tiver, a row.
                     return row.querySelector('[data-testid="cell-frame-container"]') || row;
                 }
             }
             return null;
         }
 
-        // Rola o pane até achar a linha pelo título. Retorna o elemento clicável.
-        async function scrollUntilFound(name, maxScrolls = 40) {
+        async function scrollUntilFound(name, maxScrolls = 50) {
             const pane = document.querySelector('#pane-side');
             if (!pane) return null;
-            // Volta ao topo pra começar
             pane.scrollTop = 0;
             await sleep(250);
             for (let i = 0; i < maxScrolls; i++) {
                 const hit = findRowByName(name);
-                if (hit) { hit.scrollIntoView({ block: 'center' }); await sleep(120); return hit; }
-                pane.scrollTop += pane.clientHeight * 0.85;
-                await sleep(120);
-                // Chegou ao fim?
-                if (pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 4) {
+                if (hit) { hit.scrollIntoView({ block: 'center' }); await sleep(150); return hit; }
+                const prev = pane.scrollTop;
+                pane.scrollTop += pane.clientHeight * 0.8;
+                await sleep(180);
+                if (pane.scrollTop === prev) {
                     const last = findRowByName(name);
-                    if (last) { last.scrollIntoView({ block: 'center' }); await sleep(120); return last; }
+                    if (last) { last.scrollIntoView({ block: 'center' }); await sleep(150); return last; }
                     break;
                 }
             }
             return null;
         }
 
-        // Clica numa aba/filtro do topo da lista (Tudo / Não lidas / Favoritas /
-        // Grupos). A WA usa role="button" com texto-label dentro.
         async function clickTab(labels) {
-            const candidates = document.querySelectorAll('header [role="button"], [role="tablist"] [role="button"], button');
+            const candidates = document.querySelectorAll(
+                'header [role="button"], [role="tablist"] [role="button"], [role="tab"], button'
+            );
             for (const b of candidates) {
                 const t = norm(b.textContent || b.getAttribute('aria-label') || '');
                 if (labels.some(L => t === norm(L) || t.startsWith(norm(L) + ' '))) {
-                    try { b.click(); await sleep(600); return true; } catch (_) {}
+                    try { humanClick(b); await sleep(600); return true; } catch (_) {}
                 }
             }
             return false;
         }
 
-        // Clica no card "Arquivadas" no topo da lista.
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
-            // O card aparece no topo do pane; o texto contém "Arquivadas".
-            const rows = pane.querySelectorAll('[role="button"], [role="row"]');
-            for (const r of rows) {
-                if (norm(r.textContent).startsWith('arquivadas')) {
-                    try { r.click(); await sleep(600); return true; } catch (_) {}
+            // O card "Arquivadas" fica no topo do pane (acima das linhas de chat).
+            for (const r of pane.querySelectorAll('[role="button"], [role="row"]')) {
+                if (norm(r.textContent).startsWith('arquivadas') ||
+                    norm(r.textContent).startsWith('archived')) {
+                    try { humanClick(r); await sleep(700); return true; } catch (_) {}
                 }
             }
-            // fallback: aria-label
-            const aria = pane.querySelector('[aria-label*="rquivad" i]');
-            if (aria) { try { aria.click(); await sleep(600); return true; } catch (_) {} }
+            const aria = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
+            if (aria) { try { humanClick(aria); await sleep(700); return true; } catch (_) {} }
             return false;
         }
 
         async function backToAllTab() {
-            // Esc fecha "Arquivadas" se entrou; depois clica Tudo pra resetar filtro.
             try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
             await sleep(300);
             await clickTab(['Tudo', 'All']);
         }
 
-        async function clickAndWait(rowEl, name) {
-            if (!rowEl) return false;
-            try { rowEl.click(); } catch (_) { return false; }
-            return await waitOpen(name, 4500);
+        async function clickAndWait(el, name) {
+            if (!el) return false;
+            humanClick(el);
+            return await waitOpen(name, 5000);
+        }
+
+        // v9.6.4: vindo da v6.0.3 que funcionava — se o grupo está arquivado,
+        // desarquiva PRIMEIRO. APIs internas não conseguem abrir chat
+        // arquivado direto.
+        async function maybeUnarchive() {
+            const chat = getChat();
+            if (!chat || chat.archive !== true) return false;
+            if (typeof chat.setArchive !== 'function') return false;
+            try {
+                console.log('[WHL] Grupo arquivado — desarquivando temporariamente');
+                await chat.setArchive(false);
+                await sleep(800);
+                return true;
+            } catch (e) { console.warn('[WHL] setArchive(false) falhou:', e?.message); }
+            return false;
         }
 
         // ===== Estratégia principal =====
@@ -5022,17 +5058,20 @@ window.whl_hooks_main = () => {
             return false;
         }
 
-        // Tentativa 1 — APIs internas (rápidas, raramente funcionam no 2.3000.x).
+        await maybeUnarchive();
+
+        // Tentativa 1 — APIs internas (raramente vinga em 2.3000.x, mas grátis).
         const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
         const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
         const chat = CC?.ChatCollection?.get(groupId);
-        for (const [label, fn] of [
-            ['Cmd.openChatAt',          () => CMD?.openChatAt?.(chat)],
-            ['Cmd.openChat',            () => CMD?.openChat?.(chat)],
-            ['chat.open()',             () => chat?.open?.()],
-            ['CC.setActive',            () => CC?.ChatCollection?.setActive?.(chat)],
-        ]) {
-            if (typeof fn !== 'function') continue;
+        const apiAttempts = [
+            ['Cmd.openChatAt',  () => CMD?.openChatAt?.(chat)],
+            // v6.0.3: combo sendSeen+open destravava chats que openChatAt sozinho não abria
+            ['sendSeen+open',   async () => { try { await chat?.sendSeen?.(); } catch (_) {} return chat?.open?.(); }],
+            ['Cmd.openChat',    () => CMD?.openChat?.(chat)],
+            ['CC.setActive',    () => CC?.ChatCollection?.setActive?.(chat)],
+        ];
+        for (const [label, fn] of apiAttempts) {
             try { await fn(); } catch (_) {}
             if (await waitOpen(groupName, 1500)) {
                 console.log('[WHL] ✅ Chat aberto via', label);
@@ -5040,13 +5079,13 @@ window.whl_hooks_main = () => {
             }
         }
 
-        // Tentativa 2 — aba "Tudo" + rolar até achar pelo nome.
-        console.log('[WHL] Estratégia DOM: aba Tudo + scroll');
+        // Tentativa 2 — DOM: aba "Tudo" + scroll + clique humano.
+        console.log('[WHL] Estratégia DOM: aba Tudo + scroll + clique humano');
         await clickTab(['Tudo', 'All']);
         await sleep(400);
         let hit = await scrollUntilFound(groupName);
         if (hit && await clickAndWait(hit, groupName)) {
-            console.log('[WHL] ✅ Chat aberto via aba Tudo');
+            console.log('[WHL] ✅ Chat aberto via DOM (aba Tudo)');
             return true;
         }
 
@@ -5056,23 +5095,22 @@ window.whl_hooks_main = () => {
             await sleep(400);
             hit = await scrollUntilFound(groupName);
             if (hit && await clickAndWait(hit, groupName)) {
-                console.log('[WHL] ✅ Chat aberto via aba Grupos');
+                console.log('[WHL] ✅ Chat aberto via DOM (aba Grupos)');
                 await backToAllTab();
                 return true;
             }
             await backToAllTab();
         }
 
-        // Tentativa 4 — Arquivadas + scroll.
+        // Tentativa 4 — Arquivadas (caso o setArchive não tenha sucedido).
         console.log('[WHL] Estratégia DOM: Arquivadas + scroll');
         if (await openArchived()) {
             await sleep(400);
             hit = await scrollUntilFound(groupName);
             if (hit && await clickAndWait(hit, groupName)) {
-                console.log('[WHL] ✅ Chat aberto via Arquivadas');
+                console.log('[WHL] ✅ Chat aberto via DOM (Arquivadas)');
                 return true;
             }
-            // Volta da view Arquivadas
             try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
             await sleep(300);
         }
