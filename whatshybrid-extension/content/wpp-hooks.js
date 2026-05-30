@@ -4884,20 +4884,42 @@ window.whl_hooks_main = () => {
     async function abrirChatDoGrupo(groupId) {
         console.log('[WHL] Abrindo chat do grupo:', groupId);
 
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const idCore = String(groupId).replace('@g.us', '').replace('@c.us', '');
+
+        function getChat() {
+            try { return require('WAWebChatCollection')?.ChatCollection?.get(groupId) || null; }
+            catch (_) { return null; }
+        }
+
+        function getGroupName() {
+            const chat = getChat();
+            return (chat?.formattedTitle || chat?.name || chat?.groupMetadata?.subject ||
+                    chat?.contact?.name || '').trim();
+        }
+
+        // v9.6.1: verificação com 3 sinais independentes. O check antigo
+        // (chat.active) sozinho dava falso-negativo em algumas builds (o chat
+        // abria mas a flag não refletia), e o check trivial do header dava
+        // falso-positivo (header existe sempre).
         function verifyOpen() {
+            // Sinal 1: flag autoritativa da WA.
             try {
-                const CC = require('WAWebChatCollection');
-                const chat = CC?.ChatCollection?.get(groupId);
+                const chat = getChat();
                 if (chat && chat.active === true) return true;
-                // Fallback: comparar nome do grupo com o header do chat aberto.
-                const header = document.querySelector('#main header');
-                if (header && chat) {
-                    const expected = (chat?.contact?.name || chat?.formattedTitle || chat?.name || '').trim();
-                    if (expected) {
-                        const titleEl = header.querySelector('span[title]') || header.querySelector('span[dir="auto"]');
-                        const txt = (titleEl?.getAttribute?.('title') || titleEl?.textContent || '').trim();
-                        if (txt && txt === expected) return true;
-                    }
+            } catch (_) {}
+            // Sinal 2: alguma mensagem renderizada no #main carrega o id do grupo.
+            try {
+                if (idCore && document.querySelector(`#main [data-id*="${idCore}"]`)) return true;
+            } catch (_) {}
+            // Sinal 3: título do header bate com o nome do grupo.
+            try {
+                const name = getGroupName();
+                if (name) {
+                    const titleEl = document.querySelector('#main header span[title]') ||
+                                    document.querySelector('#main header span[dir="auto"]');
+                    const txt = (titleEl?.getAttribute?.('title') || titleEl?.textContent || '').trim();
+                    if (txt && txt === name) return true;
                 }
             } catch (_) {}
             return false;
@@ -4906,34 +4928,98 @@ window.whl_hooks_main = () => {
         async function tryAndVerify(label, fn) {
             try {
                 await fn();
-                await new Promise(r => setTimeout(r, 1500));
+                await sleep(1200);
                 if (verifyOpen()) {
                     console.log('[WHL] ✅ Chat aberto via', label);
                     return true;
                 }
-                console.log('[WHL]', label, '— método executou mas chat não está ativo, tentando próximo');
             } catch (e) {
                 console.warn('[WHL]', label, 'lançou:', e?.message);
             }
             return false;
         }
 
+        // Abre digitando o nome na busca lateral e clicando no resultado. É o
+        // caminho mais confiável no WA 2.3000.x (onde Cmd.openChatAt não navega)
+        // e funciona com o grupo em qualquer aba (Tudo / Arquivados / Grupos).
+        async function openViaSearch() {
+            const name = getGroupName();
+            if (!name) { console.warn('[WHL] Sem nome do grupo pra buscar'); return false; }
+
+            const searchSelectors = [
+                '#side div[contenteditable="true"][role="textbox"]',
+                '#side div[contenteditable="true"]',
+                'div[contenteditable="true"][data-tab="3"]',
+                '[data-testid="chat-list-search"]',
+            ];
+            let search = null;
+            for (const s of searchSelectors) { search = document.querySelector(s); if (search) break; }
+            if (!search) { console.warn('[WHL] Campo de busca não encontrado'); return false; }
+
+            const setSearch = (text) => {
+                search.focus();
+                try {
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                } catch (_) {}
+                if (text) {
+                    try { document.execCommand('insertText', false, text); }
+                    catch (_) { search.textContent = text; }
+                }
+                search.dispatchEvent(new InputEvent('input', { bubbles: true }));
+            };
+
+            console.log('[WHL] Buscando grupo por nome:', name);
+            setSearch(name);
+            await sleep(1800);
+
+            const pane = document.querySelector('#pane-side');
+            const clickResult = () => {
+                if (!pane) return false;
+                const items = pane.querySelectorAll('[role="listitem"], [data-testid="cell-frame-container"], div[data-id]');
+                // 1ª passada: casar pelo id do grupo (preciso).
+                for (const item of items) {
+                    const dataId = item.getAttribute('data-id') ||
+                                   item.querySelector('[data-id]')?.getAttribute('data-id') || '';
+                    if (dataId.includes(idCore)) { try { item.click(); return true; } catch (_) {} }
+                }
+                // 2ª passada: casar pelo título exibido (nome do grupo).
+                for (const item of items) {
+                    const titleEl = item.querySelector('span[title]');
+                    const txt = (titleEl?.getAttribute?.('title') || '').trim();
+                    if (txt && txt === name) { try { item.click(); return true; } catch (_) {} }
+                }
+                return false;
+            };
+
+            let clicked = clickResult();
+            if (!clicked) { await sleep(1200); clicked = clickResult(); }
+            await sleep(1500);
+            const ok = verifyOpen();
+
+            // Limpa a busca pra não deixar a lista filtrada (não fecha o chat aberto).
+            try { setSearch(''); search.blur?.(); } catch (_) {}
+
+            if (ok) console.log('[WHL] ✅ Chat aberto via busca');
+            return ok;
+        }
+
         if (verifyOpen()) { console.log('[WHL] Chat já estava aberto'); return true; }
 
-        let CC = null, CMD = null;
-        try { CC = require('WAWebChatCollection'); } catch (_) {}
-        try { CMD = require('WAWebCmd'); } catch (_) {}
+        const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
+        const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
         const chat = CC?.ChatCollection?.get(groupId);
         if (!chat) {
             console.warn('[WHL] Grupo não encontrado na ChatCollection:', groupId);
             return false;
         }
 
+        // Estratégia A — APIs internas (instantâneas quando funcionam).
         if (CMD && typeof CMD.openChatAt === 'function') {
             if (await tryAndVerify('Cmd.openChatAt', () => CMD.openChatAt(chat))) return true;
         }
-        if (CMD && typeof CMD.openChatFromUnread === 'function') {
-            if (await tryAndVerify('Cmd.openChatFromUnread', () => CMD.openChatFromUnread(chat))) return true;
+        if (CMD && typeof CMD.openChat === 'function') {
+            if (await tryAndVerify('Cmd.openChat', () => CMD.openChat(chat))) return true;
         }
         if (typeof chat.open === 'function') {
             if (await tryAndVerify('chat.open()', () => chat.open())) return true;
@@ -4941,38 +5027,31 @@ window.whl_hooks_main = () => {
         if (CC?.ChatCollection?.setActive) {
             if (await tryAndVerify('ChatCollection.setActive', () => CC.ChatCollection.setActive(chat))) return true;
         }
-        if (typeof chat.select === 'function') {
-            if (await tryAndVerify('chat.select()', () => chat.select())) return true;
-        }
-        if (typeof chat.activate === 'function') {
-            if (await tryAndVerify('chat.activate()', () => chat.activate())) return true;
-        }
 
-        // Último recurso: encontrar e clicar no item da sidebar (com scroll pra
-        // forçar render do item virtualizado).
+        // Estratégia B — busca (a confiável nesta build).
+        try { if (await openViaSearch()) return true; } catch (e) { console.warn('[WHL] openViaSearch falhou:', e?.message); }
+
+        // Estratégia C — varrer a sidebar com scroll (último recurso).
         const pane = document.querySelector('#pane-side');
         if (pane) {
-            const prefix = String(groupId).split('@')[0];
             const clickItemByGroupId = () => {
                 const items = pane.querySelectorAll('[role="listitem"], [data-testid="cell-frame-container"], div[data-id]');
                 for (const item of items) {
                     const dataId = item.getAttribute('data-id') ||
                                    item.querySelector('[data-id]')?.getAttribute('data-id') || '';
-                    if (dataId.includes(groupId) || (prefix && dataId.includes(prefix))) {
-                        try { item.click(); return true; } catch (_) {}
-                    }
+                    if (dataId.includes(idCore)) { try { item.click(); return true; } catch (_) {} }
                 }
                 return false;
             };
             if (clickItemByGroupId()) {
-                await new Promise(r => setTimeout(r, 1500));
+                await sleep(1500);
                 if (verifyOpen()) { console.log('[WHL] ✅ Chat aberto via sidebar'); return true; }
             }
             for (let i = 0; i < 30; i++) {
                 pane.scrollTop += 800;
-                await new Promise(r => setTimeout(r, 150));
+                await sleep(150);
                 if (clickItemByGroupId()) {
-                    await new Promise(r => setTimeout(r, 1500));
+                    await sleep(1500);
                     if (verifyOpen()) { console.log('[WHL] ✅ Chat aberto via sidebar (scroll)'); return true; }
                     break;
                 }
