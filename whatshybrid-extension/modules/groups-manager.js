@@ -187,7 +187,15 @@
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Extraindo...'; }
 
     try {
-      const resp = await sendMotor('EXTRACT_GROUP_MEMBERS', { groupId: state.selectedGroupId });
+      // v9.6.2: timeout de 180s no transport. Extrair 200 membros leva mais
+      // que os 30s do default (WhatsAppExtractor rola o modal devagar pra não
+      // perder DOM). O bridge interno (08-recover-ultra-1.js) já aceita 120s;
+      // o wrapper sendToActiveTab também passa a esperar agora.
+      const resp = await sendMotor('EXTRACT_GROUP_MEMBERS', {
+        groupId: state.selectedGroupId,
+        timeoutMs: 170000,   // bridge interno
+        _timeoutMs: 180000,  // transport (sidepanel-router)
+      });
       if (!resp?.success) throw new Error(resp?.error || 'Falha desconhecida na extração');
       state.members = Array.isArray(resp.members) ? resp.members : [];
       if (resp.groupName) state.lastGroupName = resp.groupName;
