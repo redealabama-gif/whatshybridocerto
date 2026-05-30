@@ -1,16 +1,14 @@
 /**
- * WhatsHybrid Pro — Neural Core (seção do cristal em VÍDEO)
- * Vídeo do cristal (em loop) sobre uma seção PRETA full-bleed. O preto do vídeo
- * funde com o preto da seção → parece parte da tela, não um quadrado inserido.
- * As bordas de cima/baixo fazem fade pro fundo do site. Parallax leve no mouse.
- * JS: js/crystal.js. Sem WebGL.
+ * WhatsHybrid Pro — Neural Core (vídeo do cristal + acabamento cinematográfico)
+ * Vídeo em loop sobre seção PRETA full-bleed (funde com o fundo). Por cima:
+ * auras de luz, partículas, grão de filme, vignette, color grading e parallax
+ * (mouse + scroll). JS: js/crystal.js. Sem WebGL/React.
  */
 
 .neural-core-section {
   position: relative;
   z-index: 1;
   padding: clamp(56px, 9vh, 130px) 0;
-  /* preto no miolo (igual ao vídeo) com fade pro fundo do site nas pontas */
   background: linear-gradient(180deg, #030014 0%, #000000 12%, #000000 88%, #030014 100%);
   overflow: hidden;
 }
@@ -31,55 +29,98 @@
   margin-inline: auto;
   will-change: transform;
 }
+
+/* Auras de luz respirando (atrás do vídeo; vazam além das bordas = halo no preto) */
+.ncore-crystal::before,
+.ncore-crystal::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  border-radius: 50%;
+  filter: blur(54px);
+  pointer-events: none;
+}
+.ncore-crystal::before {
+  width: 62%; height: 52%;
+  top: 6%; right: 4%;
+  background: radial-gradient(circle, rgba(95, 150, 255, 0.5) 0%, rgba(120, 90, 255, 0.2) 45%, transparent 72%);
+  animation: ncore-breathe 7s ease-in-out infinite;
+}
+.ncore-crystal::after {
+  width: 52%; height: 42%;
+  bottom: 4%; left: 6%;
+  background: radial-gradient(circle, rgba(255, 110, 30, 0.42) 0%, rgba(255, 60, 20, 0.16) 45%, transparent 72%);
+  animation: ncore-breathe 5.5s ease-in-out infinite 1.2s;
+}
+@keyframes ncore-breathe {
+  0%, 100% { opacity: 0.5; transform: scale(0.92); }
+  50%      { opacity: 0.95; transform: scale(1.08); }
+}
+
 .ncore-video {
+  position: relative;
+  z-index: 2;
   display: block;
   width: 100%;
   height: auto;
-  /* o fundo do vídeo é preto e se funde com a seção preta */
   background: #000;
   pointer-events: none;
-  -webkit-user-select: none;
-  user-select: none;
+  -webkit-user-select: none; user-select: none;
+  /* color grading sutil pra casar com a marca */
+  filter: saturate(1.1) contrast(1.06) brightness(1.03);
+}
+
+/* Partículas (canvas inserido via JS) */
+.ncore-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Grão de filme + vignette por cima do palco (não tocam o texto) */
+.ncore-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: ncore-grain 0.6s steps(2) infinite;
+}
+.ncore-stage::after {
+  content: "";
+  position: absolute;
+  inset: -2%;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 56%, rgba(0, 0, 0, 0.55) 100%);
+}
+@keyframes ncore-grain {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-3%, 2%); }
+  100% { transform: translate(2%, -2%); }
 }
 
 /* —— Texto —— */
-.ncore-copy { max-width: 520px; }
+.ncore-copy { max-width: 520px; position: relative; z-index: 2; }
 .ncore-title {
   font-size: clamp(2.1rem, 4vw, 3.6rem);
-  line-height: 1.04;
-  letter-spacing: -0.025em;
-  margin: 16px 0 20px;
-  text-wrap: balance;
+  line-height: 1.04; letter-spacing: -0.025em;
+  margin: 16px 0 20px; text-wrap: balance;
 }
 .ncore-lead {
   font-size: clamp(1rem, 1.3vw, 1.14rem);
-  line-height: 1.66;
-  margin-bottom: 28px;
-  text-wrap: pretty;
+  line-height: 1.66; margin-bottom: 28px; text-wrap: pretty;
 }
-.ncore-points {
-  list-style: none;
-  margin: 0 0 32px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-.ncore-points li {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  font-size: 0.99rem;
-  color: #c7d2e8;
-}
+.ncore-points { list-style: none; margin: 0 0 32px; padding: 0; display: flex; flex-direction: column; gap: 15px; }
+.ncore-points li { display: flex; align-items: flex-start; gap: 13px; font-size: 0.99rem; color: #c7d2e8; }
 .ncore-points li .nc-ic {
-  flex: none;
-  width: 32px; height: 32px;
-  border-radius: 9px;
-  display: grid; place-items: center;
-  color: var(--brand-cyan);
-  background: rgba(0, 255, 255, 0.07);
-  border: 1px solid rgba(0, 255, 255, 0.26);
+  flex: none; width: 32px; height: 32px; border-radius: 9px;
+  display: grid; place-items: center; color: var(--brand-cyan);
+  background: rgba(0, 255, 255, 0.07); border: 1px solid rgba(0, 255, 255, 0.26);
   box-shadow: 0 0 16px rgba(0, 255, 255, 0.12);
 }
 .ncore-points li .nc-ic svg { width: 17px; height: 17px; }
@@ -95,5 +136,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ncore-crystal { transform: none !important; }
+  .ncore-crystal, .ncore-crystal::before, .ncore-crystal::after { animation: none !important; transform: none !important; }
+  .ncore-stage::before { animation: none !important; }
 }
