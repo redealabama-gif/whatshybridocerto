@@ -324,10 +324,8 @@ h4 { font-size: 1.1rem; font-weight: 600; }
 }
 .logo-mark {
   width: 32px; height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
-  display: flex; align-items: center; justify-content: center;
-  color: black; font-weight: 900;
+  display: block;
+  object-fit: contain;
 }
 .nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
 .nav-links a { color: var(--text-muted); }
