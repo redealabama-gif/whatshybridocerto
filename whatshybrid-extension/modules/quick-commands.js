@@ -517,8 +517,7 @@
 
   // Seleciona TODO o conteúdo do composer (o "/gatilho" digitado) usando a
   // Selection API. Mais confiável que execCommand('selectAll') dentro do editor
-  // Lexical, onde o selectAll às vezes não casa o escopo do contenteditable —
-  // era a causa do "/oi" não ser apagado e virar "/oioi, tudo bem?".
+  // Lexical, onde o selectAll às vezes não casa o escopo do contenteditable.
   function selectAllInField(field) {
     try {
       field.focus();
@@ -531,6 +530,35 @@
     } catch (_) {
       return false;
     }
+  }
+
+  // v9.7.x: usuário pediu — "antes de inserir, apague o que está escrito".
+  // Loop defensivo (3 tentativas de select-all + delete + verificar),
+  // depois força innerHTML='' como última cartada. Cada iteração emite o
+  // input event pro editor Lexical reconciliar o estado interno.
+  async function clearField(field) {
+    if (!field) return false;
+    field.focus();
+    for (let i = 0; i < 3; i++) {
+      selectAllInField(field);
+      try { document.execCommand('delete', false, null); } catch (_) {}
+      try {
+        field.dispatchEvent(new InputEvent('input', {
+          bubbles: true, inputType: 'deleteContentBackward', data: null,
+        }));
+      } catch (_) {
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      await new Promise(r => setTimeout(r, 30));
+      if (!(field.textContent || '').trim()) return true;
+    }
+    // Último recurso — Lexical re-renderiza por cima às vezes, mas a verificação
+    // final em insertionLooksGood pega esse caso.
+    try {
+      field.innerHTML = '';
+      field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    } catch (_) {}
+    return !(field.textContent || '').trim();
   }
 
   // Sucesso = o texto da resposta entrou E o gatilho "/xxx" não sobrou na frente.
@@ -557,34 +585,36 @@
     field.focus();
     await new Promise(r => setTimeout(r, 60));
 
+    // v9.7.x: APAGA TUDO ANTES — não importa o que esteja no campo (gatilho
+    // digitado, texto à frente, etc). O usuário pediu explicitamente: clicou
+    // na sugestão = campo zerado e a resposta entra limpa.
+    await clearField(field);
+
     const text = command.text;
     let success = false;
 
-    // Método 1: seleciona tudo + insertText (a inserção SUBSTITUI a seleção,
-    // então o "/gatilho" some).
+    // Método 1: insertText em campo já vazio.
     try {
-      selectAllInField(field);
       document.execCommand('insertText', false, text);
       field.dispatchEvent(new InputEvent('input', { bubbles: true }));
       if (insertionLooksGood(field, text)) {
-        console.log('[QuickCommands] ✅ Método 1 funcionou (select+insertText)');
+        console.log('[QuickCommands] ✅ Método 1 funcionou (insertText)');
         success = true;
       }
     } catch (e) {
       console.log('[QuickCommands] Método 1 falhou:', e);
     }
 
-    // Método 2: seleciona tudo + delete + insertText (caso o insert não tenha
-    // substituído a seleção em alguma build).
+    // Método 2: defensivo — reapaga e tenta de novo (caso Lexical tenha
+    // reinjetado conteúdo entre o clear e o insert).
     if (!success) {
       try {
-        selectAllInField(field);
-        document.execCommand('delete', false, null);
+        await clearField(field);
         await new Promise(r => setTimeout(r, 30));
         document.execCommand('insertText', false, text);
         field.dispatchEvent(new InputEvent('input', { bubbles: true }));
         if (insertionLooksGood(field, text)) {
-          console.log('[QuickCommands] ✅ Método 2 funcionou (delete+insertText)');
+          console.log('[QuickCommands] ✅ Método 2 funcionou (clear+insertText)');
           success = true;
         }
       } catch (e) {
@@ -592,7 +622,7 @@
       }
     }
 
-    // Método 3: textContent direto (último recurso)
+    // Método 3: textContent direto (último recurso — substitui inteiro).
     if (!success) {
       try {
         field.textContent = text;

@@ -91,8 +91,10 @@
       st.mx += (st.tmx - st.mx) * 0.07;
       st.my += (st.tmy - st.my) * 0.07;
       const sy = st.sc * -26;          // parallax vertical pelo scroll
-      const rot = st.sc * 4;           // leve giro pelo scroll
-      el.style.transform = `translate3d(${st.mx.toFixed(1)}px, ${(st.my + sy).toFixed(1)}px, 0) rotate(${rot.toFixed(2)}deg)`;
+      // v9.7.x: sem rotação. O `rotate(rot)` deixava o container do vídeo em
+      // diagonal quando saía da viewport — visualmente confunde com "vídeo
+      // desalinhado da página". Mantemos só o parallax linear.
+      el.style.transform = `translate3d(${st.mx.toFixed(1)}px, ${(st.my + sy).toFixed(1)}px, 0)`;
       if (Math.abs(st.mx - st.tmx) > 0.1 || Math.abs(st.my - st.tmy) > 0.1) raf = requestAnimationFrame(tick);
       else raf = null;
     }
