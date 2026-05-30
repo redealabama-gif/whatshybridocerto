@@ -103,6 +103,8 @@
   <link rel="stylesheet" href="css/futuristic.css">
   <link rel="stylesheet" href="css/landing-revamp.css">
   <link rel="stylesheet" href="css/landing-fx.css">
+  <link rel="stylesheet" href="css/hero-fx.css">
+  <link rel="stylesheet" href="css/crystal.css">
 
   <!-- Schema.org structured data -->
   <script type="application/ld+json">
@@ -1582,7 +1584,7 @@
   })();
   </script>
 </head>
-<body class="has-cursor">
+<body>
 
 <!-- Scroll progress bar -->
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -1839,17 +1841,40 @@
     <div class="laptop-frame">
       <div class="laptop-screen">
         <video
-          autoplay
           loop
           muted
           playsinline
           preload="metadata"
           aria-label="Demonstração do WhatsHybrid Pro em ação"
+          data-demo-video
+          data-src-mobile="assets/hero-demo-mobile.mp4"
+          data-src-desktop="assets/hero-demo.mp4"
           onerror="this.style.display='none'; this.parentElement.classList.add('no-video');"
-        >
-          <source src="assets/hero-demo-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
-          <source src="assets/hero-demo.mp4" type="video/mp4">
-        </video>
+        ></video>
+        <script>
+        /* Carrega o vídeo de demo só se o arquivo existir — evita request 404
+           quando o asset não está presente (o .laptop-fallback assume o lugar). */
+        (function () {
+          var v = document.currentScript.previousElementSibling;
+          if (!v || !v.hasAttribute('data-demo-video')) return;
+          var url = window.matchMedia('(max-width: 768px)').matches
+            ? v.getAttribute('data-src-mobile')
+            : v.getAttribute('data-src-desktop');
+          if (!url) return;
+          fetch(url, { method: 'HEAD' }).then(function (r) {
+            if (!r.ok) throw 0;
+            var s = document.createElement('source');
+            s.src = url; s.type = 'video/mp4';
+            v.appendChild(s);
+            v.load();
+            v.play().catch(function () {});
+          }).catch(function () {
+            v.style.display = 'none';
+            var p = v.parentElement;
+            if (p) p.classList.add('no-video');
+          });
+        })();
+        </script>
         <div class="laptop-inner laptop-fallback" aria-hidden="true">
           <div class="lf-stripes"></div>
           <div class="lf-label">DEMO · WhatsHybrid Pro em ação</div>
@@ -2363,6 +2388,49 @@
       <p>O exemplo entra no prompt do modelo e a IA passa a repetir a fórmula que funciona com seu cliente. Quanto mais você usa, melhor fica.</p>
     </div>
   </div>
+  </div>
+</section>
+
+<!-- Neural Core — cristal 3D WebGL (quebra o ritmo de texto) -->
+<section class="neural-core-section" id="neural-core" data-screen-label="Núcleo Neural">
+  <div class="container ncore-grid">
+
+    <div class="ncore-stage reveal reveal-zoom" aria-hidden="true">
+      <div class="ncore-crystal" id="neural-core-crystal">
+        <video class="ncore-video" autoplay loop muted playsinline preload="auto" poster="assets/neural-core-crystal.jpg">
+          <source src="assets/neural-core-crystal.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
+
+    <div class="ncore-copy reveal reveal-blur">
+      <span class="section-eyebrow">Núcleo Neural</span>
+      <h2 class="ncore-title">Cada conversa <span class="text-gradient">cristaliza</span> um novo aprendizado</h2>
+      <p class="ncore-lead text-muted">
+        No coração do WhatsHybrid Pro existe um modelo que observa os seus melhores
+        atendimentos e transforma cada fechamento em um padrão validado. Quanto mais
+        você usa, mais afiada — e mais fiel à voz da sua empresa — a IA responde.
+      </p>
+      <ul class="ncore-points">
+        <li>
+          <span class="nc-ic"><i data-lucide="check-circle" aria-hidden="true"></i></span>
+          <span><b>Aprende só com o que dá certo.</b> Padrões graduam após 5+ feedbacks positivos.</span>
+        </li>
+        <li>
+          <span class="nc-ic"><i data-lucide="fingerprint" aria-hidden="true"></i></span>
+          <span><b>Mantém o seu tom.</b> Tom de voz, regras e catálogo viram contexto da IA.</span>
+        </li>
+        <li>
+          <span class="nc-ic"><i data-lucide="trending-up" aria-hidden="true"></i></span>
+          <span><b>Evolui sozinha.</b> A cada semana responde melhor, sem retrabalho seu.</span>
+        </li>
+      </ul>
+      <a href="signup.html" class="btn btn-cyan btn-large" data-cursor="hover" data-magnetic data-magnetic-strength="0.25" data-magnetic-max="12">
+        <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+        Ativar meu núcleo neural
+      </a>
+    </div>
+
   </div>
 </section>
 
@@ -2942,6 +3010,8 @@
 <script src="js/futuristic.js"></script>
 <script src="js/landing-revamp.js" defer></script>
 <script src="js/landing-fx.js" defer></script>
+<script src="js/hero-fx.js" defer></script>
+<script src="js/crystal.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
