@@ -170,24 +170,31 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
   // ========= Messaging =========
   function sendToActiveTab(payload) {
     return new Promise((resolve, reject) => {
-      // v9.4.4 BUG #119: timeout de 30s. Sem isso, content script travado
-      // (DOM mudou, WhatsApp Web em loading state) deixava promise pendente
-      // pra sempre → UI spinner infinito → cliente forçava reload da extensão.
-      const TIMEOUT_MS = 30000;
+      // v9.4.4 BUG #119: timeout p/ a promise não pendurar pra sempre se o
+      // content script travar.
+      // v9.6.2: aceita payload._timeoutMs — operações longas (EXTRACT_GROUP_MEMBERS
+      // extraindo 200 membros leva 1-2min de scroll no modal de info do grupo).
+      // O bridge interno já espera 120s; o wrapper precisa esperar pelo menos
+      // o mesmo, senão a UI cancela a operação que ainda está em curso.
+      const TIMEOUT_MS = Number(payload?._timeoutMs) > 0 ? Number(payload._timeoutMs) : 30000;
       let resolved = false;
       const timeoutId = setTimeout(() => {
         if (resolved) return;
         resolved = true;
-        reject(new Error('Timeout: WhatsApp Web não respondeu em 30s. Recarregue a página.'));
+        reject(new Error(`Timeout: WhatsApp Web não respondeu em ${Math.round(TIMEOUT_MS/1000)}s. Recarregue a página.`));
       }, TIMEOUT_MS);
       const safeResolve = (v) => { if (resolved) return; resolved = true; clearTimeout(timeoutId); resolve(v); };
       const safeReject = (e) => { if (resolved) return; resolved = true; clearTimeout(timeoutId); reject(e); };
 
+      // _timeoutMs é meta do transporte; não envia ao content.
+      const outgoing = { ...payload };
+      delete outgoing._timeoutMs;
+
       chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
         const tab = (tabs || []).find(t => (t.url || '').includes('web.whatsapp.com'));
         if (!tab?.id) return safeReject(new Error('Abra o WhatsApp Web (web.whatsapp.com) e tente novamente.'));
-        console.log('[SidePanel Router] 📤 Sending to tab:', tab.id, payload);
-        chrome.tabs.sendMessage(tab.id, payload, (resp) => {
+        console.log('[SidePanel Router] 📤 Sending to tab:', tab.id, outgoing);
+        chrome.tabs.sendMessage(tab.id, outgoing, (resp) => {
           const err = chrome.runtime.lastError;
           if (err) {
             console.error('[SidePanel Router] ❌ Error sending:', err.message);
