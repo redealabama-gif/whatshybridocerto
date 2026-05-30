@@ -4897,109 +4897,144 @@ window.whl_hooks_main = () => {
                     chat?.contact?.name || '').trim();
         }
 
-        // v9.6.4: usuário diagnosticou que chat.active NUNCA vira true neste WA
-        // build (2.3000.x). O header é o único sinal confiável.
-        function headerTitle() {
-            const el = document.querySelector('#main header span[title]') ||
-                       document.querySelector('#main header span[dir="auto"]');
-            return (el?.getAttribute?.('title') || el?.textContent || '').trim();
-        }
+        // v9.7.x: header é o único sinal confiável neste WA build (2.3000.x).
+        // Múltiplos seletores + comparação por nome normalizado (sem acento/case/
+        // espaço extra) — o usuário comprovou no console que o openChatAt mente
+        // (joga erro mas em alguns casos o header muda).
         const norm = (s) => (s || '').toString()
             .toLowerCase()
             .normalize('NFD').replace(/\p{Diacritic}/gu, '')
             .replace(/\s+/g, ' ').trim();
 
-        function verifyOpen() {
-            const name = getGroupName();
+        function headerMatches(name) {
             if (!name) return false;
-            const t = headerTitle();
-            if (!t) return false;
-            return norm(t) === norm(name);
+            const target = norm(name);
+            const sels = [
+                '#main header span[title]',
+                '#main header span[dir="auto"]',
+                '#main header div[title]',
+                '#main header span',
+            ];
+            for (const sel of sels) {
+                for (const el of document.querySelectorAll(sel)) {
+                    const t = norm(el.getAttribute('title') || el.textContent || '');
+                    if (!t || t.length < 2) continue;
+                    if (t === target) return true;
+                    // Match parcial: header pode incluir "X membros" depois do nome.
+                    if (target.length > 4 && t.startsWith(target)) return true;
+                    if (target.length > 4 && target.includes(t) && t.length > 4) return true;
+                }
+            }
+            return false;
         }
 
-        async function waitOpen(name, timeoutMs = 4000) {
-            const target = norm(name);
+        async function waitHeaderMatches(name, timeoutMs = 4000) {
             const start = Date.now();
             while (Date.now() - start < timeoutMs) {
-                if (norm(headerTitle()) === target) return true;
+                if (headerMatches(name)) return true;
                 await sleep(150);
             }
             return false;
         }
 
-        // v9.6.4: clicar com .click() puro não dispara handlers React/Lexical do
-        // WhatsApp 2.3000.x — o React escuta pointerdown/pointerup, não click.
-        // Simula sequência humana inteira: pointer + mouse + click. Tirado do
-        // padrão usado em quick-commands (mesma raiz: React ignora .click() sem
-        // pointer events em alguns builds).
+        // v9.6.4: handlers React do WA 2.3000.x ignoram .click() puro — só
+        // reagem à sequência pointerover→pointerdown→pointerup→click com
+        // coordenadas. Esse helper foi validado pelo usuário no console:
+        // método "human-click-sidebar" retornou ok=true.
         function humanClick(el) {
             if (!el) return false;
             const r = el.getBoundingClientRect();
             const x = r.left + r.width / 2;
             const y = r.top + r.height / 2;
-            const opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0 };
+            const opts = {
+                bubbles: true, cancelable: true, view: window,
+                clientX: x, clientY: y, screenX: x, screenY: y, button: 0, buttons: 1,
+            };
+            const seq = [
+                ['pointerover',  PointerEvent], ['mouseover',  MouseEvent],
+                ['pointermove',  PointerEvent], ['mousemove',  MouseEvent],
+                ['pointerdown',  PointerEvent], ['mousedown',  MouseEvent],
+                ['pointerup',    PointerEvent], ['mouseup',    MouseEvent],
+                ['click',        MouseEvent],
+            ];
             try {
-                el.dispatchEvent(new PointerEvent('pointerover', opts));
-                el.dispatchEvent(new PointerEvent('pointerenter', opts));
-                el.dispatchEvent(new MouseEvent('mouseover', opts));
-                el.dispatchEvent(new MouseEvent('mouseenter', opts));
-                el.dispatchEvent(new PointerEvent('pointerdown', opts));
-                el.dispatchEvent(new MouseEvent('mousedown', opts));
                 el.focus?.();
-                el.dispatchEvent(new PointerEvent('pointerup', opts));
-                el.dispatchEvent(new MouseEvent('mouseup', opts));
-                el.dispatchEvent(new MouseEvent('click', opts));
+                for (const [type, E] of seq) el.dispatchEvent(new E(type, opts));
                 return true;
             } catch (_) {
                 try { el.click(); return true; } catch { return false; }
             }
         }
 
-        // v9.6.4: build atual usa role="row" (não listitem). Linha clicável é o
-        // [data-testid="cell-frame-container"] dentro da row. Comparação por
-        // título normalizado (sem acento, sem case, espaços colapsados).
-        function findRowByName(name) {
+        // Procura a linha do grupo no #pane-side. Prioridade:
+        // 1) [data-id="<chatId>"] (mais preciso quando WA expõe)
+        // 2) varredura por role=row + casamento de nome (norm)
+        // Devolve o elemento mais clicável encontrado.
+        function findSidebarRow(name) {
+            const target = norm(name);
+            try {
+                const byId = document.querySelector(`[data-id="${CSS.escape(groupId)}"]`);
+                if (byId) return byId.closest('[role="row"], [data-testid="cell-frame-container"]') || byId;
+            } catch (_) {}
             const pane = document.querySelector('#pane-side');
             if (!pane) return null;
-            const target = norm(name);
-            const rows = pane.querySelectorAll('[role="row"]');
+            const rows = pane.querySelectorAll('[role="row"], [data-testid="cell-frame-container"], [role="listitem"]');
             for (const row of rows) {
                 const titleEl = row.querySelector('span[title]');
-                const t = titleEl?.getAttribute('title') || '';
-                if (norm(t) === target) {
-                    return row.querySelector('[data-testid="cell-frame-container"]') || row;
+                const t = norm(titleEl?.getAttribute('title') || titleEl?.textContent || '');
+                if (t === target) {
+                    return row.querySelector('[data-testid="cell-frame-container"]') ||
+                           row.querySelector('[role="gridcell"][tabindex="0"]') || row;
                 }
             }
             return null;
         }
 
-        async function scrollUntilFound(name, maxScrolls = 50) {
+        // Tenta clicar na linha e esperar o header mudar. Devolve true se abriu.
+        async function clickRowAndWait(row, name) {
+            if (!row) return false;
+            humanClick(row);
+            return await waitHeaderMatches(name, 5000);
+        }
+
+        // Rola o pane até a linha aparecer (DEPOIS de já termos confirmado que
+        // ela não está visível). Não mexe no scroll se já achou.
+        async function scrollUntilFound(name, maxScrolls = 60) {
             const pane = document.querySelector('#pane-side');
             if (!pane) return null;
+            // NOTA: NÃO resetamos scrollTop=0 aqui. Se o user já rolou pra um
+            // ponto onde aparece, queremos achar lá. Só se nada aparecer, vamos
+            // do topo (último recurso, no loop abaixo).
+            for (let i = 0; i < maxScrolls; i++) {
+                const hit = findSidebarRow(name);
+                if (hit) { hit.scrollIntoView({ block: 'center' }); await sleep(150); return hit; }
+                const prev = pane.scrollTop;
+                pane.scrollTop += pane.clientHeight * 0.85;
+                await sleep(180);
+                if (pane.scrollTop === prev) break; // chegou no fim
+            }
+            // Tentativa final do topo.
             pane.scrollTop = 0;
             await sleep(250);
             for (let i = 0; i < maxScrolls; i++) {
-                const hit = findRowByName(name);
+                const hit = findSidebarRow(name);
                 if (hit) { hit.scrollIntoView({ block: 'center' }); await sleep(150); return hit; }
                 const prev = pane.scrollTop;
-                pane.scrollTop += pane.clientHeight * 0.8;
+                pane.scrollTop += pane.clientHeight * 0.85;
                 await sleep(180);
-                if (pane.scrollTop === prev) {
-                    const last = findRowByName(name);
-                    if (last) { last.scrollIntoView({ block: 'center' }); await sleep(150); return last; }
-                    break;
-                }
+                if (pane.scrollTop === prev) break;
             }
             return null;
         }
 
         async function clickTab(labels) {
+            const target = labels.map(norm);
             const candidates = document.querySelectorAll(
                 'header [role="button"], [role="tablist"] [role="button"], [role="tab"], button'
             );
             for (const b of candidates) {
                 const t = norm(b.textContent || b.getAttribute('aria-label') || '');
-                if (labels.some(L => t === norm(L) || t.startsWith(norm(L) + ' '))) {
+                if (target.some(L => t === L || t.startsWith(L + ' '))) {
                     try { humanClick(b); await sleep(600); return true; } catch (_) {}
                 }
             }
@@ -5009,10 +5044,9 @@ window.whl_hooks_main = () => {
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
-            // O card "Arquivadas" fica no topo do pane (acima das linhas de chat).
             for (const r of pane.querySelectorAll('[role="button"], [role="row"]')) {
-                if (norm(r.textContent).startsWith('arquivadas') ||
-                    norm(r.textContent).startsWith('archived')) {
+                const t = norm(r.textContent);
+                if (t.startsWith('arquivadas') || t.startsWith('archived')) {
                     try { humanClick(r); await sleep(700); return true; } catch (_) {}
                 }
             }
@@ -5027,15 +5061,6 @@ window.whl_hooks_main = () => {
             await clickTab(['Tudo', 'All']);
         }
 
-        async function clickAndWait(el, name) {
-            if (!el) return false;
-            humanClick(el);
-            return await waitOpen(name, 5000);
-        }
-
-        // v9.6.4: vindo da v6.0.3 que funcionava — se o grupo está arquivado,
-        // desarquiva PRIMEIRO. APIs internas não conseguem abrir chat
-        // arquivado direto.
         async function maybeUnarchive() {
             const chat = getChat();
             if (!chat || chat.archive !== true) return false;
@@ -5050,51 +5075,62 @@ window.whl_hooks_main = () => {
         }
 
         // ===== Estratégia principal =====
-        if (verifyOpen()) { console.log('[WHL] Chat já estava aberto'); return true; }
-
         const groupName = getGroupName();
         if (!groupName) {
             console.warn('[WHL] Grupo não encontrado na ChatCollection:', groupId);
             return false;
         }
+        if (headerMatches(groupName)) { console.log('[WHL] Chat já estava aberto'); return true; }
 
         await maybeUnarchive();
 
-        // Tentativa 1 — APIs internas (raramente vinga em 2.3000.x, mas grátis).
+        // ── ESTRATÉGIA 1: clique direto na linha visível ────────────────────
+        // No teste do usuário (`openChatRobust`), o método `human-click-sidebar`
+        // foi o que abriu — sem precisar de API nem scroll. Esta é a estratégia
+        // principal agora, vem ANTES das APIs (que demoram e falham).
+        let row = findSidebarRow(groupName);
+        if (row && await clickRowAndWait(row, groupName)) {
+            console.log('[WHL] ✅ Chat aberto via clique direto na sidebar');
+            return true;
+        }
+
+        // ── ESTRATÉGIA 2: APIs internas (rápido, raramente vinga em 2.3000.x)
         const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
         const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
         const chat = CC?.ChatCollection?.get(groupId);
+        // Cmd.openChatAt no 2.3000.x explode lendo `.id` de undefined (espera
+        // um message-key como 2º arg). Tentamos com lastReceivedKey quando
+        // disponível; se falhar, ignoramos silenciosamente.
+        const lastMsgKey = chat?.lastReceivedKey || chat?.lastMessageKey || null;
         const apiAttempts = [
-            ['Cmd.openChatAt',  () => CMD?.openChatAt?.(chat)],
-            // v6.0.3: combo sendSeen+open destravava chats que openChatAt sozinho não abria
-            ['sendSeen+open',   async () => { try { await chat?.sendSeen?.(); } catch (_) {} return chat?.open?.(); }],
-            ['Cmd.openChat',    () => CMD?.openChat?.(chat)],
-            ['CC.setActive',    () => CC?.ChatCollection?.setActive?.(chat)],
+            ['Cmd.openChatAt(chat,lastKey)', () => CMD?.openChatAt?.(chat, lastMsgKey)],
+            ['sendSeen+open',                async () => { try { await chat?.sendSeen?.(); } catch (_) {} return chat?.open?.(); }],
+            ['CC.setActive',                 () => CC?.ChatCollection?.setActive?.(chat)],
         ];
         for (const [label, fn] of apiAttempts) {
-            try { await fn(); } catch (_) {}
-            if (await waitOpen(groupName, 1500)) {
+            try { await fn(); } catch (_) { /* erros aqui são esperados */ }
+            if (await waitHeaderMatches(groupName, 1200)) {
                 console.log('[WHL] ✅ Chat aberto via', label);
                 return true;
             }
         }
 
-        // Tentativa 2 — DOM: aba "Tudo" + scroll + clique humano.
-        console.log('[WHL] Estratégia DOM: aba Tudo + scroll + clique humano');
+        // ── ESTRATÉGIA 3: aba Tudo + scroll + clique humano ─────────────────
+        console.log('[WHL] DOM: aba Tudo + scroll + clique humano');
         await clickTab(['Tudo', 'All']);
         await sleep(400);
-        let hit = await scrollUntilFound(groupName);
-        if (hit && await clickAndWait(hit, groupName)) {
-            console.log('[WHL] ✅ Chat aberto via DOM (aba Tudo)');
+        row = await scrollUntilFound(groupName);
+        if (row && await clickRowAndWait(row, groupName)) {
+            console.log('[WHL] ✅ Chat aberto via DOM (aba Tudo + scroll)');
             return true;
         }
 
-        // Tentativa 3 — aba "Grupos" + scroll.
-        console.log('[WHL] Estratégia DOM: aba Grupos + scroll');
+        // ── ESTRATÉGIA 4: aba Grupos + scroll ───────────────────────────────
+        console.log('[WHL] DOM: aba Grupos + scroll');
         if (await clickTab(['Grupos', 'Groups'])) {
             await sleep(400);
-            hit = await scrollUntilFound(groupName);
-            if (hit && await clickAndWait(hit, groupName)) {
+            row = await scrollUntilFound(groupName);
+            if (row && await clickRowAndWait(row, groupName)) {
                 console.log('[WHL] ✅ Chat aberto via DOM (aba Grupos)');
                 await backToAllTab();
                 return true;
@@ -5102,12 +5138,12 @@ window.whl_hooks_main = () => {
             await backToAllTab();
         }
 
-        // Tentativa 4 — Arquivadas (caso o setArchive não tenha sucedido).
-        console.log('[WHL] Estratégia DOM: Arquivadas + scroll');
+        // ── ESTRATÉGIA 5: Arquivadas + scroll (caso setArchive não tenha funcionado)
+        console.log('[WHL] DOM: Arquivadas + scroll');
         if (await openArchived()) {
             await sleep(400);
-            hit = await scrollUntilFound(groupName);
-            if (hit && await clickAndWait(hit, groupName)) {
+            row = await scrollUntilFound(groupName);
+            if (row && await clickRowAndWait(row, groupName)) {
                 console.log('[WHL] ✅ Chat aberto via DOM (Arquivadas)');
                 return true;
             }
