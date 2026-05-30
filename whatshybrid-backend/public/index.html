@@ -1841,40 +1841,17 @@
     <div class="laptop-frame">
       <div class="laptop-screen">
         <video
+          autoplay
           loop
           muted
           playsinline
           preload="metadata"
           aria-label="Demonstração do WhatsHybrid Pro em ação"
-          data-demo-video
-          data-src-mobile="assets/hero-demo-mobile.mp4"
-          data-src-desktop="assets/hero-demo.mp4"
           onerror="this.style.display='none'; this.parentElement.classList.add('no-video');"
-        ></video>
-        <script>
-        /* Carrega o vídeo de demo só se o arquivo existir — evita request 404
-           quando o asset não está presente (o .laptop-fallback assume o lugar). */
-        (function () {
-          var v = document.currentScript.previousElementSibling;
-          if (!v || !v.hasAttribute('data-demo-video')) return;
-          var url = window.matchMedia('(max-width: 768px)').matches
-            ? v.getAttribute('data-src-mobile')
-            : v.getAttribute('data-src-desktop');
-          if (!url) return;
-          fetch(url, { method: 'HEAD' }).then(function (r) {
-            if (!r.ok) throw 0;
-            var s = document.createElement('source');
-            s.src = url; s.type = 'video/mp4';
-            v.appendChild(s);
-            v.load();
-            v.play().catch(function () {});
-          }).catch(function () {
-            v.style.display = 'none';
-            var p = v.parentElement;
-            if (p) p.classList.add('no-video');
-          });
-        })();
-        </script>
+        >
+          <source src="assets/hero-demo-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
+          <source src="assets/hero-demo.mp4" type="video/mp4">
+        </video>
         <div class="laptop-inner laptop-fallback" aria-hidden="true">
           <div class="lf-stripes"></div>
           <div class="lf-label">DEMO · WhatsHybrid Pro em ação</div>

@@ -389,7 +389,8 @@
     }
 
     // —— Tilt em frames grandes não-magnéticos ———————————————
-    makeTilt($('.laptop-frame'), 6);
+    // .laptop-frame ficou de fora: o contexto 3D (perspective + preserve-3d)
+    // pode bloquear o render do <video> de demo dentro de .laptop-screen.
     makeTilt($('.chat-mock'), 5);
     makeTilt($('.dash-mock'), 5);
 
