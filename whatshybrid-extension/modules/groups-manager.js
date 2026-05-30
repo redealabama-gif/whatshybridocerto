@@ -159,13 +159,17 @@
       box.innerHTML = '<div class="sp-muted" style="padding:14px;text-align:center;">Selecione um grupo e clique em "Extrair Membros".</div>';
       return;
     }
-    const previewItems = state.members.slice(0, 200).map(p =>
-      `<div style="padding:4px 8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05);">${escapeHtml(p)}</div>`
-    ).join('');
-    const more = state.members.length > 200
-      ? `<div class="sp-muted" style="padding:8px;text-align:center;font-size:11px;">... e mais ${state.members.length - 200} membros (exporte para ver todos)</div>`
-      : '';
-    box.innerHTML = previewItems + more;
+    // v9.6.0: troca de <div>s não-selecionáveis para textarea — usuário pediu
+    // "um campo com os números extraídos para que eu possa copiar". Textarea
+    // permite seleção (Ctrl+A) + cópia direta sem precisar exportar arquivo.
+    const joined = state.members.join('\n');
+    box.innerHTML = `
+      <textarea id="grp-members-output" class="sp-textarea" readonly
+        style="width:100%;min-height:180px;max-height:300px;font-family:ui-monospace,Menlo,monospace;font-size:12px;"
+        >${escapeHtml(joined)}</textarea>
+      <div class="sp-muted" style="font-size:11px;margin-top:4px;">
+        Clique no campo, Ctrl+A pra selecionar tudo, Ctrl+C pra copiar.
+      </div>`;
   }
 
   async function extractMembers() {
