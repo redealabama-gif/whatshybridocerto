@@ -66,10 +66,11 @@ window.addEventListener('message', (e) => {
       btnLoadGroups.disabled = false;
       btnLoadGroups.textContent = '🔄 Carregar Grupos';
     }
-    
-    alert(`✅ ${groups.length} grupos carregados!`);
+
+    // v9.6.0: removido alert() — a UI nova (GroupsManager) trata o resultado
+    // direto pelo bridge; o alert legado travava o WA quando o usuário clicava OK.
   }
-  
+
   // Erro ao carregar grupos
   if (e.data.type === 'WHL_GROUPS_ERROR') {
     const btnLoadGroups = document.getElementById('whlLoadGroups');
@@ -77,7 +78,7 @@ window.addEventListener('message', (e) => {
       btnLoadGroups.disabled = false;
       btnLoadGroups.textContent = '🔄 Carregar Grupos';
     }
-    alert('Erro ao carregar grupos: ' + e.data.error);
+    // v9.6.0: removido alert() — GroupsManager.loadGroups() já mostra o erro no painel.
   }
   
   // CORREÇÃO BUG 3: Handler para resultado de extração de membros (API e DOM)
@@ -170,30 +171,11 @@ window.addEventListener('message', (e) => {
       if (membersBox) membersBox.value = validMembers.join('\n');
       if (membersCount) membersCount.textContent = validMembers.length;
       
-      // Exibir estatísticas
-      if (e.data.stats) {
-        const { apiDirect, lidResolved, domFallback, duplicates, failed } = e.data.stats;
-        const total = apiDirect + lidResolved + domFallback;
-        
-        const successRate = total + failed > 0 ? Math.round((validMembers.length / (total + failed)) * 100) : 0;
-        
-        alert(
-          `✅ ${validMembers.length} NÚMEROS REAIS extraídos!\n\n` +
-          `📊 ESTATÍSTICAS:\n` +
-          `🔹 Via API: ${apiDirect}\n` +
-          `🔹 LIDs resolvidos: ${lidResolved}\n` +
-          `🔹 Via DOM: ${domFallback}\n` +
-          `♻️ Duplicatas: ${duplicates}\n` +
-          `❌ Falhas: ${failed}\n` +
-          `━━━━━━━━━━━━━━━━━━\n` +
-          `✅ Taxa: ${successRate}%`
-        );
-      } else {
-        alert(`✅ ${validMembers.length} membros extraídos!`);
-      }
+      // v9.6.0: removido alert() de stats — relógio bloqueava o WA. O painel
+      // mostra contagem e progresso de forma não-bloqueante.
     } else {
       console.error('[WHL] ❌ Erro na extração:', e.data);
-      alert('❌ Erro: ' + (e.data.error || 'Desconhecido'));
+      // v9.6.0: removido alert() — erro vai pelo bridge e aparece no painel.
     }
   }
   
@@ -221,14 +203,14 @@ window.addEventListener('message', (e) => {
         groupMembersCount.textContent = phoneNumbers.length;
       }
       
-      alert(`✅ ${phoneNumbers.length} membros extraídos do grupo "${groupName}"!`);
+      // v9.6.0: removido alert() — UI nova mostra contagem no painel.
       console.log('[WHL] Membros extraídos:', contacts);
     } else {
-      alert('❌ Erro ao extrair membros: ' + (error || 'Erro desconhecido'));
+      // v9.6.0: removido alert() — erro chega via bridge ao painel.
       console.error('[WHL] Erro na extração:', error);
     }
   }
-  
+
   // ERRO ao extrair membros via DOM
   if (e.data.type === 'WHL_EXTRACT_GROUP_CONTACTS_DOM_ERROR') {
     const btnExtractGroupMembers = document.getElementById('whlExtractGroupMembers');
@@ -236,9 +218,9 @@ window.addEventListener('message', (e) => {
       btnExtractGroupMembers.disabled = false;
       btnExtractGroupMembers.textContent = '📥 Extrair Contatos';
     }
-    alert('❌ Erro ao extrair membros: ' + e.data.error);
+    // v9.6.0: removido alert().
   }
-  
+
   // Erro ao extrair membros
   if (e.data.type === 'WHL_GROUP_MEMBERS_ERROR') {
     const btnExtractGroupMembers = document.getElementById('whlExtractGroupMembers');
@@ -246,7 +228,7 @@ window.addEventListener('message', (e) => {
       btnExtractGroupMembers.disabled = false;
       btnExtractGroupMembers.textContent = '📥 Extrair Contatos';
     }
-    alert('Erro ao extrair membros: ' + e.data.error);
+    // v9.6.0: removido alert().
   }
   
   // ===== LISTENERS PARA EXTRAÇÃO INSTANTÂNEA =====
@@ -335,9 +317,9 @@ window.addEventListener('message', (e) => {
       });
       
       console.log(`[WHL] ${groups.length} grupos carregados`);
-      alert(`✅ ${groups.length} grupos carregados!`);
+      // v9.6.0: removido alert() — UI nova (GroupsManager) atualiza o painel direto.
     } else if (!e.data.success) {
-      alert('Erro ao carregar grupos: ' + (e.data.error || 'Desconhecido'));
+      // v9.6.0: removido alert() — bridge devolve o erro pro painel.
     }
   }
   

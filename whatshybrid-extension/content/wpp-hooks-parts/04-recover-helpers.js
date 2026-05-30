@@ -2,72 +2,12 @@
  * @file content/wpp-hooks-parts/04-recover-helpers.js
  * @description Slice 4501-5778 do wpp-hooks.js (refactor v9)
  * @lines 1278
+ *
+ * v9.6.0: o tail de `abrirChatDoGrupo` (métodos 4-5) vivia aqui órfão. A
+ * função foi reescrita por inteiro em 03-message-handlers.js (com verificação
+ * por método). Esse arquivo agora começa direto em `extractGroupMembers`.
  */
 
-                const CC = require('WAWebChatCollection');
-                const chat = CC?.ChatCollection?.get(groupId);
-                
-                if (chat) {
-                    // Alguns builds têm select() ou activate()
-                    if (typeof chat.select === 'function') {
-                        await chat.select();
-                        await new Promise(r => setTimeout(r, 2000));
-                        return true;
-                    }
-                    
-                    if (typeof chat.activate === 'function') {
-                        await chat.activate();
-                        await new Promise(r => setTimeout(r, 2000));
-                        return true;
-                    }
-                }
-            } catch (e) {
-                console.warn('[WHL] Model methods failed:', e.message);
-            }
-            
-            // Método 5: Fallback - buscar na sidebar (último recurso)
-            console.log('[WHL] Tentando fallback: busca na sidebar...');
-            const chatList = document.querySelector('#pane-side');
-            if (chatList) {
-                const allItems = chatList.querySelectorAll('[role="listitem"], [data-testid="cell-frame-container"]');
-                const groupIdPrefix = groupId.split('@')[0];
-                
-                for (const item of allItems) {
-                    const dataId = item.getAttribute('data-id') || '';
-                    if (dataId.includes(groupId) || dataId.includes(groupIdPrefix)) {
-                        console.log('[WHL] Grupo encontrado na sidebar, clicando...');
-                        item.click();
-                        await new Promise(r => setTimeout(r, 2000));
-                        return true;
-                    }
-                }
-                
-                // Tentar scroll na sidebar para encontrar o grupo
-                for (let i = 0; i < 10; i++) {
-                    chatList.scrollTop += 500;
-                    await new Promise(r => setTimeout(r, 300));
-                    
-                    const items = chatList.querySelectorAll('[role="listitem"], [data-testid="cell-frame-container"]');
-                    for (const item of items) {
-                        const dataId = item.getAttribute('data-id') || '';
-                        if (dataId.includes(groupId) || dataId.includes(groupIdPrefix)) {
-                            console.log('[WHL] Grupo encontrado após scroll, clicando...');
-                            item.click();
-                            await new Promise(r => setTimeout(r, 2000));
-                            return true;
-                        }
-                    }
-                }
-            }
-            
-        } catch (e) {
-            console.error('[WHL] Erro ao abrir chat:', e.message);
-        }
-        
-        console.warn('[WHL] Não foi possível abrir o chat do grupo');
-        return false;
-    }
-    
     /**
      * MANTER FUNÇÃO ANTIGA PARA COMPATIBILIDADE
      */
