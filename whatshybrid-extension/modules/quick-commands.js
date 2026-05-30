@@ -41,6 +41,7 @@
   let inputField = null;
   let inputObserver = null;
   let focusinAttached = false;
+  let outsideHandler = null;
 
   // ============================================================
   // INICIALIZAÇÃO
@@ -172,14 +173,13 @@
       inputObserver = null;
     }
     inputObserver = new MutationObserver(() => {
-      // Se o inputField atual saiu do DOM, descarta.
-      if (inputField && !document.contains(inputField)) {
-        inputField = null;
-      }
+      // Só re-localiza se perdemos o campo (saiu do DOM). Não rouba o listener
+      // de um campo válido só porque um seletor casou outro contenteditable —
+      // isso fazia o handleInput parar de disparar no campo real. O focusin
+      // cobre o caso de o usuário focar um composer novo.
+      if (inputField && document.contains(inputField)) return;
       const candidate = findComposerInput();
-      if (candidate && candidate !== inputField) {
-        attachInputListeners(candidate);
-      }
+      if (candidate) attachInputListeners(candidate);
     });
     inputObserver.observe(document.body, { childList: true, subtree: true });
   }
@@ -209,13 +209,19 @@
   }
 
   function handleInput(e) {
-    const text = inputField.textContent || '';
+    // Lê do alvo real do evento — `inputField` pode estar stale se o Lexical
+    // recriou a div. Isso garante que, ao apagar o "/oi", o texto vazio seja
+    // detectado e o dropdown feche.
+    const field = (e && e.target && e.target.nodeType === 1) ? e.target : inputField;
+    if (field && field !== inputField && isComposerInput(field)) inputField = field;
+    const text = (field?.textContent || '').trim();
 
     // Detectar se começou com /
     if (text.startsWith('/')) {
       const query = text.slice(1).toLowerCase();
       showSuggestions(query);
-    } else if (state.isActive) {
+    } else {
+      // Qualquer coisa que não comece com / fecha o dropdown (incl. campo vazio).
       hideSuggestions();
     }
   }
@@ -288,7 +294,7 @@
     dropdown.id = 'whl-quick-commands-dropdown';
     dropdown.className = 'whl-qc-dropdown';
 
-    dropdown.innerHTML = state.currentMatches.map((cmd, index) => `
+    const itemsHtml = state.currentMatches.map((cmd, index) => `
       <div class="whl-qc-item ${index === state.selectedIndex ? 'selected' : ''}" data-index="${index}">
         <span class="whl-qc-emoji">${cmd.emoji}</span>
         <div class="whl-qc-content">
@@ -299,9 +305,26 @@
       </div>
     `).join('');
 
-    // Event listeners
+    dropdown.innerHTML = `
+      <div class="whl-qc-header">
+        <span class="whl-qc-header-label">⚡ Resposta Rápida</span>
+        <button class="whl-qc-close" type="button" title="Fechar (Esc)">✕</button>
+      </div>
+      <div class="whl-qc-items">${itemsHtml}</div>
+    `;
+
+    // Botão ✕ fecha o dropdown sem inserir nada.
+    dropdown.querySelector('.whl-qc-close')?.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();   // não tira o foco do composer
+      ev.stopPropagation();
+      hideSuggestions();
+    });
+
+    // Event listeners dos itens
     dropdown.querySelectorAll('.whl-qc-item').forEach((item, index) => {
-      item.addEventListener('click', () => {
+      // mousedown + preventDefault: clicar não desfoca o composer antes do insert
+      item.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
         insertCommand(state.currentMatches[index]);
       });
 
@@ -332,8 +355,53 @@
           border: 1px solid rgba(139, 92, 246, 0.3);
           border-radius: 12px;
           box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-          overflow-y: auto;
+          overflow: hidden;
           backdrop-filter: blur(20px);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .whl-qc-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          flex: 0 0 auto;
+        }
+
+        .whl-qc-header-label {
+          color: rgba(255,255,255,0.6);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+          text-transform: uppercase;
+        }
+
+        .whl-qc-close {
+          background: rgba(255,255,255,0.08);
+          border: none;
+          color: rgba(255,255,255,0.7);
+          width: 22px;
+          height: 22px;
+          border-radius: 6px;
+          font-size: 12px;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
+        }
+
+        .whl-qc-close:hover {
+          background: rgba(248, 113, 113, 0.25);
+          color: #fff;
+        }
+
+        .whl-qc-items {
+          overflow-y: auto;
+          max-height: 340px;
         }
 
         .whl-qc-item {
@@ -387,6 +455,17 @@
     }
 
     document.body.appendChild(dropdown);
+
+    // Fecha ao clicar fora (mas não no próprio dropdown nem no composer, pra não
+    // brigar com o insert e com a edição do "/gatilho").
+    if (outsideHandler) document.removeEventListener('mousedown', outsideHandler, true);
+    outsideHandler = (ev) => {
+      const t = ev.target;
+      if (dropdown && dropdown.contains(t)) return;
+      if (inputField && inputField.contains(t)) return;
+      hideSuggestions();
+    };
+    document.addEventListener('mousedown', outsideHandler, true);
   }
 
   function updateSelection() {
@@ -425,62 +504,87 @@
       dropdown.remove();
       dropdown = null;
     }
+
+    if (outsideHandler) {
+      document.removeEventListener('mousedown', outsideHandler, true);
+      outsideHandler = null;
+    }
   }
 
   // ============================================================
   // INSERÇÃO DE COMANDO (ATUALIZADO 2024/2025)
   // ============================================================
 
+  // Seleciona TODO o conteúdo do composer (o "/gatilho" digitado) usando a
+  // Selection API. Mais confiável que execCommand('selectAll') dentro do editor
+  // Lexical, onde o selectAll às vezes não casa o escopo do contenteditable —
+  // era a causa do "/oi" não ser apagado e virar "/oioi, tudo bem?".
+  function selectAllInField(field) {
+    try {
+      field.focus();
+      const range = document.createRange();
+      range.selectNodeContents(field);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Sucesso = o texto da resposta entrou E o gatilho "/xxx" não sobrou na frente.
+  function insertionLooksGood(field, text) {
+    const inserted = (field.textContent || field.innerText || '').trim();
+    if (!inserted) return false;
+    if (inserted.startsWith('/')) return false; // gatilho não foi substituído
+    return inserted.includes(text.slice(0, Math.min(20, text.length)).trim());
+  }
+
   async function insertCommand(command) {
-    if (!inputField || !command) return;
+    if (!command) return;
+
+    // Resolve o campo real: prioriza o composer focado, cai pra ref guardada,
+    // depois busca de novo. Evita inserir num campo stale.
+    let field = (document.activeElement && isComposerInput(document.activeElement))
+      ? document.activeElement
+      : (inputField && document.contains(inputField) ? inputField : findComposerInput());
+    if (!field) { hideSuggestions(); return; }
+    inputField = field;
 
     console.log('[QuickCommands] Inserindo comando:', command.trigger);
 
-    // Focar no campo
-    inputField.focus();
-    await new Promise(r => setTimeout(r, 100));
-
-    // Limpar campo existente
-    try {
-      document.execCommand('selectAll', false, null);
-      document.execCommand('delete', false, null);
-      await new Promise(r => setTimeout(r, 50));
-    } catch (_) {
-      inputField.textContent = '';
-      inputField.innerHTML = '';
-    }
+    field.focus();
+    await new Promise(r => setTimeout(r, 60));
 
     const text = command.text;
     let success = false;
 
-    // Método 1: execCommand (mais compatível)
+    // Método 1: seleciona tudo + insertText (a inserção SUBSTITUI a seleção,
+    // então o "/gatilho" some).
     try {
+      selectAllInField(field);
       document.execCommand('insertText', false, text);
-      inputField.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      
-      const inserted = inputField.textContent || inputField.innerText || '';
-      if (inserted.includes(text.slice(0, Math.min(20, text.length)))) {
-        console.log('[QuickCommands] ✅ Método 1 funcionou (execCommand)');
+      field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      if (insertionLooksGood(field, text)) {
+        console.log('[QuickCommands] ✅ Método 1 funcionou (select+insertText)');
         success = true;
       }
     } catch (e) {
       console.log('[QuickCommands] Método 1 falhou:', e);
     }
 
-    // Método 2: Clipboard API (fallback)
+    // Método 2: seleciona tudo + delete + insertText (caso o insert não tenha
+    // substituído a seleção em alguma build).
     if (!success) {
       try {
-        inputField.textContent = '';
-        await new Promise(r => setTimeout(r, 50));
-        
-        await navigator.clipboard.writeText(text);
-        document.execCommand('paste');
-        inputField.dispatchEvent(new InputEvent('input', { bubbles: true }));
-        await new Promise(r => setTimeout(r, 100));
-        
-        const inserted = inputField.textContent || inputField.innerText || '';
-        if (inserted.includes(text.slice(0, Math.min(20, text.length)))) {
-          console.log('[QuickCommands] ✅ Método 2 funcionou (Clipboard)');
+        selectAllInField(field);
+        document.execCommand('delete', false, null);
+        await new Promise(r => setTimeout(r, 30));
+        document.execCommand('insertText', false, text);
+        field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        if (insertionLooksGood(field, text)) {
+          console.log('[QuickCommands] ✅ Método 2 funcionou (delete+insertText)');
           success = true;
         }
       } catch (e) {
@@ -491,9 +595,9 @@
     // Método 3: textContent direto (último recurso)
     if (!success) {
       try {
-        inputField.textContent = text;
-        inputField.dispatchEvent(new InputEvent('input', { bubbles: true }));
-        inputField.dispatchEvent(new Event('change', { bubbles: true }));
+        field.textContent = text;
+        field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
         console.log('[QuickCommands] ✅ Método 3 aplicado (textContent)');
         success = true;
       } catch (e) {
