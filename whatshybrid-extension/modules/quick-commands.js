@@ -52,6 +52,7 @@
     console.log('[QuickCommands] ⚡ Inicializando...');
 
     await loadCommands();
+    setupStorageSync();
     setupInputMonitoring();
 
     state.initialized = true;
@@ -78,6 +79,26 @@
       await chrome.storage.local.set({ [STORAGE_KEY]: state.commands });
     } catch (e) {
       console.error('[QuickCommands] Erro ao salvar comandos:', e);
+    }
+  }
+
+  // O módulo roda em DOIS contextos isolados (content script da página do WA +
+  // página interna do side panel). Cada um tem seu próprio `state.commands` em
+  // memória. Sem isso aqui, comandos cadastrados pelo side panel ficavam invi-
+  // síveis pro listener do `/` na página do WA — `handleInput` filtrava lista
+  // vazia e o dropdown nunca abria.
+  function setupStorageSync() {
+    try {
+      if (!chrome?.storage?.onChanged) return;
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (!changes[STORAGE_KEY]) return;
+        const next = changes[STORAGE_KEY].newValue;
+        state.commands = Array.isArray(next) ? next : [];
+        console.log('[QuickCommands] 🔄 Lista sincronizada:', state.commands.length, 'comandos');
+      });
+    } catch (e) {
+      console.warn('[QuickCommands] storage.onChanged indisponível:', e);
     }
   }
 
