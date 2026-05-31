@@ -284,7 +284,10 @@ class EmbeddingProvider {
 
   _getFromCache(key) {
     if (!this.cache.has(key)) return undefined;
-    const value = this._getFromCache(key);
+    // BUG FIX: antes chamava `this._getFromCache(key)` (recursão infinita →
+    // stack overflow em TODO cache hit, derrubando o request). O correto é ler
+    // do Map subjacente.
+    const value = this.cache.get(key);
     // CORREÇÃO P3: Mover para o final do Map para marcar como recently used
     this.cache.delete(key);
     this.cache.set(key, value);

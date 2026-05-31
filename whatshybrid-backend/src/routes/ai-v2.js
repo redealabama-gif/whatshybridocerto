@@ -507,10 +507,20 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
   // Redis ausente   → chamada direta (dev local sem Redis)
   let result;
   let usedQueue = false;
+  // Com REDIS_DISABLED=true não há worker consumindo a fila: enfileirar só
+  // levaria ao timeout de 28s antes do fallback. Pula direto pro modo síncrono.
+  const redisDisabled = process.env.REDIS_DISABLED === 'true';
   try {
-    const { queues, QUEUES } = require('../jobs/ai-worker');
+    if (redisDisabled) throw new Error('redis disabled — sync path');
+    const { queues, queueEvents, QUEUES } = require('../jobs/ai-worker');
     const realtimeQueue = queues?.[QUEUES?.REALTIME];
-    if (realtimeQueue) {
+    const realtimeEvents = queueEvents?.[QUEUES?.REALTIME];
+    // Só usa a fila se TAMBÉM houver QueueEvents compartilhado pra essa fila.
+    // CORREÇÃO CRÍTICA DE ESCALA: antes criávamos `new QueueEvents()` por
+    // request — cada um abre uma conexão Redis (blocking) que nunca fechava.
+    // Sob carga, vazava conexões até estourar o maxclients do Redis e derrubar
+    // IA + rate-limiting juntos. Agora reusamos a instância única do worker.
+    if (realtimeQueue && realtimeEvents) {
       const job = await realtimeQueue.add('process', {
         tenantId, chatId, message,
         language: language || 'pt-BR',
@@ -518,10 +528,7 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
         persona: safePersona,
         workspaceConfig,
       }, { priority: 1 });
-      const queueEvents = realtimeQueue.events || new (require('bullmq').QueueEvents)(QUEUES.REALTIME, {
-        connection: realtimeQueue.opts?.connection,
-      });
-      result = await job.waitUntilFinished(queueEvents, 28000);
+      result = await job.waitUntilFinished(realtimeEvents, 28000);
       usedQueue = true;
     }
   } catch (_queueErr) {
