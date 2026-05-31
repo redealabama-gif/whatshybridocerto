@@ -15,7 +15,14 @@ class BaseProvider {
     this.models = [];
     this.defaultModel = null;
     this.maxRetries = config.maxRetries || 3;
-    this.timeout = config.timeout || 60000;
+    // Timeout por chamada ao provider de LLM. Default 40s (era 60s).
+    // RAZÃO: este timeout precisa ser MENOR que o tempo que a rota espera o
+    // job da fila (AI_QUEUE_WAIT_MS, 45s) que por sua vez é menor que o
+    // timeout do proxy Caddy (50s). Cadeia: provider(40) < fila(45) < proxy(50).
+    // Antes era 60s — maior que tudo — então respostas lentas eram cortadas
+    // pelas camadas externas mesmo com a IA ainda processando, e o cliente via
+    // erro à toa. Override via AI_PROVIDER_TIMEOUT_MS.
+    this.timeout = config.timeout || parseInt(process.env.AI_PROVIDER_TIMEOUT_MS, 10) || 40000;
     
     // Circuit breaker state
     this.circuitState = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN

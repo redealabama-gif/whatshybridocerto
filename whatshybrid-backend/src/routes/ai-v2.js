@@ -528,7 +528,14 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
         persona: safePersona,
         workspaceConfig,
       }, { priority: 1 });
-      result = await job.waitUntilFinished(realtimeEvents, 28000);
+      // Espera o worker terminar o job. Default 45s — DEVE ser:
+      //   > AI_PROVIDER_TIMEOUT_MS (40s, timeout interno do LLM) pra não
+      //     desistir enquanto a IA ainda processa, E
+      //   < response_header_timeout do Caddy (50s) pra o proxy não cortar
+      //     antes de a gente responder.
+      // Cadeia: provider(40s) < fila(45s) < proxy(50s). Override via env.
+      const queueWaitMs = parseInt(process.env.AI_QUEUE_WAIT_MS, 10) || 45000;
+      result = await job.waitUntilFinished(realtimeEvents, queueWaitMs);
       usedQueue = true;
     }
   } catch (_queueErr) {
