@@ -4976,18 +4976,22 @@ window.whl_hooks_main = () => {
                 const byId = document.querySelector(`[data-id="${CSS.escape(groupId)}"]`);
                 if (byId) return byId.closest('[role="row"], [data-testid="cell-frame-container"]') || byId;
             } catch (_) {}
-            const pane = document.querySelector('#pane-side');
-            if (!pane) return null;
-            const rows = pane.querySelectorAll('[role="row"], [data-testid="cell-frame-container"], [role="listitem"]');
-            for (const row of rows) {
-                const titleEl = row.querySelector('span[title]');
-                const t = norm(titleEl?.getAttribute('title') || titleEl?.textContent || '');
-                if (t === target) {
-                    return row.querySelector('[data-testid="cell-frame-container"]') ||
-                           row.querySelector('[role="gridcell"][tabindex="0"]') || row;
+            const pick = (root) => {
+                if (!root) return null;
+                const rows = root.querySelectorAll('[role="row"], [data-testid="cell-frame-container"], [role="listitem"]');
+                for (const row of rows) {
+                    const titleEl = row.querySelector('span[title]');
+                    const t = norm(titleEl?.getAttribute('title') || titleEl?.textContent || '');
+                    if (t === target) {
+                        return row.querySelector('[data-testid="cell-frame-container"]') ||
+                               row.querySelector('[role="gridcell"][tabindex="0"]') || row;
+                    }
                 }
-            }
-            return null;
+                return null;
+            };
+            // Try #pane-side first; fall back to #side (covers archived-view overlay panels)
+            return pick(document.querySelector('#pane-side')) ||
+                   pick(document.querySelector('#side'));
         }
 
         // Tenta clicar na linha e esperar o header mudar. Devolve true se abriu.
@@ -5063,12 +5067,26 @@ window.whl_hooks_main = () => {
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
+
+            // Polls for "Voltar"/"Back" button that confirms archived view activated
+            const waitActivated = async () => {
+                for (let i = 0; i < 25; i++) {
+                    await sleep(100);
+                    if (document.querySelector('[aria-label*="Voltar" i], [aria-label*="Back" i]')) return true;
+                }
+                return false;
+            };
+
             // v9.7.x: 1ª tentativa é aria-label limpo ("Arquivadas " no diagnóstico).
             // O textContent vem com prefixo "archive-refreshed" do span de ícone,
             // então startsWith('arquivad') falhava.
             const ariaBtn = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
             if (ariaBtn) {
-                try { humanClick(ariaBtn); await sleep(700); return true; } catch (_) {}
+                try {
+                    humanClick(ariaBtn);
+                    await waitActivated();
+                    return true;
+                } catch (_) {}
             }
             // 2ª tentativa: scan por textContent incluindo "arquivad" e usando
             // BUTTON nativo (que não casava com [role="button"]).
@@ -5076,7 +5094,11 @@ window.whl_hooks_main = () => {
             for (const r of all) {
                 const t = norm(r.textContent);
                 if (t.includes('arquivad') || t.includes('archived')) {
-                    try { humanClick(r); await sleep(700); return true; } catch (_) {}
+                    try {
+                        humanClick(r);
+                        await waitActivated();
+                        return true;
+                    } catch (_) {}
                 }
             }
             return false;
@@ -5091,13 +5113,50 @@ window.whl_hooks_main = () => {
         async function maybeUnarchive() {
             const chat = getChat();
             if (!chat || chat.archive !== true) return false;
-            if (typeof chat.setArchive !== 'function') return false;
-            try {
-                console.log('[WHL] Grupo arquivado — desarquivando temporariamente');
-                await chat.setArchive(false);
-                await sleep(800);
-                return true;
-            } catch (e) { console.warn('[WHL] setArchive(false) falhou:', e?.message); }
+
+            // Tenta múltiplos caminhos de desarquivar (a WA 2.3000.x removeu
+            // chat.setArchive; precisamos descobrir o substituto em runtime).
+            const attempts = [
+                ['WPP.chat.archive', async () => {
+                    if (!window.WPP?.chat?.archive) throw new Error('WPP.chat.archive ausente');
+                    return await window.WPP.chat.archive(groupId, false);
+                }],
+                ['WAWebArchiveChatAction', async () => {
+                    const M = require('WAWebArchiveChatAction');
+                    const fn = M?.sendArchiveChatAction || M?.default?.sendArchiveChatAction || M?.archiveChatAction;
+                    if (!fn) throw new Error('sendArchiveChatAction ausente');
+                    return await fn(chat, false);
+                }],
+                ['WAWebChatArchiveAction', async () => {
+                    const M = require('WAWebChatArchiveAction');
+                    const fn = M?.archiveChat || M?.default?.archiveChat || M?.setArchive;
+                    if (!fn) throw new Error('archiveChat ausente');
+                    return await fn(chat, false);
+                }],
+                ['Cmd.archiveChat', async () => {
+                    const CMD = require('WAWebCmd');
+                    const fn = CMD?.Cmd?.archiveChat || CMD?.default?.Cmd?.archiveChat;
+                    if (!fn) throw new Error('Cmd.archiveChat ausente');
+                    return await fn(chat, false);
+                }],
+                ['chat.setArchive(false)', async () => {
+                    if (typeof chat.setArchive !== 'function') throw new Error('chat.setArchive ausente');
+                    return await chat.setArchive(false);
+                }],
+            ];
+            for (const [label, fn] of attempts) {
+                try {
+                    console.log('[WHL] Desarquivar via', label);
+                    await fn();
+                    await sleep(800);
+                    if (chat.archive !== true) {
+                        console.log('[WHL] ✅ Chat desarquivado via', label);
+                        return true;
+                    }
+                } catch (e) {
+                    console.log('[WHL]', label, 'falhou:', e?.message);
+                }
+            }
             return false;
         }
 
@@ -5109,36 +5168,62 @@ window.whl_hooks_main = () => {
         }
         if (headerMatches(groupName)) { console.log('[WHL] Chat já estava aberto'); return true; }
 
+        // ── ESTRATÉGIA 0: WPP.chat.open (funciona mesmo com chats arquivados) ──
+        if (window.WPP?.chat?.open) {
+            try {
+                console.log('[WHL] Tentando WPP.chat.open para:', groupId);
+                await window.WPP.chat.open(groupId);
+                if (await waitHeaderMatches(groupName, 3000)) {
+                    console.log('[WHL] ✅ Chat aberto via WPP.chat.open');
+                    return true;
+                }
+            } catch (e) {
+                console.warn('[WHL] WPP.chat.open falhou:', e?.message);
+            }
+        }
+
         const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
         const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
         const chat = CC?.ChatCollection?.get(groupId);
         const isArchived = chat?.archive === true;
 
-        // ── CASO ARQUIVADO: abre a view "Arquivadas" e clica lá DENTRO ───────
-        // Caminho limpo — NÃO desarquiva o grupo (sem efeito colateral no estado
-        // do usuário). Roda antes de tudo quando detectamos archive=true.
+        // ── CASO ARQUIVADO ───────────────────────────────────────────────────
+        // v9.7.x: PR #189 tentava abrir via view Arquivadas SEM desarquivar para
+        // não mexer no estado do usuário, mas em WA 2.3000.x o clique sintético
+        // no botão Arquivadas mostra o cabeçalho mas NÃO popula a lista de chats
+        // (problema React/virtualização). Voltamos à estratégia da v6.0.3 que
+        // funcionava: DESARQUIVAR primeiro, abrir depois. Trade-off aceito: o
+        // grupo fica desarquivado (mesmo comportamento da extensão antes do
+        // refactor que removeu Grupos no PR #13).
         if (isArchived) {
-            console.log('[WHL] Grupo está arquivado — abrindo via view Arquivadas');
+            console.log('[WHL] Grupo arquivado — desarquivando para abrir (estratégia v6.0.3)');
+            if (await maybeUnarchive()) {
+                await sleep(600);
+                let uRow = findSidebarRow(groupName) || await scrollUntilFound(groupName);
+                if (uRow && await clickRowAndWait(uRow, groupName)) {
+                    console.log('[WHL] ✅ Chat aberto após desarquivar');
+                    return true;
+                }
+                // Mesmo se o clique não confirmou, tenta APIs (chat agora não-arquivado)
+                const lastKey2 = chat?.lastReceivedKey || chat?.lastMessageKey || null;
+                try { await CMD?.openChatAt?.(chat, lastKey2); } catch (_) {}
+                if (await waitHeaderMatches(groupName, 1500)) {
+                    console.log('[WHL] ✅ Chat aberto via Cmd.openChatAt após desarquivar');
+                    return true;
+                }
+            }
+            // Fallback: tenta o caminho da view Arquivadas (raro funcionar em 2.3000.x)
+            console.log('[WHL] Desarquivar falhou — tentando view Arquivadas como fallback');
             if (await openArchived()) {
-                await sleep(500);
+                await sleep(1200);
                 let aRow = await scrollUntilFound(groupName);
                 if (aRow && await clickRowAndWait(aRow, groupName)) {
-                    console.log('[WHL] ✅ Chat aberto via Arquivadas (sem desarquivar)');
-                    // Volta a lista pro estado normal (sai da view Arquivadas).
+                    console.log('[WHL] ✅ Chat aberto via Arquivadas');
                     try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
                     return true;
                 }
                 try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
                 await sleep(300);
-            }
-            // Só se a view Arquivadas falhar: desarquiva como último recurso
-            // (efeito colateral aceito — sem isso o grupo fica inacessível).
-            if (await maybeUnarchive()) {
-                const uRow = findSidebarRow(groupName);
-                if (uRow && await clickRowAndWait(uRow, groupName)) {
-                    console.log('[WHL] ✅ Chat aberto após desarquivar (fallback)');
-                    return true;
-                }
             }
         }
 
@@ -5157,7 +5242,9 @@ window.whl_hooks_main = () => {
         // um message-key como 2º arg). Tentamos com lastReceivedKey quando
         // disponível; se falhar, ignoramos silenciosamente.
         const lastMsgKey = chat?.lastReceivedKey || chat?.lastMessageKey || null;
+        const NAV = (() => { try { return require('WAWebNavigatorModel'); } catch (_) { return null; } })();
         const apiAttempts = [
+            ['WAWebNavigatorModel.navigate', () => (NAV?.default?.navigate || NAV?.navigate)?.('chat', chat)],
             ['Cmd.openChatAt(chat,lastKey)', () => CMD?.openChatAt?.(chat, lastMsgKey)],
             ['sendSeen+open',                async () => { try { await chat?.sendSeen?.(); } catch (_) {} return chat?.open?.(); }],
             ['CC.setActive',                 () => CC?.ChatCollection?.setActive?.(chat)],
