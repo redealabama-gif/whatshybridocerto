@@ -195,7 +195,7 @@ body.has-cursor.hovering #cursor {
 .btn-block { width: 100%; }
 
 /* ── Headings ────────────────────────────────────────────────────── */
-h1, h2, h3, h4 { font-family: 'Orbitron', sans-serif; font-weight: 700; line-height: 1.2; }
+h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; line-height: 1.2; }
 h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
 h2 { font-size: clamp(1.5rem, 3.5vw, 2.5rem); }
 h3 { font-size: 1.4rem; }
@@ -315,7 +315,7 @@ h4 { font-size: 1.1rem; font-weight: 600; }
   max-width: 1200px; margin: 0 auto; padding: 0 24px;
 }
 .logo {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-weight: 800;
   font-size: 1.3rem;
   display: flex; align-items: center; gap: 8px;
