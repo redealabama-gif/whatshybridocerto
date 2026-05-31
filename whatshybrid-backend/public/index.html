@@ -956,6 +956,36 @@
       text-shadow: 0 0 14px rgba(0, 255, 255, 0.6);
     }
 
+    /* ═══════════════════════════════════════════════════════
+       ROI section — WebGL light beam background (js/roi-shader.js)
+       ═══════════════════════════════════════════════════════ */
+    #roi { position: relative; overflow: hidden; isolation: isolate; }
+    #roi > .text-center,
+    #roi > .roi-card { position: relative; z-index: 2; }
+    .roi-shader-host {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      mask-image: radial-gradient(120% 80% at 50% 50%, #000 40%, transparent 90%);
+      -webkit-mask-image: radial-gradient(120% 80% at 50% 50%, #000 40%, transparent 90%);
+    }
+    .roi-shader-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 1.6s ease;
+      mix-blend-mode: screen;
+    }
+    .roi-shader-canvas.is-live { opacity: 0.55; }
+    @media (prefers-reduced-motion: reduce) {
+      .roi-shader-host { display: none !important; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .dash-mock.charts-animate .chart-line-area { opacity: 1 !important; animation: none !important; }
       .dash-mock.charts-animate .chart-line-stroke { stroke-dashoffset: 0 !important; animation: none !important; }
@@ -3065,6 +3095,7 @@
 <script src="js/landing-fx.js" defer></script>
 <script src="js/hero-fx.js" defer></script>
 <script src="js/hero-shader.js" defer></script>
+<script src="js/roi-shader.js" defer></script>
 <script src="js/crystal.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
