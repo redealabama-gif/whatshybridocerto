@@ -5029,12 +5029,30 @@ window.whl_hooks_main = () => {
 
         async function clickTab(labels) {
             const target = labels.map(norm);
+            // v9.7.x: <button> nativo NÃO casa [role="button"] (role implícito).
+            // Inclui button explicitamente. Match por aria-label (mais limpo —
+            // não tem prefixo de ícone "archive-refreshed" etc) E textContent.
             const candidates = document.querySelectorAll(
-                'header [role="button"], [role="tablist"] [role="button"], [role="tab"], button'
+                'button, [role="tab"], [role="button"]'
             );
+            const matches = (el) => {
+                const aria = norm(el.getAttribute('aria-label') || '');
+                const txt  = norm(el.textContent || '');
+                return target.some(L => {
+                    if (!L) return false;
+                    // aria-label limpo: match exato ou começa com label
+                    if (aria === L || aria.startsWith(L + ' ')) return true;
+                    // textContent: tab pode ter número grudado ("grupos14") ou
+                    // ícone como prefixo. Usa includes p/ ser tolerante.
+                    if (txt === L || txt.startsWith(L + ' ') || txt.startsWith(L)) return true;
+                    // Pra evitar falso-positivo: só usa includes se o label tem
+                    // >= 5 chars (evita match de "tudo" dentro de outras strings).
+                    if (L.length >= 5 && txt.includes(L)) return true;
+                    return false;
+                });
+            };
             for (const b of candidates) {
-                const t = norm(b.textContent || b.getAttribute('aria-label') || '');
-                if (target.some(L => t === L || t.startsWith(L + ' '))) {
+                if (matches(b)) {
                     try { humanClick(b); await sleep(600); return true; } catch (_) {}
                 }
             }
@@ -5044,14 +5062,22 @@ window.whl_hooks_main = () => {
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
-            for (const r of pane.querySelectorAll('[role="button"], [role="row"]')) {
+            // v9.7.x: 1ª tentativa é aria-label limpo ("Arquivadas " no diagnóstico).
+            // O textContent vem com prefixo "archive-refreshed" do span de ícone,
+            // então startsWith('arquivad') falhava.
+            const ariaBtn = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
+            if (ariaBtn) {
+                try { humanClick(ariaBtn); await sleep(700); return true; } catch (_) {}
+            }
+            // 2ª tentativa: scan por textContent incluindo "arquivad" e usando
+            // BUTTON nativo (que não casava com [role="button"]).
+            const all = pane.querySelectorAll('button, [role="button"], [role="row"], [data-testid="cell-frame-container"]');
+            for (const r of all) {
                 const t = norm(r.textContent);
-                if (t.startsWith('arquivadas') || t.startsWith('archived')) {
+                if (t.includes('arquivad') || t.includes('archived')) {
                     try { humanClick(r); await sleep(700); return true; } catch (_) {}
                 }
             }
-            const aria = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
-            if (aria) { try { humanClick(aria); await sleep(700); return true; } catch (_) {} }
             return false;
         }
 
