@@ -582,56 +582,39 @@
 
     console.log('[QuickCommands] Inserindo comando:', command.trigger);
 
+    // v9.7.x BUG FIX: a versão anterior tentava 3 métodos em cascata. Quando o
+    // método 1 não conseguia limpar (Lexical relutava), o método 2 limpava
+    // mal e o execCommand('insertText') inseria EM CIMA do que sobrou. O user
+    // via "/oi + resposta + resposta" (duplicação).
+    //
+    // Solução: UMA operação atômica. Foca → seleciona tudo → execCommand
+    // ('insertText', text) SUBSTITUI a seleção pelo texto novo (mesmo
+    // comportamento de "ctrl+A → digitar"). Sem dispatchEvent manual
+    // (execCommand já emite os eventos nativamente); sem tentar de novo.
     field.focus();
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 80));
 
-    // v9.7.x: APAGA TUDO ANTES — não importa o que esteja no campo (gatilho
-    // digitado, texto à frente, etc). O usuário pediu explicitamente: clicou
-    // na sugestão = campo zerado e a resposta entra limpa.
-    await clearField(field);
+    selectAllInField(field);
+    await new Promise(r => setTimeout(r, 50)); // Lexical reconciliar a seleção
 
-    const text = command.text;
     let success = false;
-
-    // Método 1: insertText em campo já vazio.
     try {
-      document.execCommand('insertText', false, text);
-      field.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      if (insertionLooksGood(field, text)) {
-        console.log('[QuickCommands] ✅ Método 1 funcionou (insertText)');
-        success = true;
-      }
+      document.execCommand('insertText', false, command.text);
+      success = true;
     } catch (e) {
-      console.log('[QuickCommands] Método 1 falhou:', e);
+      console.log('[QuickCommands] insertText falhou:', e?.message);
     }
 
-    // Método 2: defensivo — reapaga e tenta de novo (caso Lexical tenha
-    // reinjetado conteúdo entre o clear e o insert).
+    // Fallback DURO (último recurso): se o execCommand não vingou, substitui
+    // o textContent inteiro. Pode bagunçar a estrutura Lexical, mas é melhor
+    // do que falhar visível pro usuário.
     if (!success) {
       try {
-        await clearField(field);
-        await new Promise(r => setTimeout(r, 30));
-        document.execCommand('insertText', false, text);
+        field.textContent = command.text;
         field.dispatchEvent(new InputEvent('input', { bubbles: true }));
-        if (insertionLooksGood(field, text)) {
-          console.log('[QuickCommands] ✅ Método 2 funcionou (clear+insertText)');
-          success = true;
-        }
-      } catch (e) {
-        console.log('[QuickCommands] Método 2 falhou:', e);
-      }
-    }
-
-    // Método 3: textContent direto (último recurso — substitui inteiro).
-    if (!success) {
-      try {
-        field.textContent = text;
-        field.dispatchEvent(new InputEvent('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('[QuickCommands] ✅ Método 3 aplicado (textContent)');
         success = true;
       } catch (e) {
-        console.log('[QuickCommands] Método 3 falhou:', e);
+        console.log('[QuickCommands] textContent fallback falhou:', e?.message);
       }
     }
 
@@ -639,9 +622,10 @@
     hideSuggestions();
 
     if (!success) {
-      console.error('[QuickCommands] ❌ Todos os métodos falharam');
+      console.error('[QuickCommands] ❌ Inserção falhou');
       return;
     }
+    console.log('[QuickCommands] ✅ Inseriu:', command.trigger);
 
     // Emitir evento
     if (window.EventBus) {
