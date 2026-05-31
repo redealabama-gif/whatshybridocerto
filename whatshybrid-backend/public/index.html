@@ -3789,29 +3789,68 @@
 </script>
 
 <!-- Spline 3D robot (lazy-loaded): só em desktop, sem reduced-motion / touch.
-     CDN unpkg já está no scriptSrc da CSP da landing (helmetForPortal). -->
+     CDN unpkg + 'wasm-unsafe-eval' + workerSrc blob: já estão no
+     helmetForPortal (src/server.js). -->
 <script>
 (function () {
   var host = document.getElementById('features-robot');
+  var fallback = host && host.querySelector('.feature-robot-fallback');
   if (!host) return;
+
+  function setFallback(text) { if (fallback) fallback.textContent = text; }
+
   var isCoarse = window.matchMedia('(pointer: coarse)').matches;
   var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isSmall  = window.matchMedia('(max-width: 900px)').matches;
-  if (isCoarse || reduce || isSmall) return;
+  if (isCoarse || reduce || isSmall) {
+    console.info('[3D] desativado (coarse=%s, reduce=%s, small=%s)', isCoarse, reduce, isSmall);
+    return;
+  }
+
+  // Trava de tempo: se em 12s nada carregar, mostra mensagem clara em vez
+  // de ficar para sempre em "Carregando…". Ajuda o usuário a perceber que
+  // tem coisa errada (CSP, rede, CDN fora do ar) sem precisar abrir o
+  // DevTools.
+  var loadedOnce = false;
+  var watchdog = setTimeout(function () {
+    if (!loadedOnce) {
+      console.warn('[3D] timeout: cena não carregou em 12s — verifique CSP/rede.');
+      setFallback('Falha ao carregar núcleo 3D');
+      host.classList.add('is-failed');
+    }
+  }, 12000);
 
   function loadRobot() {
+    console.info('[3D] iniciando lazy-load do Spline viewer…');
+
     // 1) Web component <spline-viewer>
     var m = document.createElement('script');
     m.type = 'module';
     m.src  = 'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js';
-    m.onerror = function () { host.classList.add('is-failed'); };
+    m.onerror = function (err) {
+      console.error('[3D] falha ao carregar spline-viewer.js do unpkg', err);
+      clearTimeout(watchdog);
+      setFallback('Núcleo 3D indisponível');
+      host.classList.add('is-failed');
+    };
     document.head.appendChild(m);
 
     // 2) Cena do robô
     var v = document.createElement('spline-viewer');
     v.setAttribute('url', 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
     v.setAttribute('loading-anim-type', 'none');
-    v.addEventListener('load', function () { host.classList.add('is-loaded'); });
+    v.addEventListener('load', function () {
+      loadedOnce = true;
+      clearTimeout(watchdog);
+      host.classList.add('is-loaded');
+      console.info('[3D] cena carregada com sucesso.');
+    });
+    v.addEventListener('error', function (err) {
+      console.error('[3D] erro no <spline-viewer>', err);
+      clearTimeout(watchdog);
+      setFallback('Erro ao renderizar núcleo 3D');
+      host.classList.add('is-failed');
+    });
     host.appendChild(v);
   }
 

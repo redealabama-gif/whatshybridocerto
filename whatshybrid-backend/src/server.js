@@ -167,6 +167,11 @@ const helmetForAdmin = helmet({
 });
 
 // v9.0.0: CSP strict pra portal autenticado (login, dashboard, etc.)
+// v9.6.2: liberado 'wasm-unsafe-eval' + workerSrc blob: porque o robô 3D
+// (Spline viewer @ unpkg) compila um módulo WebAssembly e cria workers a
+// partir de blob: URLs para descompactar a cena. Sem isso, o web component
+// <spline-viewer> carrega mas nunca termina de inicializar — a landing
+// ficava travada em "Carregando núcleo 3D…" eternamente.
 const helmetForPortal = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -174,15 +179,17 @@ const helmetForPortal = helmet({
       scriptSrc: [
         "'self'",
         "'unsafe-inline'", // necessário pra inline scripts existentes do portal
+        "'wasm-unsafe-eval'", // Spline viewer / draco decoder compila WebAssembly
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
       ],
+      workerSrc: ["'self'", "blob:"], // Spline spawn workers a partir de blob:
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https:", "wss:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https:", "wss:", "blob:"],
       frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
