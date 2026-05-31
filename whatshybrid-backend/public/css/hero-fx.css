@@ -22,6 +22,22 @@
 }
 .hero-particles.is-live { opacity: 1; }
 
+/* Nebulosa WebGL2 (substitui .hero-particles no hero) — js/hero-shader.js */
+.hero-nebula {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;            /* mesmo slot da antiga camada de partículas */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+.hero-nebula.is-live { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-nebula { display: none !important; }
+}
+
 /* Campo ambiente global — fixo, atrás de todo o conteúdo */
 .ambient-fx {
   position: fixed;
