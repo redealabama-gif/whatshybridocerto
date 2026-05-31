@@ -612,6 +612,72 @@
       margin-top: 48px;
     }
 
+    /* Features com robô 3D Spline no centro (desktop only) */
+    .features-grid-with-robot { align-items: stretch; }
+    .feature-col {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .feature-robot {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      background:
+        radial-gradient(120% 90% at 30% 20%, rgba(120, 130, 255, 0.22), transparent 55%),
+        radial-gradient(80% 60% at 80% 90%, rgba(255, 110, 30, 0.18), transparent 60%),
+        #050313;
+      border: 1px solid rgba(0, 255, 255, 0.20);
+      box-shadow:
+        0 30px 80px rgba(111, 0, 255, 0.22),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      min-height: 560px;
+    }
+    .feature-robot spline-viewer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+    .feature-robot-fallback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(0, 255, 255, 0.55);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+      z-index: 2;
+    }
+    .feature-robot.is-loaded .feature-robot-fallback { opacity: 0; }
+    .feature-robot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(120% 80% at 50% 0%, rgba(0, 255, 255, 0.08), transparent 60%);
+      z-index: 3;
+    }
+    /* Esconde o badge "Built with Spline" no canto inferior direito do viewer */
+    .feature-robot spline-viewer::part(logo) { display: none !important; }
+
+    @media (min-width: 901px) {
+      .features-grid.features-grid-with-robot {
+        grid-template-columns: 1fr minmax(320px, 1.25fr) 1fr;
+      }
+    }
+    @media (max-width: 900px) {
+      /* mobile/tablet: oculta o robô e devolve os 6 cards ao grid normal */
+      .features-grid-with-robot .feature-col { display: contents; }
+      .features-grid-with-robot .feature-robot { display: none; }
+    }
+
     /* How it works */
     .steps {
       display: grid;
@@ -2224,36 +2290,46 @@
     <p class="text-muted">Não é só um chatbot. É um vendedor digital que melhora sozinho.</p>
   </div>
 
-  <div class="features-grid">
-    <div class="card tilt reveal delay-1" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="graduation-cap" aria-hidden="true"></i></div>
-      <h4>Aprendizado validado</h4>
-      <p class="text-muted mt-2">Padrões só "graduam" depois de 5+ feedbacks positivos com taxa de aprovação alta. Nada de IA decorando lixo.</p>
+  <div class="features-grid features-grid-with-robot">
+    <div class="feature-col">
+      <div class="card tilt reveal delay-1" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="graduation-cap" aria-hidden="true"></i></div>
+        <h4>Aprendizado validado</h4>
+        <p class="text-muted mt-2">Padrões só "graduam" depois de 5+ feedbacks positivos com taxa de aprovação alta. Nada de IA decorando lixo.</p>
+      </div>
+      <div class="card tilt reveal delay-2" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="shield-check" aria-hidden="true"></i></div>
+        <h4>Modo Copiloto</h4>
+        <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
+      </div>
+      <div class="card tilt reveal delay-3" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="building-2" aria-hidden="true"></i></div>
+        <h4>Multi-tenant nativo</h4>
+        <p class="text-muted mt-2">Workspaces isolados. Padrões de um cliente nunca vazam para outro.</p>
+      </div>
     </div>
-    <div class="card tilt reveal delay-2" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="shield-check" aria-hidden="true"></i></div>
-      <h4>Modo Copiloto</h4>
-      <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
+
+    <div class="feature-robot reveal reveal-zoom" id="features-robot" aria-hidden="true">
+      <div class="feature-robot-fallback">Carregando núcleo 3D…</div>
+      <!-- <spline-viewer> é injetado pelo lazy-loader no final do <body> -->
     </div>
-    <div class="card tilt reveal delay-3" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="building-2" aria-hidden="true"></i></div>
-      <h4>Multi-tenant nativo</h4>
-      <p class="text-muted mt-2">Workspaces isolados. Padrões de um cliente nunca vazam para outro.</p>
-    </div>
-    <div class="card tilt reveal delay-4" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="messages-square" aria-hidden="true"></i></div>
-      <h4>Histórico de conversas</h4>
-      <p class="text-muted mt-2">Memória contextual por chat. A IA lembra do que combinaram em mensagens anteriores.</p>
-    </div>
-    <div class="card tilt reveal delay-5" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="bar-chart-3" aria-hidden="true"></i></div>
-      <h4>Dashboard operacional</h4>
-      <p class="text-muted mt-2">Veja em tempo real: quantas interações, padrões aprendidos, custo de IA por cliente.</p>
-    </div>
-    <div class="card tilt reveal delay-6" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
-      <div class="card-icon" data-magnetic-child><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
-      <h4>Segurança em camadas</h4>
-      <p class="text-muted mt-2">JWT validado, rate limiting por tenant, CORS estrito, TLS automático Let's Encrypt.</p>
+
+    <div class="feature-col">
+      <div class="card tilt reveal delay-4" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="messages-square" aria-hidden="true"></i></div>
+        <h4>Histórico de conversas</h4>
+        <p class="text-muted mt-2">Memória contextual por chat. A IA lembra do que combinaram em mensagens anteriores.</p>
+      </div>
+      <div class="card tilt reveal delay-5" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="bar-chart-3" aria-hidden="true"></i></div>
+        <h4>Dashboard operacional</h4>
+        <p class="text-muted mt-2">Veja em tempo real: quantas interações, padrões aprendidos, custo de IA por cliente.</p>
+      </div>
+      <div class="card tilt reveal delay-6" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
+        <div class="card-icon" data-magnetic-child><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
+        <h4>Segurança em camadas</h4>
+        <p class="text-muted mt-2">JWT validado, rate limiting por tenant, CORS estrito, TLS automático Let's Encrypt.</p>
+      </div>
     </div>
   </div>
   </div>
@@ -3705,6 +3781,46 @@
       init();
     }
   })();
+</script>
+
+<!-- Spline 3D robot (lazy-loaded): só em desktop, sem reduced-motion / touch.
+     CDN unpkg já está no scriptSrc da CSP da landing (helmetForPortal). -->
+<script>
+(function () {
+  var host = document.getElementById('features-robot');
+  if (!host) return;
+  var isCoarse = window.matchMedia('(pointer: coarse)').matches;
+  var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var isSmall  = window.matchMedia('(max-width: 900px)').matches;
+  if (isCoarse || reduce || isSmall) return;
+
+  function loadRobot() {
+    // 1) Web component <spline-viewer>
+    var m = document.createElement('script');
+    m.type = 'module';
+    m.src  = 'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js';
+    m.onerror = function () { host.classList.add('is-failed'); };
+    document.head.appendChild(m);
+
+    // 2) Cena do robô
+    var v = document.createElement('spline-viewer');
+    v.setAttribute('url', 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
+    v.setAttribute('loading-anim-type', 'none');
+    v.addEventListener('load', function () { host.classList.add('is-loaded'); });
+    host.appendChild(v);
+  }
+
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { loadRobot(); io.disconnect(); }
+      });
+    }, { rootMargin: '300px' });
+    io.observe(host);
+  } else {
+    loadRobot();
+  }
+})();
 </script>
 
 </body>
