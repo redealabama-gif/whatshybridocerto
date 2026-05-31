@@ -79,8 +79,7 @@
     '  uv *= 1.0 - 0.3 * (sin(T * 0.2) * 0.5 + 0.5);\n' +
     '  for (float i = 1.0; i < 12.0; i++) {\n' +
     '    uv += 0.1 * cos(i * vec2(0.1 + 0.01 * i, 0.8) + i * i + T * 0.5 + 0.1 * uv.x);\n' +
-    '    // Sobe o foco dos raios (em FC.y o sentido cresce pra cima, entao subtraindo aqui o ponto de convergencia desloca-se pra cima da tela, cobrindo o headline do hero).\n' +
-    '    vec2 p = uv - vec2(0.0, 0.22);\n' +
+    '    vec2 p = uv;\n' +
     '    float d = length(p);\n' +
     '    // Raios na paleta da marca: cyan (0,255,255) <-> purple (~111,0,255)\n' +
     '    vec3 rayCol = mix(vec3(0.0, 0.85, 1.0), vec3(0.55, 0.10, 1.0), 0.5 + 0.5 * sin(i * 0.7));\n' +
