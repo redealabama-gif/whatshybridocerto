@@ -640,6 +640,10 @@
       height: 100%;
       display: block;
       z-index: 1;
+      /* a cena do robô estoura a moldura no fit padrão; encolhe a vista pra
+         caber inteiro (braço não corta mais) */
+      transform: scale(0.82);
+      transform-origin: center center;
     }
     .feature-robot-fallback {
       position: absolute;
