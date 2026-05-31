@@ -55,10 +55,21 @@
     '  float rx = p.x * (1.0 + d);\n' +
     '  float gx = p.x;\n' +
     '  float bx = p.x * (1.0 - d);\n' +
-    '  float r = 0.05 / abs(p.y + sin((rx + time) * xScale) * yScale);\n' +
-    '  float g = 0.05 / abs(p.y + sin((gx + time) * xScale) * yScale);\n' +
-    '  float b = 0.05 / abs(p.y + sin((bx + time) * xScale) * yScale);\n' +
-    '  gl_FragColor = vec4(r, g, b, 1.0);\n' +
+    // Intensidade reduzida de 0.05 -> 0.022: o pico do feixe não pode
+    // ofuscar a leitura do .roi-card que fica sobreposto.
+    '  float r = 0.022 / abs(p.y + sin((rx + time) * xScale) * yScale);\n' +
+    '  float g = 0.022 / abs(p.y + sin((gx + time) * xScale) * yScale);\n' +
+    '  float b = 0.022 / abs(p.y + sin((bx + time) * xScale) * yScale);\n' +
+    // Mapeia os três beams cromáticos (rx/gx/bx) para a paleta da marca:
+    // cyan (#00ffff) -> meio -> purple (#6f00ff). Substitui o RGB cru.
+    '  vec3 cyan   = vec3(0.0, 1.0, 1.0);\n' +
+    '  vec3 mid    = vec3(0.22, 0.5, 1.0);\n' +
+    '  vec3 purple = vec3(0.435, 0.0, 1.0);\n' +
+    '  vec3 col = r * cyan + g * mid + b * purple;\n' +
+    // Alpha = intensidade do feixe. Pixels fora do beam ficam transparentes,
+    // então o card e o restante da seção continuam legíveis sem véu escuro.
+    '  float a = clamp(max(max(r, g), b), 0.0, 1.0);\n' +
+    '  gl_FragColor = vec4(col, a);\n' +
     '}';
 
   function compile(type, src) {
