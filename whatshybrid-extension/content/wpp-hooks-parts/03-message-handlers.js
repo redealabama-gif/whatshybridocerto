@@ -1381,6 +1381,89 @@
             }
         }
 
+        // v9.7.x: clique simples no estilo da v6.0.3 (pré-PR #13). Era esse
+        // exato sequenciamento que funcionava na extensão antiga para clicar
+        // no botão Arquivadas e nas linhas de grupo dentro da view arquivada.
+        // O humanClick acima adiciona PointerEvents que parecem atrapalhar
+        // o React do WA 2.3000.x no contexto específico do Arquivadas (o
+        // header muda mas a lista não popula). Sem PointerEvent, com 5
+        // MouseEvents apenas, React processa o evento corretamente.
+        function simpleClick(el) {
+            if (!el) return false;
+            try { el.scrollIntoView({ behavior: 'instant', block: 'center' }); } catch (_) {}
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y };
+            try {
+                el.dispatchEvent(new MouseEvent('mouseenter', opts));
+                el.dispatchEvent(new MouseEvent('mouseover',  opts));
+                el.dispatchEvent(new MouseEvent('mousedown',  { ...opts, button: 0 }));
+                el.dispatchEvent(new MouseEvent('mouseup',    { ...opts, button: 0 }));
+                el.dispatchEvent(new MouseEvent('click',      { ...opts, button: 0 }));
+                return true;
+            } catch (_) {
+                try { el.click(); return true; } catch { return false; }
+            }
+        }
+
+        // v9.7.x: caminhar a árvore pra cima procurando o ancestral CLICÁVEL.
+        // Cópia do findClickableParent da v6.0.3 (waextractor.v6.js, linha 1014).
+        // A linha do chat na sidebar do WA é tipicamente o <div> com data-id ou
+        // role=row várias camadas acima do span[title].
+        function findClickableParent(element) {
+            let target = element;
+            let parent = element.parentElement;
+            for (let i = 0; i < 15 && parent; i++) {
+                if (parent.getAttribute('data-id') ||
+                    parent.getAttribute('role') === 'listitem' ||
+                    parent.getAttribute('role') === 'row' ||
+                    parent.getAttribute('tabindex') === '-1' ||
+                    parent.classList.contains('_ak8l') ||
+                    parent.getAttribute('data-testid')?.includes('cell') ||
+                    parent.getAttribute('data-testid')?.includes('list-item')) {
+                    target = parent;
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+            return target;
+        }
+
+        // v9.7.x: busca o grupo por span[title] em TODO o documento, não só
+        // em #pane-side. A view Arquivadas pode renderizar os chats em um
+        // container irmão (que era exatamente o que o user enxergou: header
+        // mudava mas #pane-side ficava com os 72 chats normais). Espelha o
+        // findAndClickGroupInCurrentView da v6.0.3.
+        function findGroupSpanGlobally(name) {
+            const target = norm(name);
+            const spans = document.querySelectorAll('span[title]');
+            for (const span of spans) {
+                const t = norm(span.getAttribute('title') || '');
+                if (!t) continue;
+                if (t === target) return span;
+                // partial match (header pode incluir "N membros" no final)
+                if (target.length > 4 && t.startsWith(target)) return span;
+                if (target.length > 4 && t.includes(target)) return span;
+            }
+            return null;
+        }
+
+        // v9.7.x: verifica se a view "Arquivadas" foi de fato aberta. Cópia
+        // do verifyArchivedViewOpened da v6.0.3 — testa header text e botão
+        // de voltar. Mais robusto que só checar aria-label do botão Voltar.
+        async function verifyArchivedViewOpened() {
+            await sleep(500);
+            for (const header of document.querySelectorAll('header')) {
+                const t = norm(header.textContent || '');
+                if (t.includes('arquivad') || t.includes('archived')) return true;
+            }
+            if (document.querySelector('[data-testid="back"], [data-icon="back"], [aria-label*="Voltar" i], [aria-label*="Back" i]')) {
+                return true;
+            }
+            return false;
+        }
+
         // Procura a linha do grupo no #pane-side. Prioridade:
         // 1) [data-id="<chatId>"] (mais preciso quando WA expõe)
         // 2) varredura por role=row + casamento de nome (norm)
@@ -1479,44 +1562,103 @@
             return false;
         }
 
-        async function openArchived() {
+        // v9.7.x: busca o botão Arquivadas no estilo da v6.0.3
+        // (findArchivedButtonImproved em waextractor.v6.js linha 558). Tenta
+        // múltiplos seletores e sobe pro ancestral "clicável" (listitem/row/
+        // tabindex) — porque o aria-label fica em um span filho, mas o
+        // clique precisa ir no container que o React escuta.
+        async function findArchivedButton() {
+            const selectors = [
+                '[data-testid="archived"]',
+                '[data-testid="chat-list-archived"]',
+                '[aria-label*="rquivad" i]',
+                '[aria-label*="rchived" i]',
+                '[title*="rquivad" i]',
+                '[title*="rchived" i]',
+            ];
+            for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    return el.closest('[role="listitem"]') ||
+                           el.closest('[role="row"]') ||
+                           el.closest('button') ||
+                           el.closest('[tabindex]') || el;
+                }
+            }
+            // Fallback: scan por texto "arquivadas"/"archived" em #pane-side
             const pane = document.querySelector('#pane-side');
-            if (!pane) return false;
-
-            // Polls for "Voltar"/"Back" button that confirms archived view activated
-            const waitActivated = async () => {
-                for (let i = 0; i < 25; i++) {
-                    await sleep(100);
-                    if (document.querySelector('[aria-label*="Voltar" i], [aria-label*="Back" i]')) return true;
+            if (pane) {
+                for (const el of pane.querySelectorAll('*')) {
+                    const t = norm(el.textContent || '');
+                    const aria = norm(el.getAttribute('aria-label') || '');
+                    if (t === 'arquivadas' || t === 'archived' || aria.includes('arquivad') || aria.includes('archived')) {
+                        let p = el;
+                        for (let i = 0; i < 10 && p; i++) {
+                            if (p.getAttribute('role') === 'listitem' || p.getAttribute('role') === 'row' || p.hasAttribute('tabindex')) {
+                                return p;
+                            }
+                            p = p.parentElement;
+                        }
+                        return el;
+                    }
                 }
+            }
+            return null;
+        }
+
+        async function openArchived() {
+            const btn = await findArchivedButton();
+            if (!btn) {
+                console.log('[WHL] Botão Arquivadas não encontrado');
                 return false;
-            };
-
-            // v9.7.x: 1ª tentativa é aria-label limpo ("Arquivadas " no diagnóstico).
-            // O textContent vem com prefixo "archive-refreshed" do span de ícone,
-            // então startsWith('arquivad') falhava.
-            const ariaBtn = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
-            if (ariaBtn) {
-                try {
-                    humanClick(ariaBtn);
-                    await waitActivated();
-                    return true;
-                } catch (_) {}
             }
-            // 2ª tentativa: scan por textContent incluindo "arquivad" e usando
-            // BUTTON nativo (que não casava com [role="button"]).
-            const all = pane.querySelectorAll('button, [role="button"], [role="row"], [data-testid="cell-frame-container"]');
-            for (const r of all) {
-                const t = norm(r.textContent);
-                if (t.includes('arquivad') || t.includes('archived')) {
-                    try {
-                        humanClick(r);
-                        await waitActivated();
-                        return true;
-                    } catch (_) {}
+            console.log('[WHL] Clicando Arquivadas (simpleClick v6.0.3)');
+            // simpleClick em vez de humanClick — sem PointerEvents que
+            // confundem o React do WA 2.3000.x na transição p/ archived view.
+            simpleClick(btn);
+            await sleep(2500); // v6.0.3 esperava 2500ms
+            return await verifyArchivedViewOpened();
+        }
+
+        // v9.7.x: scroll + busca global por span[title] dentro da view atual
+        // (Arquivadas). Espelha scrollAndFindGroup da v6.0.3 (linha 666).
+        // Em vez de #pane-side hardcoded, tenta múltiplos containers porque a
+        // archived view pode renderizar a lista em sibling do #pane-side.
+        async function scrollAndFindGroupV6(name) {
+            const candidates = [
+                document.querySelector('#pane-side'),
+                document.querySelector('[data-testid="chat-list"]'),
+                document.querySelector('#side [role="grid"]'),
+                document.querySelector('#side'),
+            ].filter(Boolean);
+            const container = candidates[0];
+            if (!container) return null;
+
+            const maxAttempts = 40;
+            for (let i = 0; i < maxAttempts; i++) {
+                const span = findGroupSpanGlobally(name);
+                if (span) {
+                    const clickTarget = findClickableParent(span);
+                    return clickTarget;
+                }
+                container.scrollTop += 300; // passo fixo da v6.0.3
+                await sleep(400);
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+                    // chegou ao fim — última varredura
+                    await sleep(200);
+                    const last = findGroupSpanGlobally(name);
+                    if (last) return findClickableParent(last);
+                    break;
                 }
             }
-            return false;
+            return null;
+        }
+
+        // Clica via simpleClick (v6 style) e espera o header atualizar.
+        async function clickRowAndWaitV6(target, name) {
+            if (!target) return false;
+            simpleClick(target);
+            return await waitHeaderMatches(name, 5000);
         }
 
         async function backToAllTab() {
@@ -1603,42 +1745,47 @@
         const isArchived = chat?.archive === true;
 
         // ── CASO ARQUIVADO ───────────────────────────────────────────────────
-        // v9.7.x: PR #189 tentava abrir via view Arquivadas SEM desarquivar para
-        // não mexer no estado do usuário, mas em WA 2.3000.x o clique sintético
-        // no botão Arquivadas mostra o cabeçalho mas NÃO popula a lista de chats
-        // (problema React/virtualização). Voltamos à estratégia da v6.0.3 que
-        // funcionava: DESARQUIVAR primeiro, abrir depois. Trade-off aceito: o
-        // grupo fica desarquivado (mesmo comportamento da extensão antes do
-        // refactor que removeu Grupos no PR #13).
+        // v9.7.x: replica EXATAMENTE o fluxo que funcionava em v6.0.3 (pré-PR #13):
+        //   1. Clicar Arquivadas (simpleClick — só MouseEvent, sem PointerEvent)
+        //   2. Verificar abertura via header "arquivad" ou botão Voltar
+        //   3. Procurar span[title] do grupo em TODO o documento
+        //   4. Se não achou, scroll +300px e procurar de novo (até 40 tentativas)
+        //   5. Clicar no findClickableParent(span) com simpleClick
+        //   6. Voltar pra lista principal via tecla Escape
+        // O humanClick com PointerEvents confundia o React do WA 2.3000.x; com
+        // simpleClick puro (5 MouseEvents) a transição React funciona.
         if (isArchived) {
-            console.log('[WHL] Grupo arquivado — desarquivando para abrir (estratégia v6.0.3)');
+            console.log('[WHL] Grupo arquivado — fluxo v6.0.3 (open Arquivadas + scroll + click)');
+            if (await openArchived()) {
+                console.log('[WHL] View Arquivadas confirmada — procurando grupo');
+                const target = await scrollAndFindGroupV6(groupName);
+                if (target && await clickRowAndWaitV6(target, groupName)) {
+                    console.log('[WHL] ✅ Chat aberto via Arquivadas (v6.0.3 flow)');
+                    // não voltamos pra lista principal aqui — a extração precisa
+                    // do chat aberto. O sidepanel pode chamar /reset depois.
+                    return true;
+                }
+                console.log('[WHL] Grupo não encontrado na view Arquivadas — voltando');
+                try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
+                await sleep(300);
+            } else {
+                console.log('[WHL] Falha ao abrir view Arquivadas');
+            }
+            // Fallback: desarquiva (efeito colateral) e tenta no fluxo normal
+            console.log('[WHL] Fallback — desarquivando grupo');
             if (await maybeUnarchive()) {
                 await sleep(600);
                 let uRow = findSidebarRow(groupName) || await scrollUntilFound(groupName);
                 if (uRow && await clickRowAndWait(uRow, groupName)) {
-                    console.log('[WHL] ✅ Chat aberto após desarquivar');
+                    console.log('[WHL] ✅ Chat aberto após desarquivar (fallback)');
                     return true;
                 }
-                // Mesmo se o clique não confirmou, tenta APIs (chat agora não-arquivado)
                 const lastKey2 = chat?.lastReceivedKey || chat?.lastMessageKey || null;
                 try { await CMD?.openChatAt?.(chat, lastKey2); } catch (_) {}
                 if (await waitHeaderMatches(groupName, 1500)) {
                     console.log('[WHL] ✅ Chat aberto via Cmd.openChatAt após desarquivar');
                     return true;
                 }
-            }
-            // Fallback: tenta o caminho da view Arquivadas (raro funcionar em 2.3000.x)
-            console.log('[WHL] Desarquivar falhou — tentando view Arquivadas como fallback');
-            if (await openArchived()) {
-                await sleep(1200);
-                let aRow = await scrollUntilFound(groupName);
-                if (aRow && await clickRowAndWait(aRow, groupName)) {
-                    console.log('[WHL] ✅ Chat aberto via Arquivadas');
-                    try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
-                    return true;
-                }
-                try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
-                await sleep(300);
             }
         }
 
