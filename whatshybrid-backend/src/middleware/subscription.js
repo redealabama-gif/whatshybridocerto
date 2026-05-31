@@ -33,6 +33,14 @@ const FEATURE_PLANS = {
   'campaigns_advanced': ['enterprise'],
   'bulk_send': ['starter', 'pro', 'enterprise'],
 
+  // Grupos — extração de membros de grupos do WhatsApp pra montar público-alvo.
+  // Liberado em todos os planos (incluindo free) porque é feature de prospecção
+  // que não consome backend nem tokens de IA: a extração roda 100% no DOM do
+  // WhatsApp Web. Listada aqui explicitamente pra blindar contra alguém gatear
+  // por engano no futuro.
+  'groups': ['free', 'starter', 'pro', 'enterprise'],
+  'groups_extract_members': ['free', 'starter', 'pro', 'enterprise'],
+
   // Analytics
   'analytics_basic': ['starter', 'pro', 'enterprise'],
   'analytics_advanced': ['pro', 'enterprise'],
