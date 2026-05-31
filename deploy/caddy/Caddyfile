@@ -64,10 +64,17 @@
         header_up X-Forwarded-For {remote}
         header_up X-Forwarded-Proto {scheme}
 
-        # Timeouts (servidor lento não trava o cliente)
+        # Timeouts (servidor lento não trava o cliente).
+        # response_header_timeout precisa ser MAIOR que o tempo que o backend
+        # leva pra responder uma chamada de IA. Cadeia alinhada:
+        #   provider LLM (AI_PROVIDER_TIMEOUT_MS, 40s)
+        #     < espera da fila (AI_QUEUE_WAIT_MS, 45s)
+        #       < response_header_timeout (50s, aqui).
+        # Antes era 30s: cortava respostas de IA legítimas que passavam de 30s
+        # (modelo ocupado, resposta longa) — pior justamente sob carga.
         transport http {
             dial_timeout 5s
-            response_header_timeout 30s
+            response_header_timeout 50s
             read_timeout 60s
         }
 

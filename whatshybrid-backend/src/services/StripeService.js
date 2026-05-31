@@ -24,6 +24,12 @@ class StripeService {
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
     this.publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
     this.dryRun = !this.secretKey;
+    // Timeout de rede. Sem isso, um fetch contra a Stripe que trava (TCP
+    // pendurado, Stripe degradada) segura o request HTTP do cliente
+    // indefinidamente — e, em rotas de checkout/cobrança, prende uma
+    // conexão do servidor sob carga. MercadoPago já tinha (axios 10-15s);
+    // aqui faltava. 20s cobre latência normal da Stripe com folga.
+    this.timeoutMs = parseInt(process.env.STRIPE_TIMEOUT_MS, 10) || 20000;
 
     if (this.dryRun) {
       logger.warn('[Stripe] STRIPE_SECRET_KEY ausente — modo dry-run');
@@ -42,19 +48,35 @@ class StripeService {
     // Stripe usa application/x-www-form-urlencoded
     const params = body ? this._serialize(body) : null;
 
-    const r = await fetch(STRIPE_API + path, {
-      method,
-      headers: {
-        Authorization: `Bearer ${this.secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Stripe-Version': '2024-12-18.acacia',
-      },
-      body: params,
-    });
+    let r;
+    try {
+      r = await fetch(STRIPE_API + path, {
+        method,
+        headers: {
+          Authorization: `Bearer ${this.secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Stripe-Version': '2024-12-18.acacia',
+        },
+        body: params,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      // AbortSignal.timeout dispara TimeoutError/AbortError. Normaliza pra
+      // mensagem clara e marca status pra o caller (dunning/checkout) tratar
+      // como falha transitória sem vazar stack de rede.
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        const e = new Error(`Stripe timeout após ${this.timeoutMs}ms (${method} ${path})`);
+        e.status = 504;
+        throw e;
+      }
+      throw err;
+    }
 
     if (!r.ok) {
       const text = await r.text();
-      throw new Error(`Stripe ${r.status}: ${text.substring(0, 500)}`);
+      const e = new Error(`Stripe ${r.status}: ${text.substring(0, 500)}`);
+      e.status = r.status;
+      throw e;
     }
     return r.json();
   }
