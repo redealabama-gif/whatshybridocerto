@@ -5029,12 +5029,31 @@ window.whl_hooks_main = () => {
 
         async function clickTab(labels) {
             const target = labels.map(norm);
-            const candidates = document.querySelectorAll(
-                'header [role="button"], [role="tablist"] [role="button"], [role="tab"], button'
-            );
-            for (const b of candidates) {
-                const t = norm(b.textContent || b.getAttribute('aria-label') || '');
-                if (target.some(L => t === L || t.startsWith(L + ' '))) {
+            const matches = (el) => {
+                const aria = norm(el.getAttribute('aria-label') || '');
+                const txt  = norm(el.textContent || '');
+                return target.some(L => {
+                    if (!L) return false;
+                    if (aria === L || aria.startsWith(L + ' ')) return true;
+                    // textContent: tab pode ter número grudado ("grupos13") ou
+                    // ícone como prefixo. startsWith(L) é tolerante a ambos.
+                    if (txt === L || txt.startsWith(L + ' ') || txt.startsWith(L)) return true;
+                    if (L.length >= 5 && txt.includes(L)) return true;
+                    return false;
+                });
+            };
+            // v9.7.x: 1ª passada é [role="tab"] (as abas REAIS — diagnóstico do
+            // user confirmou: tab #0 Tudo, #1 Não lidas, #2 Favoritas, #3 Grupos).
+            // 2ª passada cai pra <button> genérico só se nada casou — evita
+            // pegar os botões "measurement-..." invisíveis que coincidem com
+            // o texto e estão antes na ordem do DOM.
+            for (const b of document.querySelectorAll('[role="tab"]')) {
+                if (matches(b)) {
+                    try { humanClick(b); await sleep(600); return true; } catch (_) {}
+                }
+            }
+            for (const b of document.querySelectorAll('button, [role="button"]')) {
+                if (matches(b)) {
                     try { humanClick(b); await sleep(600); return true; } catch (_) {}
                 }
             }
@@ -5044,14 +5063,22 @@ window.whl_hooks_main = () => {
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
-            for (const r of pane.querySelectorAll('[role="button"], [role="row"]')) {
+            // v9.7.x: 1ª tentativa é aria-label limpo ("Arquivadas " no diagnóstico).
+            // O textContent vem com prefixo "archive-refreshed" do span de ícone,
+            // então startsWith('arquivad') falhava.
+            const ariaBtn = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
+            if (ariaBtn) {
+                try { humanClick(ariaBtn); await sleep(700); return true; } catch (_) {}
+            }
+            // 2ª tentativa: scan por textContent incluindo "arquivad" e usando
+            // BUTTON nativo (que não casava com [role="button"]).
+            const all = pane.querySelectorAll('button, [role="button"], [role="row"], [data-testid="cell-frame-container"]');
+            for (const r of all) {
                 const t = norm(r.textContent);
-                if (t.startsWith('arquivadas') || t.startsWith('archived')) {
+                if (t.includes('arquivad') || t.includes('archived')) {
                     try { humanClick(r); await sleep(700); return true; } catch (_) {}
                 }
             }
-            const aria = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
-            if (aria) { try { humanClick(aria); await sleep(700); return true; } catch (_) {} }
             return false;
         }
 
@@ -5082,12 +5109,43 @@ window.whl_hooks_main = () => {
         }
         if (headerMatches(groupName)) { console.log('[WHL] Chat já estava aberto'); return true; }
 
-        await maybeUnarchive();
+        const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
+        const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
+        const chat = CC?.ChatCollection?.get(groupId);
+        const isArchived = chat?.archive === true;
+
+        // ── CASO ARQUIVADO: abre a view "Arquivadas" e clica lá DENTRO ───────
+        // Caminho limpo — NÃO desarquiva o grupo (sem efeito colateral no estado
+        // do usuário). Roda antes de tudo quando detectamos archive=true.
+        if (isArchived) {
+            console.log('[WHL] Grupo está arquivado — abrindo via view Arquivadas');
+            if (await openArchived()) {
+                await sleep(500);
+                let aRow = await scrollUntilFound(groupName);
+                if (aRow && await clickRowAndWait(aRow, groupName)) {
+                    console.log('[WHL] ✅ Chat aberto via Arquivadas (sem desarquivar)');
+                    // Volta a lista pro estado normal (sai da view Arquivadas).
+                    try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
+                    return true;
+                }
+                try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
+                await sleep(300);
+            }
+            // Só se a view Arquivadas falhar: desarquiva como último recurso
+            // (efeito colateral aceito — sem isso o grupo fica inacessível).
+            if (await maybeUnarchive()) {
+                const uRow = findSidebarRow(groupName);
+                if (uRow && await clickRowAndWait(uRow, groupName)) {
+                    console.log('[WHL] ✅ Chat aberto após desarquivar (fallback)');
+                    return true;
+                }
+            }
+        }
 
         // ── ESTRATÉGIA 1: clique direto na linha visível ────────────────────
         // No teste do usuário (`openChatRobust`), o método `human-click-sidebar`
-        // foi o que abriu — sem precisar de API nem scroll. Esta é a estratégia
-        // principal agora, vem ANTES das APIs (que demoram e falham).
+        // foi o que abriu — sem precisar de API nem scroll. Estratégia principal
+        // pra grupos não-arquivados (sempre aparecem na lista "Tudo").
         let row = findSidebarRow(groupName);
         if (row && await clickRowAndWait(row, groupName)) {
             console.log('[WHL] ✅ Chat aberto via clique direto na sidebar');
@@ -5095,9 +5153,6 @@ window.whl_hooks_main = () => {
         }
 
         // ── ESTRATÉGIA 2: APIs internas (rápido, raramente vinga em 2.3000.x)
-        const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
-        const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
-        const chat = CC?.ChatCollection?.get(groupId);
         // Cmd.openChatAt no 2.3000.x explode lendo `.id` de undefined (espera
         // um message-key como 2º arg). Tentamos com lastReceivedKey quando
         // disponível; se falhar, ignoramos silenciosamente.
@@ -5116,6 +5171,7 @@ window.whl_hooks_main = () => {
         }
 
         // ── ESTRATÉGIA 3: aba Tudo + scroll + clique humano ─────────────────
+        // Pra grupos que estão na lista mas fora da viewport (precisa rolar).
         console.log('[WHL] DOM: aba Tudo + scroll + clique humano');
         await clickTab(['Tudo', 'All']);
         await sleep(400);
@@ -5126,6 +5182,8 @@ window.whl_hooks_main = () => {
         }
 
         // ── ESTRATÉGIA 4: aba Grupos + scroll ───────────────────────────────
+        // O filtro "Grupos" mostra só grupos — útil se o nome colide com contato
+        // ou a lista Tudo é gigante.
         console.log('[WHL] DOM: aba Grupos + scroll');
         if (await clickTab(['Grupos', 'Groups'])) {
             await sleep(400);
@@ -5138,17 +5196,21 @@ window.whl_hooks_main = () => {
             await backToAllTab();
         }
 
-        // ── ESTRATÉGIA 5: Arquivadas + scroll (caso setArchive não tenha funcionado)
-        console.log('[WHL] DOM: Arquivadas + scroll');
-        if (await openArchived()) {
-            await sleep(400);
-            row = await scrollUntilFound(groupName);
-            if (row && await clickRowAndWait(row, groupName)) {
-                console.log('[WHL] ✅ Chat aberto via DOM (Arquivadas)');
-                return true;
+        // ── ESTRATÉGIA 5: Arquivadas + scroll (rede de segurança — caso o
+        // archive flag não estivesse setado mas o grupo esteja lá) ───────────
+        if (!isArchived) {
+            console.log('[WHL] DOM: Arquivadas + scroll (rede de segurança)');
+            if (await openArchived()) {
+                await sleep(400);
+                row = await scrollUntilFound(groupName);
+                if (row && await clickRowAndWait(row, groupName)) {
+                    console.log('[WHL] ✅ Chat aberto via DOM (Arquivadas)');
+                    try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
+                    return true;
+                }
+                try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
+                await sleep(300);
             }
-            try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch (_) {}
-            await sleep(300);
         }
 
         console.warn('[WHL] ❌ Não foi possível abrir o chat do grupo:', groupId, '(nome:', groupName, ')');
