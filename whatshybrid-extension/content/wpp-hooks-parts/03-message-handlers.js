@@ -1391,18 +1391,22 @@
                 const byId = document.querySelector(`[data-id="${CSS.escape(groupId)}"]`);
                 if (byId) return byId.closest('[role="row"], [data-testid="cell-frame-container"]') || byId;
             } catch (_) {}
-            const pane = document.querySelector('#pane-side');
-            if (!pane) return null;
-            const rows = pane.querySelectorAll('[role="row"], [data-testid="cell-frame-container"], [role="listitem"]');
-            for (const row of rows) {
-                const titleEl = row.querySelector('span[title]');
-                const t = norm(titleEl?.getAttribute('title') || titleEl?.textContent || '');
-                if (t === target) {
-                    return row.querySelector('[data-testid="cell-frame-container"]') ||
-                           row.querySelector('[role="gridcell"][tabindex="0"]') || row;
+            const pick = (root) => {
+                if (!root) return null;
+                const rows = root.querySelectorAll('[role="row"], [data-testid="cell-frame-container"], [role="listitem"]');
+                for (const row of rows) {
+                    const titleEl = row.querySelector('span[title]');
+                    const t = norm(titleEl?.getAttribute('title') || titleEl?.textContent || '');
+                    if (t === target) {
+                        return row.querySelector('[data-testid="cell-frame-container"]') ||
+                               row.querySelector('[role="gridcell"][tabindex="0"]') || row;
+                    }
                 }
-            }
-            return null;
+                return null;
+            };
+            // Try #pane-side first; fall back to #side (covers archived-view overlay panels)
+            return pick(document.querySelector('#pane-side')) ||
+                   pick(document.querySelector('#side'));
         }
 
         // Tenta clicar na linha e esperar o header mudar. Devolve true se abriu.
@@ -1478,12 +1482,26 @@
         async function openArchived() {
             const pane = document.querySelector('#pane-side');
             if (!pane) return false;
+
+            // Polls for "Voltar"/"Back" button that confirms archived view activated
+            const waitActivated = async () => {
+                for (let i = 0; i < 25; i++) {
+                    await sleep(100);
+                    if (document.querySelector('[aria-label*="Voltar" i], [aria-label*="Back" i]')) return true;
+                }
+                return false;
+            };
+
             // v9.7.x: 1ª tentativa é aria-label limpo ("Arquivadas " no diagnóstico).
             // O textContent vem com prefixo "archive-refreshed" do span de ícone,
             // então startsWith('arquivad') falhava.
             const ariaBtn = pane.querySelector('[aria-label*="rquivad" i],[aria-label*="rchived" i]');
             if (ariaBtn) {
-                try { humanClick(ariaBtn); await sleep(700); return true; } catch (_) {}
+                try {
+                    humanClick(ariaBtn);
+                    await waitActivated();
+                    return true;
+                } catch (_) {}
             }
             // 2ª tentativa: scan por textContent incluindo "arquivad" e usando
             // BUTTON nativo (que não casava com [role="button"]).
@@ -1491,7 +1509,11 @@
             for (const r of all) {
                 const t = norm(r.textContent);
                 if (t.includes('arquivad') || t.includes('archived')) {
-                    try { humanClick(r); await sleep(700); return true; } catch (_) {}
+                    try {
+                        humanClick(r);
+                        await waitActivated();
+                        return true;
+                    } catch (_) {}
                 }
             }
             return false;
@@ -1524,6 +1546,20 @@
         }
         if (headerMatches(groupName)) { console.log('[WHL] Chat já estava aberto'); return true; }
 
+        // ── ESTRATÉGIA 0: WPP.chat.open (funciona mesmo com chats arquivados) ──
+        if (window.WPP?.chat?.open) {
+            try {
+                console.log('[WHL] Tentando WPP.chat.open para:', groupId);
+                await window.WPP.chat.open(groupId);
+                if (await waitHeaderMatches(groupName, 3000)) {
+                    console.log('[WHL] ✅ Chat aberto via WPP.chat.open');
+                    return true;
+                }
+            } catch (e) {
+                console.warn('[WHL] WPP.chat.open falhou:', e?.message);
+            }
+        }
+
         const CC = (() => { try { return require('WAWebChatCollection'); } catch (_) { return null; } })();
         const CMD = (() => { try { return require('WAWebCmd'); } catch (_) { return null; } })();
         const chat = CC?.ChatCollection?.get(groupId);
@@ -1535,7 +1571,7 @@
         if (isArchived) {
             console.log('[WHL] Grupo está arquivado — abrindo via view Arquivadas');
             if (await openArchived()) {
-                await sleep(500);
+                await sleep(1200);
                 let aRow = await scrollUntilFound(groupName);
                 if (aRow && await clickRowAndWait(aRow, groupName)) {
                     console.log('[WHL] ✅ Chat aberto via Arquivadas (sem desarquivar)');
@@ -1572,7 +1608,9 @@
         // um message-key como 2º arg). Tentamos com lastReceivedKey quando
         // disponível; se falhar, ignoramos silenciosamente.
         const lastMsgKey = chat?.lastReceivedKey || chat?.lastMessageKey || null;
+        const NAV = (() => { try { return require('WAWebNavigatorModel'); } catch (_) { return null; } })();
         const apiAttempts = [
+            ['WAWebNavigatorModel.navigate', () => (NAV?.default?.navigate || NAV?.navigate)?.('chat', chat)],
             ['Cmd.openChatAt(chat,lastKey)', () => CMD?.openChatAt?.(chat, lastMsgKey)],
             ['sendSeen+open',                async () => { try { await chat?.sendSeen?.(); } catch (_) {} return chat?.open?.(); }],
             ['CC.setActive',                 () => CC?.ChatCollection?.setActive?.(chat)],
