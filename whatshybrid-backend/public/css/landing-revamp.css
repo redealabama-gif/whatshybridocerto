@@ -175,7 +175,7 @@
 .lf-label {
   position: absolute;
   bottom: 16px; left: 16px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.75rem;
   letter-spacing: 1px;
   color: var(--brand-cyan);
@@ -233,7 +233,7 @@
 }
 .float-badge .fb-icon i { width: 18px; height: 18px; }
 .float-badge .fb-value {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.1rem;
   font-weight: 800;
   line-height: 1;
@@ -318,7 +318,7 @@
   content: '\201C';
   position: absolute;
   top: 8px; left: 16px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 4.5rem;
   line-height: 1;
   color: rgba(0, 255, 255, 0.18);
@@ -345,7 +345,7 @@
   border-radius: 50%;
   display: grid; place-items: center;
   overflow: hidden;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-weight: 700;
   color: black;
   font-size: 0.95rem;
@@ -412,7 +412,7 @@
   display: grid; place-items: center;
   color: white;
   font-weight: 700;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
 }
 .chat-mock-name { font-weight: 700; color: white; font-size: 0.95rem; }
 .chat-mock-status {
@@ -495,7 +495,7 @@
 }
 .chat-ai-head {
   display: flex; align-items: center; gap: 8px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -570,7 +570,7 @@
   border-bottom: 1px solid var(--border);
 }
 .dash-mock-title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -615,7 +615,7 @@
   letter-spacing: 0.4px;
 }
 .dash-stat-value {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.35rem;
   font-weight: 800;
   color: white;
@@ -657,7 +657,7 @@
   position: absolute;
   inset: 0;
   display: grid; place-items: center;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.3rem;
   font-weight: 800;
   color: white;
@@ -733,7 +733,7 @@
   border: 0;
 }
 .roi-input-num {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 2.4rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
@@ -770,7 +770,7 @@
 }
 .roi-output-label i { width: 16px; height: 16px; color: var(--brand-cyan); }
 .roi-output-value {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-weight: 800;
   font-size: 1.4rem;
   color: white;
@@ -817,7 +817,7 @@
   padding: 20px 24px;
 }
 .comparison-row.head > div {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -862,7 +862,7 @@
   }
   .comparison-cell[data-mobile-label="Recurso"]::before { display: none; }
   .comparison-cell[data-mobile-label="Recurso"] {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 0.95rem;
     color: white;
     margin-bottom: 4px;
@@ -908,7 +908,7 @@
 .learn-illustration svg { width: 120px; height: 110px; }
 .learn-step-num {
   display: inline-block;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -1077,7 +1077,7 @@
   border: 1px solid rgba(0, 255, 255, 0.3);
   border-radius: 8px;
   padding: 6px 10px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.1rem;
   font-weight: 800;
   color: white;
@@ -1102,13 +1102,13 @@
 }
 .cta-vagas strong {
   color: var(--brand-cyan);
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 /* ── Section header polish ─────────────────────────────────────── */
 .section-eyebrow {
   display: inline-block;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 0.75rem;
   letter-spacing: 2px;
   text-transform: uppercase;

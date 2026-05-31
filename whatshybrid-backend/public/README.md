@@ -39,7 +39,7 @@ Abre: `http://localhost:3000`
 ## 🎨 Estilo
 
 - Cores: roxo `#6f00ff` + ciano `#00ffff`
-- Fontes: Orbitron (títulos) + Inter (texto) — carregadas do Google Fonts
+- Fontes: Fraunces (títulos) + Inter (texto) — carregadas do Google Fonts
 - Ícones: Lucide via CDN
 - Glassmorphism, custom cursor, animações suaves
 - Tudo definido em `css/futuristic.css` (15KB)
