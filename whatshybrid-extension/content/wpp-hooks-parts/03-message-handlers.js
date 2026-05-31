@@ -1444,29 +1444,30 @@
 
         async function clickTab(labels) {
             const target = labels.map(norm);
-            // v9.7.x: <button> nativo NÃO casa [role="button"] (role implícito).
-            // Inclui button explicitamente. Match por aria-label (mais limpo —
-            // não tem prefixo de ícone "archive-refreshed" etc) E textContent.
-            const candidates = document.querySelectorAll(
-                'button, [role="tab"], [role="button"]'
-            );
             const matches = (el) => {
                 const aria = norm(el.getAttribute('aria-label') || '');
                 const txt  = norm(el.textContent || '');
                 return target.some(L => {
                     if (!L) return false;
-                    // aria-label limpo: match exato ou começa com label
                     if (aria === L || aria.startsWith(L + ' ')) return true;
-                    // textContent: tab pode ter número grudado ("grupos14") ou
-                    // ícone como prefixo. Usa includes p/ ser tolerante.
+                    // textContent: tab pode ter número grudado ("grupos13") ou
+                    // ícone como prefixo. startsWith(L) é tolerante a ambos.
                     if (txt === L || txt.startsWith(L + ' ') || txt.startsWith(L)) return true;
-                    // Pra evitar falso-positivo: só usa includes se o label tem
-                    // >= 5 chars (evita match de "tudo" dentro de outras strings).
                     if (L.length >= 5 && txt.includes(L)) return true;
                     return false;
                 });
             };
-            for (const b of candidates) {
+            // v9.7.x: 1ª passada é [role="tab"] (as abas REAIS — diagnóstico do
+            // user confirmou: tab #0 Tudo, #1 Não lidas, #2 Favoritas, #3 Grupos).
+            // 2ª passada cai pra <button> genérico só se nada casou — evita
+            // pegar os botões "measurement-..." invisíveis que coincidem com
+            // o texto e estão antes na ordem do DOM.
+            for (const b of document.querySelectorAll('[role="tab"]')) {
+                if (matches(b)) {
+                    try { humanClick(b); await sleep(600); return true; } catch (_) {}
+                }
+            }
+            for (const b of document.querySelectorAll('button, [role="button"]')) {
                 if (matches(b)) {
                     try { humanClick(b); await sleep(600); return true; } catch (_) {}
                 }
