@@ -269,27 +269,9 @@
     let heroVisible = true;
 
     if (!reduceMotion && hero) {
-      const heroCanvas = document.createElement('canvas');
-      heroCanvas.className = 'hero-particles';
-      heroCanvas.setAttribute('aria-hidden', 'true');
-      hero.insertBefore(heroCanvas, hero.firstChild);
-      heroField = createField(heroCanvas, {
-        host: hero, maxDpr: 1.5,
-        density: 10000, max: 110, min: 28,
-        speed: 0.38, minR: 0.8, maxR: 2.6,
-        link: 138, linkAlpha: 0.6, mouseLink: 200,
-        nodeAlpha: 1, glow: true,
-        palette: [C_CYAN, C_PURPLE, C_WHITE, C_CYAN],
-        interactive: !coarse, repel: 130, repelForce: 0.65,
-      });
-      requestAnimationFrame(() => heroCanvas.classList.add('is-live'));
-
-      // pausa o hero quando fora da viewport
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver((ents) => {
-          ents.forEach((e) => { heroVisible = e.isIntersecting; });
-        }, { threshold: 0 }).observe(hero);
-      }
+      // Partículas do hero substituídas pela nebulosa WebGL2 em js/hero-shader.js
+      // (mesmo slot z-index 1, paleta cyan/purple). Halo do cursor e sweep de
+      // boot abaixo continuam aqui — funcionam por cima da nebulosa.
 
       // halo do cursor dentro do hero
       const glow = document.createElement('div');
