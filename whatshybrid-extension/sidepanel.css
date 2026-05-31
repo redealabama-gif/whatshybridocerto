@@ -2611,25 +2611,45 @@ body::before {
   box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
 }
 
-/* Statistics responsive layout fix */
+/* Statistics responsive layout fix
+   v9.6.1 — corrigido: tamanhos das fontes estavam invertidos (label grande, número
+   pequeno), causando o texto "⏳ Pendentes" a transbordar a caixa em painéis
+   estreitos. Agora label fica pequeno e número fica destacado, e damos overflow:hidden
+   nas mini-caixas para evitar sangramento mesmo em larguras < 280px. */
 @media (max-width: 400px) {
   .sp-card > div[style*="flex"] {
     gap: 4px !important;
   }
-  
+
   .sp-card > div[style*="flex"] > div {
-    min-width: 50px !important;
-    padding: 4px !important;
-    font-size: 14px !important;
+    min-width: 0 !important;
+    padding: 6px !important;
+    overflow: hidden;
   }
-  
+
   .sp-card > div[style*="flex"] > div > div:first-child {
-    font-size: 14px !important;
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  
+
   .sp-card > div[style*="flex"] > div > div:last-child {
-    font-size: 8px !important;
+    font-size: 16px !important;
   }
+}
+
+/* v9.6.1 — Mini-caixas de stats da Campanha (Enviadas/Falhas/Pendentes):
+   garante que rótulo e número fiquem contidos mesmo com fontes grandes,
+   tema escuro, ou sidepanels apertados. */
+.sp-card > div[style*="flex-wrap"] > div {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.sp-card > div[style*="flex-wrap"] > div > .sp-muted {
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Empty state for recover timeline */

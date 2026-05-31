@@ -939,73 +939,107 @@ function showView(viewName) {
     });
 
     $('sp_pause')?.addEventListener('click', async () => {
+      console.log('[SidePanel Router] ⏸️ PAUSE button clicked!');
       const pauseBtn = $('sp_pause');
       const statusEl = $('sp_campaign_status');
-      
-      // Verificar estado atual antes de alternar
+
+      // v9.6.1: trava o botão durante o toggle pra evitar duplo-clique
+      // (que poderia inverter o estado duas vezes muito rápido) e dá feedback
+      // imediato pro usuário antes do ida-e-volta pro content script.
+      if (pauseBtn) pauseBtn.disabled = true;
+
       try {
         const resp = await motor('GET_STATE', { light: true });
         const st = resp?.state || resp;
-        
+
         if (st?.isPaused) {
-          // Está pausado, então vamos continuar
           if (statusEl) statusEl.textContent = '▶️ Continuando...';
           await motor('PAUSE_TOGGLE');
           if (pauseBtn) pauseBtn.textContent = '⏸️ Pausar';
           if (statusEl) statusEl.textContent = '✅ Enviando...';
         } else if (st?.isRunning) {
-          // Está rodando, então vamos pausar
           if (statusEl) statusEl.textContent = '⏸️ Pausando...';
           await motor('PAUSE_TOGGLE');
           if (pauseBtn) pauseBtn.textContent = '▶️ Continuar';
           if (statusEl) statusEl.textContent = '⏸️ Pausado';
         } else {
-          // Não está rodando - nada a fazer
-          if (statusEl) statusEl.textContent = '⚠️ Campanha não iniciada';
+          if (statusEl) statusEl.textContent = '⚠️ Campanha não iniciada — clique em ▶️ Iniciar primeiro.';
         }
       } catch (e) {
+        console.error('[SidePanel Router] ❌ PAUSE error:', e);
         if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
+      } finally {
+        if (pauseBtn) pauseBtn.disabled = false;
       }
       await principalRefresh(true);
     });
 
     $('sp_stop')?.addEventListener('click', async () => {
+      console.log('[SidePanel Router] ⏹️ STOP button clicked!');
       if (!confirm('⛔ Parar a campanha completamente?\n\nIsso vai limpar a fila e encerrar todos os envios.')) return;
-      
+
       const statusEl = $('sp_campaign_status');
       const startBtn = $('sp_start');
       const pauseBtn = $('sp_pause');
-      
+      const stopBtn = $('sp_stop');
+
       if (statusEl) statusEl.textContent = '⏹️ Parando...';
-      
+      if (stopBtn) stopBtn.disabled = true;
+
       try {
         await motor('STOP_CAMPAIGN');
-        // Também limpar a fila
+        // Após parar, também limpamos a fila — comportamento original do botão.
         await motor('WIPE_QUEUE');
-        if (statusEl) statusEl.textContent = '⏹️ Campanha encerrada';
+        if (statusEl) statusEl.textContent = '⏹️ Campanha encerrada e fila zerada.';
         if (startBtn) startBtn.disabled = false;
         if (pauseBtn) pauseBtn.textContent = '⏸️ Pausar';
       } catch (e) {
+        console.error('[SidePanel Router] ❌ STOP error:', e);
         if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
+      } finally {
+        if (stopBtn) stopBtn.disabled = false;
       }
       await principalRefresh(true);
     });
 
     $('sp_skip')?.addEventListener('click', async () => {
+      console.log('[SidePanel Router] ⏭️ SKIP button clicked!');
+      const statusEl = $('sp_campaign_status');
+      const skipBtn = $('sp_skip');
+
+      if (statusEl) statusEl.textContent = '⏭️ Pulando contato atual...';
+      if (skipBtn) skipBtn.disabled = true;
+
       try {
-        await motor('SKIP_CURRENT');
+        const resp = await motor('SKIP_CURRENT');
+        if (statusEl) statusEl.textContent = resp?.message || '⏭️ Contato pulado.';
       } catch (e) {
-        $('sp_campaign_status').textContent = `❌ ${e.message || e}`;
+        console.error('[SidePanel Router] ❌ SKIP error:', e);
+        if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
+      } finally {
+        if (skipBtn) skipBtn.disabled = false;
       }
       await principalRefresh(true);
     });
 
     $('sp_wipe')?.addEventListener('click', async () => {
+      console.log('[SidePanel Router] 🧨 WIPE button clicked!');
       if (!confirm('Zerar a fila inteira?')) return;
+
+      const statusEl = $('sp_campaign_status');
+      const wipeBtn = $('sp_wipe');
+
+      if (statusEl) statusEl.textContent = '🧨 Zerando fila...';
+      if (wipeBtn) wipeBtn.disabled = true;
+
       try {
         await motor('WIPE_QUEUE');
+        if (statusEl) statusEl.textContent = '🧨 Fila zerada.';
       } catch (e) {
-        $('sp_campaign_status').textContent = `❌ ${e.message || e}`;
+        console.error('[SidePanel Router] ❌ WIPE error:', e);
+        if (statusEl) statusEl.textContent = `❌ ${e.message || e}`;
+      } finally {
+        if (wipeBtn) wipeBtn.disabled = false;
       }
       await principalRefresh(true);
     });
