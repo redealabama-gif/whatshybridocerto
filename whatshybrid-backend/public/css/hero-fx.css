@@ -1,6 +1,6 @@
 /**
  * WhatsHybrid Pro — Hero FX (camada de movimento "alive/tech")
- * Constelação interativa, parallax 3D do palco de dispositivos, decode de texto,
+ * Constelação interativa, parallax 3D do palco de dispositivos,
  * tilt reativo de cards, HUD brackets, scanlines e shimmer.
  *
  * Carregar DEPOIS de landing-fx.css. JS em js/hero-fx.js.
@@ -120,18 +120,8 @@
 }
 
 /* ════════════════════════════════════════════════════════
-   4. DECODE / SCRAMBLE de texto
-   JS troca o textContent por glifos durante o "decode".
+   4. (DECODE / SCRAMBLE removido — efeito desligado em js/hero-fx.js)
    ════════════════════════════════════════════════════════ */
-[data-decode] { will-change: contents; }
-[data-decode].is-decoding {
-  text-shadow: 0 0 18px rgba(0, 255, 255, 0.45);
-}
-/* glifos durante o scramble ficam levemente esverdeados/cyan */
-.decode-char {
-  color: var(--brand-cyan);
-  opacity: 0.85;
-}
 
 /* ════════════════════════════════════════════════════════
    5. TILT 3D reativo + sheen (cards e palco)

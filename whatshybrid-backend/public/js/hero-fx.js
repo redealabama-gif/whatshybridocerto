@@ -5,7 +5,6 @@
  *  • Constelação de partículas interativa (hero) — liga ao cursor, repele.
  *  • Campo ambiente global sutil (fixo, atrás de tudo).
  *  • Parallax 3D do palco de dispositivos (iMac + iPhone) seguindo o mouse.
- *  • Decode / scramble de texto (h1 + section-eyebrows) ao revelar.
  *  • Tilt 3D + sheen reativo em frames grandes (vídeo, mock de chat/dash).
  *  • HUD brackets, sweep de boot, halo do cursor, brilho dos contadores.
  *
@@ -185,36 +184,6 @@
   }
 
   // ════════════════════════════════════════════════════════
-  //  DECODE / SCRAMBLE de texto
-  // ════════════════════════════════════════════════════════
-  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*<>/\\{}[]=+@$';
-  function decode(el, dur) {
-    if (reduceMotion) return;
-    const final = el.getAttribute('data-final') != null ? el.getAttribute('data-final') : el.textContent;
-    el.setAttribute('data-final', final);
-    const len = final.length;
-    if (!len) return;
-    const start = performance.now();
-    dur = dur || 70 * len + 350;
-    el.classList.add('is-decoding');
-    function frame(now) {
-      const t = Math.min(1, (now - start) / dur);
-      const revealed = t * (len + 3); // cabeça de revelação varre da esquerda
-      let out = '';
-      for (let i = 0; i < len; i++) {
-        const ch = final[i];
-        if (ch === ' ' || ch === '\u00A0') { out += ch; continue; }
-        if (i < revealed - 3) out += ch;
-        else out += GLYPHS[(Math.random() * GLYPHS.length) | 0];
-      }
-      el.textContent = out;
-      if (t < 1) requestAnimationFrame(frame);
-      else { el.textContent = final; el.classList.remove('is-decoding'); }
-    }
-    requestAnimationFrame(frame);
-  }
-
-  // ════════════════════════════════════════════════════════
   //  TILT 3D + sheen (frames grandes, não-magnéticos)
   // ════════════════════════════════════════════════════════
   function makeTilt(el, max) {
@@ -351,24 +320,9 @@
       });
     }
 
-    // —— Decode de texto —————————————————————————————————————
-    if (!reduceMotion) {
-      // hero h1 — palavras com gradiente/glow
-      const heroWords = $$('.hero h1 .text-gradient, .hero h1 .text-glow');
-      heroWords.forEach((w) => w.setAttribute('data-final', w.textContent));
-      setTimeout(() => heroWords.forEach((w, i) => setTimeout(() => decode(w, 900), i * 260)), 450);
-
-      // section eyebrows — ao entrar na viewport
-      const eyebrows = $$('.section-eyebrow');
-      if ('IntersectionObserver' in window) {
-        const io = new IntersectionObserver((ents) => {
-          ents.forEach((e) => {
-            if (e.isIntersecting) { decode(e.target, 800); io.unobserve(e.target); }
-          });
-        }, { threshold: 0.6 });
-        eyebrows.forEach((el) => io.observe(el));
-      }
-    }
+    // —— Decode de texto: REMOVIDO ——————————————————————————
+    // O efeito de "scramble" embaralhava h1 do hero e .section-eyebrow
+    // ao carregar/scrollar — confundia a leitura, foi desligado.
 
     // —— Tilt em frames grandes não-magnéticos ———————————————
     // .laptop-frame ficou de fora: o contexto 3D (perspective + preserve-3d)

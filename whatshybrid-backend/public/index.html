@@ -958,10 +958,11 @@
 
     /* ═══════════════════════════════════════════════════════
        ROI section — WebGL light beam background (js/roi-shader.js)
+       Canvas é absoluto na section (sem container), pega a viewport
+       inteira de borda a borda e fica ATRÁS do .roi-card.
        ═══════════════════════════════════════════════════════ */
-    #roi { position: relative; overflow: hidden; isolation: isolate; }
-    #roi > .text-center,
-    #roi > .roi-card { position: relative; z-index: 2; }
+    #roi { position: relative; isolation: isolate; overflow: hidden; }
+    #roi > .container { position: relative; z-index: 2; }
     .roi-shader-host {
       position: absolute;
       inset: 0;
@@ -970,8 +971,8 @@
       z-index: 0;
       pointer-events: none;
       overflow: hidden;
-      mask-image: radial-gradient(120% 80% at 50% 50%, #000 40%, transparent 90%);
-      -webkit-mask-image: radial-gradient(120% 80% at 50% 50%, #000 40%, transparent 90%);
+      mask-image: radial-gradient(140% 70% at 50% 50%, #000 35%, transparent 95%);
+      -webkit-mask-image: radial-gradient(140% 70% at 50% 50%, #000 35%, transparent 95%);
     }
     .roi-shader-canvas {
       display: block;
@@ -979,9 +980,8 @@
       height: 100%;
       opacity: 0;
       transition: opacity 1.6s ease;
-      mix-blend-mode: screen;
     }
-    .roi-shader-canvas.is-live { opacity: 0.55; }
+    .roi-shader-canvas.is-live { opacity: 0.6; }
     @media (prefers-reduced-motion: reduce) {
       .roi-shader-host { display: none !important; }
     }
@@ -2695,7 +2695,8 @@
 </section>
 
 <!-- ROI Calculator -->
-<section class="py-16 container" id="roi">
+<section class="py-16" id="roi">
+  <div class="container">
   <div class="text-center reveal">
     <span class="section-eyebrow">Calculadora de ROI</span>
     <h2 class="mb-4">Quanto a IA <span class="text-gradient">economiza no seu mês</span></h2>
@@ -2740,6 +2741,7 @@
         <div class="roi-output-value" id="roi-annual">R$ 0</div>
       </div>
     </div>
+  </div>
   </div>
 </section>
 
