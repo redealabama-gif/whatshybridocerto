@@ -1387,6 +1387,41 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
     }
+    .exit-modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: left;
+    }
+    .exit-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .exit-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .exit-input:focus {
+      outline: none;
+      border-color: var(--brand-cyan);
+      background: rgba(0, 255, 255, 0.06);
+      box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.15);
+    }
+    .exit-input.is-invalid {
+      border-color: #f87171;
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
+    }
+    .exit-modal-error {
+      margin: 2px 0 0;
+      color: #fca5a5;
+      font-size: 0.82rem;
+      text-align: left;
+    }
+    .exit-modal-form .btn { margin-top: 6px; width: 100%; justify-content: center; }
     @media (prefers-reduced-motion: reduce) {
       .exit-modal-overlay,
       .exit-modal { transition: opacity 0.2s; }
@@ -3083,10 +3118,16 @@
     <span class="exit-modal-badge">Espera!</span>
     <h3 id="exit-modal-title">Antes de ir, <span class="gift-value">leve 50% off</span> no 1º mês</h3>
     <p>Apenas hoje, libere o plano Pro com metade do preço. 7 dias grátis continuam — você só paga depois.</p>
-    <a href="signup.html?coupon=EXIT50" class="btn btn-cyan btn-large" data-cursor="hover">
-      <i data-lucide="gift" style="width:18px;height:18px;"></i>
-      Quero meu desconto
-    </a>
+    <form class="exit-modal-form" id="exit-modal-form" autocomplete="on">
+      <input type="text"  id="exit-name"  name="name"  class="exit-input" required minlength="2" autocomplete="name"  aria-label="Seu nome" placeholder="Seu nome">
+      <input type="tel"   id="exit-phone" name="phone" class="exit-input" required autocomplete="tel" inputmode="tel" aria-label="Número de WhatsApp com DDD" placeholder="WhatsApp com DDD">
+      <input type="email" id="exit-email" name="email" class="exit-input" required autocomplete="email" inputmode="email" aria-label="Seu e-mail" placeholder="Seu melhor e-mail">
+      <p class="exit-modal-error" id="exit-modal-error" role="alert" hidden>Preencha nome, contato e e-mail para liberar o desconto.</p>
+      <button type="submit" class="btn btn-cyan btn-large" id="exit-modal-submit" data-cursor="hover">
+        <i data-lucide="gift" style="width:18px;height:18px;"></i>
+        Quero meu desconto
+      </button>
+    </form>
   </div>
 </div>
 
@@ -3614,6 +3655,42 @@
       if (closeBtn) closeBtn.addEventListener('click', close);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('show')) close(); });
+
+      // Gate do cupom: só redireciona (com EXIT50) se nome, contato e e-mail
+      // forem preenchidos e válidos. Sem isso, o desconto NÃO é liberado — o
+      // cupom não fica "embutido" em lugar nenhum; ele só nasce aqui, no submit.
+      const form = document.getElementById('exit-modal-form');
+      const errEl = document.getElementById('exit-modal-error');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const nameEl = document.getElementById('exit-name');
+          const phoneEl = document.getElementById('exit-phone');
+          const emailEl = document.getElementById('exit-email');
+          const name = nameEl.value.trim();
+          const phone = phoneEl.value.trim();
+          const email = emailEl.value.trim();
+          const nameOk = name.length >= 2;
+          const phoneOk = phone.replace(/\D/g, '').length >= 10; // DDD + número
+          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          nameEl.classList.toggle('is-invalid', !nameOk);
+          phoneEl.classList.toggle('is-invalid', !phoneOk);
+          emailEl.classList.toggle('is-invalid', !emailOk);
+          if (!nameOk || !phoneOk || !emailOk) {
+            if (errEl) errEl.hidden = false;
+            (!nameOk ? nameEl : !phoneOk ? phoneEl : emailEl).focus();
+            return; // não libera o desconto nem redireciona
+          }
+          if (errEl) errEl.hidden = true;
+          // captura do lead nos pixels já presentes na página
+          try { if (window.metaTrack) window.metaTrack('Lead', { content_name: 'Exit coupon EXIT50', content_category: 'coupon' }); } catch (_) {}
+          try { if (window.ga4Track) window.ga4Track('generate_lead', { coupon: 'EXIT50' }); } catch (_) {}
+          // passa os dados pro signup (prefill) sem expor PII na URL
+          try { sessionStorage.setItem('wh_exit_lead', JSON.stringify({ name, phone, email, coupon: 'EXIT50' })); } catch (_) {}
+          // SÓ AQUI o cupom entra de fato na URL — agora sim, redireciona
+          window.location.href = 'signup.html?coupon=EXIT50';
+        });
+      }
     }
 
     // ── 10. Continuous live counter ─────────────────────
