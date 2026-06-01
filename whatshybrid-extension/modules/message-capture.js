@@ -526,9 +526,11 @@
       // Armazenar para cleanup via domObserver.disconnect()
       domObserver = { disconnect: () => { _unregister(); } };
     } else {
-      // Fallback: MutationObserver direto
+      // Fallback: MutationObserver direto — no #main/#pane-side, nunca no body
+      // inteiro (observar document.body com subtree dispara o callback em CADA
+      // mutação da página = custo alto à toa).
       domObserver = new MutationObserver(_captureHandler);
-      domObserver.observe(document.body, { childList: true, subtree: true });
+      domObserver.observe(document.querySelector('#main, #pane-side') || document.body, { childList: true, subtree: true });
     }
 
     console.log('[MessageCapture] 👁️ MutationObserver configurado via ObserverRegistry');
@@ -783,7 +785,6 @@
       // A more sophisticated implementation would track recent AI suggestions
       // and only emit when messages follow those suggestions.
       if (!sanitized.isFromMe && sanitized.type === 'text') {
-        console.log('[#16] ✅ Emitting client:responded event (heuristic: all client messages)');
         window.EventBus.emit('client:responded', {
           chatId: sanitized.chatId,
           message: sanitized.message,
@@ -797,8 +798,6 @@
     if (state.queue.length >= CONFIG.BATCH_SIZE) {
       flushQueue();
     }
-
-    console.log('[MessageCapture] 📩 Mensagem capturada (sanitizada):', sanitized.id?.substring(0, 8) || '?');
   }
 
   /**
