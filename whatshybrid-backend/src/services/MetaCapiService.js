@@ -184,7 +184,7 @@ async function sendEvent({
  *
  * @param {Object} opts
  * @param {string} opts.workspaceId
- * @param {string} opts.plan          'starter' | 'pro' | 'agency'
+ * @param {string} opts.plan          'starter' | 'pro'
  * @param {number} opts.amount        valor pago (na unidade da moeda — R$,
  *                                    NÃO centavos)
  * @param {string} opts.currency      ISO 4217 (BRL, USD, etc.)

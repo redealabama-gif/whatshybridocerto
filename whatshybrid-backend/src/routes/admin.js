@@ -455,7 +455,7 @@ router.get('/billing/high-spenders', asyncHandler(async (req, res) => {
   // Não é binding — só pra calcular % consumido vs cota teórica e flagear
   // outliers ("Pro gastando como Agency" indica upsell ou abuso).
   const planQuota = {
-    free: 0, starter: 50000, pro: 500000, agency: 5000000, enterprise: 999000000
+    free: 0, starter: 50000, pro: 500000, enterprise: 999000000
   };
 
   const enriched = rows.map(r => {

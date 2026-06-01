@@ -126,7 +126,7 @@ function setup() {
       const owner = getOwnerInfo(payload.workspace_id);
       if (!owner) return;
       // Fase 2: alinhado com PLAN_PRICES do MercadoPagoService.
-      const planPrices = { starter: 49.90, pro: 99.90, agency: 199.90 };
+      const planPrices = { starter: 49.90, pro: 99.90 };
       await emailService.sendTrialEnding({
         to: owner.email,
         name: owner.name,
@@ -144,7 +144,7 @@ function setup() {
     try {
       const owner = getOwnerInfo(payload.workspace_id);
       if (!owner) return;
-      const planPrices = { starter: 49.90, pro: 99.90, agency: 199.90 };
+      const planPrices = { starter: 49.90, pro: 99.90 };
       await emailService.sendFirstInvoiceLink({
         to: owner.email,
         name: owner.name,
