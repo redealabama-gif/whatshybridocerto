@@ -172,11 +172,9 @@ const helmetForAdmin = helmet({
 });
 
 // v9.0.0: CSP strict pra portal autenticado (login, dashboard, etc.)
-// v9.6.2: liberado 'wasm-unsafe-eval' + workerSrc blob: porque o robô 3D
-// (Spline viewer @ unpkg) compila um módulo WebAssembly e cria workers a
-// partir de blob: URLs para descompactar a cena. Sem isso, o web component
-// <spline-viewer> carrega mas nunca termina de inicializar — a landing
-// ficava travada em "Carregando núcleo 3D…" eternamente.
+// O robô 3D da landing é self-hosted (Three.js em /assets/three) — não precisa
+// de CDN externo, WebAssembly nem workers blob:. unpkg.com segue liberado
+// apenas para os ícones do Lucide usados nas páginas.
 const helmetForPortal = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -184,13 +182,12 @@ const helmetForPortal = helmet({
       scriptSrc: [
         "'self'",
         "'unsafe-inline'", // necessário pra inline scripts existentes do portal
-        "'wasm-unsafe-eval'", // Spline viewer / draco decoder compila WebAssembly
-        "https://unpkg.com",
+        "https://unpkg.com", // ícones Lucide (lucide@latest)
         "https://cdn.jsdelivr.net",
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
       ],
-      workerSrc: ["'self'", "blob:"], // Spline spawn workers a partir de blob:
+      workerSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
