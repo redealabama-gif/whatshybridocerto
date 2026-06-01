@@ -25,7 +25,6 @@ const MP_API = 'https://api.mercadopago.com';
 const PLAN_PRICES = {
   starter: 49.90,
   pro: 99.90,
-  agency: 199.90,
 };
 
 class MercadoPagoService {
@@ -48,7 +47,7 @@ class MercadoPagoService {
    *
    * @param {Object} opts
    * @param {string} opts.workspaceId — ID do workspace que está pagando
-   * @param {string} opts.plan — starter | pro | agency
+   * @param {string} opts.plan — starter | pro
    * @param {string} opts.email — email do pagador
    * @param {string} opts.name — nome do pagador
    * @param {string} [opts.successUrl] — URL para onde voltar após sucesso

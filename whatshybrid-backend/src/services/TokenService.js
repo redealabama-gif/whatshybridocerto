@@ -30,7 +30,6 @@ const PLAN_TOKENS = {
   free:       0,           // sem IA no plano free
   starter:    50_000,      // 50k tokens/mês (cobre ~250 mensagens médias)
   pro:        500_000,     // 500k tokens/mês (cobre ~2500 mensagens médias)
-  agency:     5_000_000,   // 5M tokens/mês
   enterprise: 999_000_000, // efetivamente ilimitado (usado por master workspaces internos)
 };
 
@@ -201,6 +200,14 @@ class TokenService {
         }
       }
 
+      // BUG FIX CRÍTICO: ensureRow ANTES do UPDATE. Workspace recém-criado/pago
+      // ainda não tem linha em workspace_credits. O UPDATE rodava primeiro e não
+      // afetava nenhuma linha (no-op silencioso); só depois ensureRow criava a
+      // linha com tokens_total=0. Resultado: cliente virava PRO com SALDO ZERO e
+      // não conseguia usar a IA que pagou. Garantindo a linha primeiro, o UPDATE
+      // efetivamente grava o grant.
+      this.ensureRow(workspaceId);
+
       // Zera consumo, define total para o grant (não acumula sobras do mês anterior)
       db.run(
         `UPDATE workspace_credits
@@ -213,7 +220,6 @@ class TokenService {
         [grant, workspaceId]
       );
 
-      this.ensureRow(workspaceId);
       db.run(
         `INSERT INTO token_transactions
           (id, workspace_id, type, amount, balance_after, invoice_id, description)

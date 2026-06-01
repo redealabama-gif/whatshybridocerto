@@ -58,7 +58,7 @@ function hasRedemptionsLeft(coupon) {
  * Valida um cupom para um plano específico. NÃO aplica nada.
  *
  * @param {string} rawCode  - código bruto (ex.: 'exit50' ou ' EXIT50 ')
- * @param {string} plan     - 'starter', 'pro', 'agency', 'free'
+ * @param {string} plan     - 'starter', 'pro', 'free'
  * @returns {{ valid: boolean, reason?: string, coupon?: object }}
  */
 function validate(rawCode, plan) {
