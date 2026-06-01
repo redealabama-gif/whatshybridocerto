@@ -498,68 +498,13 @@ app.use('/api/v2/intelligence', intelligenceRoutes); // v10.1: commercial intell
 // ADMIN PANEL WITH AUTHENTICATION
 // ============================================
 
-// Admin authentication middleware
-const adminAuthMiddleware = (req, res, next) => {
-  // AUDIT-NEW-007: Only accept token from Authorization header, NOT query string
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Admin Panel - Authentication Required</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
-        <h1>🔒 Authentication Required</h1>
-        <p>Include the token in the Authorization header: <code>Bearer YOUR_JWT</code></p>
-      </body>
-      </html>
-    `);
-  }
-  
-  try {
-    const payload = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
-    
-    // Only owner and admin roles can access
-    if (payload.role !== 'owner' && payload.role !== 'admin') {
-      return res.status(403).send(`
-        <!DOCTYPE html>
-        <html>
-        <head><title>Admin Panel - Forbidden</title></head>
-        <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
-          <h1>⛔ Access Denied</h1>
-          <p>Admin or Owner role required to access this panel.</p>
-        </body>
-        </html>
-      `);
-    }
-    
-    // Store user info for potential use
-    req.user = payload;
-    next();
-  } catch (err) {
-    const safeMsg = String(err.message || 'Unknown error')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;');
-    return res.status(401).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Admin Panel - Invalid Token</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
-        <h1>❌ Invalid or Expired Token</h1>
-        <p>${safeMsg}</p>
-        <p>Please obtain a valid JWT token and try again.</p>
-      </body>
-      </html>
-    `);
-  }
-};
-
-// Admin Panel (arquivos estáticos) - NOW WITH AUTH!
-app.use('/admin', adminAuthMiddleware, express.static(path.join(__dirname, '../admin')));
-app.get('/admin', adminAuthMiddleware, (req, res) => {
+// Admin Panel (arquivos estáticos).
+// O HTML é apenas a SPA de login + dashboard — toda chamada sensível bate em
+// /api/v1/admin/* que já tem authenticate + requireAdmin (src/routes/admin.js).
+// Servir o HTML sob auth criava paradoxo: não dava pra ver a tela de login
+// sem já ter um JWT. Estático fica livre; a API continua protegida.
+app.use('/admin', express.static(path.join(__dirname, '../admin')));
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../admin/index.html'));
 });
 
