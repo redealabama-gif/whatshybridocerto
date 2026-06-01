@@ -1,13 +1,32 @@
 /**
  * 📨 Message Capture System - Pilar 1 do Aprendizado Contínuo
  * WhatsHybrid v7.10.0
- * 
+ *
+ * ⚠️ STATUS ATUAL (documentado após investigação de Maio/2026):
+ * O hook `Store.Msg.on('add')` desta versão do WhatsApp Web NÃO é mais
+ * acessível — a Meta fechou o acesso direto ao Store global há tempos.
+ * Confirmação cruzada: `wpp-hooks.js` (caminho alternativo, mais novo)
+ * também loga "Msg store not available for add hook" no console.
+ * Por consequência, esta captura roda mas não recebe eventos, a tabela
+ * `ai_conversations` no backend fica vazia, e o servidor não acumula
+ * histórico de chats entre sessões.
+ *
+ * Por que NÃO derruba o copilot mesmo assim: `copilot-engine.js` usa
+ * `extractMessagesFromDOM()` como fallback ativo — ele extrai as últimas
+ * mensagens do DOM aberto na hora da sugestão. Funciona pro caso de uso
+ * principal ("operador olhando o chat e pedindo sugestão"), mas perde
+ * aprendizado agregado entre sessões/chats.
+ *
+ * Quando vale revisitar: se a Meta voltar a expor APIs de eventos, ou
+ * se quisermos investir em interceptação de WebSocket/fetch do próprio
+ * WhatsApp Web (caminho moderno, trabalhoso, frágil a updates).
+ *
  * Sistema unificado de captura de mensagens do WhatsApp Web.
  * Captura todas as mensagens (enviadas, recebidas, apagadas, editadas)
  * e envia para o backend para aprendizado contínuo.
- * 
+ *
  * Funcionalidades:
- * - Hook de eventos do WhatsApp Web (Store.Msg)
+ * - Hook de eventos do WhatsApp Web (Store.Msg)  ← bloqueado pela Meta
  * - Captura de mensagens via MutationObserver
  * - Normalização de dados (quem falou, contexto, grupo, reply, mídia)
  * - Envio em batch para o backend

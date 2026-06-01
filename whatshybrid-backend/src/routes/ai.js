@@ -715,6 +715,17 @@ router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyn
  *   - últimas N mensagens do chat
  *   - few-shot examples relevantes
  *   - feedback histórico do mesmo chat
+ *   - knowledge base (FAQs, produtos, info do negócio)
+ *
+ * ⚠️ NOTA SOBRE `messages: []` (Maio/2026):
+ * É esperado o array `context.messages` vir vazio na maioria das chamadas.
+ * A fonte (`ai_conversations.messages`) é populada por `POST /ai/ingest`,
+ * que por sua vez depende da captura em tempo real no WhatsApp Web — e
+ * essa captura está bloqueada pela Meta (ver comentário em
+ * `whatshybrid-extension/modules/message-capture.js`). O copilot compensa
+ * isso re-extraindo mensagens do DOM a cada request (`extractMessagesFromDOM`
+ * em copilot-engine.js), então o `messages` vazio aqui não quebra a sugestão
+ * — só significa que o servidor não tem histórico persistido cross-session.
  */
 router.get('/learn/context/:chatId', authenticate, asyncHandler(async (req, res) => {
   const chatId = String(req.params.chatId || '');
