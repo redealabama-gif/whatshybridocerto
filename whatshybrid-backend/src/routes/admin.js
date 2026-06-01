@@ -783,7 +783,7 @@ router.get('/health', asyncHandler(async (req, res) => {
   }
 
   try {
-    const keys = await db.get('SELECT COUNT(*) as count FROM api_keys WHERE status = "active"');
+    const keys = await db.get("SELECT COUNT(*) as count FROM api_keys WHERE status = 'active'");
     checks.apiKeys = keys?.count > 0;
   } catch (e) {
     logger.error('[Admin] API keys health check failed:', e);

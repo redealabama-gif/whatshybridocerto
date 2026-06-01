@@ -12,7 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('../utils/uuid-wrapper');
-const { body } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 
 const db = require('../utils/database');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -56,6 +56,14 @@ router.post('/track',
     body('metadata').optional().isObject(),
   ],
   asyncHandler(async (req, res) => {
+    // BUG FIX: os validadores acima (body('step').isIn(...)) estavam declarados
+    // mas o resultado NUNCA era checado — step inválido entrava direto no banco
+    // e a rota devolvia {ok:true}. Agora rejeita 400 em entrada inválida.
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ ok: false, error: 'Invalid funnel step', details: errors.array() });
+    }
+
     const { step, metadata = {} } = req.body;
 
     let userId = null, workspaceId = null;

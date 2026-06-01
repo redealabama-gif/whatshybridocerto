@@ -24,7 +24,7 @@ router.get('/dashboard', authenticate, asyncHandler(async (req, res) => {
     messages: db.get('SELECT COUNT(*) as total FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.workspace_id = ?', [req.workspaceId]).total,
     campaigns: db.get('SELECT COUNT(*) as total FROM campaigns WHERE workspace_id = ?', [req.workspaceId]).total,
     deals: db.get('SELECT COUNT(*) as total, SUM(value) as total_value FROM deals WHERE workspace_id = ?', [req.workspaceId]),
-    tasks: db.get('SELECT COUNT(*) as total, SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed FROM tasks WHERE workspace_id = ?', [req.workspaceId])
+    tasks: db.get("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed FROM tasks WHERE workspace_id = ?", [req.workspaceId])
   };
 
   const messagesByDay = db.all(`
