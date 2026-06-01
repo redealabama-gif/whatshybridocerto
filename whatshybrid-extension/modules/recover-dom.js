@@ -1001,11 +1001,15 @@ ${entry.body}
 
     // Scan periódico para pegar mensagens que possam ter sido perdidas
     if (state.scanInterval) clearInterval(state.scanInterval);
+    // Perf: o MutationObserver acima já detecta apagada/editada em tempo real;
+    // este scan é só uma rede de segurança. Subi de 5s → 10s pra cortar pela
+    // metade a varredura pesada de DOM que roda o tempo todo (alívio do
+    // congelamento). Detecção em tempo real continua igual.
     state.scanInterval = setInterval(() => {
       scanAndCacheMessages(container);
       checkForDeletedMessages(container);
       checkForEditedMessages(container);
-    }, 5000);
+    }, 10000);
   }
 
   /**

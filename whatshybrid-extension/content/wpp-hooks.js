@@ -1924,6 +1924,16 @@ window.whl_hooks_main = () => {
             ? window.RecoverAdvanced?.MESSAGE_STATES?.REVOKED_GLOBAL
             : window.RecoverAdvanced?.MESSAGE_STATES?.DELETED_LOCAL;
 
+        // Declutter (adendo do usuário): NÃO registra revogado quando não há
+        // nada recuperável (sem texto E sem mídia) — são as entradas inúteis
+        // "desconhecido → desconhecido / [sem texto]" que só poluem o Recover.
+        // Apagado (isRevoke=false) e editado seguem 100% inalterados.
+        const _revokeHasText = msg.body && String(msg.body).trim().length > 0;
+        const _revokeHasMedia = msg.type && msg.type !== 'chat' && msg.type !== 'text';
+        if (isRevoke && !_revokeHasText && !_revokeHasMedia) {
+            return;
+        }
+
         const entrada = {
             id: msg.id?.id || Date.now().toString(),
             chatId: chatId,
