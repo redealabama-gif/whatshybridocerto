@@ -40,7 +40,7 @@ async function run() {
   const email = `${NS}@example.com`;
   const password = 'SmokeTest123!';
   const signupR = await http('POST', '/api/v1/auth/signup', {
-    email, password, name: 'Tokens Test', plan: 'starter',
+    email, password, name: 'Tokens Test', company: 'Tokens Co', plan: 'starter',
   });
   if (![200, 201].includes(signupR.status)) {
     console.log(`❌ Setup failed: signup ${signupR.status}`);
@@ -52,7 +52,10 @@ async function run() {
   await step('GET /tokens/balance returns balance', async () => {
     const r = await http('GET', '/api/v1/tokens/balance', null, auth);
     assert.equal(r.status, 200);
-    assert.ok(typeof r.data.balance === 'number' || typeof r.data.tokens === 'number');
+    // API retorna shape rico: { balance: { total, used, balance, ... } }.
+    // O saldo numérico está em r.data.balance.balance (ou compat r.data.tokens).
+    const num = r.data?.balance?.balance ?? r.data?.balance ?? r.data?.tokens;
+    assert.ok(typeof num === 'number', `saldo numérico esperado, got ${JSON.stringify(r.data).slice(0,80)}`);
   });
 
   await step('GET /tokens/history returns array', async () => {

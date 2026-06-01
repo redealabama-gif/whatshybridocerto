@@ -35,7 +35,7 @@ async function run() {
   const email = `${NS}@example.com`;
   const password = 'V9Test123!';
   const sR = await http('POST', '/api/v1/auth/signup', {
-    email, password, name: 'V9 Test', plan: 'starter',
+    email, password, name: 'V9 Test', company: 'V9 Co', plan: 'starter',
   });
   if (![200, 201].includes(sR.status)) {
     console.log(`❌ Setup signup failed: ${sR.status}`);
@@ -119,22 +119,22 @@ async function run() {
     assert.equal(r.status, 200);
   });
 
-  // AI Settings
-  await step('GET /ai-settings returns defaults', async () => {
-    const r = await http('GET', '/api/v1/ai-settings', null, auth);
+  // Workspace settings (rota REAL — a extensão usa /settings/workspace;
+  // o antigo /ai-settings nunca existiu no produto).
+  await step('GET /settings/workspace returns workspace', async () => {
+    const r = await http('GET', '/api/v1/settings/workspace', null, auth);
     assert.equal(r.status, 200);
-    assert.ok(r.data.settings);
+    assert.ok(r.data.workspace, 'workspace presente');
+    assert.ok(r.data.workspace.settings !== undefined, 'settings presente');
   });
 
-  await step('PUT /ai-settings updates', async () => {
-    const r = await http('PUT', '/api/v1/ai-settings', {
-      tone: 'casual',
-      sector: 'E-commerce',
-      maxResponseTokens: 300,
+  await step('PUT /settings/workspace persiste settings', async () => {
+    const r = await http('PUT', '/api/v1/settings/workspace', {
+      settings: { tone: 'casual', sector: 'E-commerce' },
     }, auth);
     assert.equal(r.status, 200);
-    assert.equal(r.data.settings.tone, 'casual');
-    assert.equal(r.data.settings.maxResponseTokens, 300);
+    assert.equal(r.data.workspace.settings.tone, 'casual', 'tone persistido');
+    assert.equal(r.data.workspace.settings.sector, 'E-commerce', 'sector persistido');
   });
 
   // 2FA

@@ -98,14 +98,20 @@ async function fireSignupCapi({
 
 // Generate tokens
 function generateTokens(userId) {
+  // SECURITY FIX: 'jti' (JWT ID) único por token. Sem ele, dois refresh tokens
+  // gerados no MESMO segundo (login + refresh imediato, ou refresh em sequência)
+  // saíam BYTE-IDÊNTICOS — os claims iat/exp têm resolução de 1s e o payload era
+  // idêntico. Isso quebrava a rotação: o "novo" token era igual ao antigo, mesmo
+  // hash no banco, e a detecção de reuso NUNCA disparava (token velho continuava
+  // válido). O jti aleatório garante que todo token é único e a rotação funciona.
   const accessToken = jwt.sign(
-    { userId },
+    { userId, jti: crypto.randomBytes(16).toString('hex') },
     config.jwt.secret,
     { expiresIn: config.jwt.expiresIn }
   );
 
   const refreshToken = jwt.sign(
-    { userId, type: 'refresh' },
+    { userId, type: 'refresh', jti: crypto.randomBytes(16).toString('hex') },
     config.jwt.secret,
     { expiresIn: config.jwt.refreshExpiresIn }
   );

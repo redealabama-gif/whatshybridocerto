@@ -172,7 +172,7 @@ async function activateSubscription(email, planId, paymentId, gateway) {
   const now = new Date().toISOString();
 
   // Verificar se já existe assinatura para este email
-  const existing = await db.get('SELECT * FROM subscriptions WHERE email = ? AND status = "active"', [email]);
+  const existing = await db.get("SELECT * FROM subscriptions WHERE email = ? AND status = 'active'", [email]);
   
   if (existing) {
     // Upgrade ou renovação - estender período
@@ -508,7 +508,7 @@ router.post('/validate', authLimiter, asyncHandler(async (req, res) => {
 
   // Verificar expiração
   if (subscription.expires_at && new Date(subscription.expires_at) < new Date()) {
-    await db.run('UPDATE subscriptions SET status = "expired" WHERE code = ?', [code]);
+    await db.run("UPDATE subscriptions SET status = 'expired' WHERE code = ?", [code]);
     return res.status(403).json({ success: false, error: 'Assinatura expirada' });
   }
 
