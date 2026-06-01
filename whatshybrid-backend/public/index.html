@@ -3685,6 +3685,20 @@
           // captura do lead nos pixels já presentes na página
           try { if (window.metaTrack) window.metaTrack('Lead', { content_name: 'Exit coupon EXIT50', content_category: 'coupon' }); } catch (_) {}
           try { if (window.ga4Track) window.ga4Track('generate_lead', { coupon: 'EXIT50' }); } catch (_) {}
+          // grava o lead no backend (best-effort, keepalive p/ sobreviver ao
+          // redirect): captura nome+WhatsApp+e-mail mesmo se não concluir o signup.
+          try {
+            fetch('/api/v1/leads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              body: JSON.stringify({
+                name: name, phone: phone, email: email,
+                coupon: 'EXIT50', source: 'exit_modal',
+                attribution: (window.WHLAttribution && window.WHLAttribution.get && window.WHLAttribution.get()) || undefined,
+              }),
+            }).catch(function () {});
+          } catch (_) {}
           // passa os dados pro signup (prefill) sem expor PII na URL
           try { sessionStorage.setItem('wh_exit_lead', JSON.stringify({ name, phone, email, coupon: 'EXIT50' })); } catch (_) {}
           // token de resgate: gravado SÓ aqui. Sem ele, o signup ignora qualquer

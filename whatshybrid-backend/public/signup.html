@@ -655,38 +655,64 @@
   }
 
   // ── Cupom (?coupon=EXIT50) ──────────────────────────────────────
+  // Fallback local — só usado se o backend ficar indisponível (rede).
   const COUPONS = {
     EXIT50: { discount: 0.5, label: '50% OFF no 1º mês' }
   };
   const urlCoupon = (urlParams.get('coupon') || '').toUpperCase();
+
   // Trava anti-vazamento: o cupom só vale com um token de resgate gravado
   // EXCLUSIVAMENTE pelo submit do modal de saída (nome + contato + e-mail).
-  // Não basta ter ?coupon na URL (link reusado, cache, histórico, outro CTA):
-  // sem o resgate do modal, o cupom é ignorado e removido da URL.
+  // Não basta ter ?coupon na URL (link reusado, cache, histórico, outro CTA).
   let couponClaim = null;
   try { couponClaim = JSON.parse(sessionStorage.getItem('wh_coupon_claim') || 'null'); } catch (_) {}
   const claimOk = couponClaim && couponClaim.code === urlCoupon && couponClaim.exp > Date.now();
-  if (COUPONS[urlCoupon] && claimOk) {
-    signupData.coupon = urlCoupon;
-    signupData.discount = COUPONS[urlCoupon].discount;
+
+  function showCoupon(code, discountFraction, label) {
+    signupData.coupon = code;
+    signupData.discount = discountFraction;
     const banner = document.getElementById('coupon-banner');
     if (banner) {
       banner.classList.add('show');
-      document.getElementById('coupon-code').textContent = urlCoupon;
-      document.getElementById('coupon-label').textContent = COUPONS[urlCoupon].label;
-      document.getElementById('summary-coupon-code').textContent = urlCoupon;
+      document.getElementById('coupon-code').textContent = code;
+      document.getElementById('coupon-label').textContent = label;
+      document.getElementById('summary-coupon-code').textContent = code;
       document.getElementById('summary-coupon-discount').textContent =
-        '-' + Math.round(COUPONS[urlCoupon].discount * 100) + '% no 1º mês';
+        '-' + Math.round(discountFraction * 100) + '% no 1º mês';
     }
     applyCouponToPlans();
-    try { if (window.lucide) lucide.createIcons(); } catch (_) {} // renderiza o ícone do banner na hora
-  } else if (urlCoupon) {
-    // ?coupon presente sem resgate válido pelo modal → ignora e limpa a URL
+    try { if (window.lucide) lucide.createIcons(); } catch (_) {}
+  }
+  function clearCouponFromUrl() {
     try {
       urlParams.delete('coupon');
       const qs = urlParams.toString();
       history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
     } catch (_) {}
+  }
+
+  if (urlCoupon && claimOk) {
+    // Valida no BACKEND antes de exibir: o que aparece na tela é exatamente o
+    // que será cobrado. Se o backend recusar (inativo/expirado/depletado/etc.),
+    // não mostra desconto. Só cai no fallback local se a chamada falhar (rede).
+    fetch('/api/v1/coupons/validate/' + encodeURIComponent(urlCoupon) +
+          '?plan=' + encodeURIComponent(signupData.plan || 'starter'))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.valid && res.originalAmount > 0) {
+          const frac = res.discountAmount / res.originalAmount;
+          showCoupon(res.code, frac, res.label || (Math.round(frac * 100) + '% OFF no 1º mês'));
+        } else {
+          clearCouponFromUrl(); // backend recusou → sem desconto na tela
+        }
+      })
+      .catch(function () {
+        // backend indisponível → fallback local (o cupom foi resgatado de fato)
+        if (COUPONS[urlCoupon]) showCoupon(urlCoupon, COUPONS[urlCoupon].discount, COUPONS[urlCoupon].label);
+      });
+  } else if (urlCoupon) {
+    // ?coupon sem resgate válido pelo modal → ignora e limpa a URL
+    clearCouponFromUrl();
   }
 
   // Prefill vindo do modal de saída da landing (nome/e-mail capturados lá)
