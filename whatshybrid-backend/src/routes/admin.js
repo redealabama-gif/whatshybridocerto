@@ -1024,4 +1024,46 @@ router.post('/health/auto-fix', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { fixed, failed } });
 }));
 
+// ============================================
+// LEADS DE CUPOM (capturados no modal da landing)
+// ============================================
+
+router.get('/coupon-leads', asyncHandler(async (req, res) => {
+  const { page = 1, limit = 200, search } = req.query;
+  const offset = (page - 1) * limit;
+
+  let query = 'SELECT * FROM coupon_leads WHERE 1=1';
+  const params = [];
+
+  if (search) {
+    const term = makeLikeTerm(search);
+    if (term) {
+      query += ` AND (name LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\')`;
+      params.push(term, term, term);
+    }
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(parseInt(limit), parseInt(offset));
+
+  const leads = await db.all(query, params);
+  const total = await db.get('SELECT COUNT(*) as count FROM coupon_leads');
+
+  res.json({
+    success: true,
+    data: leads,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: total?.count || 0,
+    },
+  });
+}));
+
+router.delete('/coupon-leads/:id', asyncHandler(async (req, res) => {
+  await db.run('DELETE FROM coupon_leads WHERE id = ?', [req.params.id]);
+  logger.info(`[Admin] Lead de cupom removido: ${req.params.id}`);
+  res.json({ success: true });
+}));
+
 module.exports = router;
