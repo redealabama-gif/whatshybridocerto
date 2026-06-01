@@ -591,6 +591,10 @@
           <span class="nav-item-icon">🗝️</span>
           Credenciais
         </a>
+        <a class="nav-item" data-view="coupons">
+          <span class="nav-item-icon">🎟️</span>
+          Cupom
+        </a>
       </nav>
 
       <nav class="nav-section">
@@ -687,6 +691,27 @@
 
         <div class="card">
           <div id="apiKeysContainer">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coupons (leads) View -->
+      <div id="viewCoupons" class="view">
+        <div class="header">
+          <h2>Leads de Cupom</h2>
+          <div class="header-actions">
+            <input type="text" class="input" id="searchCouponLeads" placeholder="🔍 Buscar por nome, email ou telefone..." style="width: 280px;">
+            <button class="btn btn-secondary" onclick="exportCouponLeadsCSV()">⬇️ Exportar CSV</button>
+            <button class="btn btn-secondary" onclick="loadCouponLeads()">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">
+            Pessoas que preencheram o formulário de desconto (nome, e-mail e WhatsApp) no site.
+          </p>
+          <div class="table-container" id="couponLeadsTable">
             <div class="loading"><div class="spinner"></div></div>
           </div>
         </div>
@@ -1540,6 +1565,102 @@
     }
 
     // ============================================
+    // LEADS DE CUPOM
+    // ============================================
+    let _couponLeads = [];
+
+    async function loadCouponLeads(search = '') {
+      try {
+        const qs = search ? ('?search=' + encodeURIComponent(search)) : '';
+        const data = await apiCall('/coupon-leads' + qs);
+        _couponLeads = data.data || [];
+        renderCouponLeadsTable(_couponLeads);
+      } catch (error) {
+        document.getElementById('couponLeadsTable').innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar leads</p>';
+      }
+    }
+
+    function renderCouponLeadsTable(leads) {
+      if (!leads || leads.length === 0) {
+        document.getElementById('couponLeadsTable').innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhum lead capturado ainda.</p>';
+        return;
+      }
+
+      document.getElementById('couponLeadsTable').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Telefone</th>
+              <th>Cupom</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${leads.map(l => {
+              const waNumber = String(l.phone || '').replace(/\D/g, '');
+              return `
+              <tr>
+                <td>${escapeHtml(l.name || '-')}</td>
+                <td>${escapeHtml(l.email || '-')}</td>
+                <td>${escapeHtml(l.phone || '-')}</td>
+                <td>${l.coupon ? `<span class="badge badge-info">${escapeHtml(l.coupon)}</span>` : '-'}</td>
+                <td>${escapeHtml(new Date(l.created_at).toLocaleString('pt-BR'))}</td>
+                <td>
+                  ${waNumber ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${escapeHtml(waNumber)}" target="_blank" rel="noopener" title="Abrir no WhatsApp">💬</a>` : ''}
+                  <button class="btn btn-secondary btn-sm delete-lead-btn" data-lead-id="${escapeHtml(l.id)}">🗑️</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      document.querySelectorAll('.delete-lead-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteCouponLead(btn.dataset.leadId));
+      });
+    }
+
+    async function deleteCouponLead(id) {
+      if (confirm('Remover este lead?')) {
+        try {
+          await apiCall(`/coupon-leads/${id}`, { method: 'DELETE' });
+          loadCouponLeads();
+        } catch (error) {
+          alert('Erro ao remover lead');
+        }
+      }
+    }
+
+    function exportCouponLeadsCSV() {
+      if (!_couponLeads || _couponLeads.length === 0) {
+        alert('Nenhum lead para exportar');
+        return;
+      }
+      const esc = (v) => {
+        const s = String(v == null ? '' : v).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+      const header = ['Nome', 'Email', 'Telefone', 'Cupom', 'Origem', 'Data'];
+      const rows = _couponLeads.map(l => [
+        l.name, l.email, l.phone, l.coupon || '', l.source || '',
+        new Date(l.created_at).toLocaleString('pt-BR')
+      ].map(esc).join(','));
+      const csv = [header.map(esc).join(','), ...rows].join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-cupom-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ============================================
     // METRICS
     // ============================================
     async function loadMetrics() {
@@ -1720,6 +1841,7 @@
         case 'subscriptions': loadSubscriptions(); break;
         case 'apikeys': loadApiKeys(); break;
         case 'credentials': loadCredentials(); break;
+        case 'coupons': loadCouponLeads(); break;
         case 'metrics': loadMetrics(); break;
         case 'logs': loadLogs(); break;
         case 'settings': loadSettings(); break;
@@ -1863,6 +1985,11 @@
       // Debounce search
       clearTimeout(window.searchTimeout);
       window.searchTimeout = setTimeout(() => loadSubscriptions(e.target.value), 300);
+    });
+
+    document.getElementById('searchCouponLeads')?.addEventListener('input', (e) => {
+      clearTimeout(window.couponSearchTimeout);
+      window.couponSearchTimeout = setTimeout(() => loadCouponLeads(e.target.value), 300);
     });
 
     document.getElementById('logFilter')?.addEventListener('change', () => loadLogs());
