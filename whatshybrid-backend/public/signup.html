@@ -670,6 +670,18 @@
     applyCouponToPlans();
   }
 
+  // Prefill vindo do modal de saída da landing (nome/e-mail capturados lá)
+  try {
+    const exitLead = JSON.parse(sessionStorage.getItem('wh_exit_lead') || 'null');
+    if (exitLead) {
+      const nEl = document.getElementById('name');
+      const eEl = document.getElementById('email');
+      if (nEl && exitLead.name && !nEl.value) nEl.value = exitLead.name;
+      if (eEl && exitLead.email && !eEl.value) eEl.value = exitLead.email;
+      sessionStorage.removeItem('wh_exit_lead');
+    }
+  } catch (_) {}
+
   function fmtBRL(n) {
     return 'R$ ' + n.toFixed(2).replace('.', ',');
   }
