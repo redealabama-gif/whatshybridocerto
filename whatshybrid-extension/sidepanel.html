@@ -252,22 +252,22 @@
 
   <!-- Estatísticas -->
   <div class="sp-card">
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between;">
-      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; text-align: center;">
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+      <div style="min-width: 0; padding: 6px 4px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; text-align: center;">
         <div style="font-size: 16px; font-weight: 700; color: #ef4444;" id="stat_revoked">0</div>
-        <div style="font-size: 9px; color: var(--mod-text-muted);">Revogadas</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); overflow-wrap: anywhere;">Revogadas</div>
       </div>
-      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center;">
+      <div style="min-width: 0; padding: 6px 4px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center;">
         <div style="font-size: 16px; font-weight: 700; color: #f59e0b;" id="stat_deleted">0</div>
-        <div style="font-size: 9px; color: var(--mod-text-muted);">Apagadas</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); overflow-wrap: anywhere;">Apagadas</div>
       </div>
-      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; text-align: center;">
+      <div style="min-width: 0; padding: 6px 4px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; text-align: center;">
         <div style="font-size: 16px; font-weight: 700; color: #3b82f6;" id="stat_edited">0</div>
-        <div style="font-size: 9px; color: var(--mod-text-muted);">Editadas</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); overflow-wrap: anywhere;">Editadas</div>
       </div>
-      <div style="flex: 1; min-width: 55px; padding: 6px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; text-align: center;">
+      <div style="min-width: 0; padding: 6px 4px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; text-align: center;">
         <div style="font-size: 16px; font-weight: 700; color: #8b5cf6;" id="stat_media">0</div>
-        <div style="font-size: 9px; color: var(--mod-text-muted);">Mídias</div>
+        <div style="font-size: 9px; color: var(--mod-text-muted); overflow-wrap: anywhere;">Mídias</div>
       </div>
     </div>
   </div>
