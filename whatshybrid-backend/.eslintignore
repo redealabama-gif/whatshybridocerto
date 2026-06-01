@@ -1,0 +1,10 @@
+node_modules/
+data/
+coverage/
+public/
+admin/
+dist/
+build/
+docs/
+locales/
+*.min.js
