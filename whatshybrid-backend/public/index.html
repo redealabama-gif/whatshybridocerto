@@ -644,8 +644,11 @@
     .feature-robot-fallback {
       position: absolute;
       inset: 0;
-      display: grid;
-      place-items: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
       color: rgba(0, 255, 255, 0.55);
       font-family: 'Fraunces', Georgia, serif;
       font-size: 0.78rem;
@@ -666,6 +669,48 @@
     }
     /* Esconde o badge "Built with Spline" no canto inferior direito do viewer */
     .feature-robot spline-viewer::part(logo) { display: none !important; }
+
+    /* Robô SVG embutido: sempre visível (funciona offline / localhost, sem CDN).
+       Quando a cena Spline carrega, .is-loaded esconde este e revela a 3D. */
+    .hv-robot {
+      width: min(72%, 250px);
+      height: auto;
+      overflow: visible;
+      filter: drop-shadow(0 18px 40px rgba(111, 0, 255, 0.45));
+      animation: hv-robot-float 5s ease-in-out infinite;
+    }
+    .hv-robot-core,
+    .hv-robot-spark,
+    .hv-robot-eyes,
+    .hv-robot-shadow { transform-box: fill-box; transform-origin: center; }
+    .hv-robot-core   { animation: hv-robot-pulse 2.4s ease-in-out infinite; }
+    .hv-robot-spark  { animation: hv-robot-pulse 1.6s ease-in-out infinite; }
+    .hv-robot-eyes   { animation: hv-robot-blink 4.6s ease-in-out infinite; }
+    .hv-robot-shadow { animation: hv-robot-shadow 5s ease-in-out infinite; }
+    .hv-robot-label  { opacity: 0.85; }
+    @keyframes hv-robot-float {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-14px); }
+    }
+    @keyframes hv-robot-pulse {
+      0%, 100% { opacity: 0.7; transform: scale(0.9); }
+      50%      { opacity: 1;   transform: scale(1.08); }
+    }
+    @keyframes hv-robot-blink {
+      0%, 90%, 100% { transform: scaleY(1); }
+      94%           { transform: scaleY(0.12); }
+    }
+    @keyframes hv-robot-shadow {
+      0%, 100% { transform: scaleX(1);   opacity: 0.20; }
+      50%      { transform: scaleX(0.8); opacity: 0.10; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hv-robot,
+      .hv-robot-core,
+      .hv-robot-spark,
+      .hv-robot-eyes,
+      .hv-robot-shadow { animation: none !important; }
+    }
 
     @media (min-width: 901px) {
       .features-grid.features-grid-with-robot {
@@ -2310,7 +2355,65 @@
     </div>
 
     <div class="feature-robot reveal reveal-zoom" id="features-robot" aria-hidden="true">
-      <div class="feature-robot-fallback">Carregando núcleo 3D…</div>
+      <div class="feature-robot-fallback">
+        <svg class="hv-robot" viewBox="0 0 240 320" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="hvBotMetal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#3a4a7a"/>
+              <stop offset="1" stop-color="#141a30"/>
+            </linearGradient>
+            <linearGradient id="hvBotBody" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1b2440"/>
+              <stop offset="1" stop-color="#0a0f22"/>
+            </linearGradient>
+            <radialGradient id="hvBotCore" cx="50%" cy="45%" r="55%">
+              <stop offset="0" stop-color="#d6fbff"/>
+              <stop offset="0.45" stop-color="#22d3ee"/>
+              <stop offset="1" stop-color="#6f00ff"/>
+            </radialGradient>
+            <filter id="hvBotGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="3.4" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <ellipse class="hv-robot-shadow" cx="120" cy="300" rx="60" ry="9" fill="#22d3ee"/>
+
+          <g class="hv-robot-body">
+            <!-- antena -->
+            <line x1="120" y1="42" x2="120" y2="20" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+            <circle class="hv-robot-spark" cx="120" cy="15" r="6" fill="url(#hvBotCore)" filter="url(#hvBotGlow)"/>
+
+            <!-- cabeça -->
+            <rect x="74" y="42" width="92" height="76" rx="24" fill="url(#hvBotMetal)" stroke="#22d3ee" stroke-width="2"/>
+            <rect x="84" y="58" width="72" height="44" rx="16" fill="#060a18"/>
+            <g class="hv-robot-eyes" fill="#7ef9ff" filter="url(#hvBotGlow)">
+              <circle cx="104" cy="80" r="8"/>
+              <circle cx="136" cy="80" r="8"/>
+            </g>
+
+            <!-- pescoço -->
+            <rect x="110" y="116" width="20" height="12" fill="#2a3556"/>
+
+            <!-- tronco -->
+            <rect x="62" y="128" width="116" height="122" rx="28" fill="url(#hvBotBody)" stroke="#22d3ee" stroke-width="2"/>
+            <circle class="hv-robot-core" cx="120" cy="188" r="26" fill="url(#hvBotCore)" filter="url(#hvBotGlow)"/>
+            <circle cx="120" cy="188" r="26" fill="none" stroke="#7ef9ff" stroke-width="1.5" opacity="0.55"/>
+            <line x1="86" y1="228" x2="154" y2="228" stroke="#22d3ee" stroke-width="1.5" opacity="0.3"/>
+
+            <!-- braços -->
+            <rect x="38" y="140" width="18" height="76" rx="9" fill="url(#hvBotMetal)" stroke="#22d3ee" stroke-width="1.5"/>
+            <rect x="184" y="140" width="18" height="76" rx="9" fill="url(#hvBotMetal)" stroke="#22d3ee" stroke-width="1.5"/>
+            <circle cx="47" cy="218" r="9" fill="#22d3ee" filter="url(#hvBotGlow)"/>
+            <circle cx="193" cy="218" r="9" fill="#22d3ee" filter="url(#hvBotGlow)"/>
+
+            <!-- pernas -->
+            <rect x="92" y="248" width="20" height="40" rx="8" fill="url(#hvBotMetal)"/>
+            <rect x="128" y="248" width="20" height="40" rx="8" fill="url(#hvBotMetal)"/>
+          </g>
+        </svg>
+        <span class="hv-robot-label">Núcleo neural</span>
+      </div>
       <!-- <spline-viewer> é injetado pelo lazy-loader no final do <body> -->
     </div>
 
@@ -3797,50 +3900,47 @@
   })();
 </script>
 
-<!-- Spline 3D robot (lazy-loaded): só em desktop, sem reduced-motion / touch.
+<!-- Robô 3D Spline (progressive enhancement): só em desktop, sem reduced-motion
+     / touch. Se a cena externa não carregar (sem rede / localhost / CDN fora /
+     CSP), o robô SVG embutido (.feature-robot-fallback) permanece visível — a
+     seção "Recursos que vendem" nunca fica vazia nem mostra mensagem de erro.
      CDN unpkg + 'wasm-unsafe-eval' + workerSrc blob: já estão no
      helmetForPortal (src/server.js). -->
 <script>
 (function () {
   var host = document.getElementById('features-robot');
-  var fallback = host && host.querySelector('.feature-robot-fallback');
   if (!host) return;
 
-  function setFallback(text) { if (fallback) fallback.textContent = text; }
-
+  // O robô SVG embutido já aparece por padrão e funciona offline. Aqui só
+  // tentamos enriquecer com a cena 3D do Spline; qualquer falha é silenciosa
+  // e mantém o robô embutido (sem trocar por mensagem de erro).
   var isCoarse = window.matchMedia('(pointer: coarse)').matches;
   var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isSmall  = window.matchMedia('(max-width: 900px)').matches;
   if (isCoarse || reduce || isSmall) {
-    console.info('[3D] desativado (coarse=%s, reduce=%s, small=%s)', isCoarse, reduce, isSmall);
+    console.info('[3D] Spline desativado (coarse=%s, reduce=%s, small=%s) — robô embutido em uso', isCoarse, reduce, isSmall);
     return;
   }
 
-  // Trava de tempo: se em 12s nada carregar, mostra mensagem clara em vez
-  // de ficar para sempre em "Carregando…". Ajuda o usuário a perceber que
-  // tem coisa errada (CSP, rede, CDN fora do ar) sem precisar abrir o
-  // DevTools.
   var loadedOnce = false;
   var watchdog = setTimeout(function () {
     if (!loadedOnce) {
-      console.warn('[3D] timeout: cena não carregou em 12s — verifique CSP/rede.');
-      setFallback('Falha ao carregar núcleo 3D');
-      host.classList.add('is-failed');
+      console.warn('[3D] Spline não respondeu a tempo — mantendo robô embutido.');
+      host.classList.add('is-3d-failed');
     }
-  }, 12000);
+  }, 15000);
 
   function loadRobot() {
-    console.info('[3D] iniciando lazy-load do Spline viewer…');
+    console.info('[3D] tentando enriquecer com a cena Spline…');
 
     // 1) Web component <spline-viewer>
     var m = document.createElement('script');
     m.type = 'module';
     m.src  = 'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js';
-    m.onerror = function (err) {
-      console.error('[3D] falha ao carregar spline-viewer.js do unpkg', err);
+    m.onerror = function () {
+      console.warn('[3D] spline-viewer.js indisponível — mantendo robô embutido.');
       clearTimeout(watchdog);
-      setFallback('Núcleo 3D indisponível');
-      host.classList.add('is-failed');
+      host.classList.add('is-3d-failed');
     };
     document.head.appendChild(m);
 
@@ -3851,14 +3951,13 @@
     v.addEventListener('load', function () {
       loadedOnce = true;
       clearTimeout(watchdog);
-      host.classList.add('is-loaded');
-      console.info('[3D] cena carregada com sucesso.');
+      host.classList.add('is-loaded'); // revela a cena 3D e some com o robô embutido
+      console.info('[3D] cena Spline carregada com sucesso.');
     });
-    v.addEventListener('error', function (err) {
-      console.error('[3D] erro no <spline-viewer>', err);
+    v.addEventListener('error', function () {
+      console.warn('[3D] erro ao renderizar a cena Spline — mantendo robô embutido.');
       clearTimeout(watchdog);
-      setFallback('Erro ao renderizar núcleo 3D');
-      host.classList.add('is-failed');
+      host.classList.add('is-3d-failed');
     });
     host.appendChild(v);
   }
