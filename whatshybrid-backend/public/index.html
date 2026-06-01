@@ -612,7 +612,7 @@
       margin-top: 48px;
     }
 
-    /* Features com robô 3D no centro (desktop only) */
+    /* Features com robô 3D Spline no centro (desktop only) */
     .features-grid-with-robot { align-items: stretch; }
     .feature-col {
       display: flex;
@@ -633,7 +633,7 @@
         inset 0 0 0 1px rgba(255, 255, 255, 0.03);
       min-height: 560px;
     }
-    .feature-robot canvas {
+    .feature-robot spline-viewer {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -667,10 +667,11 @@
       background: radial-gradient(120% 80% at 50% 0%, rgba(0, 255, 255, 0.08), transparent 60%);
       z-index: 3;
     }
-    .feature-robot canvas { pointer-events: none; }
+    /* Esconde o badge "Built with Spline" no canto inferior direito do viewer */
+    .feature-robot spline-viewer::part(logo) { display: none !important; }
 
-    /* Robô SVG embutido: sempre visível (funciona offline / sem WebGL, sem CDN).
-       Quando o robô 3D (Three.js) renderiza, .is-loaded esconde este e revela a 3D. */
+    /* Robô SVG embutido: sempre visível (funciona offline / localhost, sem CDN).
+       Quando a cena Spline carrega, .is-loaded esconde este e revela a 3D. */
     .hv-robot {
       width: min(72%, 250px);
       height: auto;
@@ -2427,7 +2428,7 @@
         </svg>
         <span class="hv-robot-label">Núcleo neural</span>
       </div>
-      <!-- O <canvas> do robô 3D (Three.js) é injetado pelo loader no final do <body> -->
+      <!-- <spline-viewer> é injetado pelo lazy-loader no final do <body> -->
     </div>
 
     <div class="feature-col">
@@ -3927,47 +3928,77 @@
   })();
 </script>
 
-<!-- Robô 3D self-hosted (Three.js, em /assets/three + /js/features-robot-3d.js):
-     sem CDN, sem cena externa, sem .wasm/Draco. Carrega sob demanda e só em
-     desktop com WebGL. Em qualquer falha (sem WebGL, erro de init), o robô SVG
-     embutido (.feature-robot-fallback) permanece visível — a seção "Recursos
-     que vendem" nunca fica vazia nem mostra mensagem de erro. -->
+<!-- Robô 3D Spline (progressive enhancement): só em desktop, sem reduced-motion
+     / touch. Se a cena externa não carregar (sem rede / localhost / CDN fora /
+     CSP), o robô SVG embutido (.feature-robot-fallback) permanece visível — a
+     seção "Recursos que vendem" nunca fica vazia nem mostra mensagem de erro.
+     CDN unpkg + 'wasm-unsafe-eval' + workerSrc blob: já estão no
+     helmetForPortal (src/server.js). -->
 <script>
 (function () {
   var host = document.getElementById('features-robot');
   if (!host) return;
 
-  // O robô SVG embutido já aparece por padrão. Em desktop com WebGL, importamos
-  // sob demanda o módulo Three.js e trocamos pelo robô 3D; se algo falhar, o
-  // SVG continua (init() lança e nós só logamos).
+  // O robô SVG embutido já aparece por padrão e funciona offline. Aqui só
+  // tentamos enriquecer com a cena 3D do Spline; qualquer falha é silenciosa
+  // e mantém o robô embutido (sem trocar por mensagem de erro).
   var isCoarse = window.matchMedia('(pointer: coarse)').matches;
+  var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isSmall  = window.matchMedia('(max-width: 900px)').matches;
-  if (isCoarse || isSmall) {
-    console.info('[robot3d] desktop-only — usando robô SVG embutido.');
-    return; // no mobile/touch o CSS esconde a moldura; o SVG cobre o resto
-  }
-  if (!window.WebGLRenderingContext) {
-    console.info('[robot3d] WebGL indisponível — mantendo robô SVG embutido.');
+  if (isCoarse || reduce || isSmall) {
+    console.info('[3D] Spline desativado (coarse=%s, reduce=%s, small=%s) — robô embutido em uso', isCoarse, reduce, isSmall);
     return;
   }
 
-  function start() {
-    import('/js/features-robot-3d.js')
-      .then(function (m) { return m.init(host); })
-      .catch(function (err) {
-        console.warn('[robot3d] não foi possível iniciar o 3D — mantendo robô SVG embutido.', err);
-      });
+  var loadedOnce = false;
+  var watchdog = setTimeout(function () {
+    if (!loadedOnce) {
+      console.warn('[3D] Spline não respondeu a tempo — mantendo robô embutido.');
+      host.classList.add('is-3d-failed');
+    }
+  }, 15000);
+
+  function loadRobot() {
+    console.info('[3D] tentando enriquecer com a cena Spline…');
+
+    // 1) Web component <spline-viewer>
+    var m = document.createElement('script');
+    m.type = 'module';
+    m.src  = 'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js';
+    m.onerror = function () {
+      console.warn('[3D] spline-viewer.js indisponível — mantendo robô embutido.');
+      clearTimeout(watchdog);
+      host.classList.add('is-3d-failed');
+    };
+    document.head.appendChild(m);
+
+    // 2) Cena do robô
+    var v = document.createElement('spline-viewer');
+    v.setAttribute('url', 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
+    v.setAttribute('loading-anim-type', 'none');
+    v.addEventListener('load', function () {
+      loadedOnce = true;
+      clearTimeout(watchdog);
+      host.classList.add('is-loaded'); // revela a cena 3D e some com o robô embutido
+      console.info('[3D] cena Spline carregada com sucesso.');
+    });
+    v.addEventListener('error', function () {
+      console.warn('[3D] erro ao renderizar a cena Spline — mantendo robô embutido.');
+      clearTimeout(watchdog);
+      host.classList.add('is-3d-failed');
+    });
+    host.appendChild(v);
   }
 
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
-        if (e.isIntersecting) { io.disconnect(); start(); }
+        if (e.isIntersecting) { loadRobot(); io.disconnect(); }
       });
     }, { rootMargin: '300px' });
     io.observe(host);
   } else {
-    start();
+    loadRobot();
   }
 })();
 </script>
