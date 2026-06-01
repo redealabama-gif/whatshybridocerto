@@ -682,6 +682,9 @@
     }
     applyCouponToPlans();
     try { if (window.lucide) lucide.createIcons(); } catch (_) {}
+    // resgate é one-time: remove o ?coupon da URL pra reload/autocomplete/voltar
+    // não reaplicarem (o desconto já está em signupData; a tela continua certa).
+    clearCouponFromUrl();
   }
   function clearCouponFromUrl() {
     try {
@@ -692,6 +695,11 @@
   }
 
   if (urlCoupon && claimOk) {
+    // resgate one-time: consome o token AGORA — assim reload da página, o
+    // autocomplete de URL do navegador (que guarda .../signup.html?coupon=EXIT50
+    // do histórico) ou o botão "voltar" NÃO reaplicam o cupom. Só um novo
+    // preenchimento do modal de saída libera o desconto de novo.
+    try { sessionStorage.removeItem('wh_coupon_claim'); } catch (_) {}
     // Valida no BACKEND antes de exibir: o que aparece na tela é exatamente o
     // que será cobrado. Se o backend recusar (inativo/expirado/depletado/etc.),
     // não mostra desconto. Só cai no fallback local se a chamada falhar (rede).
