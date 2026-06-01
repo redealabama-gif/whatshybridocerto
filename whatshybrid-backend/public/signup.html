@@ -87,7 +87,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/futuristic.css">
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@latest" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .signup-page {
@@ -558,7 +558,11 @@
 <script src="js/i18n-frontend.js" defer></script>
 <script src="js/datetime.js" defer></script>
 <script>
-  lucide.createIcons();
+  // lucide carrega com defer (não bloqueia o render — antes o unpkg travava a
+  // página e o banner do cupom demorava a aparecer). Tenta agora; se ainda não
+  // chegou, re-renderiza no DOMContentLoaded.
+  try { lucide.createIcons(); } catch (_) {}
+  window.addEventListener('DOMContentLoaded', function () { try { if (window.lucide) lucide.createIcons(); } catch (_) {} });
 
   // Already logged in?
   if (api.isAuthenticated()) {
@@ -655,7 +659,14 @@
     EXIT50: { discount: 0.5, label: '50% OFF no 1º mês' }
   };
   const urlCoupon = (urlParams.get('coupon') || '').toUpperCase();
-  if (COUPONS[urlCoupon]) {
+  // Trava anti-vazamento: o cupom só vale com um token de resgate gravado
+  // EXCLUSIVAMENTE pelo submit do modal de saída (nome + contato + e-mail).
+  // Não basta ter ?coupon na URL (link reusado, cache, histórico, outro CTA):
+  // sem o resgate do modal, o cupom é ignorado e removido da URL.
+  let couponClaim = null;
+  try { couponClaim = JSON.parse(sessionStorage.getItem('wh_coupon_claim') || 'null'); } catch (_) {}
+  const claimOk = couponClaim && couponClaim.code === urlCoupon && couponClaim.exp > Date.now();
+  if (COUPONS[urlCoupon] && claimOk) {
     signupData.coupon = urlCoupon;
     signupData.discount = COUPONS[urlCoupon].discount;
     const banner = document.getElementById('coupon-banner');
@@ -668,6 +679,14 @@
         '-' + Math.round(COUPONS[urlCoupon].discount * 100) + '% no 1º mês';
     }
     applyCouponToPlans();
+    try { if (window.lucide) lucide.createIcons(); } catch (_) {} // renderiza o ícone do banner na hora
+  } else if (urlCoupon) {
+    // ?coupon presente sem resgate válido pelo modal → ignora e limpa a URL
+    try {
+      urlParams.delete('coupon');
+      const qs = urlParams.toString();
+      history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+    } catch (_) {}
   }
 
   // Prefill vindo do modal de saída da landing (nome/e-mail capturados lá)
