@@ -3687,7 +3687,10 @@
           try { if (window.ga4Track) window.ga4Track('generate_lead', { coupon: 'EXIT50' }); } catch (_) {}
           // passa os dados pro signup (prefill) sem expor PII na URL
           try { sessionStorage.setItem('wh_exit_lead', JSON.stringify({ name, phone, email, coupon: 'EXIT50' })); } catch (_) {}
-          // SÓ AQUI o cupom entra de fato na URL — agora sim, redireciona
+          // token de resgate: gravado SÓ aqui. Sem ele, o signup ignora qualquer
+          // ?coupon na URL — é o que impede o desconto de "vazar" sem resgate.
+          try { sessionStorage.setItem('wh_coupon_claim', JSON.stringify({ code: 'EXIT50', exp: Date.now() + 15 * 60 * 1000 })); } catch (_) {}
+          // SÓ AQUI o cupom entra de fato — agora sim, redireciona
           window.location.href = 'signup.html?coupon=EXIT50';
         });
       }
