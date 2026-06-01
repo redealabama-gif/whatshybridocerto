@@ -28,7 +28,7 @@ const mpModule = require('../services/MercadoPagoService');
 
 // PLAN_PRICES é a fonte canônica de preços (em MercadoPagoService).
 // Se algo der errado no require, cai num fallback alinhado com a landing.
-const FALLBACK_PRICES = { starter: 49.90, pro: 99.90, agency: 199.90 };
+const FALLBACK_PRICES = { starter: 49.90, pro: 99.90 };
 
 function priceFor(plan) {
   const planPrices = mpModule.PLAN_PRICES || {};

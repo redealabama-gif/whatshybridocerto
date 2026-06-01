@@ -24,7 +24,6 @@ const PLAN_MONTHLY_PRICE_BRL = {
   free: 0,
   starter: 49.90,
   pro: 99.90,
-  agency: 199.90,
 };
 
 /**
@@ -232,7 +231,7 @@ router.post('/signup',
     body('password').isLength({ min: 8 }),
     body('name').trim().notEmpty(),
     body('company').trim().isLength({ min: 2, max: 100 }),
-    body('plan').optional().isIn(['starter', 'pro', 'agency', 'free']),
+    body('plan').optional().isIn(['starter', 'pro', 'free']),
     body('coupon').optional().isString().isLength({ min: 3, max: 32 }),
     body('attribution').optional().isObject(),
   ],

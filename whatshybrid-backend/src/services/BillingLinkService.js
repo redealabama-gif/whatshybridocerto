@@ -70,7 +70,7 @@ async function generatePaymentLink(ws, owner, opts = {}) {
   if (!mpService.isConfigured()) {
     return { ok: false, reason: 'mp_not_configured' };
   }
-  if (!['starter', 'pro', 'agency'].includes(ws.plan)) {
+  if (!['starter', 'pro'].includes(ws.plan)) {
     return { ok: false, reason: 'plan_not_billable' };
   }
 

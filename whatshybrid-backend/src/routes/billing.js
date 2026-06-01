@@ -36,7 +36,7 @@ router.get('/providers', (req, res) => {
 /**
  * POST /api/v1/billing/create-checkout
  * Cria uma preference de pagamento no MP e retorna URL pra redirecionar.
- * Body: { plan?: 'starter'|'pro'|'agency' }   — default: usa o plano atual do workspace
+ * Body: { plan?: 'starter'|'pro' }   — default: usa o plano atual do workspace
  */
 router.post('/create-checkout',
   authorize('owner'),
@@ -51,7 +51,7 @@ router.post('/create-checkout',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro', 'agency'].includes(plan)) {
+    if (!['starter', 'pro'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 
@@ -333,7 +333,7 @@ router.post('/create-token-checkout',
  * Cria uma preapproval no MP (assinatura recorrente automática).
  * Cliente autoriza UMA VEZ no init_point retornado, e MP cobra todo mês.
  *
- * Body: { plan?: 'starter'|'pro'|'agency' } — default: usa plano atual
+ * Body: { plan?: 'starter'|'pro' } — default: usa plano atual
  */
 router.post('/subscribe-recurring',
   authorize('owner'),
@@ -347,7 +347,7 @@ router.post('/subscribe-recurring',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro', 'agency'].includes(plan)) {
+    if (!['starter', 'pro'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 

@@ -96,7 +96,9 @@ function ensureSubscriptionCode({ workspaceId, plan, expiresAt, paymentId }) {
 const PLAN_PRICES_BRL = {
   starter: { min: 12, max: 60 },     // 49,90 cheio; 24,95 c/ EXIT50; 12 mínimo (75% off)
   pro: { min: 24, max: 110 },         // 99,90 cheio; 49,95 c/ EXIT50; 24 mínimo
-  agency: { min: 49, max: 220 },      // 199,90 cheio; 99,95 c/ EXIT50; 49 mínimo
+  // 'agency' removido (v9.5.x): plano descontinuado. Só free/starter/pro são
+  // vendidos. Pagamento que chegar com plan=agency cai no path "não mapeado"
+  // (warning) e não ativa — comportamento seguro.
 };
 
 function validatePaymentAmount(plan, amount, currency = 'BRL') {
@@ -725,6 +727,17 @@ router.post('/manual-confirm',
       paymentId: String(payment_id),
       amount: Number(amount) || 0,
     });
+
+    // Concede os tokens do plano — mesmo passo que o webhook real executa após
+    // ativar. Sem isto, um cliente destravado manualmente (justamente quando o
+    // webhook falhou) viraria PRO com saldo 0 e não conseguiria usar a IA que
+    // pagou. Idempotente via invoice_id (não duplica se rodar 2x).
+    try {
+      const tokenService = require('../services/TokenService');
+      tokenService.resetMonthlyForPlan(workspace_id, plan, { invoice_id: `manual:${payment_id}` });
+    } catch (e) {
+      logger.error('[WebhookSaaS] manual-confirm: falha ao conceder tokens:', e.message);
+    }
 
     res.json(result);
   })

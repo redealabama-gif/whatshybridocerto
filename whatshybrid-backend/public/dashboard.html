@@ -579,8 +579,8 @@
         <h2>Plano atual</h2>
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
           <div>
-            <div style="font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 700;" id="billing-plan-name">Pro</div>
-            <div class="text-muted mt-2" id="billing-plan-price">R$ 197/mês</div>
+            <div style="font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 700;" id="billing-plan-name">—</div>
+            <div class="text-muted mt-2" id="billing-plan-price">R$ —</div>
             <div class="text-muted mt-2" id="billing-next-charge" style="font-size: 0.85rem;">Próxima cobrança: —</div>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -971,10 +971,10 @@
   }
 
   async function changePlan() {
-    const planChoice = prompt('Para qual plano deseja mudar?\n\n• starter — R$ 97/mês\n• pro — R$ 197/mês\n• agency — R$ 497/mês\n\nDigite: starter, pro ou agency');
+    const planChoice = prompt('Para qual plano deseja mudar?\n\n• starter — R$ 49,90/mês\n• pro — R$ 99,90/mês\n\nDigite: starter ou pro');
     if (!planChoice) return;
     const plan = planChoice.toLowerCase().trim();
-    if (!['starter', 'pro', 'agency'].includes(plan)) {
+    if (!['starter', 'pro'].includes(plan)) {
       toast('Plano inválido', 'error'); return;
     }
     try {
