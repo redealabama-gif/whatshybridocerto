@@ -913,8 +913,9 @@
 
         const data = await response.json();
 
-        if (data.token) {
-          authToken = data.token;
+        const token = data.accessToken || data.token;
+        if (token) {
+          authToken = token;
           localStorage.setItem('adminToken', authToken);
           showDashboard();
         } else {
