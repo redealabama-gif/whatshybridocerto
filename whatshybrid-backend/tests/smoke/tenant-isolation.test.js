@@ -36,7 +36,7 @@ async function http(method, path, body, headers = {}) {
 
 async function setupUser(email, password) {
   const r = await http('POST', '/api/v1/auth/signup', {
-    email, password, name: 'Test', plan: 'starter',
+    email, password, name: 'Test', company: 'Test Co', plan: 'starter',
   });
   if (![200, 201].includes(r.status)) {
     throw new Error(`Setup failed: ${r.status} ${JSON.stringify(r.data)}`);

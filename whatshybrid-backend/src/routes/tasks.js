@@ -240,7 +240,7 @@ router.put('/:id', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.post('/:id/complete', authenticate, asyncHandler(async (req, res) => {
-  db.run('UPDATE tasks SET status = "completed", completed_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?', [req.params.id, req.workspaceId]);
+  db.run("UPDATE tasks SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?", [req.params.id, req.workspaceId]);
   // SECURITY FIX (RISK-003): Validar workspace_id ao recuperar task completada
   const task = db.get('SELECT * FROM tasks WHERE id = ? AND workspace_id = ?', [req.params.id, req.workspaceId]);
   const io = req.app.get('io');

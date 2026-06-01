@@ -587,6 +587,14 @@
           <span class="nav-item-icon">🔑</span>
           API Keys
         </a>
+        <a class="nav-item" data-view="credentials">
+          <span class="nav-item-icon">🗝️</span>
+          Credenciais
+        </a>
+        <a class="nav-item" data-view="coupons">
+          <span class="nav-item-icon">🎟️</span>
+          Cupom
+        </a>
       </nav>
 
       <nav class="nav-section">
@@ -683,6 +691,48 @@
 
         <div class="card">
           <div id="apiKeysContainer">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coupons (leads) View -->
+      <div id="viewCoupons" class="view">
+        <div class="header">
+          <h2>Leads de Cupom</h2>
+          <div class="header-actions">
+            <input type="text" class="input" id="searchCouponLeads" placeholder="🔍 Buscar por nome, email ou telefone..." style="width: 280px;">
+            <button class="btn btn-secondary" onclick="exportCouponLeadsCSV()">⬇️ Exportar CSV</button>
+            <button class="btn btn-secondary" onclick="loadCouponLeads()">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">
+            Pessoas que preencheram o formulário de desconto (nome, e-mail e WhatsApp) no site.
+          </p>
+          <div class="table-container" id="couponLeadsTable">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Credentials View -->
+      <div id="viewCredentials" class="view">
+        <div class="header">
+          <h2>Credenciais & Integrações</h2>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="toggleRevealBtn" onclick="toggleRevealCredentials()">👁️ Revelar</button>
+            <button class="btn btn-primary" onclick="showAddCredModal()">➕ Nova Credencial</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">
+            Guarde aqui chaves e dados gerais do projeto: Pixel do Facebook, logins de sites,
+            SMTP, etc. Valores sensíveis ficam mascarados — clique em <strong>Revelar</strong> para ver.
+          </p>
+          <div id="credentialsContainer">
             <div class="loading"><div class="spinner"></div></div>
           </div>
         </div>
@@ -788,7 +838,7 @@
           <div class="kpi-card">
             <div class="kpi-icon">🎯</div>
             <div class="kpi-value" id="healthSelectorsCount">0</div>
-            <div class="kpi-label">Seletores OK</div>
+            <div class="kpi-label">Checagens OK</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-icon">🧩</div>
@@ -798,14 +848,14 @@
           <div class="kpi-card">
             <div class="kpi-icon">⚡</div>
             <div class="kpi-value" id="healthApiStatus">OK</div>
-            <div class="kpi-label">API WhatsApp</div>
+            <div class="kpi-label">Banco de Dados</div>
           </div>
         </div>
 
         <div class="grid-2">
-          <!-- Seletores -->
+          <!-- Checagens -->
           <div class="card">
-            <div class="card-title">🎯 Status dos Seletores</div>
+            <div class="card-title">🎯 Checagens do Sistema</div>
             <div id="selectorsStatus">
               <div class="loading"><div class="spinner"></div></div>
             </div>
@@ -830,18 +880,17 @@
 
         <!-- Instruções de Correção Manual -->
         <div class="card" style="margin-top: 24px;">
-          <div class="card-title">📋 Instruções de Correção Manual</div>
+          <div class="card-title">📋 Dicas de Correção</div>
           <div id="manualFixInstructions">
             <p style="color: var(--text-secondary); font-size: 14px;">
-              Se um seletor está quebrado, significa que o WhatsApp atualizou a interface.<br>
-              Para corrigir manualmente:
+              Se uma checagem falhou, veja as ações sugeridas:
             </p>
             <ol style="margin-top: 12px; color: var(--text-secondary); font-size: 13px;">
-              <li>Abra o WhatsApp Web no navegador</li>
-              <li>Pressione F12 para abrir o DevTools</li>
-              <li>Use o seletor de elementos para identificar o novo seletor</li>
-              <li>Atualize o arquivo <code>modules/anti-break-system.js</code></li>
-              <li>Recarregue a extensão</li>
+              <li><strong>Banco de dados:</strong> confirme que o backend subiu sem erro e que <code>DATABASE_PATH</code> aponta para um arquivo gravável.</li>
+              <li><strong>Migrations:</strong> rode <code>npm run migrate</code> na pasta do backend.</li>
+              <li><strong>Provedores de IA:</strong> adicione uma chave ativa na aba <strong>API Keys</strong>.</li>
+              <li><strong>Erros (24h):</strong> consulte a aba <strong>Logs</strong> para investigar.</li>
+              <li>Depois clique em <strong>🔧 Tentar Correção Automática</strong> para reativar chaves órfãs.</li>
             </ol>
           </div>
         </div>
@@ -858,19 +907,84 @@
       </div>
       <form id="addKeyForm">
         <div class="input-group">
-          <label class="input-label">Provider</label>
+          <label class="input-label">Provedor</label>
           <select class="input" id="keyProvider" required>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="groq">Groq</option>
-            <option value="google">Google (Gemini)</option>
+            <option value="" disabled selected>Selecione o provedor…</option>
+            <optgroup label="IA">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="groq">Groq</option>
+              <option value="google">Google (Gemini)</option>
+              <option value="cohere">Cohere</option>
+              <option value="ollama">Ollama</option>
+            </optgroup>
+            <optgroup label="Outros serviços">
+              <option value="facebook">Facebook / Meta</option>
+              <option value="stripe">Stripe</option>
+              <option value="mercadopago">MercadoPago</option>
+              <option value="sendgrid">SendGrid</option>
+              <option value="twilio">Twilio</option>
+              <option value="aws">AWS</option>
+            </optgroup>
+            <option value="__custom__">Outro (digitar)…</option>
           </select>
         </div>
+        <div class="input-group" id="keyProviderCustomGroup" style="display: none;">
+          <label class="input-label">Nome do provedor</label>
+          <input type="text" class="input" id="keyProviderCustom" placeholder="ex: Pipedrive">
+        </div>
         <div class="input-group">
-          <label class="input-label">API Key</label>
-          <input type="text" class="input" id="keyValue" placeholder="sk-..." required>
+          <label class="input-label">Identificação (opcional)</label>
+          <input type="text" class="input" id="keyLabel" placeholder="ex: Conta de produção">
+        </div>
+        <div class="input-group">
+          <label class="input-label">API Key / Token</label>
+          <input type="text" class="input" id="keyValue" placeholder="cole a chave aqui" required>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;">Adicionar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Credential -->
+  <div id="addCredModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">🗝️ Nova Credencial</h3>
+        <button class="modal-close" onclick="hideModal('addCredModal')">&times;</button>
+      </div>
+      <form id="addCredForm">
+        <div class="input-group">
+          <label class="input-label">Tipo / Provedor</label>
+          <select class="input" id="credProvider" required>
+            <option value="" disabled selected>Selecione…</option>
+            <option value="facebook">Facebook (Pixel)</option>
+            <option value="google">Google</option>
+            <option value="site">Site / Login</option>
+            <option value="smtp">SMTP / Email</option>
+            <option value="stripe">Stripe</option>
+            <option value="mercadopago">MercadoPago</option>
+            <option value="__custom__">Outro (digitar)…</option>
+          </select>
+        </div>
+        <div class="input-group" id="credProviderCustomGroup" style="display: none;">
+          <label class="input-label">Nome do provedor</label>
+          <input type="text" class="input" id="credProviderCustom" placeholder="ex: TikTok Ads">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Identificação (opcional)</label>
+          <input type="text" class="input" id="credLabel" placeholder="ex: Pixel da loja principal">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Campos</label>
+          <div id="credFields"></div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addCredFieldRow()" style="margin-top: 8px;">➕ Adicionar campo</button>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Notas (opcional)</label>
+          <textarea class="input" id="credNotes" rows="2" placeholder="observações"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar credencial</button>
       </form>
     </div>
   </div>
@@ -913,8 +1027,9 @@
 
         const data = await response.json();
 
-        if (data.token) {
-          authToken = data.token;
+        const token = data.accessToken || data.token;
+        if (token) {
+          authToken = token;
           localStorage.setItem('adminToken', authToken);
           showDashboard();
         } else {
@@ -1079,9 +1194,10 @@
     // ============================================
     // SUBSCRIPTIONS
     // ============================================
-    async function loadSubscriptions() {
+    async function loadSubscriptions(search = '') {
       try {
-        const data = await apiCall('/subscriptions');
+        const qs = search ? ('?search=' + encodeURIComponent(search)) : '';
+        const data = await apiCall('/subscriptions' + qs);
         renderSubscriptionsTable(data.data || []);
       } catch (error) {
         renderSubscriptionsTable([]);
@@ -1171,6 +1287,7 @@
           <table>
             <thead>
               <tr>
+                <th>Nome</th>
                 <th>Key</th>
                 <th>Uso</th>
                 <th>Erros</th>
@@ -1181,6 +1298,7 @@
             <tbody>
               ${grouped[provider].map(key => `
                 <tr>
+                  <td>${escapeHtml(key.label || '-')}</td>
                   <td><code>${escapeHtml(key.masked_key)}</code></td>
                   <td>${escapeHtml(key.usage_count)}</td>
                   <td>${escapeHtml(key.error_count)}</td>
@@ -1212,19 +1330,36 @@
       document.getElementById(id).classList.remove('active');
     }
 
+    // Mostra campo de provedor custom quando "Outro" é escolhido
+    document.getElementById('keyProvider').addEventListener('change', (e) => {
+      const isCustom = e.target.value === '__custom__';
+      document.getElementById('keyProviderCustomGroup').style.display = isCustom ? 'block' : 'none';
+    });
+
     document.getElementById('addKeyForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      const provider = document.getElementById('keyProvider').value;
-      const api_key = document.getElementById('keyValue').value;
+
+      let provider = document.getElementById('keyProvider').value;
+      if (provider === '__custom__') {
+        provider = document.getElementById('keyProviderCustom').value.trim();
+      }
+      const label = document.getElementById('keyLabel').value.trim();
+      const api_key = document.getElementById('keyValue').value.trim();
+
+      if (!provider) { alert('Selecione ou digite o provedor'); return; }
 
       try {
-        await apiCall('/api-keys', {
+        const res = await apiCall('/api-keys', {
           method: 'POST',
-          body: JSON.stringify({ provider, api_key })
+          body: JSON.stringify({ provider, api_key, label })
         });
-        
+        if (res && res.success === false) {
+          alert(res.error || 'Erro ao adicionar API Key');
+          return;
+        }
         hideModal('addKeyModal');
+        document.getElementById('addKeyForm').reset();
+        document.getElementById('keyProviderCustomGroup').style.display = 'none';
         loadApiKeys();
         alert('API Key adicionada com sucesso!');
       } catch (error) {
@@ -1244,15 +1379,329 @@
     }
 
     // ============================================
+    // CREDENCIAIS / INTEGRAÇÕES
+    // ============================================
+    let credentialsRevealed = false;
+
+    const SUGGESTED_CRED_FIELDS = {
+      facebook: ['pixel_id', 'access_token'],
+      google: ['client_id', 'client_secret'],
+      site: ['site_name', 'url', 'email', 'password'],
+      smtp: ['host', 'port', 'user', 'password'],
+      stripe: ['secret_key', 'webhook_secret'],
+      mercadopago: ['access_token', 'public_key'],
+    };
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => {},
+          () => alert('Não foi possível copiar')
+        );
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+      }
+    }
+
+    async function loadCredentials() {
+      try {
+        const data = await apiCall('/credentials' + (credentialsRevealed ? '?reveal=true' : ''));
+        renderCredentials(data.data || []);
+      } catch (error) {
+        document.getElementById('credentialsContainer').innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar credenciais</p>';
+      }
+    }
+
+    function toggleRevealCredentials() {
+      credentialsRevealed = !credentialsRevealed;
+      document.getElementById('toggleRevealBtn').textContent = credentialsRevealed ? '🙈 Ocultar' : '👁️ Revelar';
+      loadCredentials();
+    }
+
+    function renderCredentials(list) {
+      const container = document.getElementById('credentialsContainer');
+      if (!list || list.length === 0) {
+        container.innerHTML = `
+          <p style="color: var(--text-muted); text-align: center; padding: 40px;">
+            Nenhuma credencial salva.<br><br>
+            <button class="btn btn-primary" onclick="showAddCredModal()">➕ Adicionar primeira credencial</button>
+          </p>`;
+        return;
+      }
+
+      // Agrupar por provedor
+      const grouped = {};
+      list.forEach(c => { (grouped[c.provider] = grouped[c.provider] || []).push(c); });
+
+      container.innerHTML = Object.keys(grouped).map(provider => `
+        <div style="margin-bottom: 24px;">
+          <h4 style="margin-bottom: 12px; text-transform: uppercase; font-size: 12px; color: var(--text-muted);">${escapeHtml(provider)}</h4>
+          ${grouped[provider].map(cred => `
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <strong>${escapeHtml(cred.label || provider)}</strong>
+                <button class="btn btn-secondary btn-sm delete-cred-btn" data-cred-id="${escapeHtml(cred.id)}">🗑️</button>
+              </div>
+              <table>
+                <tbody>
+                  ${Object.entries(cred.fields || {}).map(([k, v]) => `
+                    <tr>
+                      <td style="width: 35%; color: var(--text-secondary);">${escapeHtml(k)}</td>
+                      <td><code>${escapeHtml(v)}</code></td>
+                      <td style="width: 40px; text-align: right;">
+                        <button class="btn btn-secondary btn-sm copy-cred-btn" data-copy="${escapeHtml(v)}" title="Copiar">📋</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              ${cred.notes ? `<p style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">📝 ${escapeHtml(cred.notes)}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+
+      // Listeners
+      container.querySelectorAll('.delete-cred-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteCredential(btn.dataset.credId));
+      });
+      container.querySelectorAll('.copy-cred-btn').forEach(btn => {
+        btn.addEventListener('click', () => copyToClipboard(btn.dataset.copy));
+      });
+    }
+
+    function addCredFieldRow(key = '', val = '') {
+      const row = document.createElement('div');
+      row.className = 'cred-field-row';
+      row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+      row.innerHTML = `
+        <input type="text" class="input cred-field-key" placeholder="campo" style="flex: 1;">
+        <input type="text" class="input cred-field-val" placeholder="valor" style="flex: 2;">
+        <button type="button" class="btn btn-secondary btn-sm" title="Remover">✕</button>
+      `;
+      row.querySelector('.cred-field-key').value = key;
+      row.querySelector('.cred-field-val').value = val;
+      row.querySelector('button').addEventListener('click', () => row.remove());
+      document.getElementById('credFields').appendChild(row);
+    }
+
+    function populateSuggestedFields(provider) {
+      const container = document.getElementById('credFields');
+      container.innerHTML = '';
+      const suggested = SUGGESTED_CRED_FIELDS[provider];
+      if (suggested && suggested.length) {
+        suggested.forEach(k => addCredFieldRow(k, ''));
+      } else {
+        addCredFieldRow('', '');
+      }
+    }
+
+    document.getElementById('credProvider').addEventListener('change', (e) => {
+      const isCustom = e.target.value === '__custom__';
+      document.getElementById('credProviderCustomGroup').style.display = isCustom ? 'block' : 'none';
+      populateSuggestedFields(isCustom ? '__custom__' : e.target.value);
+    });
+
+    function showAddCredModal() {
+      document.getElementById('addCredForm').reset();
+      document.getElementById('credProviderCustomGroup').style.display = 'none';
+      document.getElementById('credFields').innerHTML = '';
+      addCredFieldRow('', '');
+      document.getElementById('addCredModal').classList.add('active');
+    }
+
+    document.getElementById('addCredForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      let provider = document.getElementById('credProvider').value;
+      if (provider === '__custom__') {
+        provider = document.getElementById('credProviderCustom').value.trim();
+      }
+      if (!provider) { alert('Selecione ou digite o tipo/provedor'); return; }
+
+      const label = document.getElementById('credLabel').value.trim();
+      const notes = document.getElementById('credNotes').value.trim();
+
+      const fields = {};
+      document.querySelectorAll('#credFields .cred-field-row').forEach(row => {
+        const k = row.querySelector('.cred-field-key').value.trim();
+        const v = row.querySelector('.cred-field-val').value.trim();
+        if (k && v) fields[k] = v;
+      });
+
+      if (Object.keys(fields).length === 0) { alert('Preencha ao menos um campo'); return; }
+
+      try {
+        const res = await apiCall('/credentials', {
+          method: 'POST',
+          body: JSON.stringify({ provider, label, notes, fields })
+        });
+        if (res && res.success === false) {
+          alert(res.error || 'Erro ao salvar credencial');
+          return;
+        }
+        hideModal('addCredModal');
+        loadCredentials();
+        alert('Credencial salva com sucesso!');
+      } catch (error) {
+        alert('Erro ao salvar credencial');
+      }
+    });
+
+    async function deleteCredential(id) {
+      if (confirm('Remover esta credencial?')) {
+        try {
+          await apiCall(`/credentials/${id}`, { method: 'DELETE' });
+          loadCredentials();
+        } catch (error) {
+          alert('Erro ao remover credencial');
+        }
+      }
+    }
+
+    // ============================================
+    // LEADS DE CUPOM
+    // ============================================
+    let _couponLeads = [];
+
+    async function loadCouponLeads(search = '') {
+      try {
+        const qs = search ? ('?search=' + encodeURIComponent(search)) : '';
+        const data = await apiCall('/coupon-leads' + qs);
+        _couponLeads = data.data || [];
+        renderCouponLeadsTable(_couponLeads);
+      } catch (error) {
+        document.getElementById('couponLeadsTable').innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar leads</p>';
+      }
+    }
+
+    function renderCouponLeadsTable(leads) {
+      if (!leads || leads.length === 0) {
+        document.getElementById('couponLeadsTable').innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhum lead capturado ainda.</p>';
+        return;
+      }
+
+      document.getElementById('couponLeadsTable').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Telefone</th>
+              <th>Cupom</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${leads.map(l => {
+              const waNumber = String(l.phone || '').replace(/\D/g, '');
+              return `
+              <tr>
+                <td>${escapeHtml(l.name || '-')}</td>
+                <td>${escapeHtml(l.email || '-')}</td>
+                <td>${escapeHtml(l.phone || '-')}</td>
+                <td>${l.coupon ? `<span class="badge badge-info">${escapeHtml(l.coupon)}</span>` : '-'}</td>
+                <td>${escapeHtml(new Date(l.created_at).toLocaleString('pt-BR'))}</td>
+                <td>
+                  ${waNumber ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${escapeHtml(waNumber)}" target="_blank" rel="noopener" title="Abrir no WhatsApp">💬</a>` : ''}
+                  <button class="btn btn-secondary btn-sm delete-lead-btn" data-lead-id="${escapeHtml(l.id)}">🗑️</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      document.querySelectorAll('.delete-lead-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteCouponLead(btn.dataset.leadId));
+      });
+    }
+
+    async function deleteCouponLead(id) {
+      if (confirm('Remover este lead?')) {
+        try {
+          await apiCall(`/coupon-leads/${id}`, { method: 'DELETE' });
+          loadCouponLeads();
+        } catch (error) {
+          alert('Erro ao remover lead');
+        }
+      }
+    }
+
+    function exportCouponLeadsCSV() {
+      if (!_couponLeads || _couponLeads.length === 0) {
+        alert('Nenhum lead para exportar');
+        return;
+      }
+      const esc = (v) => {
+        const s = String(v == null ? '' : v).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+      const header = ['Nome', 'Email', 'Telefone', 'Cupom', 'Origem', 'Data'];
+      const rows = _couponLeads.map(l => [
+        l.name, l.email, l.phone, l.coupon || '', l.source || '',
+        new Date(l.created_at).toLocaleString('pt-BR')
+      ].map(esc).join(','));
+      const csv = [header.map(esc).join(','), ...rows].join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-cupom-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ============================================
     // METRICS
     // ============================================
     async function loadMetrics() {
       try {
         const data = await apiCall('/metrics/providers');
         renderProviderMetrics(data.data || []);
+        renderPerformanceMetrics(data.data || []);
       } catch (error) {
         document.getElementById('providerMetrics').innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar métricas</p>';
+        document.getElementById('performanceMetrics').innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar métricas</p>';
       }
+    }
+
+    function renderPerformanceMetrics(metrics) {
+      if (!metrics || metrics.length === 0) {
+        document.getElementById('performanceMetrics').innerHTML = '<p style="color: var(--text-muted);">Sem dados</p>';
+        return;
+      }
+
+      const totalReq = metrics.reduce((s, m) => s + (Number(m.total_requests) || 0), 0);
+      const totalOk = metrics.reduce((s, m) => s + (Number(m.successful) || 0), 0);
+      const totalFail = metrics.reduce((s, m) => s + (Number(m.failed) || 0), 0);
+      // Latência média ponderada pelo nº de requisições
+      const weighted = metrics.reduce((s, m) => s + (Number(m.avg_latency) || 0) * (Number(m.total_requests) || 0), 0);
+      const avgLatency = totalReq > 0 ? Math.round(weighted / totalReq) : 0;
+      const successRate = totalReq > 0 ? ((totalOk / totalReq) * 100).toFixed(1) : '0.0';
+
+      document.getElementById('performanceMetrics').innerHTML = `
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+          <span>Total de requisições (30d)</span><strong>${totalReq.toLocaleString()}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+          <span>Taxa de sucesso</span><strong style="color: var(--accent-success);">${successRate}%</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+          <span>Falhas</span><strong style="color: ${totalFail > 0 ? 'var(--accent-danger)' : 'var(--text-primary)'};">${totalFail.toLocaleString()}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+          <span>Latência média</span><strong>${avgLatency}ms</strong>
+        </div>
+      `;
     }
 
     function renderProviderMetrics(metrics) {
@@ -1332,7 +1781,34 @@
       } catch (error) {
         document.getElementById('healthStatus').innerHTML = '<p style="color: var(--accent-danger);">❌ Erro ao verificar status</p>';
       }
+
+      // Carrega valores persistidos das configurações
+      try {
+        const res = await apiCall('/settings');
+        const s = (res && res.data) || {};
+        if (s.rateLimit != null) document.getElementById('settingRateLimit').value = s.rateLimit;
+        if (s.cacheTTL != null) document.getElementById('settingCacheTTL').value = s.cacheTTL;
+      } catch (_) { /* mantém defaults */ }
     }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const rateLimit = parseInt(document.getElementById('settingRateLimit').value, 10) || 0;
+      const cacheTTL = parseInt(document.getElementById('settingCacheTTL').value, 10) || 0;
+      try {
+        const res = await apiCall('/settings', {
+          method: 'PUT',
+          body: JSON.stringify({ rateLimit, cacheTTL })
+        });
+        if (res && res.success === false) {
+          alert(res.error || 'Erro ao salvar configurações');
+          return;
+        }
+        alert('Configurações salvas!');
+      } catch (error) {
+        alert('Erro ao salvar configurações');
+      }
+    });
 
     function renderHealthStatus(health) {
       document.getElementById('healthStatus').innerHTML = `
@@ -1364,6 +1840,8 @@
         case 'dashboard': loadDashboard(); break;
         case 'subscriptions': loadSubscriptions(); break;
         case 'apikeys': loadApiKeys(); break;
+        case 'credentials': loadCredentials(); break;
+        case 'coupons': loadCouponLeads(); break;
         case 'metrics': loadMetrics(); break;
         case 'logs': loadLogs(); break;
         case 'settings': loadSettings(); break;
@@ -1507,6 +1985,11 @@
       // Debounce search
       clearTimeout(window.searchTimeout);
       window.searchTimeout = setTimeout(() => loadSubscriptions(e.target.value), 300);
+    });
+
+    document.getElementById('searchCouponLeads')?.addEventListener('input', (e) => {
+      clearTimeout(window.couponSearchTimeout);
+      window.couponSearchTimeout = setTimeout(() => loadCouponLeads(e.target.value), 300);
     });
 
     document.getElementById('logFilter')?.addEventListener('change', () => loadLogs());

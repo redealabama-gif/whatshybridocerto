@@ -3682,6 +3682,17 @@
             return; // não libera o desconto nem redireciona
           }
           if (errEl) errEl.hidden = true;
+          // persiste o lead no backend (nome/telefone/e-mail) para a aba
+          // "Cupom" do admin. sendBeacon garante o envio mesmo com o redirect
+          // logo abaixo — não bloqueia a navegação.
+          try {
+            const leadPayload = JSON.stringify({ name, phone, email, coupon: 'EXIT50', source: 'exit-modal' });
+            if (navigator.sendBeacon) {
+              navigator.sendBeacon('/api/v1/coupons/lead', new Blob([leadPayload], { type: 'application/json' }));
+            } else {
+              fetch('/api/v1/coupons/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: leadPayload, keepalive: true });
+            }
+          } catch (_) {}
           // captura do lead nos pixels já presentes na página
           try { if (window.metaTrack) window.metaTrack('Lead', { content_name: 'Exit coupon EXIT50', content_category: 'coupon' }); } catch (_) {}
           try { if (window.ga4Track) window.ga4Track('generate_lead', { coupon: 'EXIT50' }); } catch (_) {}

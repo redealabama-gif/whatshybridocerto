@@ -108,7 +108,7 @@ router.get('/:id',
 
     // SECURITY FIX (RISK-003): Get tasks - adicionar workspace_id filter
     const tasks = db.all(
-      'SELECT * FROM tasks WHERE contact_id = ? AND workspace_id = ? AND status != "completed" ORDER BY due_date ASC',
+      "SELECT * FROM tasks WHERE contact_id = ? AND workspace_id = ? AND status != 'completed' ORDER BY due_date ASC",
       [contact.id, req.workspaceId]
     );
 

@@ -54,8 +54,9 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   `, [thisMonth]);
 
   // Métricas de créditos
+  // ai_usage_logs não tem coluna credits_used — créditos ≈ tokens totais.
   const creditsConsumed = await db.get(`
-    SELECT COALESCE(SUM(credits_used), 0) as total FROM ai_usage_logs 
+    SELECT COALESCE(SUM(tokens_input + tokens_output), 0) as total FROM ai_usage_logs
     WHERE strftime('%Y-%m', created_at) = ?
   `, [thisMonth]);
 
@@ -167,13 +168,14 @@ router.get('/subscriptions/:code', asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, error: 'Assinatura não encontrada' });
   }
 
-  // Histórico de uso
+  // Histórico de uso — credit_transactions é a tabela ligada por
+  // subscription_code (ai_usage_logs é keyed por workspace, não por code).
   const usageHistory = await db.all(`
-    SELECT DATE(created_at) as date, 
-           SUM(credits_used) as credits,
+    SELECT DATE(created_at) as date,
+           SUM(ABS(amount)) as credits,
            COUNT(*) as requests
-    FROM ai_usage_logs 
-    WHERE subscription_code = ?
+    FROM credit_transactions
+    WHERE subscription_code = ? AND type = 'usage'
     GROUP BY DATE(created_at)
     ORDER BY date DESC
     LIMIT 30
@@ -216,46 +218,59 @@ router.post('/subscriptions/:code/resend-email', asyncHandler(async (req, res) =
 // API KEYS - GESTÃO DO POOL
 // ============================================
 
+// Mascara uma chave mostrando só início e fim. Robusto a chaves curtas.
+function maskSecret(value) {
+  const s = String(value || '');
+  if (s.length <= 12) return s ? s.slice(0, 2) + '••••' : '';
+  return `${s.slice(0, 8)}...${s.slice(-4)}`;
+}
+
 router.get('/api-keys', asyncHandler(async (req, res) => {
   const keys = await db.all(`
-    SELECT 
-      id,
-      provider,
-      SUBSTR(api_key, 1, 8) || '...' || SUBSTR(api_key, -4) as masked_key,
-      usage_count,
-      error_count,
-      last_used,
-      status,
-      created_at
-    FROM api_keys
+    SELECT id, provider, label, fields, usage_count, error_count, last_used, status, created_at
+    FROM integration_credentials
+    WHERE kind = 'api_key'
     ORDER BY provider, created_at
   `);
 
-  // Agrupar por provider
+  // Agrupar por provider, mascarando a chave (nunca devolve plaintext)
   const grouped = {};
   for (const key of keys) {
-    if (!grouped[key.provider]) {
-      grouped[key.provider] = [];
-    }
-    grouped[key.provider].push(key);
+    let apiKey = '';
+    try { apiKey = (JSON.parse(key.fields || '{}')).api_key || ''; } catch { /* ignore */ }
+    const row = {
+      id: key.id,
+      provider: key.provider,
+      label: key.label || null,
+      masked_key: maskSecret(apiKey),
+      usage_count: key.usage_count || 0,
+      error_count: key.error_count || 0,
+      last_used: key.last_used,
+      status: key.status,
+      created_at: key.created_at,
+    };
+    (grouped[key.provider] = grouped[key.provider] || []).push(row);
   }
 
   res.json({ success: true, data: grouped });
 }));
 
 router.post('/api-keys', asyncHandler(async (req, res) => {
-  const { provider, api_key } = req.body;
+  const provider = String(req.body.provider || '').trim();
+  const apiKey = String(req.body.api_key || '').trim();
+  const label = req.body.label ? String(req.body.label).trim() : null;
 
-  if (!provider || !api_key) {
+  // Provider agora é livre (IA ou não). Só exige preenchimento.
+  if (!provider || !apiKey) {
     return res.status(400).json({ success: false, error: 'Provider e API key são obrigatórios' });
   }
 
   const id = `key_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
   await db.run(`
-    INSERT INTO api_keys (id, provider, api_key, usage_count, error_count, status, created_at)
-    VALUES (?, ?, ?, 0, 0, 'active', datetime('now'))
-  `, [id, provider, api_key]);
+    INSERT INTO integration_credentials (id, kind, provider, label, fields, status)
+    VALUES (?, 'api_key', ?, ?, ?, 'active')
+  `, [id, provider, label, JSON.stringify({ api_key: apiKey })]);
 
   logger.info(`[Admin] Nova API key adicionada: ${provider}`);
 
@@ -265,7 +280,7 @@ router.post('/api-keys', asyncHandler(async (req, res) => {
 router.delete('/api-keys/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  await db.run('DELETE FROM api_keys WHERE id = ?', [id]);
+  await db.run(`DELETE FROM integration_credentials WHERE id = ? AND kind = 'api_key'`, [id]);
 
   logger.info(`[Admin] API key removida: ${id}`);
 
@@ -280,8 +295,131 @@ router.patch('/api-keys/:id/status', asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, error: 'Status inválido' });
   }
 
-  await db.run('UPDATE api_keys SET status = ? WHERE id = ?', [status, id]);
+  await db.run(
+    `UPDATE integration_credentials SET status = ?, updated_at = datetime('now') WHERE id = ? AND kind = 'api_key'`,
+    [status, id]
+  );
 
+  res.json({ success: true });
+}));
+
+// ============================================
+// CREDENCIAIS / INTEGRAÇÕES (Facebook+Pixel, Site, SMTP, etc.)
+// ============================================
+
+const SECRET_FIELD_RE = /(pass|senha|secret|token|key|chave|client_secret)/i;
+
+// Mascara apenas campos que parecem secretos; mantém o resto legível.
+function maskFields(fields) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    out[k] = SECRET_FIELD_RE.test(k) ? maskSecret(v) : String(v ?? '');
+  }
+  return out;
+}
+
+router.get('/credentials', asyncHandler(async (req, res) => {
+  const { reveal } = req.query; // ?reveal=true devolve valores completos
+  const rows = await db.all(`
+    SELECT id, provider, label, fields, notes, status, created_at, updated_at
+    FROM integration_credentials
+    WHERE kind = 'integration'
+    ORDER BY provider, created_at
+  `);
+
+  const data = rows.map(r => {
+    let fields = {};
+    try { fields = JSON.parse(r.fields || '{}'); } catch { /* ignore */ }
+    return {
+      id: r.id,
+      provider: r.provider,
+      label: r.label || null,
+      fields: reveal === 'true' ? fields : maskFields(fields),
+      notes: r.notes || null,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    };
+  });
+
+  res.json({ success: true, data });
+}));
+
+router.post('/credentials', asyncHandler(async (req, res) => {
+  const provider = String(req.body.provider || '').trim();
+  const label = req.body.label ? String(req.body.label).trim() : null;
+  const notes = req.body.notes ? String(req.body.notes).trim() : null;
+  let fields = req.body.fields;
+
+  if (!provider) {
+    return res.status(400).json({ success: false, error: 'Tipo/Provedor é obrigatório' });
+  }
+  if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
+    return res.status(400).json({ success: false, error: 'fields deve ser um objeto chave→valor' });
+  }
+  // Remove chaves vazias
+  fields = Object.fromEntries(
+    Object.entries(fields)
+      .filter(([k, v]) => String(k).trim() && String(v ?? '').trim())
+      .map(([k, v]) => [String(k).trim(), String(v)])
+  );
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ success: false, error: 'Adicione ao menos um campo preenchido' });
+  }
+
+  const id = `cred_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  await db.run(`
+    INSERT INTO integration_credentials (id, kind, provider, label, fields, notes, status)
+    VALUES (?, 'integration', ?, ?, ?, ?, 'active')
+  `, [id, provider, label, JSON.stringify(fields), notes]);
+
+  logger.info(`[Admin] Nova credencial salva: ${provider}${label ? ` (${label})` : ''}`);
+  res.json({ success: true, id });
+}));
+
+router.put('/credentials/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const existing = await db.get(
+    `SELECT id, fields FROM integration_credentials WHERE id = ? AND kind = 'integration'`,
+    [id]
+  );
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Credencial não encontrada' });
+  }
+
+  const sets = [];
+  const params = [];
+  if (req.body.provider !== undefined) { sets.push('provider = ?'); params.push(String(req.body.provider).trim()); }
+  if (req.body.label !== undefined) { sets.push('label = ?'); params.push(req.body.label ? String(req.body.label).trim() : null); }
+  if (req.body.notes !== undefined) { sets.push('notes = ?'); params.push(req.body.notes ? String(req.body.notes).trim() : null); }
+  if (req.body.status !== undefined) { sets.push('status = ?'); params.push(String(req.body.status)); }
+  if (req.body.fields !== undefined) {
+    const f = req.body.fields;
+    if (typeof f !== 'object' || f === null || Array.isArray(f)) {
+      return res.status(400).json({ success: false, error: 'fields deve ser um objeto' });
+    }
+    const clean = Object.fromEntries(
+      Object.entries(f)
+        .filter(([k, v]) => String(k).trim() && String(v ?? '').trim())
+        .map(([k, v]) => [String(k).trim(), String(v)])
+    );
+    sets.push('fields = ?'); params.push(JSON.stringify(clean));
+  }
+
+  if (sets.length === 0) {
+    return res.status(400).json({ success: false, error: 'Nada para atualizar' });
+  }
+  sets.push(`updated_at = datetime('now')`);
+  params.push(id);
+
+  await db.run(`UPDATE integration_credentials SET ${sets.join(', ')} WHERE id = ?`, params);
+  res.json({ success: true });
+}));
+
+router.delete('/credentials/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await db.run(`DELETE FROM integration_credentials WHERE id = ? AND kind = 'integration'`, [id]);
+  logger.info(`[Admin] Credencial removida: ${id}`);
   res.json({ success: true });
 }));
 
@@ -330,7 +468,13 @@ router.get('/logs/ai', asyncHandler(async (req, res) => {
   const { page = 1, limit = 100, provider, date } = req.query;
   const offset = (page - 1) * limit;
 
-  let query = 'SELECT * FROM ai_usage_logs WHERE 1=1';
+  // Alias das colunas reais (duration_ms/status/tokens) para os nomes que o
+  // painel espera (latency_ms/success/credits_used).
+  let query = `SELECT *,
+      (tokens_input + tokens_output) AS credits_used,
+      duration_ms AS latency_ms,
+      CASE WHEN status = 'success' THEN 1 ELSE 0 END AS success
+    FROM ai_usage_logs WHERE 1=1`;
   const params = [];
 
   if (provider) {
@@ -363,11 +507,11 @@ router.get('/logs/errors', asyncHandler(async (req, res) => {
 
 router.get('/metrics/hourly', asyncHandler(async (req, res) => {
   const metrics = await db.all(`
-    SELECT 
+    SELECT
       strftime('%Y-%m-%d %H:00', created_at) as hour,
       COUNT(*) as requests,
-      SUM(credits_used) as credits,
-      AVG(latency_ms) as avg_latency
+      SUM(tokens_input + tokens_output) as credits,
+      AVG(duration_ms) as avg_latency
     FROM ai_usage_logs
     WHERE created_at >= datetime('now', '-24 hours')
     GROUP BY hour
@@ -379,13 +523,13 @@ router.get('/metrics/hourly', asyncHandler(async (req, res) => {
 
 router.get('/metrics/providers', asyncHandler(async (req, res) => {
   const metrics = await db.all(`
-    SELECT 
+    SELECT
       provider,
       COUNT(*) as total_requests,
-      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
-      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
-      AVG(latency_ms) as avg_latency,
-      SUM(credits_used) as total_credits
+      SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
+      SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) as failed,
+      AVG(duration_ms) as avg_latency,
+      SUM(tokens_input + tokens_output) as total_credits
     FROM ai_usage_logs
     WHERE created_at >= datetime('now', '-30 days')
     GROUP BY provider
@@ -455,7 +599,7 @@ router.get('/billing/high-spenders', asyncHandler(async (req, res) => {
   // Não é binding — só pra calcular % consumido vs cota teórica e flagear
   // outliers ("Pro gastando como Agency" indica upsell ou abuso).
   const planQuota = {
-    free: 0, starter: 50000, pro: 500000, agency: 5000000, enterprise: 999000000
+    free: 0, starter: 50000, pro: 500000, enterprise: 999000000
   };
 
   const enriched = rows.map(r => {
@@ -783,7 +927,7 @@ router.get('/health', asyncHandler(async (req, res) => {
   }
 
   try {
-    const keys = await db.get('SELECT COUNT(*) as count FROM api_keys WHERE status = "active"');
+    const keys = await db.get(`SELECT COUNT(*) as count FROM integration_credentials WHERE kind = 'api_key' AND status = 'active'`);
     checks.apiKeys = keys?.count > 0;
   } catch (e) {
     logger.error('[Admin] API keys health check failed:', e);
@@ -799,6 +943,127 @@ router.get('/health', asyncHandler(async (req, res) => {
     checks,
     timestamp: new Date().toISOString()
   });
+}));
+
+/**
+ * GET /admin/health/detailed
+ *
+ * Saúde REAL do backend (antes o painel caía num fallback fake "tudo
+ * saudável"). Devolve no formato que o renderHealthData() do admin espera:
+ * { overall, selectors (checagens), modules, waApi, issues }.
+ */
+router.get('/health/detailed', asyncHandler(async (req, res) => {
+  const checks = {};   // exibido como "Checagens" (campo selectors do front)
+  const modules = {};  // exibido como "Módulos"
+  const issues = [];
+  const now = () => new Date().toISOString();
+
+  // Banco de dados
+  let dbOk = false;
+  try { await db.get('SELECT 1'); dbOk = true; } catch (_) { /* down */ }
+  checks['Conexão com o banco'] = { found: dbOk, status: dbOk ? 'OK' : 'Falha' };
+  modules['Database'] = dbOk ? 'healthy' : 'critical';
+  if (!dbOk) issues.push({ type: 'module_error', module: 'Database', description: 'Sem conexão com o banco de dados', timestamp: now() });
+
+  // Migrations aplicadas
+  let migCount = 0;
+  try { const r = await db.get('SELECT COUNT(*) as c FROM _migrations'); migCount = r?.c || 0; } catch (_) {}
+  checks['Migrations'] = { found: migCount > 0, status: migCount > 0 ? `${migCount} aplicadas` : 'Nenhuma' };
+  modules['Migrations'] = migCount > 0 ? 'healthy' : 'degraded';
+
+  // API keys de IA ativas
+  let keyCount = 0;
+  try { const r = await db.get(`SELECT COUNT(*) as c FROM integration_credentials WHERE kind = 'api_key' AND status = 'active'`); keyCount = r?.c || 0; } catch (_) {}
+  checks['API Keys de IA ativas'] = { found: keyCount > 0, status: keyCount > 0 ? `${keyCount} ativa(s)` : 'Nenhuma' };
+  modules['Provedores de IA'] = keyCount > 0 ? 'healthy' : 'warning';
+  if (keyCount === 0) issues.push({ type: 'api_unavailable', description: 'Nenhuma API key de IA ativa — adicione na aba API Keys', timestamp: now() });
+
+  // Atividade de IA nas últimas 24h
+  let aiCount = 0;
+  try { const r = await db.get(`SELECT COUNT(*) as c FROM ai_usage_logs WHERE created_at >= datetime('now','-24 hours')`); aiCount = r?.c || 0; } catch (_) {}
+  checks['Atividade de IA (24h)'] = { found: true, status: `${aiCount} requisições` };
+  modules['Pipeline de IA'] = 'healthy';
+
+  // Erros recentes
+  let errCount = 0;
+  try { const r = await db.get(`SELECT COUNT(*) as c FROM error_logs WHERE created_at >= datetime('now','-24 hours')`); errCount = r?.c || 0; } catch (_) {}
+  checks['Erros (24h)'] = { found: errCount === 0, status: errCount === 0 ? 'Nenhum' : `${errCount} erro(s)` };
+  modules['Logs de Erro'] = errCount === 0 ? 'healthy' : errCount < 10 ? 'degraded' : 'critical';
+  if (errCount >= 10) issues.push({ type: 'module_error', module: 'Logs de Erro', description: `${errCount} erros nas últimas 24h`, timestamp: now() });
+
+  const critical = Object.values(modules).filter(m => m === 'critical').length;
+  const degraded = Object.values(modules).filter(m => m === 'degraded' || m === 'warning').length;
+  const overall = critical > 0 ? 'critical' : degraded > 0 ? 'warning' : 'healthy';
+
+  res.json({
+    success: true,
+    data: { overall, selectors: checks, modules, waApi: { Store: dbOk }, issues },
+  });
+}));
+
+/**
+ * POST /admin/health/auto-fix
+ *
+ * Correções automáticas seguras no backend. Hoje: reativa API keys que
+ * ficaram sem status. Devolve { fixed[], failed[] } honesto.
+ */
+router.post('/health/auto-fix', asyncHandler(async (req, res) => {
+  const fixed = [];
+  const failed = [];
+
+  try {
+    const r = await db.run(
+      `UPDATE integration_credentials SET status = 'active', updated_at = datetime('now')
+       WHERE kind = 'api_key' AND (status IS NULL OR status = '')`
+    );
+    if (r && r.changes > 0) fixed.push(`${r.changes} API key(s) reativada(s)`);
+  } catch (_) {
+    failed.push('Reativar API keys');
+  }
+
+  res.json({ success: true, data: { fixed, failed } });
+}));
+
+// ============================================
+// LEADS DE CUPOM (capturados no modal da landing)
+// ============================================
+
+router.get('/coupon-leads', asyncHandler(async (req, res) => {
+  const { page = 1, limit = 200, search } = req.query;
+  const offset = (page - 1) * limit;
+
+  let query = 'SELECT * FROM coupon_leads WHERE 1=1';
+  const params = [];
+
+  if (search) {
+    const term = makeLikeTerm(search);
+    if (term) {
+      query += ` AND (name LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\')`;
+      params.push(term, term, term);
+    }
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(parseInt(limit), parseInt(offset));
+
+  const leads = await db.all(query, params);
+  const total = await db.get('SELECT COUNT(*) as count FROM coupon_leads');
+
+  res.json({
+    success: true,
+    data: leads,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: total?.count || 0,
+    },
+  });
+}));
+
+router.delete('/coupon-leads/:id', asyncHandler(async (req, res) => {
+  await db.run('DELETE FROM coupon_leads WHERE id = ?', [req.params.id]);
+  logger.info(`[Admin] Lead de cupom removido: ${req.params.id}`);
+  res.json({ success: true });
 }));
 
 module.exports = router;
