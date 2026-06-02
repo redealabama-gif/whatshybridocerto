@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Auth Middleware — JWT verification + tenant isolation.
  *
@@ -112,8 +113,10 @@ async function authenticate(req, res, next) {
       return next();
     }
     
-    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
-    
+    const decoded = /** @type {{ userId: string, jti?: string }} */ (
+      jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] })
+    );
+
     // CORREÇÃO: Get user from database de forma assíncrona
     const user = await getUserByIdAsync(decoded.userId);
 
@@ -171,8 +174,10 @@ function optionalAuth(req, res, next) {
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
-      
+      const decoded = /** @type {{ userId: string }} */ (
+        jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] })
+      );
+
       const user = db.get(
         'SELECT id, email, name, role, workspace_id FROM users WHERE id = ?',
         [decoded.userId]

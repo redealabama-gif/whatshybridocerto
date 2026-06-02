@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * CouponService — Fase 1 da cobrança real
  *
@@ -55,11 +56,23 @@ function hasRedemptionsLeft(coupon) {
 }
 
 /**
+ * @typedef {Object} ValidateSuccess
+ * @property {true} valid
+ * @property {any}  coupon
+ *
+ * @typedef {Object} ValidateFailure
+ * @property {false}  valid
+ * @property {string} reason
+ *
+ * @typedef {ValidateSuccess | ValidateFailure} ValidateResult
+ */
+
+/**
  * Valida um cupom para um plano específico. NÃO aplica nada.
  *
  * @param {string} rawCode  - código bruto (ex.: 'exit50' ou ' EXIT50 ')
  * @param {string} plan     - 'starter', 'pro', 'free'
- * @returns {{ valid: boolean, reason?: string, coupon?: object }}
+ * @returns {ValidateResult}
  */
 function validate(rawCode, plan) {
   const code = normalizeCode(rawCode);
@@ -83,16 +96,35 @@ function validate(rawCode, plan) {
 }
 
 /**
+ * @typedef {Object} PreviewSuccess
+ * @property {true}   valid
+ * @property {string} code
+ * @property {string} kind
+ * @property {string} label
+ * @property {number} originalAmount
+ * @property {number} discountAmount
+ * @property {number} finalAmount
+ * @property {boolean} firstInvoiceOnly
+ *
+ * @typedef {Object} PreviewFailure
+ * @property {false}  valid
+ * @property {string} reason
+ *
+ * @typedef {PreviewSuccess | PreviewFailure} PreviewResult
+ */
+
+/**
  * Calcula o desconto que um cupom aplicaria sobre um valor. Não muda
  * nada no banco. Útil pro frontend mostrar "R$ 49,90 → R$ 24,95".
  *
- * Retorna { valid, originalAmount, discountAmount, finalAmount,
- *           kind, label, firstInvoiceOnly } se valid, senão
- *           { valid: false, reason }.
+ * @param {string} rawCode
+ * @param {string} plan
+ * @param {number} amount
+ * @returns {PreviewResult}
  */
 function previewDiscount(rawCode, plan, amount) {
   const v = validate(rawCode, plan);
-  if (!v.valid) return v;
+  if (v.valid === false) return v;
 
   const c = v.coupon;
   const original = Number(amount);
@@ -136,8 +168,10 @@ function previewDiscount(rawCode, plan, amount) {
  */
 function applyToWorkspace(rawCode, workspaceId, plan) {
   const v = validate(rawCode, plan);
-  if (!v.valid) {
-    const err = new Error(`Cupom inválido: ${v.reason}`);
+  if (v.valid === false) {
+    const err = /** @type {Error & { code: string, reason: string }} */ (
+      new Error(`Cupom inválido: ${v.reason}`)
+    );
     err.code = 'INVALID_COUPON';
     err.reason = v.reason;
     throw err;
@@ -178,7 +212,7 @@ function getPendingCouponForWorkspace(workspaceId, plan) {
   if (ws.coupon_first_invoice_used_at) return null; // já consumido
 
   const v = validate(ws.coupon_code, plan);
-  if (!v.valid) {
+  if (v.valid === false) {
     logger.info(
       `[Coupon] Pending ${ws.coupon_code} no longer valid for ws=${workspaceId} ` +
       `(reason=${v.reason}); will not apply.`

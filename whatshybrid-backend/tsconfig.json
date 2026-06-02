@@ -1,0 +1,23 @@
+{
+  "_comment": "Type-check incremental. checkJs:false → só arquivos com '// @ts-check' no topo são analisados. Permite adoção gradual sem inundar de erros.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": false,
+    "types": ["node", "express", "jest"]
+  },
+  "include": ["src/**/*.js"],
+  "exclude": ["node_modules", "data", "coverage", "tests", "scripts", "public", "admin", "dist", "build"]
+}

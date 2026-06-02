@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Error Handler Middleware — v9.0.0 (com i18n auto)
  *
@@ -8,12 +9,19 @@
 const logger = require('../utils/logger');
 
 class AppError extends Error {
+  /**
+   * @param {string} message
+   * @param {number} statusCode
+   * @param {string | null} [code]
+   */
   constructor(message, statusCode, code = null) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
     this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
     this.isOperational = true;
+    /** @type {Array<{field: string, message: string}> | undefined} */
+    this.details = undefined;
     Error.captureStackTrace(this, this.constructor);
   }
 }
