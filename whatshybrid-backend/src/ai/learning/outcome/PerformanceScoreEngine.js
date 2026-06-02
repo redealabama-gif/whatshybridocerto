@@ -130,7 +130,7 @@ class PerformanceScoreEngine {
     const label = this._scoreLabel(score, outcome);
 
     // ── 6. Atualizar histórico ───────────────────────────────────────────────
-    this._record(score, { responseGoal, clientStage, intent, variant });
+    this._record(score, { responseGoal, clientStage, intent, variant, components });
 
     logger.debug(`[PerformanceScore] ${resolvedOutcome.interactionId} → score=${score.toFixed(3)} label=${label}`);
     return { score: +score.toFixed(4), components, label };
@@ -193,7 +193,7 @@ class PerformanceScoreEngine {
     return 'ignored';
   }
 
-  _record(score, { responseGoal, clientStage, intent, variant }) {
+  _record(score, { responseGoal, clientStage, intent, variant, components }) {
     this.stats.total++;
 
     // CORREÇÃO P1: Persistir score no banco com namespace por tenant

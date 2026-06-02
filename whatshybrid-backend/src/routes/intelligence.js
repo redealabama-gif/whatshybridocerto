@@ -20,7 +20,7 @@ const { aiLimiter } = require('../middleware/rateLimiter');
 const logger = require('../utils/logger');
 
 // ── Carregamento dos módulos de inteligência ──────────────────────────────────
-let CommercialIntelligenceEngine, ResponseQualityChecker, ClientBehaviorAdapter;
+let CommercialIntelligenceEngine, ResponseQualityChecker, ClientBehaviorAdapter, AIOrchestrator;
 
 // CORREÇÃO P1: Usa OrchestratorRegistry singleton em vez de Map local no módulo
 const orchestratorRegistry = require('../registry/OrchestratorRegistry');
@@ -29,6 +29,7 @@ try {
   CommercialIntelligenceEngine = require('../ai/intelligence/CommercialIntelligenceEngine');
   ResponseQualityChecker = require('../ai/quality/ResponseQualityChecker');
   ClientBehaviorAdapter = require('../ai/intelligence/ClientBehaviorAdapter');
+  AIOrchestrator = require('../ai/AIOrchestrator');
 } catch (e) {
   logger.warn('[Intelligence Routes] Some AI modules not loaded:', e.message);
 }

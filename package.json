@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:critical": "playwright test e2e/critical-flows.spec.js",
-    "prepare": "husky install || echo 'Husky not installed yet'",
+    "prepare": "husky install 2>/dev/null || true",
     "build:extension": "node scripts/build-extension.js",
     "pack:extension": "node scripts/pack-extension.js",
     "release:build": "npm run build:extension && npm run pack:extension",
@@ -33,11 +33,11 @@
     "prettier": "^3.1.1"
   },
   "lint-staged": {
-    "*.js": [
+    "whatshybrid-backend/**/*.js": [
       "eslint --fix",
       "prettier --write"
     ],
-    "*.{json,md,yml,yaml}": [
+    "whatshybrid-backend/**/*.{json,md,yml,yaml}": [
       "prettier --write"
     ]
   },

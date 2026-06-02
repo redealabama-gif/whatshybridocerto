@@ -167,7 +167,7 @@ test('FIX paused_at preserved across interactions while paused', () => {
 
   // Wait then record another
   const start = Date.now();
-  while (Date.now() - start < 10) {} // busy wait 10ms
+  while (Date.now() - start < 10) { /* busy wait 10ms */ }
   m.recordInteraction(ws, 'rejected');
   const pausedAt2 = mockDb.rows.get(ws).paused_at;
 
@@ -215,7 +215,7 @@ test('paused → live → paused: new paused_at registered', () => {
   m.resumeLive(ws);
 
   const start = Date.now();
-  while (Date.now() - start < 10) {}
+  while (Date.now() - start < 10) { /* busy wait */ }
 
   for (let i = 0; i < 30; i++) m.recordInteraction(ws, 'rejected');
   const pausedAt2 = mockDb.rows.get(ws).paused_at;

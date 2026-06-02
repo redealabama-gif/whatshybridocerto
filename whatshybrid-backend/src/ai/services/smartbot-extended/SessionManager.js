@@ -122,7 +122,9 @@ class SessionManager {
     return { totalSessions: this.sessions.size, activeSessions: activeCount, avgAge: activeCount > 0 ? totalAge / activeCount : 0, maxSessions: this.maxSessions };
   }
 
-  destroy() { clearInterval(this.cleanupInterval); this.sessions.clear(); }
+  // Antes chamava-se destroy() — colidia com destroy(sessionId) acima.
+  // Esse aqui é shutdown total: limpa intervalo de GC e todas as sessões.
+  shutdown() { clearInterval(this.cleanupInterval); this.sessions.clear(); }
 }
 
 // ============================================================

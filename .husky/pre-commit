@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Roda lint-staged: ESLint --fix + Prettier --write nos arquivos staged.
+# Falha rápido se houver erro que não dá pra auto-corrigir.
+npx --no-install lint-staged

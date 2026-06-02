@@ -1,9 +1,11 @@
 /**
  * 🤖 BaseProvider - Interface base para providers de IA
  * WhatsHybrid Pro v7.1.0
- * 
+ *
  * Todos os providers devem estender esta classe
  */
+
+const logger = require('../../utils/logger');
 
 class BaseProvider {
   constructor(config = {}) {
@@ -145,8 +147,10 @@ class BaseProvider {
   }
 
   /**
-   * Streaming completion - opcional
+   * Streaming completion - opcional.
+   * Generator que só lança erro (interface). Subclasses implementam o yield.
    */
+  // eslint-disable-next-line require-yield
   async *stream(messages, options = {}) {
     throw new Error(`${this.name}: stream() not implemented`);
   }

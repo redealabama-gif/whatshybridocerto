@@ -6,6 +6,12 @@
 const EventEmitter = require('events');
 const logger = require('../../../utils/logger');
 
+// Cada classe foi extraída para seu próprio arquivo no refactor v9.
+const AdvancedContextAnalyzer = require('./AdvancedContextAnalyzer');
+const IntelligentPriorityQueue = require('./IntelligentPriorityQueue');
+const ContinuousLearningSystem = require('./ContinuousLearningSystem');
+const SmartMetricsSystem = require('./SmartMetricsSystem');
+
 class SmartBotIAService extends EventEmitter {
   constructor(options = {}) {
     super();
