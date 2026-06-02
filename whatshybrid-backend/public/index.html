@@ -105,6 +105,7 @@
   <link rel="stylesheet" href="css/landing-fx.css">
   <link rel="stylesheet" href="css/hero-fx.css">
   <link rel="stylesheet" href="css/crystal.css">
+  <link rel="stylesheet" href="css/globe.css">
 
   <!-- Schema.org structured data -->
   <script type="application/ld+json">
@@ -2616,6 +2617,48 @@
   </div>
 </section>
 
+<!-- Globo de alcance — adicionado ao lado das Funcionalidades (cobe interativo) -->
+<section id="alcance" class="py-16 globe-section" data-screen-label="Alcance global">
+  <div class="container globe-grid">
+
+    <div class="globe-copy reveal reveal-blur">
+      <span class="section-eyebrow">Alcance sem fronteiras</span>
+      <h2 class="globe-title">Do seu WhatsApp para o <span class="text-gradient">Brasil inteiro</span> — e além</h2>
+      <p class="globe-lead text-muted">
+        Não importa se o seu cliente está na capital, no interior ou do outro lado
+        do mundo: o WhatsHybrid Pro dispara, atende e acompanha cada conversa em
+        escala — em qualquer DDD, qualquer fuso, 24 horas por dia.
+      </p>
+      <ul class="globe-points">
+        <li>
+          <span class="gl-ic"><i data-lucide="globe-2" aria-hidden="true"></i></span>
+          <span class="gl-txt"><b>De São Paulo ao mundo.</b> Suas campanhas chegam a qualquer estado e a outros países — sem o cliente precisar ter o seu número salvo.</span>
+        </li>
+        <li>
+          <span class="gl-ic"><i data-lucide="clock" aria-hidden="true"></i></span>
+          <span class="gl-txt"><b>Roda em qualquer fuso.</b> Agende os disparos e deixe a IA atendendo sozinha — de madrugada, no feriado, quando for. O negócio não para.</span>
+        </li>
+        <li>
+          <span class="gl-ic"><i data-lucide="target" aria-hidden="true"></i></span>
+          <span class="gl-txt"><b>Público certo, onde ele estiver.</b> Monte listas segmentadas por região e fale com quem realmente compra, da capital ao interior.</span>
+        </li>
+      </ul>
+      <div class="globe-regions">
+        <span class="rg">Brasil</span>
+        <span class="rg">América do Sul</span>
+        <span class="rg">Portugal &amp; Europa</span>
+        <span class="rg">EUA &amp; LATAM</span>
+      </div>
+    </div>
+
+    <div class="globe-stage reveal reveal-zoom">
+      <canvas id="globe-canvas" class="globe-canvas" style="opacity:0; transition:opacity 1.2s ease;" aria-label="Globo interativo mostrando o alcance do WhatsHybrid Pro"></canvas>
+      <span class="globe-hint">arraste para girar</span>
+    </div>
+
+  </div>
+</section>
+
 <!-- Sem vs Com comparison -->
 <section class="py-16 pfx-section" id="compare" data-pfx-tone="contrast" data-pfx-speed="0.18">
   <div class="pfx-bg" style="background-image: url('assets/bg-contrast.jpg');"></div>
@@ -3153,6 +3196,7 @@
 <script src="js/hero-fx.js" defer></script>
 <script src="js/hero-shader.js" defer></script>
 <script src="js/crystal.js" defer></script>
+<script type="module" src="js/globe.js"></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).

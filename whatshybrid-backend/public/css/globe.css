@@ -1,0 +1,161 @@
+/**
+ * WhatsHybrid Pro — Globe (alcance global)
+ * Seção do globo interativo (cobe) ao lado das funcionalidades. Globo arrastável,
+ * marcadores concentrados no Brasil/América do Sul + hubs globais. Aditivo —
+ * não altera nada do restante da página. JS: js/globe.js.
+ */
+
+.globe-section {
+  position: relative;
+  z-index: 1;
+  background:
+    radial-gradient(60% 80% at 72% 50%, rgba(111, 0, 255, 0.14) 0%, transparent 60%),
+    radial-gradient(50% 60% at 70% 60%, rgba(0, 255, 255, 0.08) 0%, transparent 65%),
+    var(--brand-dark);
+  overflow: hidden;
+}
+
+.globe-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+/* —— Coluna de texto —— */
+.globe-copy { max-width: 540px; }
+.globe-title {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  margin: 16px 0 18px;
+  text-wrap: balance;
+}
+.globe-lead {
+  font-size: clamp(1rem, 1.3vw, 1.12rem);
+  line-height: 1.66;
+  margin-bottom: 26px;
+  text-wrap: pretty;
+}
+.globe-points {
+  list-style: none;
+  margin: 0 0 30px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.globe-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  font-size: 0.98rem;
+  color: #c7d2e8;
+}
+.globe-points li .gl-ic {
+  flex: none;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  color: var(--brand-cyan);
+  background: rgba(0, 255, 255, 0.07);
+  border: 1px solid rgba(0, 255, 255, 0.26);
+  box-shadow: 0 0 16px rgba(0, 255, 255, 0.12);
+}
+.globe-points li .gl-ic svg { width: 18px; height: 18px; }
+.globe-points li b { color: #fff; font-weight: 600; }
+.globe-points li .gl-txt { padding-top: 2px; }
+
+/* —— Coluna do globo —— */
+.globe-stage {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  aspect-ratio: 1 / 1;
+}
+/* halo atrás do globo */
+.globe-stage::before {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, rgba(0, 255, 255, 0.18) 0%, rgba(111, 0, 255, 0.12) 40%, transparent 70%);
+  filter: blur(26px);
+  z-index: 0;
+  pointer-events: none;
+  animation: globe-halo 7s ease-in-out infinite;
+}
+@keyframes globe-halo {
+  0%, 100% { opacity: 0.6; transform: scale(0.97); }
+  50%      { opacity: 1;   transform: scale(1.04); }
+}
+.globe-canvas {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  contain: layout paint size;
+  cursor: grab;
+  touch-action: none;
+}
+/* dica de interação */
+.globe-hint {
+  position: absolute;
+  z-index: 3;
+  left: 50%; bottom: 2%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(150, 220, 255, 0.5);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.globe-hint::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand-cyan);
+  box-shadow: 0 0 8px var(--brand-cyan);
+  animation: globe-blip 1.8s ease-in-out infinite;
+}
+@keyframes globe-blip { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* chips de regiões (estático, reforça o alcance) */
+.globe-regions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.globe-regions .rg {
+  font-size: 0.78rem;
+  color: #aeb9d4;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.globe-regions .rg::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand-cyan);
+  box-shadow: 0 0 7px rgba(0, 255, 255, 0.7);
+}
+
+/* —— Responsivo —— */
+@media (max-width: 920px) {
+  .globe-grid { grid-template-columns: 1fr; gap: 28px; }
+  .globe-copy { max-width: 640px; margin-inline: auto; text-align: center; order: 1; }
+  .globe-points { align-items: center; }
+  .globe-points li { text-align: left; }
+  .globe-regions { justify-content: center; }
+  .globe-stage { order: 2; max-width: 420px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globe-stage::before, .globe-hint::before { animation: none !important; }
+}
