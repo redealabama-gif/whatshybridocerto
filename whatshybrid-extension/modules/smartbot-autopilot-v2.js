@@ -1162,12 +1162,30 @@
     let tier0Attempted = false;
     let tier0Failed = false;
 
+    // Persona ativa (tom/estilo). A geração roda no orquestrador do backend —
+    // que não conhece as personas da extensão. Igual à sugestão manual, enviamos
+    // o objeto da persona para o backend injetar no system prompt; sem isto,
+    // trocar de persona não mudava a resposta do autopilot.
+    let personaPayload = null;
+    try {
+      const ap = window.CopilotEngine?.getActivePersona?.();
+      if (ap && typeof ap.systemPrompt === 'string' && ap.systemPrompt.trim()) {
+        personaPayload = {
+          id: ap.id || '',
+          name: ap.name || '',
+          description: ap.description || '',
+          systemPrompt: ap.systemPrompt,
+        };
+      }
+    } catch (_) { /* persona é opcional */ }
+
     // PRIORIDADE 1: BackendClient.ai.process — orchestrator completo
     if (window.BackendClient?.ai?.process) {
       tier0Attempted = true;
       try {
         const result = await window.BackendClient.ai.process(chatId, messageText, {
           language: 'pt-BR',
+          persona: personaPayload,
         });
 
         // backend retorna { success, response, metadata, intelligence }
