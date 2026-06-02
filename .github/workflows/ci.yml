@@ -113,9 +113,9 @@ jobs:
         # checkJs: false no tsconfig.json → só arquivos com '// @ts-check' são
         # type-checked. Adoção gradual: cada PR pode promover mais arquivos.
 
-  # ── Unit tests (Jest in-memory — sem subir backend) ─────────────────────────
+  # ── Unit + Integration tests (Jest in-process — sem subir backend) ──────────
   unit-tests:
-    name: Unit Tests (Jest)
+    name: Unit + Integration Tests (Jest)
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
@@ -132,8 +132,10 @@ jobs:
         working-directory: whatshybrid-backend
         run: npm ci
 
-      - name: Run unit tests
+      - name: Run unit + integration tests
         working-directory: whatshybrid-backend
+        # test:unit roda todos os *.spec.js (unit + integração in-process com
+        # supertest contra SQLite temporário). Não precisa de Redis/servidor.
         run: npm run test:unit
 
   # ── Security ────────────────────────────────────────────────────────────────
