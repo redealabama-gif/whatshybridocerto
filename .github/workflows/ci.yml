@@ -63,6 +63,10 @@ jobs:
         working-directory: whatshybrid-extension
         run: node scripts/build-sources-hash.js --check
 
+      - name: Extension unit tests (zero-dep)
+        working-directory: whatshybrid-extension
+        run: node tests/run-all.js
+
       - name: Validate package.json
         working-directory: whatshybrid-backend
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
