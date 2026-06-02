@@ -6,7 +6,8 @@
   "main": "background.js",
   "scripts": {
     "canary": "node scripts/wa-selector-canary.js",
-    "test": "node scripts/wa-selector-canary.js && node tests/run-all.js",
+    "verify:bundles": "node scripts/build-sources-hash.js --check",
+    "test": "node scripts/wa-selector-canary.js && node scripts/build-sources-hash.js --check && node tests/run-all.js",
     "test:unit": "node tests/run-all.js --unit",
     "test:integration": "node tests/run-all.js --integration",
     "test:verbose": "node tests/run-all.js --verbose",

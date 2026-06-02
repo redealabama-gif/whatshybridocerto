@@ -311,6 +311,12 @@ async function build() {
     }, null, 2)
   );
 
+  // Guard de bundle desatualizado: grava o hash da fonte que alimentou ESTES
+  // bundles. O CI roda `build-sources-hash.js --check` e falha se a fonte mudar
+  // sem o rebuild correspondente (ver scripts/build-sources-hash.js).
+  try { require('./scripts/build-sources-hash').write(); }
+  catch (e) { console.warn('[Build] hash da fonte falhou:', e.message); }
+
   console.log('\n📝 manifest.json: 139 scripts → 2 bundles');
   console.log('   advanced-bundle.js carregado dinamicamente\n');
 }
