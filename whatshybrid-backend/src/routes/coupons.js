@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Coupons (public) — Fase 1 da cobrança real
  *
@@ -18,7 +19,11 @@
  */
 
 const express = require('express');
-const rateLimit = require('express-rate-limit');
+// express-rate-limit v7 exporta como `default` em ESM mas em CommonJS a função
+// vem direto via require — o tipo TS é o namespace, então cast via `unknown`.
+const rateLimit = /** @type {typeof import('express-rate-limit').default} */ (
+  /** @type {unknown} */ (require('express-rate-limit'))
+);
 const crypto = require('crypto');
 const router = express.Router();
 
@@ -44,15 +49,22 @@ const leadLimiter = rateLimit({
 // Se algo der errado no require, cai num fallback alinhado com a landing.
 const FALLBACK_PRICES = { starter: 49.90, pro: 99.90 };
 
+/**
+ * @param {string} plan
+ * @returns {number | undefined}
+ */
 function priceFor(plan) {
-  const planPrices = mpModule.PLAN_PRICES || {};
+  // PLAN_PRICES é anexado ao módulo em runtime (estático na exportação default).
+  const planPrices = /** @type {Record<string, number>} */ (
+    /** @type {any} */ (mpModule).PLAN_PRICES || {}
+  );
   if (typeof planPrices[plan] === 'number') return planPrices[plan];
-  return FALLBACK_PRICES[plan];
+  return /** @type {Record<string, number>} */ (FALLBACK_PRICES)[plan];
 }
 
 router.get('/validate/:code', authLimiter, (req, res) => {
   const { code } = req.params;
-  const plan = (req.query.plan || 'starter').toLowerCase();
+  const plan = String(req.query.plan || 'starter').toLowerCase();
   const explicitAmount = req.query.amount ? Number(req.query.amount) : null;
 
   // Plano free não tem o que descontar
@@ -69,7 +81,7 @@ router.get('/validate/:code', authLimiter, (req, res) => {
   }
 
   const result = couponService.previewDiscount(code, plan, baseAmount);
-  if (!result.valid) {
+  if (result.valid === false) {
     return res.json({ valid: false, reason: result.reason });
   }
 
