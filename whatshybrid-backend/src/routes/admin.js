@@ -1070,4 +1070,40 @@ router.delete('/coupon-leads/:id', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
+// ── Canário do WhatsApp Web (saúde dos seletores / Store interna) ────────────
+// Lê os relatórios que o canário agendado envia em POST /api/v1/canary/report.
+router.get('/canary', asyncHandler(async (req, res) => {
+  const latest = await db.get(
+    `SELECT id, status, source, wa_version, broken_count, degraded_count, duration_ms, report, created_at
+       FROM canary_runs ORDER BY created_at DESC LIMIT 1`
+  );
+  const history = await db.all(
+    `SELECT id, status, source, wa_version, broken_count, degraded_count, duration_ms, created_at
+       FROM canary_runs ORDER BY created_at DESC LIMIT 20`
+  );
+
+  // "há quanto tempo foi a última checagem" — robusto a SQLite (UTC sem T/Z) e Postgres (ISO)
+  const minutesSince = (ts) => {
+    if (!ts) return null;
+    const s = String(ts);
+    const iso = s.includes('T') ? s : s.replace(' ', 'T') + 'Z';
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? Math.max(0, Math.round((Date.now() - t) / 60000)) : null;
+  };
+  let parsedReport = null;
+  if (latest && latest.report) {
+    try { parsedReport = JSON.parse(latest.report); } catch (_) {}
+  }
+
+  res.json({
+    success: true,
+    data: {
+      latest: latest
+        ? { ...latest, report: parsedReport, ageMinutes: minutesSince(latest.created_at) }
+        : null,
+      history: history || [],
+    },
+  });
+}));
+
 module.exports = router;

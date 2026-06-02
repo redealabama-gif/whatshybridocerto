@@ -25,6 +25,11 @@
  *   EXTENSION_PATH=/opt/whatshybrid/whatshybrid-extension
  *   DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
  *   CANARY_PHONE=5511999999999     (número de teste pra enviar/receber)
+ *
+ *   # Integração com o PAINEL ADMIN (aba "Canário"): o canário faz POST do
+ *   # relatório no backend, que mostra o status + alerta se "não reporta há X".
+ *   CANARY_REPORT_URL=https://api.seu-dominio.com/api/v1/canary/report
+ *   CANARY_TOKEN=<segredo-compartilhado>   (MESMO valor no backend, env CANARY_TOKEN)
  */
 
 const path = require('path');
@@ -34,6 +39,9 @@ const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser';
 const EXTENSION_PATH = process.env.EXTENSION_PATH || path.join(__dirname, '../../whatshybrid-extension');
 const SESSION_PATH = process.env.CANARY_SESSION_PATH || path.join(__dirname, '../../canary-session');
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK || '';
+// Painel admin: o canário faz POST do relatório aqui (token compartilhado).
+const REPORT_URL = process.env.CANARY_REPORT_URL || ''; // ex.: https://api.seu-dominio.com/api/v1/canary/report
+const CANARY_TOKEN = process.env.CANARY_TOKEN || '';
 const TIMEOUT_MS = parseInt(process.env.CANARY_TIMEOUT_MS, 10) || 90_000;
 
 let puppeteer;
@@ -79,6 +87,32 @@ async function alert(level, message, details = {}) {
     });
   } catch (err) {
     console.error('Discord alert failed:', err.message);
+  }
+}
+
+// Envia o relatório pro backend (painel admin). Best-effort: nunca derruba o canário.
+async function postReport() {
+  if (!REPORT_URL || !CANARY_TOKEN) return; // sem config → só JSON/Discord local
+  try {
+    const brokenCount = REPORT.status === 'broken' ? Math.max(1, REPORT.errors.length) : 0;
+    const degradedCount = REPORT.status === 'degraded' ? 1 : 0;
+    const r = await fetch(REPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Canary-Token': CANARY_TOKEN },
+      body: JSON.stringify({
+        status: REPORT.status,
+        source: 'whatsapp-web',
+        waVersion: REPORT.wa_version || null,
+        brokenCount,
+        degradedCount,
+        durationMs: REPORT.duration_ms || null,
+        report: REPORT,
+      }),
+    });
+    if (r.ok) console.log('[Canary] relatório enviado ao painel admin');
+    else console.error('[Canary] backend respondeu', r.status, 'ao receber relatório');
+  } catch (err) {
+    console.error('[Canary] falha ao enviar relatório ao backend:', err.message);
   }
 }
 
@@ -218,6 +252,7 @@ async function run() {
     console.error('❌ Canary failed:', err);
   } finally {
     if (browser) try { await browser.close(); } catch (_) {}
+    await postReport(); // envia pro painel admin (best-effort)
   }
 
   process.exit(REPORT.status === 'broken' ? 1 : 0);
