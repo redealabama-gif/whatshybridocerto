@@ -11,6 +11,11 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: ['<rootDir>/tests/**/*.spec.js'],
   testPathIgnorePatterns: ['/node_modules/', '/data/'],
+  // uuid-wrapper usa import() dinâmico (uuid é ESM-only) que o Jest CJS não
+  // suporta. Mapeia para um mock síncrono com crypto.randomUUID (= v4 real).
+  moduleNameMapper: {
+    'utils/uuid-wrapper$': '<rootDir>/tests/integration/helpers/uuid-wrapper.mock.js',
+  },
   // Não polui o output com chamadas a console.log dos services
   silent: false,
   // Timeout default — testes de SQL/HTTP locais são rápidos
