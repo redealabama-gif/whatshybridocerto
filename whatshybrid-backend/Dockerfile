@@ -23,6 +23,12 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copiar código-fonte
 COPY . .
 
+# Auto-hospeda os assets externos da landing (cobe do globo + cena 3D do robô)
+# em public/, deixando-os same-origin e imunes a quedas de CDN em runtime.
+# --soft: se um download falhar durante o build, NÃO quebra a imagem — o front
+# cai pro CDN automaticamente. O `|| true` é uma rede de segurança extra.
+RUN node scripts/fetch-landing-vendor.js --soft || true
+
 # Criar diretórios necessários
 RUN mkdir -p data logs && \
     chown -R node:node /app

@@ -10,9 +10,12 @@
  *
  * USO (num ambiente COM acesso à internet):
  *   cd whatshybrid-backend
- *   npm run vendor:landing
+ *   npm run vendor:landing            # falha (exit 1) se algum download falhar
+ *   npm run vendor:landing -- --soft  # NÃO falha; usado no build do Docker
  *
- * Depois faça commit dos arquivos gerados. O front já prefere essas cópias
+ * Roda automaticamente no build da imagem (Dockerfile, modo --soft): produção
+ * já sobe com os assets locais, sem precisar commitar binário no git. Se quiser
+ * rodar manualmente, faça commit dos arquivos gerados. O front prefere as cópias
  * locais (index.html / js/globe.js) e só cai pros CDNs se elas não existirem.
  *
  * Sem dependências: usa só o módulo `https` nativo (Node >= 18).
@@ -126,14 +129,15 @@ async function fetchFirst(target) {
 
   console.log('');
   if (failures) {
-    console.error(
-      failures + ' asset(s) não baixaram. Rode num ambiente com internet liberada\n' +
-      '(ou baixe manualmente pelo navegador e salve nos caminhos acima) e tente de novo.'
-    );
+    const soft = process.argv.includes('--soft');
+    console.error(failures + ' asset(s) não baixaram.');
+    if (soft) {
+      console.warn('Modo --soft: seguindo sem erro — o front usará o CDN como fallback em runtime.');
+      process.exit(0);
+    }
+    console.error('Rode num ambiente com internet liberada (ou baixe manual pelo navegador e salve nos caminhos acima) e tente de novo.');
     process.exit(1);
   }
-  console.log('Pronto! Faça commit de:');
-  console.log('  - public/js/vendor/cobe.js');
-  console.log('  - public/assets/robot-scene.splinecode');
-  console.log('A landing passa a usar as cópias locais automaticamente.');
+  console.log('Pronto! Assets locais: public/js/vendor/cobe.js + public/assets/robot-scene.splinecode');
+  console.log('A landing passa a usar as cópias locais automaticamente (CDN vira só fallback).');
 })();
