@@ -915,6 +915,8 @@
           <div class="loading"><div class="spinner"></div></div>
         </div>
 
+        <div id="canarySelectors" style="margin-top:20px;"></div>
+
         <div class="card" style="margin-top:20px;">
           <div class="card-title">📜 Histórico (últimas checagens)</div>
           <div class="table-container">
@@ -1934,6 +1936,31 @@
         card('🕒', fmtAge(latest.ageMinutes), 'Última checagem') +
         card('❌', latest.broken_count || 0, 'Quebrados', latest.broken_count ? '#ef4444' : '') +
         card('⚠️', latest.degraded_count || 0, 'Degradados', latest.degraded_count ? '#f59e0b' : '');
+
+      // Seletores DOM (se o canário enviou a checagem)
+      const selEl = document.getElementById('canarySelectors');
+      const selData = latest.report && latest.report.selectors;
+      if (selEl) {
+        if (selData && selData.results) {
+          const ic = { PASS: '✅', DEGRADED: '⚠️', BROKEN: '❌' };
+          const rows = selData.results.map((r) => {
+            const c = r.status === 'BROKEN' ? '#ef4444' : r.status === 'DEGRADED' ? '#f59e0b' : '#22c55e';
+            return '<tr><td>' + r.key + '</td>' +
+              '<td><span style="color:' + c + ';font-weight:600">' + (ic[r.status] || '') + ' ' + r.status + '</span></td>' +
+              '<td>' + (r.via || '-') + '</td>' +
+              '<td style="color:var(--text-muted);font-size:12px">' + (r.matched || '(nenhum)') + '</td></tr>';
+          }).join('');
+          selEl.innerHTML =
+            '<div class="card"><div class="card-title">🎯 Seletores DOM ' +
+            '<span style="font-weight:400;color:var(--text-muted)">(' + selData.summary.pass + ' PASS · ' +
+            selData.summary.degraded + ' DEGRADED · ' + selData.summary.broken + ' BROKEN)</span></div>' +
+            (selData.chatOpened ? '' : '<div style="padding:8px 12px;margin-bottom:10px;border-radius:8px;background:rgba(245,158,11,.10);color:#f59e0b;font-size:13px">⚠️ Nenhuma conversa estava aberta na checagem — seletores que dependem de chat (input, enviar, header…) podem aparecer BROKEN sem ser quebra real.</div>') +
+            '<div class="table-container"><table><thead><tr><th>Seletor</th><th>Status</th><th>Via</th><th>Casou com</th></tr></thead><tbody>' +
+            rows + '</tbody></table></div></div>';
+        } else {
+          selEl.innerHTML = '';
+        }
+      }
 
       const hist = data.history || [];
       tbody.innerHTML = hist.length ? hist.map((h) => {

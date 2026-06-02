@@ -42,6 +42,15 @@ const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK || '';
 // Painel admin: o canário faz POST do relatório aqui (token compartilhado).
 const REPORT_URL = process.env.CANARY_REPORT_URL || ''; // ex.: https://api.seu-dominio.com/api/v1/canary/report
 const CANARY_TOKEN = process.env.CANARY_TOKEN || '';
+
+// Seletores DOM da extensão. Fonte: wa-selector-canary.js (que é drift-guardado
+// no CI contra o anti-break-system.js). Usados pra checar o DOM REAL do WhatsApp.
+let DOM_SELECTORS = {};
+try {
+  DOM_SELECTORS = require(path.join(EXTENSION_PATH, 'scripts', 'wa-selector-canary.js')).SELECTORS || {};
+} catch (e) {
+  console.warn('[Canary] wa-selector-canary não carregado (seletores DOM ficam de fora):', e.message);
+}
 const TIMEOUT_MS = parseInt(process.env.CANARY_TIMEOUT_MS, 10) || 90_000;
 
 let puppeteer;
@@ -224,6 +233,52 @@ async function run() {
       );
     } else {
       REPORT.status = 'healthy';
+    }
+
+    // ── Checagem de SELETORES DOM (lógica do wa-selector-canary no DOM real) ──
+    if (Object.keys(DOM_SELECTORS).length) {
+      // Tenta abrir a 1ª conversa pra os seletores dependentes de chat valerem.
+      let chatOpened = false;
+      try {
+        const firstChat = await page.$('#pane-side div[role="row"], div[role="listitem"], div[data-testid="cell-frame-container"]');
+        if (firstChat) {
+          await firstChat.click();
+          await new Promise((r) => setTimeout(r, 2500));
+          chatOpened = true;
+        }
+      } catch (_) {}
+
+      const sel = await page.evaluate((selectors) => {
+        const q = (s) => { try { return !!document.querySelector(s); } catch (_) { return false; } };
+        const results = Object.keys(selectors).map((key) => {
+          const def = selectors[key];
+          if (q(def.primary)) return { key, status: 'PASS', via: 'primary', matched: def.primary };
+          for (const fb of (def.fallbacks || [])) { if (q(fb)) return { key, status: 'DEGRADED', via: 'fallback', matched: fb }; }
+          return { key, status: 'BROKEN', via: null, matched: null };
+        });
+        return {
+          results,
+          summary: {
+            total: results.length,
+            pass: results.filter((r) => r.status === 'PASS').length,
+            degraded: results.filter((r) => r.status === 'DEGRADED').length,
+            broken: results.filter((r) => r.status === 'BROKEN').length,
+          },
+        };
+      }, DOM_SELECTORS);
+
+      REPORT.selectors = { chatOpened, ...sel };
+      console.log(`[Canary] seletores DOM: ${sel.summary.pass} PASS · ${sel.summary.degraded} DEGRADED · ${sel.summary.broken} BROKEN (chatOpened=${chatOpened})`);
+
+      // Escalonamento brando: CHAT_LIST existe sempre que logado. Se quebrou, o
+      // DOM mudou de verdade → degrada (não derruba pra broken, que fica pro
+      // check de Store). Seletores dependentes de chat NÃO escalam (podem estar
+      // BROKEN só porque não havia conversa pra abrir).
+      const chatList = sel.results.find((r) => r.key === 'CHAT_LIST');
+      if (chatList && chatList.status === 'BROKEN' && REPORT.status === 'healthy') {
+        REPORT.status = 'degraded';
+        REPORT.errors.push('Seletor DOM CHAT_LIST quebrado (DOM do WhatsApp mudou)');
+      }
     }
 
     REPORT.duration_ms = Date.now() - startTime;
