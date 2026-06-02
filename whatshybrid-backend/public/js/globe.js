@@ -4,8 +4,11 @@
  * globais. Os marcadores "quentes" (Brasil) pulsam. Sem React. Carrega o cobe
  * via ESM (CDN); se falhar, mostra um fallback estático e não quebra a página.
  *
- * O <script> que chama este arquivo é type="module".
+ * Carregado como <script> CLÁSSICO (não module) pra também funcionar quando o
+ * index.html é aberto direto via file:// — nesse esquema o navegador bloqueia
+ * módulos ES com src local. A IIFE evita vazar nomes pro escopo global.
  */
+(function () {
 const canvas = document.getElementById('globe-canvas');
 const stage = canvas && canvas.closest('.globe-stage');
 
@@ -188,3 +191,4 @@ async function init() {
   if ('ResizeObserver' in window && stage) new ResizeObserver(onResize).observe(stage);
   else window.addEventListener('resize', onResize);
 }
+})();
