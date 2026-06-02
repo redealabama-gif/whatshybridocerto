@@ -21,6 +21,7 @@ const TESTS = [
   'billing-cron-expired-trials.test.js',
   'billing-phase3.test.js',
   'billing-link-service.test.js',
+  'webhooks-payment-saas.test.js',
   'coupon-service.test.js',
   'orchestrator-registry.test.js',
   'postgres-driver.test.js',
