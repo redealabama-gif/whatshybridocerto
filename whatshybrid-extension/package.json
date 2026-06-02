@@ -5,7 +5,8 @@
   "private": true,
   "main": "background.js",
   "scripts": {
-    "test": "node tests/run-all.js",
+    "canary": "node scripts/wa-selector-canary.js",
+    "test": "node scripts/wa-selector-canary.js && node tests/run-all.js",
     "test:unit": "node tests/run-all.js --unit",
     "test:integration": "node tests/run-all.js --integration",
     "test:verbose": "node tests/run-all.js --verbose",
