@@ -1,0 +1,31 @@
+# Config do gitleaks — secret scanning no CI.
+#
+# Estende as regras padrão e adiciona um allowlist enxuto p/ FIXTURES DE TESTE:
+# valores claramente falsos (contêm 'test'/'senha'/'example'…) não devem
+# reprovar o CI, mas segredos reais sim. Verificado localmente:
+# `gitleaks dir . -c .gitleaks.toml` → 0 leaks.
+title = "WhatsHybrid secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixtures de teste e artefatos não-sensíveis"
+paths = [
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)\.gitleaks\.toml$''',
+]
+# Se o segredo detectado contém um destes marcadores, é fixture/placeholder —
+# não um segredo real. Mantém o scan cego só a valores obviamente falsos.
+stopwords = [
+  "test",
+  "example",
+  "sample",
+  "dummy",
+  "fake",
+  "senha",
+  "changeme",
+  "placeholder",
+  "your-",
+  "xxxxx",
+]

@@ -1,0 +1,67 @@
+name: Security
+
+# Endurecimento de segurança do CI (repo público → CodeQL/dependency-review
+# são gratuitos; gitleaks é free p/ contas pessoais/públicas).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '27 4 * * 1' # semanal (segunda 04:27 UTC) — re-scan do CodeQL
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Secret scanning (gitleaks) ──────────────────────────────────────────────
+  # Config em .gitleaks.toml (allowlist enxuto p/ fixtures de teste). Verificado
+  # localmente: 0 leaks no working tree e no histórico.
+  secret-scan:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # histórico completo p/ o gitleaks detect
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ── SAST (CodeQL) ───────────────────────────────────────────────────────────
+  codeql:
+    name: CodeQL (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          language: ${{ matrix.language }}
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  # ── Dependency review (gateia deps vulneráveis NOVAS em PR) ──────────────────
+  # Gateia o DELTA do PR (não reprova pelo débito de vulnerabilidades já
+  # existente). Repo público → API de dependency graph disponível.
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
