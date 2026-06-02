@@ -399,6 +399,8 @@ app.use('/api/v1/extension', extensionRoutes);
 app.use('/api/v1/billing', billingRoutes);
 // Cupom: endpoint público pra signup.html validar código + capturar lead do modal.
 app.use('/api/v1/coupons', require('./routes/coupons'));
+// Canário: ingest dos relatórios do canário agendado do WhatsApp Web (token).
+app.use('/api/v1/canary', require('./routes/canary'));
 // v9.7.x: Training sync — extensão chama no botão "Sincronizar" da página de treinamento.
 // Antes o endpoint não existia (404 silencioso) e a UI mostrava sucesso falso.
 app.use('/api/v1/training', require('./routes/training'));
