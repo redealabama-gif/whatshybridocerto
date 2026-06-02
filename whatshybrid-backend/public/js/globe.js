@@ -17,12 +17,15 @@ if (canvas) {
 }
 
 async function init() {
-  // Import dinâmico do cobe (com fallback de CDN)
+  // Import dinâmico do cobe (com fallback de CDN).
+  // IMPORTANTE: jsdelivr vem PRIMEIRO porque é o único CDN liberado na CSP do
+  // site (server.js → scriptSrc inclui unpkg + jsdelivr, mas NÃO esm.sh). Se
+  // esm.sh fosse primário, o import era bloqueado pela própria CSP da página.
   let createGlobe;
   try {
-    ({ default: createGlobe } = await import('https://esm.sh/cobe@0.6.3'));
-  } catch (e) {
     ({ default: createGlobe } = await import('https://cdn.jsdelivr.net/npm/cobe@0.6.3/+esm'));
+  } catch (e) {
+    ({ default: createGlobe } = await import('https://esm.sh/cobe@0.6.3'));
   }
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
