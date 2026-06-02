@@ -73,6 +73,13 @@ jobs:
         # (job unit-tests) só roda .spec.js; estes .test.js ficavam sem gate.
         run: node tests/unit/run-zerodep.js
 
+      - name: Backend coverage gate (zero-dep)
+        working-directory: whatshybrid-backend
+        # Ratchet de cobertura de LINHA dos arquivos críticos (caminho do
+        # dinheiro + core), medida pela cobertura V8 nativa do Node — sem c8 e
+        # sem npm ci. Falha se algum arquivo cair abaixo do piso.
+        run: node tests/unit/coverage-gate.js
+
       - name: Validate package.json
         working-directory: whatshybrid-backend
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
