@@ -67,6 +67,12 @@ jobs:
         working-directory: whatshybrid-extension
         run: node tests/run-all.js
 
+      - name: Backend unit tests (zero-dep, sem npm ci)
+        working-directory: whatshybrid-backend
+        # Testes standalone que mockam DB/serviços via require.cache. O Jest
+        # (job unit-tests) só roda .spec.js; estes .test.js ficavam sem gate.
+        run: node tests/unit/run-zerodep.js
+
       - name: Validate package.json
         working-directory: whatshybrid-backend
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
