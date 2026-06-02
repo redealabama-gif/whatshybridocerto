@@ -19,6 +19,7 @@ const TESTS = [
   'auth-service.test.js',
   'autopilot-maturity.test.js',
   'billing-cron-expired-trials.test.js',
+  'billing-dunning-suspend.test.js',
   'billing-phase3.test.js',
   'billing-link-service.test.js',
   'webhooks-payment-saas.test.js',
