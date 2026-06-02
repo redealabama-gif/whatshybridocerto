@@ -687,7 +687,10 @@
     const personaId = getAIPersonaForCurrentUser();
     
     if (window.CopilotEngine?.setActivePersona) {
-      window.CopilotEngine.setActivePersona(personaId);
+      // explicit:false → é a persona-PADRÃO da role, não uma escolha do usuário.
+      // Assim não "trava" a seleção e o usuário ainda pode trocar de persona
+      // manualmente que a escolha dele passa na frente.
+      window.CopilotEngine.setActivePersona(personaId, { explicit: false });
       console.log('[TeamSystem] Persona aplicada ao CopilotEngine:', personaId);
     }
     

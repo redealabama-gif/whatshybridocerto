@@ -291,6 +291,13 @@ Diretrizes:
   let state = {
     mode: MODES.SUGGEST.id,
     activePersona: 'professional',
+    // Marca quando o usuário ESCOLHE uma persona explicitamente no painel de IA.
+    // Enquanto false, getActivePersona() pode aplicar a persona-padrão da role
+    // do TeamSystem (ex.: admin → professional). Depois que o usuário clica num
+    // card de persona, a escolha dele PASSA NA FRENTE da role — senão trocar de
+    // persona não mudava nada, porque a role do "Usuário Principal" (admin)
+    // sempre forçava 'professional' na leitura.
+    personaExplicitlySet: false,
     customPersonas: {},
     conversations: {}, // { chatId: { messages: [], context: {}, lastActivity: timestamp } }
     knowledgeBase: { ...DEFAULT_KNOWLEDGE_BASE },
@@ -442,6 +449,13 @@ Diretrizes:
         if (nv && typeof nv.activePersona === 'string' && nv.activePersona !== state.activePersona) {
           state.activePersona = nv.activePersona;
           console.log('[CopilotEngine] 👤 Persona sincronizada via storage:', state.activePersona);
+        }
+        // Sincroniza também o flag de escolha explícita. Sem isto, o painel
+        // marcava "o usuário escolheu" mas o content script (onde a sugestão/
+        // autopilot geram) continuava com personaExplicitlySet=false e a role
+        // do TeamSystem voltava a sobrepor a escolha.
+        if (nv && typeof nv.personaExplicitlySet === 'boolean' && nv.personaExplicitlySet !== state.personaExplicitlySet) {
+          state.personaExplicitlySet = nv.personaExplicitlySet;
         }
       } catch (_) { /* ignore */ }
     });
@@ -2695,12 +2709,19 @@ Mensagem atual: "${safeText(message)}"`;
     return state.mode;
   }
 
-  function setActivePersona(personaId) {
+  // opts.explicit (default true): a chamada veio de uma escolha DELIBERADA do
+  // usuário (clique num card de persona). Quando false, é uma aplicação
+  // automática (ex.: TeamSystem aplicando a persona-padrão da role) e NÃO deve
+  // "travar" a escolha — assim a role continua valendo como default até o
+  // usuário escolher de fato.
+  function setActivePersona(personaId, opts = {}) {
+    const explicit = opts.explicit !== false;
     const allPersonas = { ...DEFAULT_PERSONAS, ...state.customPersonas };
     if (!allPersonas[personaId]) {
       throw new Error(`Persona não encontrada: ${personaId}`);
     }
     state.activePersona = personaId;
+    if (explicit) state.personaExplicitlySet = true;
     saveState();
 
     if (window.EventBus) {
@@ -2710,10 +2731,20 @@ Mensagem atual: "${safeText(message)}"`;
 
   function getActivePersona() {
     const allPersonas = { ...DEFAULT_PERSONAS, ...state.customPersonas };
-    
+
+    // FIX (persona não mudava): a escolha EXPLÍCITA do usuário tem prioridade
+    // máxima. O TeamSystem cria um "Usuário Principal" com role 'admin' por
+    // padrão, e o mapa role→persona forçava 'professional' em TODA leitura,
+    // ignorando o card que o usuário clicou. Agora, se o usuário escolheu uma
+    // persona, devolvemos ELA e nem olhamos a role.
+    if (state.personaExplicitlySet) {
+      return allPersonas[state.activePersona] || DEFAULT_PERSONAS.professional;
+    }
+
     // v7.9.13: Integração com TeamSystem
     // Se o TeamSystem estiver ativo e tiver um usuário logado,
-    // usamos a persona correspondente à role do usuário
+    // usamos a persona correspondente à role do usuário (apenas como DEFAULT,
+    // enquanto o usuário ainda não escolheu manualmente).
     if (window.TeamSystem?.getCurrentUser) {
       const currentUser = window.TeamSystem.getCurrentUser();
       if (currentUser?.role) {
