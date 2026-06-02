@@ -1,7 +1,8 @@
+// @ts-check
 /**
  * 🔐 Admin Routes - Painel Administrativo
  * Rotas para gerenciamento do sistema
- * 
+ *
  * TUDO AUTOMATIZADO - Admin apenas visualiza e monitora
  */
 
@@ -121,6 +122,7 @@ router.get('/subscriptions', asyncHandler(async (req, res) => {
   const offset = (page - 1) * limit;
 
   let query = 'SELECT * FROM subscriptions WHERE 1=1';
+  /** @type {Array<string | number>} */
   const params = [];
 
   if (status) {
@@ -143,7 +145,7 @@ router.get('/subscriptions', asyncHandler(async (req, res) => {
   }
 
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(parseInt(limit), parseInt(offset));
+  params.push(parseInt(String(limit), 10), parseInt(String(offset), 10));
 
   const subscriptions = await db.all(query, params);
   const total = await db.get('SELECT COUNT(*) as count FROM subscriptions');
@@ -475,6 +477,7 @@ router.get('/logs/ai', asyncHandler(async (req, res) => {
       duration_ms AS latency_ms,
       CASE WHEN status = 'success' THEN 1 ELSE 0 END AS success
     FROM ai_usage_logs WHERE 1=1`;
+  /** @type {Array<string | number>} */
   const params = [];
 
   if (provider) {
@@ -488,7 +491,7 @@ router.get('/logs/ai', asyncHandler(async (req, res) => {
   }
 
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(parseInt(limit), parseInt(offset));
+  params.push(parseInt(String(limit), 10), parseInt(String(offset), 10));
 
   const logs = await db.all(query, params);
 
@@ -1033,6 +1036,7 @@ router.get('/coupon-leads', asyncHandler(async (req, res) => {
   const offset = (page - 1) * limit;
 
   let query = 'SELECT * FROM coupon_leads WHERE 1=1';
+  /** @type {Array<string | number>} */
   const params = [];
 
   if (search) {
@@ -1044,7 +1048,7 @@ router.get('/coupon-leads', asyncHandler(async (req, res) => {
   }
 
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(parseInt(limit), parseInt(offset));
+  params.push(parseInt(String(limit), 10), parseInt(String(offset), 10));
 
   const leads = await db.all(query, params);
   const total = await db.get('SELECT COUNT(*) as count FROM coupon_leads');
