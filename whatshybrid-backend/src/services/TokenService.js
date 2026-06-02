@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * TokenService - v8.4.0
  *
@@ -97,9 +98,9 @@ class TokenService {
    * Operação ATÔMICA via transaction.
    *
    * @param {string} workspaceId
-   * @param {number} amount — tokens a adicionar (positivo)
-   * @param {string} type — 'topup' | 'plan_grant' | 'plan_renewal' | 'adjustment' | 'refund'
-   * @param {Object} [opts] — { description, invoice_id, metadata }
+   * @param {number} amount - tokens a adicionar (positivo)
+   * @param {string} type - 'topup' | 'plan_grant' | 'plan_renewal' | 'adjustment' | 'refund'
+   * @param {{ description?: string, invoice_id?: string, metadata?: any }} [opts]
    */
   credit(workspaceId, amount, type, opts = {}) {
     if (amount <= 0) throw new Error('Amount deve ser positivo');
@@ -243,7 +244,7 @@ class TokenService {
    *   - Registra transação
    *   - Se ficar abaixo do threshold, dispara alerta (via callback do alertManager)
    *
-   * @returns { allowed: bool, balance_after, reason? }
+   * @returns {{ allowed: boolean, balance_after: number, reason?: string }}
    */
   consume(workspaceId, amount, opts = {}) {
     if (amount <= 0) {
@@ -350,8 +351,11 @@ class TokenService {
 
   /**
    * Histórico de transações (paginado).
+   * @param {string} workspaceId
+   * @param {{ limit?: number, offset?: number, type?: string }} [opts]
    */
   history(workspaceId, { limit = 50, offset = 0, type } = {}) {
+    /** @type {Array<string | number>} */
     const params = [workspaceId];
     let where = 'workspace_id = ?';
     if (type) { where += ' AND type = ?'; params.push(type); }

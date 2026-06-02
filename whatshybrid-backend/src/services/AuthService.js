@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * AuthService — autenticação JWT, hashing bcrypt, validação de credenciais.
  *
@@ -131,7 +132,9 @@ class AuthService {
     // Verificar token
     let payload;
     try {
-      payload = jwt.verify(refreshToken, this.jwtSecret, { algorithms: ['HS256'] });
+      payload = /** @type {{ userId: string, type?: string }} */ (
+        jwt.verify(refreshToken, this.jwtSecret, { algorithms: ['HS256'] })
+      );
     } catch (error) {
       throw new Error('Token inválido ou expirado');
     }
@@ -289,14 +292,16 @@ class AuthService {
       workspaceId: user.workspaceId
     };
 
+    // expiresIn vem de env como string ('7d'); @types/jsonwebtoken v9 exige
+    // o template-type StringValue. Cast pontual pra não perder o resto do check.
     const accessToken = jwt.sign(payload, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn
+      expiresIn: /** @type {any} */ (this.jwtExpiresIn)
     });
 
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
       this.jwtSecret,
-      { expiresIn: this.refreshExpiresIn }
+      { expiresIn: /** @type {any} */ (this.refreshExpiresIn) }
     );
 
     return { accessToken, refreshToken };
