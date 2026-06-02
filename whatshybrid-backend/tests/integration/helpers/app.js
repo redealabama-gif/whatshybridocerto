@@ -27,6 +27,9 @@ process.env.WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'abcdef0123456789abcd
 process.env.REDIS_DISABLED = 'true';
 process.env.EMAIL_OUTBOX_DISABLED = 'true';
 process.env.BILLING_CRON_DISABLED = 'true';
+// Sem rate limit nos testes (authLimiter default é 5/15min e estouraria 429
+// em suites com várias tentativas de login/refresh).
+process.env.AUTH_RATE_LIMIT_MAX = '100000';
 
 const express = require('express');
 const database = require('../../../src/utils/database');
@@ -34,9 +37,12 @@ const { errorHandler } = require('../../../src/middleware/errorHandler');
 
 let migrated = false;
 
-/** Aplica schema + migrations uma única vez por processo de teste. */
+/** Aplica schema + migrations e inicializa o UUID wrapper (1× por processo). */
 async function ensureDb() {
   if (migrated) return database;
+  // server.js chama initUUID() no boot; como montamos só o router, fazemos aqui.
+  // Sem isso, uuidv4() nas rotas lança "UUID module not initialized".
+  await require('../../../src/utils/uuid-wrapper').initUUID();
   await database.runMigrations();
   migrated = true;
   return database;
