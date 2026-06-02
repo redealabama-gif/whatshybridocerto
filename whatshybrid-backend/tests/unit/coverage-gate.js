@@ -31,7 +31,7 @@ const THRESHOLDS = {
   'src/services/CouponService.js': 90,
   'src/services/TokenService.js': 62,
   'src/jobs/billingCron.js': 55,
-  'src/routes/webhooks-payment-saas.js': 48,
+  'src/routes/webhooks-payment-saas.js': 83,
   // core/segurança com teste zero-dep dedicado
   'src/services/AuthService.js': 68,
   'src/registry/OrchestratorRegistry.js': 88,

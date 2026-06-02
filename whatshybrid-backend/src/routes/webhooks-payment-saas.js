@@ -441,7 +441,7 @@ function revokeWorkspaceForRefund(paymentId, status) {
  * POST /api/v1/webhooks/payment/mercadopago-saas
  * Webhook principal - recebe notification do MP, consulta pagamento, ativa assinatura.
  */
-router.post('/mercadopago-saas', asyncHandler(async (req, res) => {
+async function handleMercadoPagoWebhook(req, res) {
   // 1. Validar assinatura
   const valid = mpService.validateWebhookSignature({
     headers: req.headers,
@@ -785,7 +785,9 @@ router.post('/mercadopago-saas', asyncHandler(async (req, res) => {
       db.run(`UPDATE webhook_inbox SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE id = ?`, [inboxId]);
     } catch (_) {}
   }
-}));
+}
+
+router.post('/mercadopago-saas', asyncHandler(handleMercadoPagoWebhook));
 
 /**
  * POST /api/v1/webhooks/payment/manual-confirm (admin only)
@@ -838,3 +840,5 @@ module.exports.activateWorkspaceSubscription = activateWorkspaceSubscription;
 module.exports.validatePaymentAmount = validatePaymentAmount;
 // Exposto p/ teste do caminho de estorno/chargeback → revogação de acesso.
 module.exports.revokeWorkspaceForRefund = revokeWorkspaceForRefund;
+// Exposto p/ teste do handler HTTP (assinatura + dispatch por tipo de evento).
+module.exports.handleMercadoPagoWebhook = handleMercadoPagoWebhook;

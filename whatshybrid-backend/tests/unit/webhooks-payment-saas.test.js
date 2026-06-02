@@ -16,6 +16,10 @@
  *   - ESTORNO/CHARGEBACK: refunded/charged_back de pagamento já aprovado REVOGA
  *     acesso (workspace → cancelled, auto_renew off, tokens zerados, auditoria),
  *     espelhando o handler do Stripe; idempotente se a invoice já está refunded.
+ *   - HANDLER HTTP (handleMercadoPagoWebhook): assinatura inválida → 401 (porta
+ *     de entrada), inbox/idempotência, e dispatch por tipo — preapproval
+ *     (authorized/cancelled), subscription_authorized_payment (approved→ativa /
+ *     rejected→past_due), payment avulso (plano, refund→revoga, tokenpkg).
  *
  * Mock de DB/serviços via require.cache ANTES do require do módulo — roda com
  * `node` puro (sem banco/SDK), igual ao billing-link-service.test.js.
@@ -66,6 +70,17 @@ function reset() {
   state.invoiceUpdates = [];          // UPDATE billing_invoices (marca refunded)
   state.creditUpdates = [];           // UPDATE workspace_credits (zera tokens)
   state.tokenTxns = [];               // INSERT token_transactions (auditoria)
+  // handler HTTP (assinatura + dispatch):
+  state.signatureValid = true;        // mpService.validateWebhookSignature
+  state.preapprovalResult = null;     // mpService.getPreapproval
+  state.authPaymentResult = null;     // mpService.getAuthorizedPayment
+  state.paymentResult = null;         // mpService.getPayment
+  state.tokenTxnExisting = null;      // idempotência tokenpkg (SELECT token_transactions)
+  state.inboxOps = [];                // webhook_inbox INSERT/UPDATE
+  state.workspaceCanceling = [];      // UPDATE ... subscription_status='canceling'
+  state.workspacePastDue = [];        // UPDATE ... subscription_status='past_due'
+  state.tokenCredits = [];            // TokenService.credit
+  state.tokenResets = [];             // TokenService.resetMonthlyForPlan
 }
 reset();
 
@@ -79,6 +94,7 @@ let uuidCounter = 0;
 
 inject('../../src/utils/database', {
   get(sql) {
+    if (/FROM\s+token_transactions/i.test(sql)) return state.tokenTxnExisting;
     if (/FROM\s+billing_invoices/i.test(sql)) return state.invoiceByRef;
     if (/FROM\s+workspaces/i.test(sql)) return state.workspaceRow;
     // ensureSubscriptionCode: lookup do código existente (por workspace)
@@ -91,6 +107,8 @@ inject('../../src/utils/database', {
     if (/UPDATE\s+workspaces/i.test(sql)) {
       state.workspaceUpdates.push(params);
       if (/subscription_status\s*=\s*'cancelled'/i.test(sql)) state.workspaceCancelled.push(params);
+      if (/subscription_status\s*=\s*'canceling'/i.test(sql)) state.workspaceCanceling.push(params);
+      if (/subscription_status\s*=\s*'past_due'/i.test(sql)) state.workspacePastDue.push(params);
     }
     else if (/UPDATE\s+billing_intents/i.test(sql)) state.intentUpdates.push(params);
     else if (/UPDATE\s+billing_invoices/i.test(sql)) state.invoiceUpdates.push(params);
@@ -99,6 +117,11 @@ inject('../../src/utils/database', {
     else if (/INSERT\s+INTO\s+token_transactions/i.test(sql)) state.tokenTxns.push(params);
     else if (/INSERT\s+INTO\s+subscription_codes/i.test(sql)) state.codeInserts.push(params);
     else if (/UPDATE\s+subscription_codes/i.test(sql)) state.codeUpdates.push(params);
+    else if (/INSERT\s+INTO\s+webhook_inbox/i.test(sql)) state.inboxOps.push({ op: 'insert' });
+    else if (/UPDATE\s+webhook_inbox/i.test(sql)) {
+      const m = sql.match(/status\s*=\s*'(\w+)'/);
+      state.inboxOps.push({ op: 'update', status: m ? m[1] : null });
+    }
   },
   // sqlite-driver: transaction(fn) executa fn na hora e devolve o retorno
   transaction(fn) { return fn(); },
@@ -113,7 +136,18 @@ inject('../../src/utils/uuid-wrapper', {
   v4: () => `uuid-${++uuidCounter}`,
   uuidv4: () => `uuid-${uuidCounter}`,
 });
-inject('../../src/services/MercadoPagoService', { PLAN_PRICES: { starter: 49.9, pro: 99.9 } });
+inject('../../src/services/MercadoPagoService', {
+  PLAN_PRICES: { starter: 49.9, pro: 99.9 },
+  validateWebhookSignature: () => state.signatureValid,
+  getPreapproval: async () => state.preapprovalResult,
+  getAuthorizedPayment: async () => state.authPaymentResult,
+  getPayment: async () => state.paymentResult,
+});
+inject('../../src/services/TokenService', {
+  TOKEN_PACKAGES: { pkg_small: { tokens: 10000 } },
+  credit: (...args) => state.tokenCredits.push(args),
+  resetMonthlyForPlan: (...args) => state.tokenResets.push(args),
+});
 inject('../../src/observability/alertManager', {
   send: (level, title, meta) => state.alerts.push({ level, title, meta }),
 });
@@ -126,7 +160,19 @@ inject('../../src/services/GoogleAnalyticsMpService', { async sendPurchaseForWor
 inject('../../src/utils/events', { emit: (name, payload) => state.events.push({ name, payload }) });
 
 const wh = require('../../src/routes/webhooks-payment-saas');
-const { activateWorkspaceSubscription, validatePaymentAmount, revokeWorkspaceForRefund } = wh;
+const { activateWorkspaceSubscription, validatePaymentAmount, revokeWorkspaceForRefund, handleMercadoPagoWebhook } = wh;
+
+// req/res mínimos p/ exercitar o handler HTTP direto (sem express)
+function mkReq({ type, id } = {}) {
+  return { headers: {}, query: {}, body: { type, data: id ? { id } : undefined } };
+}
+function mkRes() {
+  return {
+    statusCode: null, body: null,
+    status(c) { this.statusCode = c; return this; },
+    json(o) { this.body = o; return this; },
+  };
+}
 
 // dias entre agora e um ISO (arredondado p/ absorver drift de ms/setDate)
 function daysFromNow(iso) {
@@ -264,6 +310,109 @@ console.log('\n=== Webhook SaaS — ativação + idempotência (caminho do dinhe
   const noInv = revokeWorkspaceForRefund('pay_unknown', 'refunded');
   log(noInv.skipped === true, 'invoice inexistente → { skipped:true }');
   log(state.workspaceCancelled.length === 0 && state.creditUpdates.length === 0, 'sem invoice → não toca workspace/tokens');
+
+  // ─── H) HANDLER HTTP — assinatura + dispatch por tipo de evento ───────
+  // H1 — assinatura inválida → 401 e nada é processado (porta de entrada)
+  reset();
+  state.signatureValid = false;
+  const r1 = mkRes();
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p1' }), r1);
+  log(r1.statusCode === 401, 'assinatura inválida → HTTP 401');
+  log(r1.body && r1.body.error === 'Invalid signature', '401 com { error: Invalid signature }');
+  log(state.inboxOps.length === 0, 'assinatura inválida → nem grava inbox (rejeita antes)');
+  log(state.workspaceUpdates.length === 0, 'assinatura inválida → não processa nada');
+
+  // H2 — assinatura válida + payment de plano aprovado → 200, inbox, ativa
+  reset();
+  state.workspaceRow = { id: 'w1', plan: 'pro', next_billing_at: null, coupon_code: null };
+  state.paymentResult = { status: 'approved', external_reference: 'w1|pro', transaction_amount: 99.9, currency_id: 'BRL' };
+  const r2 = mkRes();
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p2' }), r2);
+  log(r2.statusCode === 200 && r2.body.received === true, 'assinatura válida → HTTP 200 { received:true }');
+  log(state.inboxOps.some(o => o.op === 'insert'), 'grava webhook_inbox (received) antes de processar');
+  log(state.invoiceInserts.length === 1, 'payment de plano aprovado → ativa (invoice criada)');
+  log(state.tokenResets.length === 1, 'plano aprovado → concede tokens do plano');
+  log(state.inboxOps.some(o => o.op === 'update' && o.status === 'processed'), 'fim do fluxo → inbox processed');
+
+  // H3 — tipo não-aceito → 200 (ack) mas marca inbox ignored e não processa
+  reset();
+  const r3 = mkRes();
+  await handleMercadoPagoWebhook(mkReq({ type: 'plan_update', id: 'p3' }), r3);
+  log(r3.statusCode === 200, 'tipo não-aceito ainda responde 200 (MP espera ack)');
+  log(state.inboxOps.some(o => o.op === 'update' && o.status === 'ignored'), 'tipo não-aceito → inbox ignored');
+  log(state.workspaceUpdates.length === 0, 'tipo não-aceito → sem processamento');
+
+  // H4 — sem paymentId → ignored
+  reset();
+  const r4 = mkRes();
+  await handleMercadoPagoWebhook({ headers: {}, query: {}, body: { type: 'payment' } }, r4);
+  log(state.inboxOps.some(o => o.op === 'update' && o.status === 'ignored'), 'sem paymentId → inbox ignored');
+
+  // H5 — preapproval authorized → ativa recorrente + tokens + alerta
+  reset();
+  state.preapprovalResult = { status: 'authorized', external_reference: 'subscription|w1|pro' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'preapproval', id: 'pre1' }), mkRes());
+  log(state.workspaceUpdates.some(p => Array.isArray(p) && p.includes('pro')), 'preapproval authorized → workspace ativado (plan=pro)');
+  log(state.tokenResets.length === 1, 'preapproval authorized → tokens iniciais');
+  log(state.alerts.some(a => /recorrente ativada/i.test(a.title)), 'preapproval authorized → alerta');
+
+  // H6 — preapproval cancelled → canceling
+  reset();
+  state.preapprovalResult = { status: 'cancelled', external_reference: 'subscription|w1|pro' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'preapproval', id: 'pre2' }), mkRes());
+  log(state.workspaceCanceling.length === 1, 'preapproval cancelled → subscription_status=canceling');
+
+  // H7 — subscription_authorized_payment approved → ativa cobrança recorrente
+  reset();
+  state.workspaceRow = { id: 'w1', plan: 'pro', next_billing_at: null, coupon_code: null };
+  state.authPaymentResult = { status: 'approved', preapproval_id: 'pre1', transaction_amount: 99.9, currency_id: 'BRL' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'subscription_authorized_payment', id: 'ap1' }), mkRes());
+  log(state.invoiceInserts.length === 1, 'recurring charge approved → ativa (invoice criada)');
+  log(state.tokenResets.length === 1, 'recurring charge approved → tokens resetados');
+
+  // H8 — recurring charge rejected → past_due + evento charge_failed
+  reset();
+  state.workspaceRow = { id: 'w1', plan: 'pro' };
+  state.authPaymentResult = { status: 'rejected', preapproval_id: 'pre1' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'subscription_authorized_payment', id: 'ap2' }), mkRes());
+  log(state.workspacePastDue.length === 1, 'recurring charge rejected → workspace past_due');
+  log(state.events.some(e => e.name === 'subscription.charge_failed'), 'recurring charge rejected → emite subscription.charge_failed');
+
+  // H9 — authorized_payment sem workspace correspondente → no-op
+  reset();
+  state.workspaceRow = null;
+  state.authPaymentResult = { status: 'approved', preapproval_id: 'preX' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'subscription_authorized_payment', id: 'ap3' }), mkRes());
+  log(state.invoiceInserts.length === 0 && state.workspacePastDue.length === 0, 'authorized_payment sem workspace → não faz nada');
+
+  // H10 — payment refunded (via handler) → marca intent failed E revoga acesso
+  reset();
+  state.invoiceByRef = { id: 'inv1', workspace_id: 'w1', status: 'paid' };
+  state.paymentResult = { status: 'refunded' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p_ref' }), mkRes());
+  log(state.intentUpdates.length === 1, 'payment refunded → marca intent failed');
+  log(state.workspaceCancelled.length === 1, 'payment refunded → revoga acesso (dispatch→revoke)');
+
+  // H11 — payment rejected → intent failed, sem revogação
+  reset();
+  state.paymentResult = { status: 'rejected' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p_rej' }), mkRes());
+  log(state.intentUpdates.length === 1 && state.workspaceCancelled.length === 0, 'payment rejected → intent failed, sem revogação');
+
+  // H12 — tokenpkg aprovado → credita tokens + invoice + evento
+  reset();
+  state.paymentResult = { status: 'approved', external_reference: 'tokenpkg|w1|pkg_small', transaction_amount: 50, currency_id: 'BRL' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p_tok' }), mkRes());
+  log(state.tokenCredits.length === 1, 'tokenpkg aprovado → credita tokens');
+  log(state.invoiceInserts.length === 1, 'tokenpkg aprovado → cria invoice');
+  log(state.events.some(e => e.name === 'tokens.topup_confirmed'), 'tokenpkg aprovado → emite tokens.topup_confirmed');
+
+  // H13 — tokenpkg já creditado (idempotência) → não credita de novo
+  reset();
+  state.paymentResult = { status: 'approved', external_reference: 'tokenpkg|w1|pkg_small', transaction_amount: 50 };
+  state.tokenTxnExisting = { id: 'tx1' };
+  await handleMercadoPagoWebhook(mkReq({ type: 'payment', id: 'p_tok2' }), mkRes());
+  log(state.tokenCredits.length === 0, 'tokenpkg já creditado → NÃO credita de novo (idempotência)');
 
   console.log(`\n  ${passed} passed, ${failed} failed\n`);
   process.exit(failed > 0 ? 1 : 0);
