@@ -185,12 +185,14 @@ const helmetForPortal = helmet({
         "'self'",
         "'unsafe-inline'", // necessário pra inline scripts existentes do portal
         "'wasm-unsafe-eval'", // Spline viewer / draco decoder compila WebAssembly
+        "'unsafe-eval'", // runtime 3D do Spline/Three.js usa new Function() em algumas builds
         "https://unpkg.com",
-        "https://cdn.jsdelivr.net",
+        "https://cdn.jsdelivr.net", // cobe (globo) — CDN primário
+        "https://esm.sh", // cobe (globo) — CDN de fallback
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
       ],
-      workerSrc: ["'self'", "blob:"], // Spline spawn workers a partir de blob:
+      workerSrc: ["'self'", "blob:", "data:"], // Spline cria workers de blob:/data:
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],

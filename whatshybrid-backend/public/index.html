@@ -95,6 +95,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <!-- Robô 3D: abre cedo a conexão com o host da cena Spline (acelera o load) -->
+  <link rel="dns-prefetch" href="https://prod.spline.design">
+  <link rel="preconnect" href="https://prod.spline.design" crossorigin>
 
   <!-- Fonts (com display=swap pra melhor performance) -->
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -3196,7 +3200,10 @@
 <script src="js/hero-fx.js" defer></script>
 <script src="js/hero-shader.js" defer></script>
 <script src="js/crystal.js" defer></script>
-<script type="module" src="js/globe.js"></script>
+<!-- Script CLÁSSICO (não module) de propósito: funciona via http E via file://
+     (módulos com src local são bloqueados em file://). O globe.js usa só
+     import() dinâmico, que roda normalmente em script clássico. -->
+<script src="js/globe.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
@@ -3965,66 +3972,118 @@
   })();
 </script>
 
-<!-- Robô 3D Spline (progressive enhancement): só em desktop, sem reduced-motion
-     / touch. Se a cena externa não carregar (sem rede / localhost / CDN fora /
-     CSP), o robô SVG embutido (.feature-robot-fallback) permanece visível — a
-     seção "Recursos que vendem" nunca fica vazia nem mostra mensagem de erro.
-     CDN unpkg + 'wasm-unsafe-eval' + workerSrc blob: já estão no
-     helmetForPortal (src/server.js). -->
+<!-- Robô 3D Spline (só desktop, ponteiro fino, sem reduced-motion). A cena vem
+     de prod.spline.design via <spline-viewer> (CDN unpkg, com fallback jsdelivr).
+     Sem fallback visual: se a cena não carregar, a moldura fica só com o gradiente.
+     A CSP em src/server.js (helmetForPortal) já libera unpkg + jsdelivr +
+     'wasm-unsafe-eval' + worker blob:, necessários pro viewer compilar o WASM e
+     criar workers a partir de blob: pra descompactar a cena. -->
 <script>
 (function () {
   var host = document.getElementById('features-robot');
   if (!host) return;
 
-  // O robô SVG embutido já aparece por padrão e funciona offline. Aqui só
-  // tentamos enriquecer com a cena 3D do Spline; qualquer falha é silenciosa
-  // e mantém o robô embutido (sem trocar por mensagem de erro).
+  // Só carrega a cena 3D em desktop com ponteiro fino e sem reduced-motion.
+  // Em touch / telas pequenas o robô é ocultado por CSS (não faz sentido o 3D).
   var isCoarse = window.matchMedia('(pointer: coarse)').matches;
   var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isSmall  = window.matchMedia('(max-width: 900px)').matches;
   if (isCoarse || reduce || isSmall) {
-    console.info('[3D] Spline desativado (coarse=%s, reduce=%s, small=%s) — robô embutido em uso', isCoarse, reduce, isSmall);
+    console.info('[3D] Spline desativado (coarse=%s, reduce=%s, small=%s).', isCoarse, reduce, isSmall);
     return;
   }
 
   var loadedOnce = false;
-  var watchdog = setTimeout(function () {
-    if (!loadedOnce) {
-      console.warn('[3D] Spline não respondeu a tempo — mantendo robô embutido.');
-      host.classList.add('is-3d-failed');
+  var canvasPoll = null;
+  var watchdog = null;
+
+  function markLoaded() {
+    if (loadedOnce) return;
+    loadedOnce = true;
+    if (watchdog) clearTimeout(watchdog);
+    if (canvasPoll) clearInterval(canvasPoll);
+    host.classList.add('is-loaded');
+    console.info('[3D] cena Spline visível.');
+  }
+  function markFailed(reason) {
+    if (loadedOnce) return;
+    if (watchdog) clearTimeout(watchdog);
+    if (canvasPoll) clearInterval(canvasPoll);
+    host.classList.add('is-3d-failed');
+    console.warn('[3D] ' + reason);
+  }
+
+  // Diagnóstico: loga no console qualquer bloqueio de CSP ligado ao robô.
+  // Ajuda a "verificar por que" a cena não aparece num ambiente real (devtools).
+  document.addEventListener('securitypolicyviolation', function (e) {
+    var u = String(e.blockedURI || '');
+    if (/spline|unpkg|jsdelivr/i.test(u)) {
+      console.warn('[3D] CSP bloqueou recurso do robô:', e.violatedDirective, '→', u);
     }
-  }, 15000);
+  });
 
   function loadRobot() {
-    console.info('[3D] tentando enriquecer com a cena Spline…');
+    console.info('[3D] carregando a cena Spline…');
 
-    // 1) Web component <spline-viewer>
-    var m = document.createElement('script');
-    m.type = 'module';
-    m.src  = 'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js';
-    m.onerror = function () {
-      console.warn('[3D] spline-viewer.js indisponível — mantendo robô embutido.');
-      clearTimeout(watchdog);
-      host.classList.add('is-3d-failed');
-    };
-    document.head.appendChild(m);
+    // 1) Web component <spline-viewer> — tenta unpkg e cai pra jsdelivr.
+    //    Os dois CDNs estão liberados na CSP; assim, se um estiver fora, o
+    //    outro ainda registra o custom element <spline-viewer>.
+    var VIEWER_CDNS = [
+      'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js',
+      'https://cdn.jsdelivr.net/npm/@splinetool/viewer@1.9.96/build/spline-viewer.js'
+    ];
+    var cdnIdx = 0;
+    (function injectViewer() {
+      var m = document.createElement('script');
+      m.type = 'module';
+      m.src = VIEWER_CDNS[cdnIdx];
+      m.onerror = function () {
+        cdnIdx += 1;
+        if (cdnIdx < VIEWER_CDNS.length) {
+          console.warn('[3D] viewer falhou (' + VIEWER_CDNS[cdnIdx - 1] + ') — tentando ' + VIEWER_CDNS[cdnIdx]);
+          injectViewer();
+        } else {
+          markFailed('spline-viewer.js indisponível em todos os CDNs.');
+        }
+      };
+      document.head.appendChild(m);
+    })();
 
-    // 2) Cena do robô
-    var v = document.createElement('spline-viewer');
-    v.setAttribute('url', 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
-    v.setAttribute('loading-anim-type', 'none');
-    v.addEventListener('load', function () {
-      loadedOnce = true;
-      clearTimeout(watchdog);
-      host.classList.add('is-loaded'); // revela a cena 3D e some com o robô embutido
-      console.info('[3D] cena Spline carregada com sucesso.');
-    });
-    v.addEventListener('error', function () {
-      console.warn('[3D] erro ao renderizar a cena Spline — mantendo robô embutido.');
-      clearTimeout(watchdog);
-      host.classList.add('is-3d-failed');
-    });
-    host.appendChild(v);
+    // 2) Cena do robô — prefere a cópia LOCAL (auto-hospedada, imune a quedas do
+    //    prod.spline.design); só usa a remota se a local ainda não existir.
+    //    A cópia local é gerada por `npm run vendor:landing` (whatshybrid-backend).
+    var LOCAL_SCENE  = 'assets/robot-scene.splinecode';
+    var REMOTE_SCENE = 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode';
+
+    function mountViewer(sceneUrl) {
+      console.info('[3D] usando cena: ' + sceneUrl);
+      var v = document.createElement('spline-viewer');
+      v.setAttribute('url', sceneUrl);
+      v.setAttribute('loading-anim-type', 'none');
+      // O evento 'load' do <spline-viewer> é instável — tratamos como UM dos sinais.
+      v.addEventListener('load', markLoaded);
+      v.addEventListener('error', function () { markFailed('erro ao renderizar a cena Spline.'); });
+      host.appendChild(v);
+
+      // Detecção confiável (não depende do 'load'): observa o <canvas> que o viewer
+      // cria no shadow DOM. Quando ele existe e tem dimensões, a cena renderiza.
+      canvasPoll = setInterval(function () {
+        try {
+          var cv = v.shadowRoot && v.shadowRoot.querySelector('canvas');
+          if (cv && cv.clientWidth > 0 && cv.clientHeight > 0) markLoaded();
+        } catch (_) {}
+      }, 400);
+    }
+
+    // HEAD na cópia local; se existir (e não for o HTML de 404), usa local — senão remota.
+    fetch(LOCAL_SCENE, { method: 'HEAD' }).then(function (r) {
+      var ct = (r && r.headers && r.headers.get('content-type')) || '';
+      mountViewer(r && r.ok && !/text\/html/i.test(ct) ? LOCAL_SCENE : REMOTE_SCENE);
+    }).catch(function () { mountViewer(REMOTE_SCENE); });
+
+    watchdog = setTimeout(function () {
+      markFailed('Spline não respondeu em 15s (CDN/cena externa fora do ar?).');
+    }, 15000);
   }
 
   if ('IntersectionObserver' in window) {

@@ -4,26 +4,72 @@
  * globais. Os marcadores "quentes" (Brasil) pulsam. Sem React. Carrega o cobe
  * via ESM (CDN); se falhar, mostra um fallback estático e não quebra a página.
  *
- * O <script> que chama este arquivo é type="module".
+ * Carregado como <script> CLÁSSICO (não module) pra também funcionar quando o
+ * index.html é aberto direto via file:// — nesse esquema o navegador bloqueia
+ * módulos ES com src local. A IIFE evita vazar nomes pro escopo global.
  */
+(function () {
 const canvas = document.getElementById('globe-canvas');
 const stage = canvas && canvas.closest('.globe-stage');
 
 if (canvas) {
   init().catch((e) => {
-    console.warn('[globe] não foi possível iniciar o cobe, usando fallback:', e);
+    console.warn('[globe] não foi possível iniciar o cobe — mostrando fallback estático:', e);
     if (stage) stage.classList.add('globe-failed');
   });
 }
 
-async function init() {
-  // Import dinâmico do cobe (com fallback de CDN)
-  let createGlobe;
+/**
+ * Carrega o cobe tentando várias fontes, em ordem:
+ *   1) LOCAL  /js/vendor/cobe.js  — auto-hospedado, imune a quedas de CDN
+ *      (gerado por `npm run vendor:landing` no whatshybrid-backend).
+ *   2) unpkg  — mesmo CDN do robô 3D, comprovadamente acessível no ambiente.
+ *   3) jsdelivr
+ *   4) esm.sh
+ * A primeira fonte que resolver com um export de função usável vence. Cada
+ * tentativa é logada ([globe] …) pra facilitar o diagnóstico no console.
+ */
+async function loadCobe() {
+  // 1) LOCAL (auto-hospedado). Faz um HEAD antes pra não poluir o console com
+  //    404 enquanto a cópia local não foi gerada (npm run vendor:landing).
   try {
-    ({ default: createGlobe } = await import('https://esm.sh/cobe@0.6.3'));
-  } catch (e) {
-    ({ default: createGlobe } = await import('https://cdn.jsdelivr.net/npm/cobe@0.6.3/+esm'));
+    const head = await fetch('/js/vendor/cobe.js', { method: 'HEAD' });
+    const ct = (head && head.headers && head.headers.get('content-type')) || '';
+    if (head.ok && /javascript|ecmascript|module|octet-stream/i.test(ct)) {
+      const mod = await import('/js/vendor/cobe.js');
+      const fn = mod && (mod.default || mod.createGlobe);
+      if (typeof fn === 'function') {
+        console.info('[globe] cobe carregado via local (/js/vendor/cobe.js)');
+        return fn;
+      }
+    }
+  } catch (e) { /* sem cópia local — segue pros CDNs */ }
+
+  // 2) CDNs — unpkg PRIMEIRO (mesmo CDN do robô 3D, acessível no ambiente),
+  //    depois jsdelivr e esm.sh. Todos liberados na CSP do portal.
+  const CDNS = [
+    { label: 'unpkg',    url: 'https://unpkg.com/cobe@0.6.3?module' },
+    { label: 'jsdelivr', url: 'https://cdn.jsdelivr.net/npm/cobe@0.6.3/+esm' },
+    { label: 'esm.sh',   url: 'https://esm.sh/cobe@0.6.3' },
+  ];
+  for (const src of CDNS) {
+    try {
+      const mod = await import(src.url);
+      const fn = mod && (mod.default || mod.createGlobe);
+      if (typeof fn === 'function') {
+        console.info('[globe] cobe carregado via ' + src.label + ' (' + src.url + ')');
+        return fn;
+      }
+      console.warn('[globe] ' + src.label + ' respondeu, mas sem export de função usável.');
+    } catch (e) {
+      console.warn('[globe] fonte indisponível: ' + src.label + ' — ' + (e && e.message ? e.message : e));
+    }
   }
+  throw new Error('cobe indisponível em todas as fontes (local + unpkg + jsdelivr + esm.sh)');
+}
+
+async function init() {
+  const createGlobe = await loadCobe();
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -145,3 +191,4 @@ async function init() {
   if ('ResizeObserver' in window && stage) new ResizeObserver(onResize).observe(stage);
   else window.addEventListener('resize', onResize);
 }
+})();
