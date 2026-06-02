@@ -3200,7 +3200,10 @@
 <script src="js/hero-fx.js" defer></script>
 <script src="js/hero-shader.js" defer></script>
 <script src="js/crystal.js" defer></script>
-<script type="module" src="js/globe.js"></script>
+<!-- Script CLÁSSICO (não module) de propósito: funciona via http E via file://
+     (módulos com src local são bloqueados em file://). O globe.js usa só
+     import() dinâmico, que roda normalmente em script clássico. -->
+<script src="js/globe.js" defer></script>
 <script>
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
