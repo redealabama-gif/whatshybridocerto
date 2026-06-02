@@ -4046,23 +4046,37 @@
       document.head.appendChild(m);
     })();
 
-    // 2) Cena do robô
-    var v = document.createElement('spline-viewer');
-    v.setAttribute('url', 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
-    v.setAttribute('loading-anim-type', 'none');
-    // O evento 'load' do <spline-viewer> é instável — tratamos como UM dos sinais.
-    v.addEventListener('load', markLoaded);
-    v.addEventListener('error', function () { markFailed('erro ao renderizar a cena Spline.'); });
-    host.appendChild(v);
+    // 2) Cena do robô — prefere a cópia LOCAL (auto-hospedada, imune a quedas do
+    //    prod.spline.design); só usa a remota se a local ainda não existir.
+    //    A cópia local é gerada por `npm run vendor:landing` (whatshybrid-backend).
+    var LOCAL_SCENE  = 'assets/robot-scene.splinecode';
+    var REMOTE_SCENE = 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode';
 
-    // Detecção confiável (não depende do 'load'): observa o <canvas> que o viewer
-    // cria no shadow DOM. Quando ele existe e tem dimensões, a cena renderiza.
-    canvasPoll = setInterval(function () {
-      try {
-        var cv = v.shadowRoot && v.shadowRoot.querySelector('canvas');
-        if (cv && cv.clientWidth > 0 && cv.clientHeight > 0) markLoaded();
-      } catch (_) {}
-    }, 400);
+    function mountViewer(sceneUrl) {
+      console.info('[3D] usando cena: ' + sceneUrl);
+      var v = document.createElement('spline-viewer');
+      v.setAttribute('url', sceneUrl);
+      v.setAttribute('loading-anim-type', 'none');
+      // O evento 'load' do <spline-viewer> é instável — tratamos como UM dos sinais.
+      v.addEventListener('load', markLoaded);
+      v.addEventListener('error', function () { markFailed('erro ao renderizar a cena Spline.'); });
+      host.appendChild(v);
+
+      // Detecção confiável (não depende do 'load'): observa o <canvas> que o viewer
+      // cria no shadow DOM. Quando ele existe e tem dimensões, a cena renderiza.
+      canvasPoll = setInterval(function () {
+        try {
+          var cv = v.shadowRoot && v.shadowRoot.querySelector('canvas');
+          if (cv && cv.clientWidth > 0 && cv.clientHeight > 0) markLoaded();
+        } catch (_) {}
+      }, 400);
+    }
+
+    // HEAD na cópia local; se existir (e não for o HTML de 404), usa local — senão remota.
+    fetch(LOCAL_SCENE, { method: 'HEAD' }).then(function (r) {
+      var ct = (r && r.headers && r.headers.get('content-type')) || '';
+      mountViewer(r && r.ok && !/text\/html/i.test(ct) ? LOCAL_SCENE : REMOTE_SCENE);
+    }).catch(function () { mountViewer(REMOTE_SCENE); });
 
     watchdog = setTimeout(function () {
       markFailed('Spline não respondeu em 15s (CDN/cena externa fora do ar?).');

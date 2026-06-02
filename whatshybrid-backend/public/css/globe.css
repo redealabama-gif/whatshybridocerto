@@ -156,6 +156,31 @@
   .globe-stage { order: 2; max-width: 420px; }
 }
 
+/* —— Fallback estático —— */
+/* Se o cobe não carregar de NENHUMA fonte (local + CDNs), o globe.js marca
+   .globe-failed: escondemos o <canvas> invisível e desenhamos uma esfera
+   estática (CSS puro) pra coluna do globo nunca ficar vazia. */
+.globe-stage.globe-failed .globe-canvas { display: none; }
+.globe-stage.globe-failed .globe-hint { display: none; }
+.globe-stage.globe-failed::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  z-index: 2;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 30%,
+      rgba(0, 255, 255, 0.38) 0%,
+      rgba(111, 0, 255, 0.30) 42%,
+      rgba(8, 6, 26, 0.95) 74%),
+    var(--brand-dark);
+  border: 1px solid rgba(0, 255, 255, 0.22);
+  box-shadow:
+    inset -22px -26px 60px rgba(0, 0, 0, 0.65),
+    inset 14px 16px 40px rgba(0, 255, 255, 0.10),
+    0 0 60px rgba(0, 255, 255, 0.16);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .globe-stage::before, .globe-hint::before { animation: none !important; }
 }

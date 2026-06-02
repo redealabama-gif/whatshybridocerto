@@ -9,6 +9,7 @@
     "migrate": "node src/utils/migration-runner.js up",
     "seed": "echo \"⚠️  No seed scripts available — schema seeded via migrations and database-legacy\"",
     "create-admin": "node scripts/create-admin.js",
+    "vendor:landing": "node scripts/fetch-landing-vendor.js",
     "test": "node tests/smoke/run-all.js",
     "test:watch": "jest --watch",
     "test:contracts": "jest --testPathPattern=contracts",
