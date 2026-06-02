@@ -13,6 +13,9 @@
  *     now+30 quando webhook atrasa); recomeça de now se o ciclo já venceu.
  *   - CUPOM ONCE-ONLY: redenção 'paid' só quando há cupom pendente e
  *     coupon_first_invoice_used_at ainda não setado; desconto = cheio - pago.
+ *   - ESTORNO/CHARGEBACK: refunded/charged_back de pagamento já aprovado REVOGA
+ *     acesso (workspace → cancelled, auto_renew off, tokens zerados, auditoria),
+ *     espelhando o handler do Stripe; idempotente se a invoice já está refunded.
  *
  * Mock de DB/serviços via require.cache ANTES do require do módulo — roda com
  * `node` puro (sem banco/SDK), igual ao billing-link-service.test.js.
@@ -58,6 +61,11 @@ function reset() {
   state.redemptions = [];             // CouponService.recordRedemption args
   state.alerts = [];                  // alertManager.send args
   state.events = [];                  // events.emit args
+  // estorno/chargeback:
+  state.workspaceCancelled = [];      // UPDATE workspaces ... subscription_status='cancelled'
+  state.invoiceUpdates = [];          // UPDATE billing_invoices (marca refunded)
+  state.creditUpdates = [];           // UPDATE workspace_credits (zera tokens)
+  state.tokenTxns = [];               // INSERT token_transactions (auditoria)
 }
 reset();
 
@@ -80,9 +88,15 @@ inject('../../src/utils/database', {
     return null;
   },
   run(sql, params) {
-    if (/UPDATE\s+workspaces/i.test(sql)) state.workspaceUpdates.push(params);
+    if (/UPDATE\s+workspaces/i.test(sql)) {
+      state.workspaceUpdates.push(params);
+      if (/subscription_status\s*=\s*'cancelled'/i.test(sql)) state.workspaceCancelled.push(params);
+    }
     else if (/UPDATE\s+billing_intents/i.test(sql)) state.intentUpdates.push(params);
+    else if (/UPDATE\s+billing_invoices/i.test(sql)) state.invoiceUpdates.push(params);
     else if (/INSERT\s+INTO\s+billing_invoices/i.test(sql)) state.invoiceInserts.push(params);
+    else if (/UPDATE\s+workspace_credits/i.test(sql)) state.creditUpdates.push(params);
+    else if (/INSERT\s+INTO\s+token_transactions/i.test(sql)) state.tokenTxns.push(params);
     else if (/INSERT\s+INTO\s+subscription_codes/i.test(sql)) state.codeInserts.push(params);
     else if (/UPDATE\s+subscription_codes/i.test(sql)) state.codeUpdates.push(params);
   },
@@ -112,7 +126,7 @@ inject('../../src/services/GoogleAnalyticsMpService', { async sendPurchaseForWor
 inject('../../src/utils/events', { emit: (name, payload) => state.events.push({ name, payload }) });
 
 const wh = require('../../src/routes/webhooks-payment-saas');
-const { activateWorkspaceSubscription, validatePaymentAmount } = wh;
+const { activateWorkspaceSubscription, validatePaymentAmount, revokeWorkspaceForRefund } = wh;
 
 // dias entre agora e um ISO (arredondado p/ absorver drift de ms/setDate)
 function daysFromNow(iso) {
@@ -216,6 +230,40 @@ console.log('\n=== Webhook SaaS — ativação + idempotência (caminho do dinhe
   state.couponValidateResult = { valid: false };
   await activateWorkspaceSubscription({ workspaceId: 'w1', plan: 'pro', paymentId: 'pay_badcup', amount: 99.9 });
   log(state.redemptions.length === 0, 'cupom inválido → nenhuma redenção');
+
+  // ─── G) ESTORNO / CHARGEBACK → revoga acesso (espelha o Stripe) ───────
+  reset();
+  state.invoiceByRef = { id: 'inv1', workspace_id: 'w1', status: 'paid' };
+  const ref1 = revokeWorkspaceForRefund('pay_ref', 'refunded');
+  log(ref1.revoked === true && ref1.workspace_id === 'w1', 'refund → { revoked, workspace_id }');
+  log(state.workspaceCancelled.length === 1 && state.workspaceCancelled[0][0] === 'w1', 'refund suspende workspace (subscription_status=cancelled)');
+  log(state.invoiceUpdates.length === 1, 'refund marca invoice como refunded');
+  log(state.creditUpdates.length === 1 && state.creditUpdates[0][0] === 'w1', 'refund zera saldo de tokens (workspace_credits)');
+  log(state.tokenTxns.length === 1, 'refund grava auditoria em token_transactions');
+  log(state.alerts.some(a => a.level === 'warning' && /Refund/.test(a.title)), 'refund dispara alerta warning (Refund)');
+
+  reset();
+  state.invoiceByRef = { id: 'inv2', workspace_id: 'w2', status: 'paid' };
+  const cb = revokeWorkspaceForRefund('pay_cb', 'charged_back');
+  log(cb.revoked === true && state.workspaceCancelled.length === 1, 'chargeback → revoga acesso (suspende workspace)');
+  log(state.creditUpdates.length === 1, 'chargeback zera tokens');
+  log(state.alerts.some(a => /Chargeback/.test(a.title)), 'chargeback dispara alerta (Chargeback)');
+
+  // idempotência: invoice já refunded (webhook re-entregue) → não re-revoga
+  reset();
+  state.invoiceByRef = { id: 'inv3', workspace_id: 'w3', status: 'refunded' };
+  const dupRef = revokeWorkspaceForRefund('pay_ref2', 'refunded');
+  log(dupRef.duplicate === true, 'invoice já refunded → { duplicate:true }');
+  log(state.workspaceCancelled.length === 0, 'duplicado NÃO re-suspende workspace');
+  log(state.creditUpdates.length === 0, 'duplicado NÃO re-zera tokens');
+  log(state.tokenTxns.length === 0, 'duplicado NÃO duplica auditoria');
+
+  // invoice inexistente → skip (nada a revogar)
+  reset();
+  state.invoiceByRef = null;
+  const noInv = revokeWorkspaceForRefund('pay_unknown', 'refunded');
+  log(noInv.skipped === true, 'invoice inexistente → { skipped:true }');
+  log(state.workspaceCancelled.length === 0 && state.creditUpdates.length === 0, 'sem invoice → não toca workspace/tokens');
 
   console.log(`\n  ${passed} passed, ${failed} failed\n`);
   process.exit(failed > 0 ? 1 : 0);
