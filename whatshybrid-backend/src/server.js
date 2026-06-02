@@ -186,7 +186,8 @@ const helmetForPortal = helmet({
         "'unsafe-inline'", // necessário pra inline scripts existentes do portal
         "'wasm-unsafe-eval'", // Spline viewer / draco decoder compila WebAssembly
         "https://unpkg.com",
-        "https://cdn.jsdelivr.net",
+        "https://cdn.jsdelivr.net", // cobe (globo) — CDN primário
+        "https://esm.sh", // cobe (globo) — CDN de fallback
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
       ],
