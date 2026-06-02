@@ -55,6 +55,10 @@ jobs:
             console.log('✅ MV3 manifest valid, version', m.version);
           "
 
+      - name: WhatsApp selector canary (drift guard)
+        working-directory: whatshybrid-extension
+        run: node scripts/wa-selector-canary.js
+
       - name: Validate package.json
         working-directory: whatshybrid-backend
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
