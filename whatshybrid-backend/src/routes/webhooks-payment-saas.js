@@ -360,6 +360,84 @@ async function activateWorkspaceSubscription({ workspaceId, plan, paymentId, amo
 }
 
 /**
+ * Refund/Chargeback → revoga acesso. Espelha handleRefundOrDispute do
+ * webhooks-stripe.js: um pagamento JÁ aprovado que é estornado (refunded) ou
+ * sofre chargeback (charged_back) precisa SUSPENDER o workspace e zerar tokens
+ * — senão o cliente paga, estorna e mantém acesso + IA grátis. O webhook do MP
+ * só marcava a billing_intent como failed e deixava o workspace 'active'.
+ * Mantenha em sincronia com a versão do Stripe.
+ *
+ * Idempotente: se a invoice já está 'refunded' (webhook do MP re-entregue em
+ * retry), não re-suspende, não re-zera tokens e não duplica auditoria/alerta.
+ */
+function revokeWorkspaceForRefund(paymentId, status) {
+  const invoice = db.get(
+    `SELECT id, workspace_id, status FROM billing_invoices
+     WHERE provider = 'mercadopago' AND provider_ref = ?`,
+    [paymentId]
+  );
+  if (!invoice) {
+    logger.warn(`[WebhookSaaS] ${status}: invoice não encontrada para ref=${paymentId} (nada a revogar)`);
+    return { skipped: true };
+  }
+  if (invoice.status === 'refunded') {
+    logger.info(`[WebhookSaaS] ${status} ${paymentId} já revogado, ignorando`);
+    return { duplicate: true };
+  }
+
+  const wsId = invoice.workspace_id;
+
+  db.transaction(() => {
+    // Marca invoice como refunded
+    db.run(`UPDATE billing_invoices SET status = 'refunded' WHERE id = ?`, [invoice.id]);
+
+    // Suspende workspace (cancelled + desliga auto-renovação)
+    db.run(
+      `UPDATE workspaces SET subscription_status = 'cancelled', auto_renew_enabled = 0,
+                              updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [wsId]
+    );
+
+    // Zera saldo de tokens (cliente perdeu o que comprou)
+    db.run(
+      `UPDATE workspace_credits SET tokens_total = tokens_used, updated_at = CURRENT_TIMESTAMP
+       WHERE workspace_id = ?`,
+      [wsId]
+    );
+
+    // Registra na auditoria
+    db.run(
+      `INSERT INTO token_transactions
+        (id, workspace_id, type, amount, balance_after, invoice_id, description, metadata)
+       VALUES (?, ?, 'adjustment', 0, 0, ?, ?, ?)`,
+      [
+        uuidv4(),
+        wsId,
+        invoice.id,
+        `Saldo zerado: ${status}`,
+        JSON.stringify({ mp_status: status, payment_ref: paymentId }),
+      ]
+    );
+  });
+
+  logger.warn(`[WebhookSaaS] ${status}: workspace=${wsId} suspenso, tokens revogados`);
+
+  // Alerta crítico ao owner do SaaS
+  try {
+    const alertManager = require('../observability/alertManager');
+    alertManager.send('warning', `🚨 ${status === 'charged_back' ? 'Chargeback' : 'Refund'} processado`, {
+      workspace_id: wsId,
+      invoice_id: invoice.id,
+      payment_ref: paymentId,
+      action: 'workspace_suspended_tokens_zeroed',
+    });
+  } catch (_) {}
+
+  return { revoked: true, workspace_id: wsId };
+}
+
+/**
  * POST /api/v1/webhooks/payment/mercadopago-saas
  * Webhook principal - recebe notification do MP, consulta pagamento, ativa assinatura.
  */
@@ -557,14 +635,25 @@ router.post('/mercadopago-saas', asyncHandler(async (req, res) => {
   if (payment.status !== 'approved') {
     logger.info(`[WebhookSaaS] Pagamento ${paymentId} status=${payment.status}, não ativando`);
 
-    // Se foi rejected/cancelled, marca intent como failed
-    if (['rejected', 'cancelled', 'refunded'].includes(payment.status)) {
+    // Se foi rejected/cancelled/refunded/charged_back, marca intent como failed
+    if (['rejected', 'cancelled', 'refunded', 'charged_back'].includes(payment.status)) {
       try {
         db.run(
           `UPDATE billing_intents SET status = ? WHERE provider = 'mercadopago' AND provider_ref = ?`,
           [payment.status, paymentId]
         );
       } catch (_) {}
+    }
+
+    // Refund/chargeback de um pagamento JÁ aprovado: marcar a intent não basta —
+    // o workspace pode estar 'active'. Revoga acesso + zera tokens (espelha o
+    // handleRefundOrDispute do Stripe). Idempotente p/ re-entrega do webhook.
+    if (['refunded', 'charged_back'].includes(payment.status)) {
+      try {
+        revokeWorkspaceForRefund(paymentId, payment.status);
+      } catch (err) {
+        logger.error(`[WebhookSaaS] Falha ao revogar acesso pós-${payment.status} ${paymentId}:`, err.message);
+      }
     }
     return;
   }
@@ -747,3 +836,5 @@ module.exports = router;
 module.exports.activateWorkspaceSubscription = activateWorkspaceSubscription;
 // Exposto p/ teste unitário zero-dep da guarda anti-underpayment (faixas de preço).
 module.exports.validatePaymentAmount = validatePaymentAmount;
+// Exposto p/ teste do caminho de estorno/chargeback → revogação de acesso.
+module.exports.revokeWorkspaceForRefund = revokeWorkspaceForRefund;
