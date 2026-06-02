@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Authentication Routes
  */
@@ -107,13 +108,13 @@ function generateTokens(userId) {
   const accessToken = jwt.sign(
     { userId, jti: crypto.randomBytes(16).toString('hex') },
     config.jwt.secret,
-    { expiresIn: config.jwt.expiresIn }
+    { expiresIn: /** @type {any} */ (config.jwt.expiresIn) }
   );
 
   const refreshToken = jwt.sign(
     { userId, type: 'refresh', jti: crypto.randomBytes(16).toString('hex') },
     config.jwt.secret,
-    { expiresIn: config.jwt.refreshExpiresIn }
+    { expiresIn: /** @type {any} */ (config.jwt.refreshExpiresIn) }
   );
 
   // v8.5.0 — armazena hash SHA-256 do refresh (não plaintext)
@@ -263,16 +264,16 @@ router.post('/signup',
       try {
         const couponService = require('../services/CouponService');
         const v = couponService.validate(coupon, plan);
-        if (v.valid) {
-          validatedCoupon = {
-            code: v.coupon.code,
-            label: v.coupon.description || v.coupon.code,
-          };
-        } else {
+        if (v.valid === false) {
           // Log mas não falha — usuário não deve perder o signup por isso
           require('../utils/logger').info(
             `[Signup] Coupon "${coupon}" ignored: ${v.reason} (email=${email})`
           );
+        } else {
+          validatedCoupon = {
+            code: v.coupon.code,
+            label: v.coupon.description || v.coupon.code,
+          };
         }
       } catch (e) {
         require('../utils/logger').warn('[Signup] Coupon validation error:', e.message);
@@ -555,9 +556,10 @@ router.post('/login/totp',
 
     const { pre_auth_token, code } = req.body;
 
+    /** @type {{ userId: string, type?: string }} */
     let decoded;
     try {
-      decoded = jwt.verify(pre_auth_token, config.jwt.secret, { algorithms: ['HS256'] });
+      decoded = /** @type {any} */ (jwt.verify(pre_auth_token, config.jwt.secret, { algorithms: ['HS256'] }));
     } catch (e) {
       throw new AppError(req.t ? req.t('errors.pre_auth_token_invalid') : 'pre_auth_token inválido ou expirado', 401);
     }
@@ -625,9 +627,10 @@ router.post('/refresh',
     }
 
     // Verify JWT signature
+    /** @type {{ userId: string, type?: string }} */
     let decoded;
     try {
-      decoded = jwt.verify(refreshToken, config.jwt.secret, { algorithms: ['HS256'] });
+      decoded = /** @type {any} */ (jwt.verify(refreshToken, config.jwt.secret, { algorithms: ['HS256'] }));
     } catch (jwtError) {
       throw new AppError('Invalid refresh token', 401, 'TOKEN_INVALID');
     }
@@ -706,7 +709,7 @@ router.post('/refresh',
           // Discord alert
           try {
             const alertManager = require('../observability/alertManager');
-            alertManager?.send?.('warning', '🛡️ Refresh token reuse detectado', {
+            alertManager?.send?.('warn', '🛡️ Refresh token reuse detectado', {
               user_id: targetUser.id,
               user_email_hash: require('crypto').createHash('sha256').update(targetUser.email).digest('hex').substring(0, 16),
               ip: req.ip,
@@ -1280,8 +1283,8 @@ router.post('/google',
     );
     if (workspace) {
       try {
-        const tokenService = require('../services/TokenService');
-        const balance = tokenService.getBalance(user.workspace_id);
+        const tokenSvc = require('../services/TokenService');
+        const balance = tokenSvc.getBalance(user.workspace_id);
         workspace.balance = balance?.balance || 0;
         workspace.credits = workspace.balance;
       } catch (_) {

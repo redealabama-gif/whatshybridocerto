@@ -40,6 +40,9 @@ class EmailService {
    *
    * v8.5.0: persiste no email_outbox em caso de falha (DLQ).
    * Retries automáticos via processOutbox() chamado pelo cron.
+   *
+   * @param {{ to: string, subject: string, html: string, text?: string,
+   *           replyTo?: string, _isRetry?: boolean, _outboxId?: string | null }} opts
    */
   async send({ to, subject, html, text, replyTo, _isRetry = false, _outboxId = null }) {
     if (this.dryRun) {
