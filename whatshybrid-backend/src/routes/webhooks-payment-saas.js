@@ -745,3 +745,5 @@ router.post('/manual-confirm',
 
 module.exports = router;
 module.exports.activateWorkspaceSubscription = activateWorkspaceSubscription;
+// Exposto p/ teste unitário zero-dep da guarda anti-underpayment (faixas de preço).
+module.exports.validatePaymentAmount = validatePaymentAmount;
