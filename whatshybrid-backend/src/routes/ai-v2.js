@@ -480,10 +480,15 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
   // CORREÇÃO P1: Usa OrchestratorRegistry (singleton real com LRU+TTL) em vez de Map no router
   // CORREÇÃO P3: Passa maxResponseTokens da configuração do workspace para o orquestrador
   let orchestrator;
+  // Declarado FORA do try porque é lido depois (job enfileirado abaixo).
+  // Antes vivia só no escopo do try → ReferenceError no path da fila.
+  let workspaceConfig = {
+    maxResponseTokens: parseInt(process.env.DEFAULT_MAX_RESPONSE_TOKENS, 10) || 400,
+  };
   try {
     const db = require('../utils/database');
     const wsRow = db.get('SELECT max_response_tokens FROM workspaces WHERE id = ?', [tenantId]);
-    const workspaceConfig = {
+    workspaceConfig = {
       maxResponseTokens: wsRow?.max_response_tokens || parseInt(process.env.DEFAULT_MAX_RESPONSE_TOKENS, 10) || 400,
     };
     orchestrator = orchestratorRegistry.get(tenantId, workspaceConfig);

@@ -73,28 +73,5 @@ module.exports = {
       files: ['scripts/canary-*.js'],
       env: { browser: true, node: true },
     },
-    {
-      // ─── TÉCNICA: arquivos com bugs reais identificados na 1ª auditoria de lint.
-      // 'no-undef' desligado AQUI pra não travar CI enquanto não consertamos.
-      // Cada arquivo abaixo tem ReferenceError em produção se a função for chamada.
-      // Devem ser corrigidos em PR separado, e este bloco removido.
-      // Auditoria: 2026-06-01
-      files: [
-        'src/ai/learning/outcome/PerformanceScoreEngine.js',
-        'src/ai/providers/BaseProvider.js',
-        'src/ai/services/smartbot-extended/SessionManager.js',
-        'src/ai/services/smartbot-extended/SmartBotExtendedService.js',
-        'src/ai/services/smartbot-ia/SmartBotIAService.js',
-        'src/infra/cache/CacheManager.js',
-        'src/multi-tenant/tenant-middleware.js',
-        'src/routes/ai-v2.js',
-        'src/routes/intelligence.js',
-      ],
-      rules: {
-        'no-undef': 'off',
-        'no-dupe-class-members': 'off',
-        'require-yield': 'off',
-      },
-    },
   ],
 };

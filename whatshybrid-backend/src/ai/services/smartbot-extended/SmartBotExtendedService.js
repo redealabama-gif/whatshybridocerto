@@ -6,6 +6,18 @@
 const EventEmitter = require('events');
 const logger = require('../../../utils/logger');
 
+// Cada classe foi extraída para seu próprio arquivo no refactor v9; o
+// orquestrador as monta aqui.
+const DialogManager = require('./DialogManager');
+const EntityManager = require('./EntityManager');
+const IntentManager = require('./IntentManager');
+const HumanAssistanceSystem = require('./HumanAssistanceSystem');
+const CacheManager = require('./CacheManager');
+const RateLimitManager = require('./RateLimitManager');
+const ContextManager = require('./ContextManager');
+const SessionManager = require('./SessionManager');
+const FeedbackAnalyzer = require('./FeedbackAnalyzer');
+
 class SmartBotExtendedService extends EventEmitter {
   constructor(options = {}) {
     super();
