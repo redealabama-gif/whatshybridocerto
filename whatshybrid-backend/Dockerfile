@@ -7,7 +7,10 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ sqlite-dev
 
 COPY package*.json ./
-RUN npm ci --only=production
+# --omit=dev: equivalente moderno de --only=production (instala só deps de
+# produção). A flag --only foi descontinuada e o npm das imagens node mais
+# novas a rejeita com exit 1 — quebrava o build do Docker.
+RUN npm ci --omit=dev
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────
 FROM node:20-alpine AS production
