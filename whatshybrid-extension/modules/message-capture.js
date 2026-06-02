@@ -1047,7 +1047,12 @@
     getStats,
     clearQueue,
     start,
-    stop
+    stop,
+    // Funções puras internas, expostas só para teste/diagnóstico (não fazem
+    // parte da API de uso). São as guardas de segurança: SSRF (validateBackendUrl),
+    // anti-prototype-pollution (sanitizeObject) e a sanitização/whitelist dos
+    // dados de mensagem antes de ir pro treino (sanitizeMessageData).
+    _internals: { validateBackendUrl, sanitizeObject, sanitizeMessageData, readEditState }
   };
 
   // Auto-inicializar quando DOM estiver pronto
