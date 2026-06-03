@@ -7,7 +7,7 @@
 
 class DocumentImporter {
   constructor() {
-    this.supportedFormats = ['csv', 'txt', 'json', 'xlsx', 'xls', 'ods'];
+    this.supportedFormats = ['csv', 'txt', 'json', 'xlsx', 'ods'];
     this.processingQueue = [];
     this.results = [];
   }
@@ -42,8 +42,10 @@ class DocumentImporter {
         result = await this.processJSON(file);
         break;
       case 'xlsx':
-      case 'xls':
       case 'ods':
+        // .xls (BIFF antigo) foi removido: o build mini do SheetJS embarcado
+        // não traz o codec de leitura de .xls (parse_xlscfb), então um .xls real
+        // daria erro. Peça ao usuário para salvar como .xlsx ou .ods.
         result = await this.processSpreadsheet(file, extension);
         break;
       default:

@@ -1714,7 +1714,47 @@ class TrainingApp {
 
     try {
       const result = await this.simulation.saveForLearning();
-      this.showToast(result.message, result.saved > 0 ? 'success' : 'warning');
+
+      // v9.X — propaga as aprovações pro BACKEND no mesmo clique. Antes só
+      // gravava no few-shot local (saveForLearning); o autopilot/sugestão (que
+      // leem o treinamento do backend) só enxergavam as respostas aprovadas
+      // depois de um clique manual no "Sincronizar" geral. Agora cada aprovação
+      // vira um exemplo first-class e entra no mesmo sync das abas (debounce 2s).
+      const samples = Array.isArray(result.samples) ? result.samples : [];
+      let merged = 0;
+      for (const s of samples) {
+        if (!s || !s.input || !s.output) continue;
+        const dup = this.examples.some(
+          (e) => (e.input || e.user) === s.input && (e.output || e.response) === s.output
+        );
+        if (dup) continue;
+        const now = Date.now();
+        this.examples.push({
+          id: now + Math.floor(Math.random() * 1000),
+          category: s.category || 'simulacao',
+          input: s.input,
+          user: s.input,
+          output: s.output,
+          response: s.output,
+          intent: s.intent || null,
+          quality: s.quality || 9,
+          tags: ['simulacao', 'aprovado', ...(s.edited ? ['editado'] : [])],
+          createdAt: now,
+          updatedAt: now,
+          usageCount: 0,
+          score: (s.quality || 9) / 10,
+        });
+        merged++;
+      }
+
+      if (merged > 0) {
+        await this.saveExamples();
+        this._scheduleBackendSync('saveApprovedResponses');
+        this.renderExamples?.();
+      }
+
+      const synced = merged > 0 ? ' (sincronizando com a IA…)' : '';
+      this.showToast(result.message + synced, result.saved > 0 ? 'success' : 'warning');
       this.updateStats();
     } catch (error) {
       console.error('[TrainingApp] Erro ao salvar:', error);
@@ -1739,39 +1779,25 @@ class TrainingApp {
     resultDiv.style.display = 'block';
 
     try {
-      if (window.CopilotEngine) {
-        let out = '';
-        const gen = window.CopilotEngine.generateResponse;
-        if (typeof gen === 'function' && gen.length <= 1) {
-          const resp = await gen({ messages: [], lastMessage: question, temperature: 0.7 });
-          out = resp?.text || resp?.content || (typeof resp === 'string' ? resp : '');
-        } else {
-          const analysis = {
-            originalMessage: question,
-            intent: { id: 'test', confidence: 0.9 },
-            sentiment: { score: 0, label: 'neutral' },
-            entities: []
-          };
-          const resp = await gen('quick_test', analysis);
-          out = resp?.content || resp?.text || (typeof resp === 'string' ? resp : '');
-        }
-        contentDiv.textContent = out || 'Sem resposta';
-      } else if (window.AIService) {
-        let out = '';
-        const complete = window.AIService.complete;
-        if (typeof complete === 'function' && complete.length <= 1) {
-          const resp = await complete({ messages: [], lastMessage: question, temperature: 0.7 });
-          out = resp?.text || resp?.content || (typeof resp === 'string' ? resp : '');
-        } else {
-          const resp = await complete([
-            { role: 'system', content: 'Você é um assistente prestativo. Responda de forma clara e profissional.' },
-            { role: 'user', content: question }
-          ], { temperature: 0.7 });
-          out = resp?.content || resp?.text || (typeof resp === 'string' ? resp : '');
-        }
-        contentDiv.textContent = out || 'Sem resposta';
-      } else {
-        contentDiv.innerHTML = '<span style="color: var(--danger);">Serviço de IA temporariamente indisponível. Verifique sua conexão e tente novamente.</span>';
+      // v9.X — usa o MESMO pipeline da simulação (_generateAiReply): tenta o
+      // Tier 0 (backend AIOrchestrator, idêntico ao botão 🤖 do WhatsApp e ao
+      // autopilot real) e só então cai pros motores locais. Antes o teste rápido
+      // usava só CopilotEngine/AIService (local), divergindo do que o autopilot
+      // de fato responde em produção.
+      const answer = await this._generateAiReply(question);
+      contentDiv.textContent = answer || 'Sem resposta';
+
+      // Deixa explícito qual motor respondeu: backend (igual produção) x fallback.
+      const tier = this._lastTierUsed;
+      if (tier) {
+        const label =
+          tier === 'tier_0_backend_orchestrator'
+            ? '🌐 Respondido pelo backend (mesmo motor do autopilot)'
+            : `⚠️ Fallback local (${tier}) — pode divergir do autopilot`;
+        const tag = document.createElement('div');
+        tag.style.cssText = 'margin-top:8px;font-size:11px;color:var(--text-muted);';
+        tag.textContent = label;
+        contentDiv.appendChild(tag);
       }
     } catch (error) {
       console.error('[TrainingApp] Erro no teste rápido:', error);
