@@ -15,7 +15,8 @@ const { v4: uuidv4 } = require('../utils/uuid-wrapper');
 const stripeService = require('../services/StripeService');
 const logger = require('../utils/logger');
 
-router.post('/stripe',
+router.post(
+  '/stripe',
   express.raw({ type: 'application/json', limit: '256kb' }),
   async (req, res) => {
     const rawBody = req.body;
@@ -53,7 +54,10 @@ router.post('/stripe',
     // Processa async
     try {
       if (inboxId) {
-        db.run(`UPDATE webhook_inbox SET status = 'processing', attempts = attempts + 1 WHERE id = ?`, [inboxId]);
+        db.run(
+          `UPDATE webhook_inbox SET status = 'processing', attempts = attempts + 1 WHERE id = ?`,
+          [inboxId]
+        );
       }
 
       switch (event.type) {
@@ -85,13 +89,18 @@ router.post('/stripe',
       }
 
       if (inboxId) {
-        db.run(`UPDATE webhook_inbox SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE id = ?`, [inboxId]);
+        db.run(
+          `UPDATE webhook_inbox SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          [inboxId]
+        );
       }
     } catch (err) {
       logger.error(`[StripeWebhook] Processing error: ${err.message}`);
       if (inboxId) {
-        db.run(`UPDATE webhook_inbox SET status = 'failed', last_error = ? WHERE id = ?`,
-          [String(err.message).substring(0, 500), inboxId]);
+        db.run(`UPDATE webhook_inbox SET status = 'failed', last_error = ? WHERE id = ?`, [
+          String(err.message).substring(0, 500),
+          inboxId,
+        ]);
       }
     }
   }
@@ -131,9 +140,16 @@ async function handleCheckoutCompleted(session) {
     );
 
     db.run(
-      `INSERT INTO billing_invoices (id, workspace_id, provider, provider_ref, amount, currency, status, paid_at)
-       VALUES (?, ?, 'stripe', ?, ?, ?, 'paid', CURRENT_TIMESTAMP)`,
-      [uuidv4(), workspaceId, session.id, session.amount_total / 100, session.currency.toUpperCase()]
+      `INSERT INTO billing_invoices (id, workspace_id, provider, provider_ref, plan, amount, currency, status, paid_at)
+       VALUES (?, ?, 'stripe', ?, ?, ?, ?, 'paid', CURRENT_TIMESTAMP)`,
+      [
+        uuidv4(),
+        workspaceId,
+        session.id,
+        plan,
+        session.amount_total / 100,
+        session.currency.toUpperCase(),
+      ]
     );
   });
 
@@ -163,7 +179,8 @@ async function handleCheckoutCompleted(session) {
   try {
     const capi = require('../services/MetaCapiService');
     await capi.sendSubscribeForWorkspace({
-      workspaceId, plan,
+      workspaceId,
+      plan,
       amount: purchaseAmount,
       currency: purchaseCurrency,
       eventId: `stripe_${session.id}`,
@@ -177,7 +194,8 @@ async function handleCheckoutCompleted(session) {
   try {
     const ga4 = require('../services/GoogleAnalyticsMpService');
     await ga4.sendPurchaseForWorkspace({
-      workspaceId, plan,
+      workspaceId,
+      plan,
       amount: purchaseAmount,
       currency: purchaseCurrency,
       transactionId: `stripe_${session.id}`,
@@ -219,10 +237,9 @@ async function handleSubscriptionDeleted(sub) {
 
 async function handleInvoicePaid(invoice) {
   // Renovação mensal — recreditar tokens
-  const sub = db.get(
-    `SELECT id, plan FROM workspaces WHERE stripe_subscription_id = ?`,
-    [invoice.subscription]
-  );
+  const sub = db.get(`SELECT id, plan FROM workspaces WHERE stripe_subscription_id = ?`, [
+    invoice.subscription,
+  ]);
   if (!sub) return;
 
   try {
@@ -231,22 +248,25 @@ async function handleInvoicePaid(invoice) {
   } catch (_) {}
 
   db.run(
-    `INSERT OR IGNORE INTO billing_invoices (id, workspace_id, provider, provider_ref, amount, currency, status, paid_at)
-     VALUES (?, ?, 'stripe', ?, ?, ?, 'paid', CURRENT_TIMESTAMP)`,
-    [uuidv4(), sub.id, invoice.id, invoice.amount_paid / 100, invoice.currency.toUpperCase()]
+    `INSERT OR IGNORE INTO billing_invoices (id, workspace_id, provider, provider_ref, plan, amount, currency, status, paid_at)
+     VALUES (?, ?, 'stripe', ?, ?, ?, ?, 'paid', CURRENT_TIMESTAMP)`,
+    [
+      uuidv4(),
+      sub.id,
+      invoice.id,
+      sub.plan,
+      invoice.amount_paid / 100,
+      invoice.currency.toUpperCase(),
+    ]
   );
 }
 
 async function handlePaymentFailed(invoice) {
-  const ws = db.get(
-    `SELECT id FROM workspaces WHERE stripe_subscription_id = ?`,
-    [invoice.subscription]
-  );
+  const ws = db.get(`SELECT id FROM workspaces WHERE stripe_subscription_id = ?`, [
+    invoice.subscription,
+  ]);
   if (!ws) return;
-  db.run(
-    `UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`,
-    [ws.id]
-  );
+  db.run(`UPDATE workspaces SET subscription_status = 'past_due' WHERE id = ?`, [ws.id]);
   logger.warn(`[StripeWebhook] Payment failed for workspace ${ws.id}`);
 }
 
@@ -280,10 +300,7 @@ async function handleRefundOrDispute(charge, eventType) {
 
   db.transaction(() => {
     // Marca invoice como refunded
-    db.run(
-      `UPDATE billing_invoices SET status = 'refunded' WHERE id = ?`,
-      [invoice.id]
-    );
+    db.run(`UPDATE billing_invoices SET status = 'refunded' WHERE id = ?`, [invoice.id]);
 
     // Suspende workspace
     db.run(
@@ -323,12 +340,16 @@ async function handleRefundOrDispute(charge, eventType) {
   // Alerta crítico
   try {
     const alertManager = require('../observability/alertManager');
-    alertManager.send('warning', `🚨 ${eventType === 'charge.dispute.created' ? 'Chargeback' : 'Refund'} processado`, {
-      workspace_id: wsId,
-      invoice_id: invoice.id,
-      payment_ref: paymentRef,
-      action: 'workspace_suspended_tokens_zeroed',
-    });
+    alertManager.send(
+      'warning',
+      `🚨 ${eventType === 'charge.dispute.created' ? 'Chargeback' : 'Refund'} processado`,
+      {
+        workspace_id: wsId,
+        invoice_id: invoice.id,
+        payment_ref: paymentRef,
+        action: 'workspace_suspended_tokens_zeroed',
+      }
+    );
   } catch (_) {}
 }
 
