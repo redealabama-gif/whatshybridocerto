@@ -2622,6 +2622,113 @@
   </div>
 </section>
 
+<!-- ════════════════════════════════════════════════════════
+     Disparo / Envio de mensagens em massa
+     Bloco dedicado — trata de frente a objeção de "spam"/bloqueio
+     ════════════════════════════════════════════════════════ -->
+<style>
+  #disparo .disparo-intro { max-width: 760px; margin: 0 auto; }
+  #disparo .disparo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.18fr;
+    gap: 52px;
+    align-items: center;
+    margin-top: 56px;
+  }
+  #disparo .disparo-reasons { display: flex; flex-direction: column; gap: 16px; }
+  #disparo .disparo-reason {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 18px 20px;
+    background: rgba(15, 12, 41, 0.55);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  #disparo .disparo-reason:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  }
+  #disparo .dr-ic {
+    flex: none; width: 46px; height: 46px; border-radius: 12px;
+    display: grid; place-items: center;
+    color: var(--brand-cyan);
+    background: rgba(0, 255, 255, 0.08);
+    border: 1px solid rgba(0, 255, 255, 0.22);
+  }
+  #disparo .dr-ic i { width: 22px; height: 22px; }
+  #disparo .disparo-reason h4 { font-size: 1.02rem; margin: 0 0 4px; }
+  #disparo .disparo-reason p { margin: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.55; }
+
+  #disparo .disparo-visual {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  }
+  #disparo .disparo-visual img { display: block; width: 100%; height: auto; }
+  /* Vinheta suave: integra a foto clara ao tema escuro */
+  #disparo .disparo-visual::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: linear-gradient(180deg, rgba(3, 0, 20, 0.22) 0%, transparent 20%, transparent 80%, rgba(3, 0, 20, 0.38) 100%);
+  }
+  /* Moldura com brilho cyan/purple da marca */
+  #disparo .disparo-visual::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; z-index: 2;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.55), rgba(111, 0, 255, 0.45));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  @media (max-width: 900px) {
+    #disparo .disparo-grid { grid-template-columns: 1fr; gap: 32px; }
+    #disparo .disparo-visual { order: -1; }
+  }
+</style>
+<section id="disparo" class="py-16 pfx-section" data-pfx-tone="dialogue" data-pfx-speed="0.16" data-screen-label="Disparo em massa">
+  <div class="pfx-bg" style="background-image: url('assets/bg-dialogue.jpg');"></div>
+  <div class="pfx-veil"></div>
+  <div class="container">
+    <div class="text-center disparo-intro reveal reveal-blur">
+      <span class="section-eyebrow">Disparo em massa</span>
+      <h2 class="mb-4">Disparo de mensagens em massa — <span class="text-gradient">sem cara de spam</span></h2>
+      <p class="text-muted">É o recurso que mais assusta — e com razão. Ninguém quer ser bloqueado nem mandar aquele texto frio de lista de transmissão. Por isso o disparo do WhatsHybrid foi feito diferente: ritmo humanizado, mensagem personalizada e entrega confirmada — para você falar com a base inteira sem queimar o seu número.</p>
+    </div>
+
+    <div class="disparo-grid">
+      <div class="disparo-reasons">
+        <div class="disparo-reason reveal delay-1">
+          <span class="dr-ic"><i data-lucide="shield-check" aria-hidden="true"></i></span>
+          <div>
+            <h4>Proteção anti-bloqueio</h4>
+            <p>Intervalos variáveis e ritmo humano entre cada envio. O WhatsApp lê como comportamento natural — nada de rajada que derruba o número.</p>
+          </div>
+        </div>
+        <div class="disparo-reason reveal delay-2">
+          <span class="dr-ic"><i data-lucide="phone-off" aria-hidden="true"></i></span>
+          <div>
+            <h4>Sem precisar salvar contato</h4>
+            <p>Promoção, catálogo ou aviso chega mesmo que o cliente nunca tenha guardado o seu número. Fale com a lista toda sem cadastrar ninguém na mão.</p>
+          </div>
+        </div>
+        <div class="disparo-reason reveal delay-3">
+          <span class="dr-ic"><i data-lucide="calendar-clock" aria-hidden="true"></i></span>
+          <div>
+            <h4>Agende e acompanhe ao vivo</h4>
+            <p>Programe o disparo para o melhor horário e deixe rodar sozinho. Veja cada "entregue" confirmado em tempo real, como na tela ao lado.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="disparo-visual reveal reveal-zoom">
+        <img src="assets/disparo-massa.png" alt="Painel de envio de mensagens em massa do WhatsHybrid: mensagens entregues com sucesso para Ana Paula, Lucas Almeida, Juliana Costa, Pedro Henrique e Camila Santos" width="1536" height="1024" loading="lazy" decoding="async">
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Globo de alcance — adicionado ao lado das Funcionalidades (cobe interativo) -->
 <section id="alcance" class="py-16 globe-section" data-screen-label="Alcance global">
   <div class="container globe-grid">
