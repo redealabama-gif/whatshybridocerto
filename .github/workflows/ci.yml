@@ -21,7 +21,7 @@ jobs:
     name: Static Checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -172,7 +172,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -222,7 +222,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -277,7 +277,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build backend image
         run: docker build -t whatshybrid-backend:ci ./whatshybrid-backend
@@ -306,7 +306,7 @@ jobs:
     needs: static-checks
     continue-on-error: true   # moderate é warning; high/crit bloqueia no job `security`
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -330,7 +330,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -365,7 +365,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -425,7 +425,7 @@ jobs:
           - 6379:6379
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -21,7 +21,7 @@ jobs:
     name: Secret scanning (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # histórico completo p/ o gitleaks detect
       - name: gitleaks
@@ -42,7 +42,7 @@ jobs:
       matrix:
         language: [javascript-typescript]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
@@ -78,7 +78,7 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Trivy filesystem scan (SARIF)
         uses: aquasecurity/trivy-action@0.28.0
         continue-on-error: true # report-only: não falha o build por achados/infra
