@@ -1,0 +1,4 @@
+{
+  "_README": "Allowlist do gate de segurança (scripts/audit-gate.js). Cada entrada SUPRIME um advisory high/critical de PRODUÇÃO conscientemente. Use só quando não houver fix disponível e o risco for aceito/mitigado. Sempre com 'reason' e 'expires' (YYYY-MM-DD) — entradas expiradas voltam a bloquear. Baseline atual: VAZIO (0 high/critical em produção após bump do axios para ^1.16.1).",
+  "allow": []
+}
