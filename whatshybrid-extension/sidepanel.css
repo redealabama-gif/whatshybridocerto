@@ -1753,23 +1753,6 @@ body::before {
 }
 
 /* ========================================
-   FOOTER
-======================================== */
-.footer {
-    padding: 14px 20px;
-    text-align: center;
-    font-size: 11px;
-    opacity: 0.7;
-    background: rgba(0, 0, 0, 0.25);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.footer-text {
-    display: block;
-    line-height: 1.5;
-}
-
-/* ========================================
    LOADING STATES
 ======================================== */
 .loading-state {
