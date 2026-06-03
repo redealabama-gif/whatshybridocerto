@@ -1,6 +1,6 @@
 # Advanced Features Documentation
 
-This document describes the advanced features implemented in the WhatsHybrid Lite Fusion extension.
+This document describes the advanced features implemented in the Axion Fusion extension.
 
 ## 1. Fila de Agendamentos Múltiplos (Multiple Scheduling Queue)
 
@@ -330,6 +330,6 @@ Potential improvements for future versions:
 
 ## Credits
 
-Developed as part of WhatsHybrid Lite Fusion v1.4.6+
+Developed as part of Axion Fusion v1.4.6+
 
 All features are designed to work seamlessly with existing functionality and follow the codebase conventions.

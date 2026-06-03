@@ -29,7 +29,7 @@ test('_internals expõe as guardas de segurança', () => {
 });
 
 test('validateBackendUrl: aceita https público e localhost; remove a barra final', () => {
-  assert.strictEqual(MI.validateBackendUrl('https://api.whatshybrid.com/v1/'), 'https://api.whatshybrid.com/v1');
+  assert.strictEqual(MI.validateBackendUrl('https://api.axion.com.br/v1/'), 'https://api.axion.com.br/v1');
   assert.strictEqual(MI.validateBackendUrl('http://localhost:3000'), 'http://localhost:3000');
 });
 

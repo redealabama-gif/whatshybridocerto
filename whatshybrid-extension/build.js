@@ -1,5 +1,5 @@
 /**
- * Build script da extensão WhatsHybrid Pro — v9.0.0 (rev 2)
+ * Build script da extensão Axion — v9.0.0 (rev 2)
  *
  * Estratégia: concat + minify (manual fallback OR esbuild se disponível).
  *   - Remove comentários // e bloco
@@ -184,7 +184,7 @@ async function minify(code) {
 }
 
 function concatScripts(scripts, label) {
-  const parts = [`/* WhatsHybrid Pro ${label} v9.4.6 */`];
+  const parts = [`/* Axion ${label} v9.4.6 */`];
   let totalRaw = 0;
 
   // v9.4.6: detecta arquivos que são FRAGMENTOS de uma função/escopo compartilhado.
@@ -233,7 +233,7 @@ function concatScripts(scripts, label) {
 }
 
 async function build() {
-  console.log(`\n🔨 WhatsHybrid Extension Build v9.0.0`);
+  console.log(`\n🔨 Axion Extension Build v9.0.0`);
   console.log(`   Minifier: ${esbuild ? 'esbuild' : noMinify ? 'OFF' : 'manual'}\n`);
 
   const bundles = [

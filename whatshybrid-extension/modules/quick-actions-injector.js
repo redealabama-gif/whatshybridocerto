@@ -1,6 +1,6 @@
 /**
  * ⚡ Quick Actions Injector - Botões de ação rápida no WhatsApp Web
- * WhatsHybrid v49 - Baseado no Quantum CRM
+ * Axion v49 - Baseado no Quantum CRM
  * 
  * Funcionalidades:
  * - 🏷️ Adicionar rótulos

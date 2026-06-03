@@ -1,7 +1,7 @@
 {
   "name": "whatshybrid-backend",
   "version": "9.5.8",
-  "description": "WhatsHybrid Pro Backend API - SmartBot IA Edition",
+  "description": "Axion Backend API - SmartBot IA Edition",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -89,6 +89,6 @@
     "api",
     "enterprise"
   ],
-  "author": "WhatsHybrid Team",
+  "author": "Axion Team",
   "license": "MIT"
 }

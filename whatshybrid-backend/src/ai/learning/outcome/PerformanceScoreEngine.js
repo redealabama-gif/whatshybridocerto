@@ -1,6 +1,6 @@
 /**
  * 🎯 PerformanceScoreEngine
- * WhatsHybrid Pro v10.2.0 — Auto-Evolutionary AI
+ * Axion v10.2.0 — Auto-Evolutionary AI
  *
  * Calcula um score de performance (0→1) para cada resposta enviada,
  * baseado em outcomes REAIS medidos pelo ResponseOutcomeTracker.

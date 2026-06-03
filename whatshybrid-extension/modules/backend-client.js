@@ -1,6 +1,6 @@
 /**
  * 🌐 BackendClient v1.0 - Cliente de API para Backend
- * Conecta a extensão ao WhatsHybrid Backend API
+ * Conecta a extensão ao Axion Backend API
  * 
  * @version 1.0.0
  */

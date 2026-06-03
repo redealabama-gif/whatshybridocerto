@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Human Typing Simulator v7.5.0
+ * Axion Human Typing Simulator v7.5.0
  * Simula digitação humana com velocidade variável
  * Anti-ban stealth features incluídas
  */

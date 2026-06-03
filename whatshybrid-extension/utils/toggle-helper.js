@@ -1,6 +1,6 @@
 /**
  * 🔘 Toggle Helper - Gerenciamento simplificado de toggles
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  * 
  * Simplifica a configuração de toggles de UI com persistência
  * automática em chrome.storage.local.

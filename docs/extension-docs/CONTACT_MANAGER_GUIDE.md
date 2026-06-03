@@ -2,7 +2,7 @@
 
 ## 📇 Visão Geral
 
-O **ContactManager** é um sistema completo de gerenciamento de contatos que integra os sistemas existentes do WhatsHybrid:
+O **ContactManager** é um sistema completo de gerenciamento de contatos que integra os sistemas existentes do Axion:
 - ContactImporter (importação Excel/CSV)
 - Extractor v7 (extração de contatos)
 - CRM Module (gerenciamento de negócios)
@@ -412,4 +412,4 @@ Verifique se o CRMModule está carregado: `window.CRMModule`
 
 ## 📄 Licença
 
-Parte do WhatsHybrid v7.7.0
+Parte do Axion v7.7.0

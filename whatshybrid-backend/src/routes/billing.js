@@ -262,7 +262,7 @@ router.post('/create-token-checkout',
       const payload = {
         items: [{
           id: package_id,
-          title: `WhatsHybrid Pro — ${pkg.label}`,
+          title: `Axion — ${pkg.label}`,
           description: `Pacote avulso de ${pkg.tokens.toLocaleString('pt-BR')} tokens de IA`,
           quantity: 1,
           currency_id: 'BRL',
@@ -499,7 +499,7 @@ router.post('/create-checkout-stripe', asyncHandler(async (req, res) => {
     throw new AppError(`Plan ${plan} não tem Stripe Price ID configurado`, 503);
   }
 
-  const baseUrl = process.env.PUBLIC_BASE_URL || 'https://whatshybrid.com.br';
+  const baseUrl = process.env.PUBLIC_BASE_URL || 'https://axion.com.br';
 
   try {
     const session = await stripeService.createCheckoutSession({

@@ -1,6 +1,6 @@
 /**
  * 🏗️ DynamicPromptBuilder - Priority-Based Prompt Assembly System (Extension Module)
- * WhatsHybrid Pro v7.9.13
+ * Axion v7.9.13
  * 
  * Browser-compatible IIFE module for building optimized prompts with token budget management.
  * Ensures critical sections are always included while less important sections are dropped if needed.

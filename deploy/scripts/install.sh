@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════
-# WhatsHybrid Pro — Instalação Automática em VPS Ubuntu 22.04 / 24.04
+# Axion — Instalação Automática em VPS Ubuntu 22.04 / 24.04
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Script idempotente: pode rodar múltiplas vezes sem quebrar nada.
@@ -52,7 +52,7 @@ if [[ "$ID" != "ubuntu" ]]; then
 fi
 
 log_info "═════════════════════════════════════════════════════════════════"
-log_info " WhatsHybrid Pro — Setup automático"
+log_info " Axion — Setup automático"
 log_info "═════════════════════════════════════════════════════════════════"
 log_info ""
 log_info " Vai instalar:"

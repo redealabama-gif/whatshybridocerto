@@ -1,5 +1,5 @@
 /**
- * 💬 WhatsHybrid - Interactive Training
+ * 💬 Axion - Interactive Training
  * Chat interativo para treinamento de IA com suporte a áudio
  * @version 7.9.13
  */

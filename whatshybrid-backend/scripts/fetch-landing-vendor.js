@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * WhatsHybrid Pro — auto-hospedagem dos assets externos da landing.
+ * Axion — auto-hospedagem dos assets externos da landing.
  *
  * Baixa para dentro de public/ as dependências que hoje vêm de CDN, deixando a
  * landing IMUNE a quedas do prod.spline.design / jsdelivr / esm.sh:

@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Background - AI / Memory / Few-shot / Proxy handlers
+ * Axion Background - AI / Memory / Few-shot / Proxy handlers
  *
  * Este arquivo foi extraído do `background.js` para reduzir tamanho e melhorar manutenibilidade
  * sem alterar comportamento (HIGH-011).
@@ -375,7 +375,7 @@ const FETCH_PROXY_ALLOWED_HOSTS = [
 
 // Sufixos de domínio aceitos (subdomínios)
 const FETCH_PROXY_ALLOWED_SUFFIXES = [
-  // Backend próprio do user. .whatshybrid.com / .com.br / etc devem ser
+  // Backend próprio do user. .axion.com.br / .com.br / etc devem ser
   // configurados via WHL_ENDPOINTS pelo deployment.
 ];
 

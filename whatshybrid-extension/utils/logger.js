@@ -1,6 +1,6 @@
 /**
  * Logger Centralizado
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  *
  * ✅ Hardening adicional (Jan/2026):
  * - Patch de console.log/info/debug para reduzir logs em produção

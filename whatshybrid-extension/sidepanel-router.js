@@ -1,5 +1,5 @@
 /**
- * sidepanel-router.js - WhatsHybrid Lite Fusion
+ * sidepanel-router.js - Axion Fusion
  *
  * Objetivo:
  * - Trocar as views do Side Panel de acordo com o botão do TopNav (Principal / Extrator / Grupos / Recover / Config).

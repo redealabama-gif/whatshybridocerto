@@ -1,6 +1,6 @@
 /**
  * 🧠 Intelligence Routes
- * WhatsHybrid Pro v10.1.0
+ * Axion v10.1.0
  *
  * Dashboard e controle dos módulos de inteligência comercial:
  *   GET  /api/v2/intelligence/stats         → stats consolidados de todos os motores

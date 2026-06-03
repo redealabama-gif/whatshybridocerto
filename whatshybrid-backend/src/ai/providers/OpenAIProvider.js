@@ -1,6 +1,6 @@
 /**
  * 🟢 OpenAI Provider - GPT-4o, GPT-4, GPT-3.5
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  */
 
 const BaseProvider = require('./BaseProvider');

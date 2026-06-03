@@ -2,7 +2,7 @@
  * EmailService - v8.4.0
  *
  * Envia emails transacionais via SendGrid (HTTPS direto, sem SDK).
- * Templates HTML inline com identidade visual do WhatsHybrid Pro
+ * Templates HTML inline com identidade visual do Axion
  * (purple/cyan, Orbitron + Inter).
  *
  * Tipos de email:
@@ -24,8 +24,8 @@ const SENDGRID_API = 'https://api.sendgrid.com/v3/mail/send';
 class EmailService {
   constructor() {
     this.apiKey = process.env.SENDGRID_API_KEY || '';
-    this.from = process.env.EMAIL_FROM || 'noreply@whatshybrid.com.br';
-    this.fromName = process.env.EMAIL_FROM_NAME || 'WhatsHybrid Pro';
+    this.from = process.env.EMAIL_FROM || 'noreply@axion.com.br';
+    this.fromName = process.env.EMAIL_FROM_NAME || 'Axion';
     this.baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
     this.dryRun = !this.apiKey;
     if (this.dryRun) {
@@ -172,7 +172,7 @@ class EmailService {
         <!-- Header com gradient -->
         <tr><td style="background:linear-gradient(90deg,#6f00ff,#00ffff);padding:24px;text-align:center;">
           <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-weight:900;font-size:24px;color:#000000;letter-spacing:1px;">
-            WhatsHybrid <span style="font-weight:400;">Pro</span>
+            Axion <span style="font-weight:400;">Pro</span>
           </div>
         </td></tr>
         <!-- Body -->
@@ -193,7 +193,7 @@ class EmailService {
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:24px 32px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;color:#64748b;font-size:12px;">
-          Você recebeu este email porque é cliente do WhatsHybrid Pro.<br>
+          Você recebeu este email porque é cliente do Axion.<br>
           <a href="${this.baseUrl}" style="color:#00ffff;text-decoration:none;">${this.baseUrl.replace(/^https?:\/\//, '')}</a>
         </td></tr>
       </table>
@@ -218,7 +218,7 @@ class EmailService {
         <p>Você tem <strong>${trialDays} dias grátis</strong> para testar tudo antes da primeira cobrança.</p>
         <p><strong>Próximos passos:</strong></p>
         <ol style="color:#cbd5e1;line-height:1.8;">
-          <li>Instale a extensão WhatsHybrid Pro no Chrome</li>
+          <li>Instale a extensão Axion no Chrome</li>
           <li>Configure o treinamento da IA dentro da extensão</li>
           <li>Abra o WhatsApp Web e comece a atender</li>
         </ol>
@@ -229,7 +229,7 @@ class EmailService {
 
     return this.send({
       to,
-      subject: `Bem-vindo ao WhatsHybrid Pro, ${name}!`,
+      subject: `Bem-vindo ao Axion, ${name}!`,
       html,
     });
   }
@@ -252,7 +252,7 @@ class EmailService {
           <div style="margin-top:16px;font-size:14px;color:#cbd5e1;line-height:1.6;">
             <strong style="color:#ffffff;">Como ativar:</strong>
             <ol style="margin:8px 0 0;padding-left:20px;color:#cbd5e1;">
-              <li>Instale a extensão Chrome do WhatsHybrid Pro (link abaixo).</li>
+              <li>Instale a extensão Chrome do Axion (link abaixo).</li>
               <li>Abra o painel lateral e clique em "Ativar assinatura".</li>
               <li>Cole o código acima e pronto — sua conta libera na hora.</li>
             </ol>
@@ -285,7 +285,7 @@ class EmailService {
         : `${this.baseUrl}/dashboard.html`,
     });
 
-    return this.send({ to, subject: 'Pagamento confirmado — WhatsHybrid Pro', html });
+    return this.send({ to, subject: 'Pagamento confirmado — Axion', html });
   }
 
   async sendTrialEnding({ to, name, daysLeft, plan, planPrice }) {
@@ -296,14 +296,14 @@ class EmailService {
       body: `
         <p>Olá ${this._escape(name)},</p>
         <p>Seu período gratuito de teste termina em <strong style="color:#fbbf24;">${daysLeft} dias</strong>.</p>
-        <p>Para continuar usando o WhatsHybrid Pro plano <strong>${plan.toUpperCase()}</strong> (${formatted}/mês), configure o pagamento agora.</p>
+        <p>Para continuar usando o Axion plano <strong>${plan.toUpperCase()}</strong> (${formatted}/mês), configure o pagamento agora.</p>
         <p style="color:#94a3b8;font-size:14px;">Aceitamos PIX, boleto e cartão de crédito via MercadoPago.</p>
       `,
       ctaLabel: 'Configurar pagamento',
       ctaUrl: `${this.baseUrl}/dashboard.html#billing`,
     });
 
-    return this.send({ to, subject: `⏰ ${daysLeft} dias para o fim do trial — WhatsHybrid Pro`, html });
+    return this.send({ to, subject: `⏰ ${daysLeft} dias para o fim do trial — Axion`, html });
   }
 
   /**
@@ -327,7 +327,7 @@ class EmailService {
       preheader: 'Pague em 1 clique pra continuar sem interrupção.',
       body: `
         <p>Olá ${this._escape(name)},</p>
-        <p>Seu trial gratuito do WhatsHybrid Pro acabou. Pra continuar usando o plano
+        <p>Seu trial gratuito do Axion acabou. Pra continuar usando o plano
         <strong>${plan.toUpperCase()}</strong> (${formatted}/mês) sem perder seus dados,
         clique no botão abaixo e finalize o pagamento.</p>
         ${couponLine}
@@ -340,7 +340,7 @@ class EmailService {
 
     return this.send({
       to,
-      subject: '✨ Pague seu plano WhatsHybrid Pro pra continuar — link rápido',
+      subject: '✨ Pague seu plano Axion pra continuar — link rápido',
       html,
     });
   }
@@ -360,7 +360,7 @@ class EmailService {
       ctaUrl: `${this.baseUrl}/dashboard.html#billing`,
     });
 
-    return this.send({ to, subject: '⚠️ Pagamento recusado — WhatsHybrid Pro', html });
+    return this.send({ to, subject: '⚠️ Pagamento recusado — Axion', html });
   }
 
   /**
@@ -407,7 +407,7 @@ class EmailService {
       reconfig: `
         <p>Olá ${this._escape(name)},</p>
         <p>Notamos que sua assinatura do plano <strong>${this._escape(plan?.toUpperCase() || 'PRO')}</strong> foi cancelada ou está inválida no sistema de pagamentos.</p>
-        <p>Pra continuar usando o WhatsHybrid sem interrupção, é necessário reconfigurar o método de pagamento.</p>
+        <p>Pra continuar usando o Axion sem interrupção, é necessário reconfigurar o método de pagamento.</p>
         <p><strong>${t.urgency}</strong></p>
       `,
       no_method: `
@@ -424,7 +424,7 @@ class EmailService {
       `,
     };
 
-    const subject = `${t.prefix} ${t.tone} (${attempt}/3) — Pagamento pendente • WhatsHybrid`;
+    const subject = `${t.prefix} ${t.tone} (${attempt}/3) — Pagamento pendente • Axion`;
     const html = this._wrap({
       title: `${t.prefix} ${t.tone}`,
       preheader: t.urgency,
@@ -450,7 +450,7 @@ class EmailService {
       ctaUrl: `${this.baseUrl}/dashboard.html#tokens`,
     });
 
-    return this.send({ to, subject: '🪫 Seus tokens estão acabando — WhatsHybrid Pro', html });
+    return this.send({ to, subject: '🪫 Seus tokens estão acabando — Axion', html });
   }
 
   async sendTokensExhausted({ to, name }) {
@@ -459,14 +459,14 @@ class EmailService {
       preheader: 'A IA está pausada. Compre um pacote para continuar.',
       body: `
         <p>Olá ${this._escape(name)},</p>
-        <p>Seus tokens de IA acabaram. A IA do WhatsHybrid Pro está <strong style="color:#ef4444;">pausada</strong> até você comprar mais ou aguardar o início do próximo ciclo.</p>
+        <p>Seus tokens de IA acabaram. A IA do Axion está <strong style="color:#ef4444;">pausada</strong> até você comprar mais ou aguardar o início do próximo ciclo.</p>
         <p>Você pode comprar pacotes avulsos a partir de R$ 19,00.</p>
       `,
       ctaLabel: 'Comprar tokens agora',
       ctaUrl: `${this.baseUrl}/dashboard.html#tokens`,
     });
 
-    return this.send({ to, subject: '🚫 IA pausada: tokens esgotados — WhatsHybrid Pro', html });
+    return this.send({ to, subject: '🚫 IA pausada: tokens esgotados — Axion', html });
   }
 }
 

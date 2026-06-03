@@ -1,5 +1,5 @@
 /**
- * 📊 WhatsHybrid - Sistema de Métricas
+ * 📊 Axion - Sistema de Métricas
  * Observabilidade formal com Prometheus-compatible metrics
  * 
  * @version 7.9.13

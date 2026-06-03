@@ -1,6 +1,6 @@
 /**
  * Utilitários HTML Centralizados
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  */
 (function() {
   'use strict';

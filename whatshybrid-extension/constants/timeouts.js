@@ -1,6 +1,6 @@
 /**
  * ⏱️ Timeouts - Constantes centralizadas de timeout
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  * 
  * Este arquivo centraliza todos os valores de timeout usados pela extensão
  * para facilitar ajustes globais e manutenção.
