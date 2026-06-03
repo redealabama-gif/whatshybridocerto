@@ -65,3 +65,34 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+  # ── Trivy (vuln + IaC/misconfig + secret) → SARIF no Security tab ────────────
+  # Defesa em profundidade: cobre vulnerabilidades do sistema de arquivos, erros
+  # de configuração (Dockerfile/compose) e segredos. Report-only (publica no
+  # code scanning) — o gate BLOQUEANTE de dependências é o ci.yml → audit-gate.js;
+  # o de segredos é o gitleaks acima. Aqui o objetivo é visibilidade contínua.
+  trivy:
+    name: Trivy (filesystem scan)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (SARIF)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true # report-only: não falha o build por achados/infra
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+      - name: Upload Trivy SARIF
+        if: ${{ hashFiles('trivy-results.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
