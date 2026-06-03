@@ -1,0 +1,78 @@
+name: Performance — load smoke (k6)
+
+# Gate de performance: sobe o backend e roda um load smoke com k6, falhando se a
+# taxa de erro sob concorrência estourar (ou latência regredir grosseiramente).
+# O teste de carga "completo" (100 VUs/5min) é tests/load/signup-flow.k6.js,
+# rodado sob demanda contra staging. Aqui é a versão de CI (curta, gated).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '37 4 * * *' # nightly 04:37 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  load-smoke:
+    name: k6 load smoke
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ci-jwt-key-for-pipeline-runs-not-a-real-key
+      WEBHOOK_SECRET: ci-webhook-key-for-pipeline-runs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: whatshybrid-backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: whatshybrid-backend
+        run: npm ci
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Start backend in background
+        working-directory: whatshybrid-backend
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          DB_PATH: /tmp/perf-whatshybrid.db
+          REDIS_DISABLED: 'true'
+          BILLING_CRON_DISABLED: 'true'
+          EMAIL_OUTBOX_DISABLED: 'true'
+          # Sob carga, os limiters default (auth 5/15min, geral 1000) dispariam
+          # 429 e contaminariam a taxa de erro. Elevados só p/ o teste de carga.
+          AUTH_RATE_LIMIT_MAX: '1000000'
+          RATE_LIMIT_MAX_REQUESTS: '1000000'
+        run: |
+          rm -f /tmp/perf-whatshybrid.db
+          npm start &
+          echo $! > /tmp/backend.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "✅ Backend up after ${i}s"; break
+            fi
+            sleep 1
+          done
+
+      - name: Run k6 load smoke (gated)
+        working-directory: whatshybrid-backend
+        env:
+          BASE_URL: http://localhost:3000
+        run: k6 run tests/load/ci-smoke.k6.js
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+          fi
