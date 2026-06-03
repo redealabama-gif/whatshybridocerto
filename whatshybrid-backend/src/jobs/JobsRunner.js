@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                       JOBS RUNNER ROBUSTO                                 ║
- * ║                        Axion Backend                                ║
+ * ║                        WhatsHybrid Backend                                ║
  * ╠═══════════════════════════════════════════════════════════════════════════╣
  * ║  Sistema de processamento de jobs em background com:                      ║
  * ║  - Lock anti-duplicação                                                   ║

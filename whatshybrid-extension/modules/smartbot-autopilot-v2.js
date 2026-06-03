@@ -1,5 +1,5 @@
 /**
- * Axion Autopilot v7.6.0
+ * WhatsHybrid Autopilot v7.6.0
  * Correção completa do sistema de resposta automática
  * + Integração com ConfidenceSystem
  * + Digitação humana aprimorada

@@ -1,4 +1,4 @@
-# Site Axion — Como visualizar
+# Site WhatsHybrid Pro — Como visualizar
 
 Esta pasta contém as 4 páginas públicas da SaaS.
 

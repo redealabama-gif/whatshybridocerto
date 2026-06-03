@@ -130,7 +130,7 @@
     _failed.add(key);
     try {
       const config = window.WHL_CONFIG || {};
-      const apiUrl = config.API_URL || 'https://api.axion.com.br';
+      const apiUrl = config.API_URL || 'https://api.whatshybrid.com.br';
       const token = window.WHL_authToken || localStorage.getItem('whl_token');
       fetch(`${apiUrl}/api/v1/telemetry/selector-failure`, {
         method: 'POST',

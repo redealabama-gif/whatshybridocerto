@@ -1,6 +1,6 @@
 /**
  * 🔄 Restore Storage - Script de Restauração de Backup
- * Axion v7.9.12
+ * WhatsHybrid v7.9.12
  * 
  * Restaura dados do chrome.storage.local a partir de backups
  * 
@@ -187,7 +187,7 @@
 
           // Verificar se é um backup válido
           if (!backup.timestamp || !backup.version) {
-            console.warn('⚠️ Arquivo não parece ser um backup do Axion');
+            console.warn('⚠️ Arquivo não parece ser um backup do WhatsHybrid');
           }
 
           const keysCount = Object.keys(backup.data).length;

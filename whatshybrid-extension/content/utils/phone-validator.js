@@ -1,5 +1,5 @@
 /**
- * Axion - Phone Number Validator
+ * WhatsHybrid Lite - Phone Number Validator
  * Centralized phone validation logic to eliminate redundancy
  */
 

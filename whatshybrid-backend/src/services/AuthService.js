@@ -16,7 +16,7 @@
  */
 /**
  * 🔐 AuthService - Serviço de Autenticação
- * Axion v7.1.0
+ * WhatsHybrid Pro v7.1.0
  */
 
 const bcrypt = require('bcryptjs');

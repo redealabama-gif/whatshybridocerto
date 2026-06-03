@@ -1,6 +1,6 @@
 /**
  * ✅ ResponseQualityChecker
- * Axion v10.0.0
+ * WhatsHybrid Pro v10.0.0
  *
  * Avalia a qualidade de cada resposta gerada pelo LLM e,
  * se necessário, solicita uma regeneração com instruções reforçadas.

@@ -1,6 +1,6 @@
 /**
  * 📡 ResponseOutcomeTracker
- * Axion v10.2.0 — Auto-Evolutionary AI
+ * WhatsHybrid Pro v10.2.0 — Auto-Evolutionary AI
  *
  * Registra o que acontece DEPOIS que uma resposta é enviada.
  * Este é o dado mais valioso do sistema: o cliente reagiu ou não?

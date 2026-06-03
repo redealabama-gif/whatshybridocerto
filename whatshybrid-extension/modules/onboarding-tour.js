@@ -1,6 +1,6 @@
 /**
  * 🎓 Onboarding Tour v2.0
- * Tour de inicialização do Axion
+ * Tour de inicialização do WhatsHybrid
  * 
  * @version 2.0.0
  */
@@ -17,7 +17,7 @@
   const TOUR_SLIDES = [
     {
       id: 'welcome',
-      title: '🚀 Bem-vindo ao Axion!',
+      title: '🚀 Bem-vindo ao WhatsHybrid!',
       content: `
         <p>O sistema mais completo para <strong>automatizar e potencializar</strong> seu WhatsApp.</p>
         <p style="margin-top: 16px;">Vamos conhecer todas as funcionalidades?</p>
@@ -173,12 +173,12 @@
       content: `
         <p>Precisa de ajuda? Estamos aqui!</p>
         <ul style="margin-top: 12px; text-align: left;">
-          <li>📧 suporte@axion.com.br</li>
+          <li>📧 suporte@whatshybrid.com</li>
           <li>💬 WhatsApp: (XX) XXXXX-XXXX</li>
           <li>📖 Documentação online</li>
         </ul>
         <p style="margin-top: 16px; color: #8b5cf6; font-weight: 600;">
-          Aproveite o Axion! 🚀
+          Aproveite o WhatsHybrid! 🚀
         </p>
       `,
       icon: '❓'
@@ -490,7 +490,7 @@
       window.EventBus.emit(window.WHL_EVENTS.UI_NOTIFICATION, {
         type: 'success',
         title: 'Pronto!',
-        message: 'Você está pronto para usar o Axion!'
+        message: 'Você está pronto para usar o WhatsHybrid!'
       });
     }
   }

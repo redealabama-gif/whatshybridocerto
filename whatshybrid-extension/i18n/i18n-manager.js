@@ -1,5 +1,5 @@
 /**
- * 🌍 Axion - Sistema de Internacionalização (i18n)
+ * 🌍 WhatsHybrid - Sistema de Internacionalização (i18n)
  * Gerenciador completo de traduções para toda a extensão
  * 
  * @version 7.9.13

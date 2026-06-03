@@ -4,7 +4,7 @@
 # valores claramente falsos (contêm 'test'/'senha'/'example'…) não devem
 # reprovar o CI, mas segredos reais sim. Verificado localmente:
 # `gitleaks dir . -c .gitleaks.toml` → 0 leaks.
-title = "Axion secret scanning"
+title = "WhatsHybrid secret scanning"
 
 [extend]
 useDefault = true

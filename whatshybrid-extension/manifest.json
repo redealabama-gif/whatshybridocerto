@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Axion",
+  "name": "WhatsHybrid Pro",
   "version": "9.6.0",
   "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo.",
   "icons": {
@@ -9,7 +9,7 @@
     "128": "icons/128.png"
   },
   "action": {
-    "default_title": "Axion",
+    "default_title": "WhatsHybrid Pro",
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/16.png",
@@ -39,8 +39,8 @@
     "http://127.0.0.1/*",
     "http://localhost:3000/*",
     "http://127.0.0.1:3000/*",
-    "https://*.axion.com.br/*",
-    "https://*.axion.com.br/*"
+    "https://*.whatshybrid.com/*",
+    "https://*.whatshybrid.com.br/*"
   ],
   "background": {
     "service_worker": "background.js"

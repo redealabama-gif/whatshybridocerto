@@ -1,5 +1,5 @@
 /**
- * 🗣️ Axion - Speech API Routes
+ * 🗣️ WhatsHybrid - Speech API Routes
  * Rotas para Speech-to-Text e Text-to-Speech
  * 
  * @version 7.9.13

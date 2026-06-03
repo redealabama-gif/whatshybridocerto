@@ -1,5 +1,5 @@
 /**
- * Axion Audio & File Handler v7.5.1
+ * WhatsHybrid Audio & File Handler v7.5.1
  * 
  * SOLUÇÃO TÉCNICA:
  * - window.Store do WhatsApp NÃO está acessível (isolated world)

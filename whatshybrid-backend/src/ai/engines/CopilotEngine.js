@@ -1,6 +1,6 @@
 /**
  * 🧠 CopilotEngine - Motor principal do assistente de IA
- * Axion v7.1.0
+ * WhatsHybrid Pro v7.1.0
  * 
  * Features:
  * - Intent detection

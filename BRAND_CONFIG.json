@@ -1,14 +1,14 @@
 {
-  "_comment": "White-label branding configuration for Axion.",
+  "_comment": "White-label branding configuration for WhatsHybrid Pro.",
   "_usage": "Set BUILD_BRAND=<key> before running npm run build:extension",
 
   "default": {
-    "name": "Axion",
-    "shortName": "AXION",
+    "name": "WhatsHybrid Pro",
+    "shortName": "WHP",
     "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo, análise comportamental e muito mais.",
-    "author": "Axion Team",
-    "supportEmail": "suporte@axion.com.br",
-    "website": "https://axion.com.br",
+    "author": "WhatsHybrid Team",
+    "supportEmail": "suporte@whatshybrid.com",
+    "website": "https://whatshybrid.com",
     "primaryColor": "#25D366",
     "secondaryColor": "#128C7E",
     "accentColor": "#34B7F1",

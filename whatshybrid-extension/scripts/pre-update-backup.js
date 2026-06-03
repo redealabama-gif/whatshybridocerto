@@ -1,6 +1,6 @@
 /**
  * 💾 Pre-Update Backup - Backup antes de atualizações
- * Axion v7.9.12
+ * WhatsHybrid v7.9.12
  * 
  * Cria backup completo de todos os dados da extensão
  * antes de uma atualização.

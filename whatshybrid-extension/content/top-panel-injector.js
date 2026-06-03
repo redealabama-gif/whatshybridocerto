@@ -104,9 +104,9 @@
         panel.innerHTML = `
             <div class="top-panel-container">
                 <div class="top-panel-left">
-                    <div class="top-panel-logo" title="Axion">
-                        <img src="${chrome.runtime.getURL('icons/48.png')}" alt="Axion" class="logo-icon-img" style="width:24px;height:24px;border-radius:4px;">
-                        <span class="logo-text">Axion</span>
+                    <div class="top-panel-logo" title="WhatsHybrid">
+                        <img src="${chrome.runtime.getURL('icons/48.png')}" alt="WhatsHybrid" class="logo-icon-img" style="width:24px;height:24px;border-radius:4px;">
+                        <span class="logo-text">WhatsHybrid</span>
                     </div>
                 </div>
                 <div class="top-panel-center">
@@ -211,7 +211,7 @@
         btn.className = 'wa-extractor-restore-btn';
         btn.type = 'button';
         btn.textContent = 'WHL';
-        btn.title = 'Mostrar painéis (Axion)';
+        btn.title = 'Mostrar painéis (WhatsHybrid Lite)';
 
         btn.addEventListener('click', () => {
             // User gesture: we can reopen side panel here

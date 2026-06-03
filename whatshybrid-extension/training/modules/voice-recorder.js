@@ -1,5 +1,5 @@
 /**
- * 🎤 Axion - Voice Recorder
+ * 🎤 WhatsHybrid - Voice Recorder
  * Sistema de gravação de áudio para treinamento de IA
  * @version 7.9.13
  */

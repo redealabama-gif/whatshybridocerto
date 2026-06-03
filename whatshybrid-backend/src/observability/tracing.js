@@ -1,5 +1,5 @@
 /**
- * 🔍 Axion - Tracing Distribuído
+ * 🔍 WhatsHybrid - Tracing Distribuído
  * Sistema de rastreamento de requisições com propagação de contexto
  * 
  * @version 7.9.13

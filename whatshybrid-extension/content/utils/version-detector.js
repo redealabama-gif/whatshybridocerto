@@ -1,11 +1,11 @@
 /**
- * Axion - WhatsApp Web Version Detector
+ * WhatsHybrid Lite - WhatsApp Web Version Detector
  * 
  * Detecta a versão do WhatsApp Web e ajusta seletores automaticamente.
  * Mantém compatibilidade com múltiplas versões do WhatsApp Web.
  * 
  * @version 1.0.0
- * @author Axion Team
+ * @author WhatsHybrid Team
  */
 
 (function() {

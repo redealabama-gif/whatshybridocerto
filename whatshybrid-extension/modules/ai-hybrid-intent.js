@@ -1,6 +1,6 @@
 /**
  * 🎯 HybridIntentClassifier - Sistema Híbrido de Classificação de Intenções
- * Axion v7.9.13 - Extension Version
+ * WhatsHybrid Pro v7.9.13 - Extension Version
  * 
  * Estratégia de classificação em camadas:
  * 1. Regex rápido (gratuito) - retorna se confiança > 0.8

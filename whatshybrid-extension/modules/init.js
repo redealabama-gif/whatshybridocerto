@@ -95,7 +95,7 @@
         <h2 style="color: #EF4444; margin: 0 0 16px; font-size: 24px;">Erro Crítico de Inicialização</h2>
         <p style="color: #D1D5DB; margin: 0 0 16px; font-size: 16px; line-height: 1.5;">
           O módulo <strong style="color: white;">${safeModuleName}</strong> falhou ao inicializar.
-          O Axion não pode funcionar corretamente sem este módulo.
+          O WhatsHybrid não pode funcionar corretamente sem este módulo.
         </p>
         <p style="color: #9CA3AF; font-size: 13px; margin: 0 0 24px; background: #111827; padding: 12px; border-radius: 8px; text-align: left; font-family: monospace; word-break: break-all;">
           ${safeErrorMsg}

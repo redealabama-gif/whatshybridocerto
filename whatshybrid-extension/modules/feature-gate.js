@@ -1,5 +1,5 @@
 /**
- * Axion Feature Gate v1.0.0
+ * WhatsHybrid Feature Gate v1.0.0
  * Sistema de bloqueio de recursos baseado em assinatura
  * Controla acesso a funcionalidades por plano
  */

@@ -1,5 +1,5 @@
 /**
- * Axion – EXTRATOR TURBO v7 com FILTRO ULTRA-RIGOROSO
+ * WhatsHybrid – EXTRATOR TURBO v7 com FILTRO ULTRA-RIGOROSO
  * 
  * ESTRATÉGIA:
  * 1. Coleta APENAS de fontes confiáveis (@c.us, data-id, data-jid)

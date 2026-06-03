@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * pack-extension.js
- * Axion — Empacotador oficial da extensão Chrome
+ * WhatsHybrid Pro — Empacotador oficial da extensão Chrome
  *
  * Lê dist/extension/ (gerado por build-extension.js) e cria
  * um arquivo ZIP pronto para entrega ao cliente ou upload na Chrome Web Store.

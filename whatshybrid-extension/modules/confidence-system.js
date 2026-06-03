@@ -1,6 +1,6 @@
 /**
  * 🎯 Confidence System - Sistema de Confiança e Copilot Mode
- * Axion v7.6.0
+ * WhatsHybrid v7.6.0
  * 
  * Funcionalidades:
  * - Cálculo de score de confiança (0-100%)

@@ -1,6 +1,6 @@
 /**
  * Backend Logger Centralizado
- * Axion v9.2.0 — adicionada sanitização de secrets
+ * WhatsHybrid v9.2.0 — adicionada sanitização de secrets
  */
 
 const { v4: uuidv4 } = require('uuid'); // Assumindo wrapper ou uuid direto

@@ -1,6 +1,6 @@
 /**
  * 📊 AI Feedback System - Sistema de Feedback Multi-dimensional
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Features:
  * - Feedback explícito (rating, correções)

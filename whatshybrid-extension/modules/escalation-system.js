@@ -1,5 +1,5 @@
 /**
- * 🎯 Sistema de Escalonamento e SLA - Axion
+ * 🎯 Sistema de Escalonamento e SLA - WhatsHybrid
  * 
  * Sistema completo de escalonamento para atendimento humano com:
  * - Fila de tickets priorizada
@@ -10,7 +10,7 @@
  * - Métricas e relatórios
  * 
  * @version 1.0.0
- * @author Axion Team
+ * @author WhatsHybrid Team
  */
 
 (function() {
@@ -649,7 +649,7 @@
     async sendNotification(event, message, data = {}) {
       // Notificação local
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('Axion Escalation', {
+        new Notification('WhatsHybrid Escalation', {
           body: message,
           icon: '/icons/icon48.png'
         });

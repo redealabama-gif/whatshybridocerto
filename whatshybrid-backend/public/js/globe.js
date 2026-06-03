@@ -1,5 +1,5 @@
 /**
- * Axion — Globe interativo (cobe, vanilla)
+ * WhatsHybrid Pro — Globe interativo (cobe, vanilla)
  * Globo arrastável com marcadores concentrados no Brasil/América do Sul + hubs
  * globais. Os marcadores "quentes" (Brasil) pulsam. Sem React. Carrega o cobe
  * via ESM (CDN); se falhar, mostra um fallback estático e não quebra a página.

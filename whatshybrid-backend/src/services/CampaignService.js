@@ -8,7 +8,7 @@
  */
 /**
  * 📢 CampaignService - Serviço de Campanhas
- * Axion v7.1.0
+ * WhatsHybrid Pro v7.1.0
  */
 
 const { v4: uuidv4 } = require('../utils/uuid-wrapper');

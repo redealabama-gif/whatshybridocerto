@@ -1,4 +1,4 @@
-# 📚 Central de Ajuda Axion
+# 📚 Central de Ajuda WhatsHybrid Pro
 
 Bem-vindo. Esta documentação cobre tudo que você precisa pra começar e operar.
 
@@ -27,7 +27,7 @@ Bem-vindo. Esta documentação cobre tudo que você precisa pra começar e opera
 - [Erros comuns](troubleshooting.md)
 - [Extensão não conecta](extension-connection-issues.md)
 - [IA respondendo de forma inadequada](ai-quality-tuning.md)
-- [Status do serviço](https://status.axion.com.br) (link externo)
+- [Status do serviço](https://status.whatshybrid.com.br) (link externo)
 
 ## 🔐 Segurança
 
@@ -37,7 +37,7 @@ Bem-vindo. Esta documentação cobre tudo que você precisa pra começar e opera
 
 ## 🔗 API
 
-- [Documentação OpenAPI](https://app.axion.com.br/api-docs.html) (link externo)
+- [Documentação OpenAPI](https://app.whatshybrid.com.br/api-docs.html) (link externo)
 - [Autenticação](api-authentication.md)
 - [Rate limits](api-rate-limits.md)
 
@@ -52,7 +52,7 @@ Bem-vindo. Esta documentação cobre tudo que você precisa pra começar e opera
 Para gerar um site público a partir destes markdowns, há 3 opções:
 
 1. **Mintlify** (recomendado, free tier generoso): conecta repositório,
-   identifica esta pasta, gera site em `docs.axion.com.br`.
+   identifica esta pasta, gera site em `docs.whatshybrid.com.br`.
 2. **docs.page**: similar ao Mintlify, sem deploy.
 3. **GitHub Pages + Jekyll**: hospedagem grátis, mais setup.
 

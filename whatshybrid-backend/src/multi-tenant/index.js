@@ -1,5 +1,5 @@
 /**
- * 🏢 Axion - Multi-Tenant Module
+ * 🏢 WhatsHybrid - Multi-Tenant Module
  * Módulo central de multi-tenancy
  * 
  * @version 7.9.13

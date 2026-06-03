@@ -1,5 +1,5 @@
 /**
- * Axion — Hero FX engine
+ * WhatsHybrid Pro — Hero FX engine
  * Camada de movimento "viva/tecnológica" para a landing.
  *
  *  • Constelação de partículas interativa (hero) — liga ao cursor, repele.

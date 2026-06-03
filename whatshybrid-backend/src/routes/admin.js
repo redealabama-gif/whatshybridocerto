@@ -208,7 +208,7 @@ router.post('/subscriptions/:code/resend-email', asyncHandler(async (req, res) =
   // TODO: Integrar com SendGrid/SES/etc
   // await emailService.send({
   //   to: subscription.email,
-  //   subject: 'Seu código Axion',
+  //   subject: 'Seu código WhatsHybrid',
   //   template: 'subscription-code',
   //   data: { code, plan: subscription.plan_id }
   // });

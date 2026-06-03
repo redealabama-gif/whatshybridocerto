@@ -1,5 +1,5 @@
 /**
- * Axion Subscription Manager v1.0.0
+ * WhatsHybrid Subscription Manager v1.0.0
  * Sistema de assinaturas robusto com controle de créditos e uso
  * 
  * Modelo: Código de assinatura único (sem login tradicional)
@@ -1305,19 +1305,19 @@
   function getUpgradeUrl(planId) {
     const base = (_backendBaseCache || '').replace(/\/+$/, '');
     if (base) return `${base}/dashboard.html#billing`;
-    return `https://axion.com.br/planos?plan=${planId || ''}`;
+    return `https://whatshybrid.com/planos?plan=${planId || ''}`;
   }
 
   function getBuyCreditsUrl() {
     const base = (_backendBaseCache || '').replace(/\/+$/, '');
     if (base) return `${base}/dashboard.html#tokens`;
-    return 'https://axion.com.br/creditos';
+    return 'https://whatshybrid.com/creditos';
   }
 
   function getManageUrl() {
     const base = (_backendBaseCache || '').replace(/\/+$/, '');
     if (base) return `${base}/dashboard.html#billing`;
-    return 'https://axion.com.br/minha-conta';
+    return 'https://whatshybrid.com/minha-conta';
   }
 
   // ============================================

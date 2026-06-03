@@ -1,6 +1,6 @@
 /**
  * 🚀 AI Response Cache - Cache Semântico Inteligente
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Features:
  * - Cache semântico (não exato)

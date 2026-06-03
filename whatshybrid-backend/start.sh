@@ -1,11 +1,11 @@
 #!/bin/bash
 # =====================================================
-# Axion Backend - Script de Inicialização
+# WhatsHybrid Backend - Script de Inicialização
 # =====================================================
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
-echo "║   🚀 Axion Backend v7.5.0                  ║"
+echo "║   🚀 WhatsHybrid Backend v7.5.0                  ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 

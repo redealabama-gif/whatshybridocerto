@@ -1,5 +1,5 @@
 /**
- * Axion - Unified Logging Framework
+ * WhatsHybrid Lite - Unified Logging Framework
  * Replaces empty catch blocks and provides meaningful output
  */
 

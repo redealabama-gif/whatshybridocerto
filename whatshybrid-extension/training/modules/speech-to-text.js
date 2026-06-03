@@ -1,5 +1,5 @@
 /**
- * 🗣️ Axion - Speech to Text
+ * 🗣️ WhatsHybrid - Speech to Text
  * Transcrição de áudio com múltiplos provedores e idiomas
  * @version 7.9.13
  */

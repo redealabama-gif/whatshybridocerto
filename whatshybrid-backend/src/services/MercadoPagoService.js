@@ -83,7 +83,7 @@ class MercadoPagoService {
       }
     }
 
-    const title = `Axion — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
+    const title = `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
       (appliedCoupon ? ` (${appliedCoupon.label})` : '');
 
     const payload = {
@@ -92,7 +92,7 @@ class MercadoPagoService {
         title,
         description: appliedCoupon
           ? `Assinatura mensal — 1ª fatura com cupom ${appliedCoupon.code}`
-          : `Assinatura mensal Axion - ${plan}`,
+          : `Assinatura mensal WhatsHybrid Pro - ${plan}`,
         quantity: 1,
         currency_id: 'BRL',
         unit_price: finalPrice,
@@ -298,7 +298,7 @@ class MercadoPagoService {
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
 
     const payload = {
-      reason: `Axion — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
+      reason: `WhatsHybrid Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
         (appliedCoupon ? ` (${appliedCoupon.label})` : ''),
       external_reference: appliedCoupon
         ? `subscription|${workspaceId}|${plan}|coupon:${appliedCoupon.code}`

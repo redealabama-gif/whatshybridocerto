@@ -1,7 +1,7 @@
 /**
  * templates.js - Sistema de Templates de Mensagens
  * 
- * Gerencia templates reutilizáveis com variáveis dinâmicas para o Axion.
+ * Gerencia templates reutilizáveis com variáveis dinâmicas para o WhatsHybrid.
  */
 
 class TemplateManager {

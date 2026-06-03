@@ -1,5 +1,5 @@
 /**
- * Axion — Neural Core
+ * WhatsHybrid Pro — Neural Core
  * Acabamento do vídeo do cristal: garante loop, parallax no mouse, parallax no
  * scroll e partículas flutuando ao redor. Sem WebGL. Respeita reduced-motion/touch.
  */

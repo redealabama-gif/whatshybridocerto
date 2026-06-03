@@ -1,6 +1,6 @@
 /**
  * 🧠 AI Router Service - Roteamento inteligente entre providers
- * Axion v7.1.0
+ * WhatsHybrid Pro v7.1.0
  * 
  * Features:
  * - Multiple providers (OpenAI, Anthropic, Groq, Google, etc.)
