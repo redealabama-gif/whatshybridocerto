@@ -1,0 +1,39 @@
+name: DR — backup restore drill
+
+# Disaster Recovery: não basta ter script de backup; o que prova resiliência é
+# RESTAURAR e conferir o dado. Este drill executa o ciclo completo (backup →
+# desastre → restore → verifica integridade + fingerprint) a cada push/PR em main
+# e semanalmente. Ver whatshybrid-backend/scripts/dr-restore-drill.js.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * 1' # semanal (segunda 05:17 UTC)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    name: SQLite backup restore drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: whatshybrid-backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: whatshybrid-backend
+        run: npm ci
+
+      - name: Restore drill (backup → desastre → restore → verifica)
+        working-directory: whatshybrid-backend
+        run: npm run dr:drill

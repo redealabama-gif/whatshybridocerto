@@ -27,6 +27,8 @@
     "test:tenant": "node tests/smoke/tenant-isolation.test.js",
     "migrate:up": "node src/utils/migration-runner.js up",
     "migrate:status": "node src/utils/migration-runner.js status",
+    "audit:gate": "node scripts/audit-gate.js",
+    "dr:drill": "node scripts/dr-restore-drill.js",
     "migrate:sqlite-to-postgres": "node scripts/migrate-sqlite-to-postgres.js",
     "migrate:sqlite-to-postgres:dry": "node scripts/migrate-sqlite-to-postgres.js --dry-run"
   },
