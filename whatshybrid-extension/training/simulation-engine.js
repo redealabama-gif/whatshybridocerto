@@ -1,6 +1,6 @@
 /**
  * 🧠 Simulation Engine - Motor de Simulação Neural
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Ambiente controlado para testar e treinar a IA real
  * com conversas artificiais supervisionadas.

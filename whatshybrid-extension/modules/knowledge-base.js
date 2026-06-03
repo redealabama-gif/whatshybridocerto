@@ -1,6 +1,6 @@
 /**
  * 📚 Knowledge Base - Base de Conhecimento para IA
- * Axion v9.0.0
+ * WhatsHybrid v9.0.0
  *
  * P6 FIX: Storage migrated from chrome.storage.local (10MB limit) to
  * IndexedDB via window.IDBStorage (no practical limit).

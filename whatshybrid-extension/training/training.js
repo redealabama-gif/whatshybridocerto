@@ -1,5 +1,5 @@
 /**
- * Training IA - Axion
+ * Training IA - WhatsHybrid
  * Interface para treinamento da IA
  *
  * @version 9.5.1

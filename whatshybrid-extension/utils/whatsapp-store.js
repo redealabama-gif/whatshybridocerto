@@ -1,6 +1,6 @@
 /**
  * 🏪 WhatsApp Store - Wrapper seguro para window.Store
- * Axion v7.9.12
+ * WhatsHybrid v7.9.12
  * 
  * Provê acesso seguro e robusto às APIs internas do WhatsApp Web.
  * 

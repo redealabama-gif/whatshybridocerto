@@ -1,5 +1,5 @@
 /**
- * 🌍 Axion - Seletor de Idioma
+ * 🌍 WhatsHybrid - Seletor de Idioma
  * Componente UI para seleção de idioma
  * 
  * @version 7.9.13

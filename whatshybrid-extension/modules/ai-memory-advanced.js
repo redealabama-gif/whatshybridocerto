@@ -1,6 +1,6 @@
 /**
  * 🧠 AI Memory Advanced - Sistema de Memória Contextual Avançada
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Features:
  * - Perfil dinâmico do cliente

@@ -14,7 +14,7 @@
  *   brew install k6   # ou apt install k6 (https://k6.io/docs/get-started/installation)
  *
  * Env vars:
- *   BASE_URL=https://staging.axion.com.br k6 run signup-flow.k6.js
+ *   BASE_URL=https://staging.whatshybrid.com.br k6 run signup-flow.k6.js
  */
 
 import http from 'k6/http';
@@ -138,7 +138,7 @@ export function handleSummary(data) {
 function textSummary(data) {
   return `
 ╔══════════════════════════════════════════════════╗
-║  Axion — Load Test Results             ║
+║  WhatsHybrid Pro — Load Test Results             ║
 ╚══════════════════════════════════════════════════╝
 
 Iterations: ${data.metrics.iterations.values.count}

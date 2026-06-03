@@ -1,6 +1,6 @@
 /**
  * 📇 ContactManager - Gerenciador Avançado de Contatos
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Camada de gerenciamento que integra:
  * - ContactImporter (import Excel/CSV)

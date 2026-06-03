@@ -1,5 +1,5 @@
 /**
- * Axion - Global Constants
+ * WhatsHybrid Lite - Global Constants
  * Centralized configuration to avoid magic numbers scattered throughout codebase
  */
 
@@ -78,7 +78,7 @@ window.WHL_CONSTANTS.CONFIDENCE_SCORES = {
 };
 
 // DOM Selector sets (fallback options for resilience) - ATUALIZADO DEZ 2025
-// Baseado em: Mapa de Seletores Axion Fusion v1.4.0
+// Baseado em: Mapa de Seletores WhatsHybrid Lite Fusion v1.4.0
 window.WHL_CONSTANTS.WHL_SELECTORS = {
   MESSAGE_INPUT: [
     '[data-testid="conversation-compose-box-input"]',

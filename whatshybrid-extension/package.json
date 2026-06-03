@@ -1,7 +1,7 @@
 {
   "name": "whatshybrid-extension",
   "version": "9.6.0",
-  "description": "Axion - Extensão Chrome para WhatsApp Web",
+  "description": "WhatsHybrid Pro - Extensão Chrome para WhatsApp Web",
   "private": true,
   "main": "background.js",
   "scripts": {
@@ -32,7 +32,7 @@
     "ai",
     "chrome-extension"
   ],
-  "author": "Axion Team",
+  "author": "WhatsHybrid Team",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=16.0.0"

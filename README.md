@@ -1,4 +1,4 @@
-# Axion
+# WhatsHybrid Pro
 
 > **CRM SaaS B2B com IA neural para WhatsApp Web**
 > Atendimento automatizado, aprendizado contínuo, integração nativa via extensão Chrome.

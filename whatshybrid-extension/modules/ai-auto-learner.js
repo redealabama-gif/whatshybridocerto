@@ -1,6 +1,6 @@
 /**
  * 🎓 AI Auto Learner - Aprendizado Contínuo Automático
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Features:
  * - Aprendizado automático de conversas bem-sucedidas

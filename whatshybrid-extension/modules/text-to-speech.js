@@ -1,5 +1,5 @@
 /**
- * Axion TextToSpeechService v1.0.0
+ * WhatsHybrid TextToSpeechService v1.0.0
  * Serviço de síntese de voz para leitura de mensagens
  * 
  * Suporta:

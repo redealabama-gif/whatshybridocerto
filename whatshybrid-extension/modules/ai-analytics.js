@@ -1,6 +1,6 @@
 /**
  * 📈 AI Analytics - Dashboard de Performance da IA
- * Axion v7.7.0
+ * WhatsHybrid v7.7.0
  * 
  * Features:
  * - Métricas de qualidade

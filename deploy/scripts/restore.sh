@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Axion — Restore de backup
+# WhatsHybrid Pro — Restore de backup
 # ═══════════════════════════════════════════════════════════════════════════
 # Uso:
 #   ./deploy/scripts/restore.sh /path/to/backup.tar.gz             # dry-run

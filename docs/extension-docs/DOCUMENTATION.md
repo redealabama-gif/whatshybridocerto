@@ -1,8 +1,8 @@
-# Axion - Technical Documentation
+# WhatsHybrid Lite - Technical Documentation
 
 ## Overview
 
-Axion is a Chrome extension that automates message sending on WhatsApp Web. This documentation provides technical details for developers working on the project.
+WhatsHybrid Lite is a Chrome extension that automates message sending on WhatsApp Web. This documentation provides technical details for developers working on the project.
 
 ## Architecture
 

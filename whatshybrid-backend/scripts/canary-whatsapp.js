@@ -225,7 +225,7 @@ async function run() {
       REPORT.status = 'degraded';
       REPORT.errors.push('Extensão não carregou globais window.WHL_*');
       await alert('warning',
-        `⚠️ Extensão Axion não carregou`,
+        `⚠️ Extensão WhatsHybrid não carregou`,
         {
           wa_version: diag.wa_version || '?',
           extension_globals_count: diag.extensionGlobals.length,

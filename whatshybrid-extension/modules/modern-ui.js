@@ -1,6 +1,6 @@
 /**
- * 🎨 ModernUI - Sistema de UI moderno para Axion
- * Axion v7.1.0
+ * 🎨 ModernUI - Sistema de UI moderno para WhatsHybrid
+ * WhatsHybrid Pro v7.1.0
  * 
  * Controla todos os elementos visuais e interações
  */

@@ -1,6 +1,6 @@
 /**
  * Adapter para compatibilidade com SmartBot legado
- * Axion v7.9.12
+ * WhatsHybrid v7.9.12
  */
 (function() {
   'use strict';

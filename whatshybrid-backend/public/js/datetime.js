@@ -1,5 +1,5 @@
 /**
- * Axion Datetime Helper — v9.2.0
+ * WhatsHybrid Datetime Helper — v9.2.0
  *
  * Converte timestamps UTC do backend pra timezone local do usuário.
  *

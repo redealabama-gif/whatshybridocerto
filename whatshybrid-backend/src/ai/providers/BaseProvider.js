@@ -1,6 +1,6 @@
 /**
  * 🤖 BaseProvider - Interface base para providers de IA
- * Axion v7.1.0
+ * WhatsHybrid Pro v7.1.0
  *
  * Todos os providers devem estender esta classe
  */

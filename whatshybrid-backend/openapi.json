@@ -1,18 +1,18 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Axion API",
-    "description": "API REST do Axion — CRM SaaS B2B com IA neural para WhatsApp.",
+    "title": "WhatsHybrid Pro API",
+    "description": "API REST do WhatsHybrid Pro — CRM SaaS B2B com IA neural para WhatsApp.",
     "version": "9.0.0",
     "contact": {
-      "name": "Suporte Axion",
-      "email": "suporte@axion.com.br",
-      "url": "https://axion.com.br"
+      "name": "Suporte WhatsHybrid",
+      "email": "suporte@whatshybrid.com.br",
+      "url": "https://whatshybrid.com.br"
     },
     "license": { "name": "Proprietary" }
   },
   "servers": [
-    { "url": "https://api.axion.com.br", "description": "Produção" },
+    { "url": "https://api.whatshybrid.com.br", "description": "Produção" },
     { "url": "http://localhost:3000", "description": "Desenvolvimento" }
   ],
   "security": [{ "bearerAuth": [] }],

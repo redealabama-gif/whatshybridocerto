@@ -1,5 +1,5 @@
 /**
- * Axion - Compatibility Manager
+ * WhatsHybrid Lite - Compatibility Manager
  * 
  * Gerencia compatibilidade entre versões do WhatsApp Web.
  * Detecta mudanças de UI e adapta seletores automaticamente.

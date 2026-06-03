@@ -1,7 +1,7 @@
 {
   "name": "whatshybrid-monorepo",
   "version": "8.0.1",
-  "description": "Axion - WhatsApp Automation Platform",
+  "description": "WhatsHybrid Pro - WhatsApp Automation Platform",
   "private": true,
   "workspaces": [
     "whatshybrid-extension",
@@ -53,6 +53,6 @@
     "chrome-extension",
     "backend"
   ],
-  "author": "Axion Team",
+  "author": "WhatsHybrid Team",
   "license": "MIT"
 }

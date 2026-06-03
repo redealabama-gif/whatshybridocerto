@@ -1025,7 +1025,7 @@
       }
 
       const cfg = window.WHL_CONFIG || {};
-      const backendUrl = cfg.apiUrl || cfg.backendUrl || 'https://api.axion.com.br';
+      const backendUrl = cfg.apiUrl || cfg.backendUrl || 'https://api.whatshybrid.com.br';
 
       // Backend faz pre-check de saldo (Bug #75) e debita tokens (TokenService).
       // Se cliente sem saldo, retorna 402.

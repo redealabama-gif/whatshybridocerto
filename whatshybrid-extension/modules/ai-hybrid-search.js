@@ -14,7 +14,7 @@
  * - Stats tracking and performance monitoring
  * 
  * @version 1.0.0
- * @author Axion Team
+ * @author WhatsHybrid Team
  */
 
 (function() {

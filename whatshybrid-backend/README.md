@@ -1,6 +1,6 @@
-# 🚀 Axion Backend v7.5.0
+# 🚀 WhatsHybrid Backend v7.5.0
 
-Backend API para Axion - Sistema de automação e IA para WhatsApp.
+Backend API para WhatsHybrid Pro - Sistema de automação e IA para WhatsApp.
 
 ## 📋 Requisitos
 
@@ -97,7 +97,7 @@ O servidor iniciará em **http://localhost:3000**
 
 ## 🔧 Conectar Extensão ao Backend
 
-Na extensão Axion:
+Na extensão WhatsHybrid:
 
 1. Abra o **Side Panel** (ícone na barra do Chrome)
 2. Vá em **⚙️ Configurações** > **Backend**

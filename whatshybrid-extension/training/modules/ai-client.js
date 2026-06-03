@@ -1,5 +1,5 @@
 /**
- * 🤖 Axion - AI Client para Training
+ * 🤖 WhatsHybrid - AI Client para Training
  * Cliente de IA leve para uso na página de treinamento
  * Faz chamadas diretas para APIs de IA
  * 

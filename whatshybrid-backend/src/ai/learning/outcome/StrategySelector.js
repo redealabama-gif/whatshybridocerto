@@ -1,6 +1,6 @@
 /**
  * 🧭 StrategySelector
- * Axion v10.2.0 — Auto-Evolutionary AI
+ * WhatsHybrid Pro v10.2.0 — Auto-Evolutionary AI
  *
  * Seleciona AUTOMATICAMENTE a melhor estratégia de resposta
  * antes de construir o prompt, baseado em performance histórica REAL.

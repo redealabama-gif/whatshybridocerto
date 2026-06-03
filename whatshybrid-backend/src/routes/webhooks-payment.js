@@ -141,15 +141,15 @@ async function sendSubscriptionEmail(email, code, planId, expiresAt) {
   
   await sgMail.send({
     to: email,
-    from: 'noreply@axion.com.br',
-    subject: '🎉 Seu Axion foi ativado!',
+    from: 'noreply@whatshybrid.com',
+    subject: '🎉 Seu WhatsHybrid foi ativado!',
     html: `
-      <h1>Bem-vindo ao Axion ${PLANS[planId].name}!</h1>
+      <h1>Bem-vindo ao WhatsHybrid ${PLANS[planId].name}!</h1>
       <p>Seu código de ativação:</p>
       <h2 style="background:#8b5cf6;color:white;padding:20px;text-align:center;border-radius:10px;">
         ${code}
       </h2>
-      <p>Cole este código no campo "Assinatura" do Axion.</p>
+      <p>Cole este código no campo "Assinatura" do WhatsHybrid.</p>
       <p>Válido até: ${new Date(expiresAt).toLocaleDateString('pt-BR')}</p>
     `
   });

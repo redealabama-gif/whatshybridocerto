@@ -1,4 +1,4 @@
-# Axion — Caddy reverse proxy
+# WhatsHybrid Pro — Caddy reverse proxy
 #
 # Caddy resolve TLS automaticamente via Let's Encrypt.
 # Nada de certbot, nada de cron de renovação. Só funciona.

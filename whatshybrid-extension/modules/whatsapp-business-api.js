@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║              API WHATSAPP BUSINESS INTEGRADA                              ║
- * ║                    Axion v7.9.12                                    ║
+ * ║                    WhatsHybrid v7.9.12                                    ║
  * ╠═══════════════════════════════════════════════════════════════════════════╣
  * ║  Integração com WhatsApp Business API (Cloud API)                         ║
  * ║  Suporta envio de mensagens, templates, mídia e webhooks                  ║

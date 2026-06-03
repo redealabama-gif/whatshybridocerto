@@ -1,5 +1,5 @@
 /**
- * Axion - Correções Consolidadas para Side Panel Router
+ * WhatsHybrid Lite - Correções Consolidadas para Side Panel Router
  * 
  * Este arquivo adiciona as funcionalidades que estavam quebradas ou incompletas:
  * - CRM: Etiquetas funcionais, botões Ver/Mensagem

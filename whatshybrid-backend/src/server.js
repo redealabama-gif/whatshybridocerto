@@ -1,6 +1,6 @@
 /**
- * 🚀 Axion Backend Server
- * Enterprise API for Axion
+ * 🚀 WhatsHybrid Backend Server
+ * Enterprise API for WhatsHybrid Pro
  */
 
 require('dotenv').config();
@@ -535,7 +535,7 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'dashboar
 // API Documentation
 app.get('/api', (req, res) => {
   res.json({
-    name: 'Axion API',
+    name: 'WhatsHybrid API',
     version: packageVersion,
     documentation: '/api/docs',
     endpoints: {
@@ -671,7 +671,7 @@ async function startServer() {
     server.listen(PORT, () => {
       logger.info(`
 ╔══════════════════════════════════════════════════╗
-║   🚀 Axion Backend Server                  ║
+║   🚀 WhatsHybrid Backend Server                  ║
 ║   Version: ${packageVersion.padEnd(31)}║
 ║   Environment: ${config.env.padEnd(32)}║
 ║   Port: ${String(PORT).padEnd(39)}║

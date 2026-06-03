@@ -1,6 +1,6 @@
 /**
  * 🎓 Few-Shot Learning - Sistema de Exemplos de Treinamento
- * Axion v7.6.0
+ * WhatsHybrid v7.6.0
  * 
  * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
  * This module has hardcoded Portuguese labels for few-shot examples.

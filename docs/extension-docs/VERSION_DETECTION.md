@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-O sistema de detecção de versão do WhatsApp Web foi implementado para garantir compatibilidade contínua da extensão Axion com diferentes versões do WhatsApp Web. O sistema detecta automaticamente a versão em uso e adapta os seletores DOM conforme necessário.
+O sistema de detecção de versão do WhatsApp Web foi implementado para garantir compatibilidade contínua da extensão WhatsHybrid com diferentes versões do WhatsApp Web. O sistema detecta automaticamente a versão em uso e adapta os seletores DOM conforme necessário.
 
 ## Arquitetura
 

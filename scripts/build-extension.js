@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * build-extension.js
- * Axion — Build oficial da extensão Chrome
+ * WhatsHybrid Pro — Build oficial da extensão Chrome
  *
  * Gera um diretório limpo em dist/extension/ pronto para empacotamento.
  * Remove arquivos de dev, valida manifest e sincroniza versões.
@@ -178,7 +178,7 @@ function writeBuildInfo(version) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────
-console.log('\n🔨 Axion — Build da Extensão\n');
+console.log('\n🔨 WhatsHybrid Pro — Build da Extensão\n');
 cleanDist();
 copySources();
 applyBranding();

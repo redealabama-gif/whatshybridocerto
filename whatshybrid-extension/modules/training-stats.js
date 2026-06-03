@@ -1,6 +1,6 @@
 /**
  * 📊 Training Stats - Estatísticas de Treinamento
- * Axion v7.6.0
+ * WhatsHybrid v7.6.0
  * 
  * Funcionalidades:
  * - Rastreamento de estatísticas de treinamento

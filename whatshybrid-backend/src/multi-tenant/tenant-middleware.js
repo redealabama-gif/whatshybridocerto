@@ -1,5 +1,5 @@
 /**
- * 🏢 Axion - Tenant Middleware
+ * 🏢 WhatsHybrid - Tenant Middleware
  * Middleware para isolamento de dados multi-tenant
  *
  * @version 7.9.13

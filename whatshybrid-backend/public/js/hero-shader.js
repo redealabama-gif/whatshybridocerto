@@ -1,5 +1,5 @@
 /**
- * Axion — Hero nebula shader (WebGL2)
+ * WhatsHybrid Pro — Hero nebula shader (WebGL2)
  *
  * Substitui as partículas que existiam no hero (canvas 2D ".hero-particles")
  * por uma nebulosa procedural com raios passando, na paleta cyan/purple da

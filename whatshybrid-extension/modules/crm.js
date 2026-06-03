@@ -1,6 +1,6 @@
 /**
  * 👥 CRM Module - Sistema CRM FUNCIONAL
- * Axion v52 - TOTALMENTE EM PORTUGUÊS
+ * WhatsHybrid v52 - TOTALMENTE EM PORTUGUÊS
  * Correções:
  * - Deal → Negócio (tradução completa)
  * - Etiquetas funcionando no modal do contato

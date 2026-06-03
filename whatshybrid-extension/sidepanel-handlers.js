@@ -1,6 +1,6 @@
 /**
  * Sidepanel Inline Scripts - Movido para arquivo separado por CSP
- * Axion v6.8.2
+ * WhatsHybrid v6.8.2
  */
 
 // Initialize all modules after page load
@@ -797,7 +797,7 @@ function initTTSHandlers() {
             updateTTSStatus('🔊 Testando voz...');
             try {
                 if (window.TTS) {
-                    await window.TTS.speak('Olá! Esta é uma mensagem de teste do Axion. A leitura de mensagens está funcionando corretamente.');
+                    await window.TTS.speak('Olá! Esta é uma mensagem de teste do WhatsHybrid. A leitura de mensagens está funcionando corretamente.');
                     updateTTSStatus('✅ Teste concluído!');
                 } else {
                     updateTTSStatus('❌ TTS não disponível');

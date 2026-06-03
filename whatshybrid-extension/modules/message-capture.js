@@ -1,6 +1,6 @@
 /**
  * 📨 Message Capture System - Pilar 1 do Aprendizado Contínuo
- * Axion v7.10.0
+ * WhatsHybrid v7.10.0
  * 
  * Sistema unificado de captura de mensagens do WhatsApp Web.
  * Captura todas as mensagens (enviadas, recebidas, apagadas, editadas)

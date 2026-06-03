@@ -1,4 +1,4 @@
-# RUNBOOK Operacional — Axion
+# RUNBOOK Operacional — WhatsHybrid Pro
 
 > Procedimentos para operar o sistema em produção. Mantenha aberto durante incidentes.
 
@@ -8,7 +8,7 @@
 
 ### 1. O backend está down
 
-**Sintomas:** Cliente reclama que o site/dashboard não abre. Status page (status.axion.com.br) mostra red.
+**Sintomas:** Cliente reclama que o site/dashboard não abre. Status page (status.whatshybrid.com.br) mostra red.
 
 **Diagnose:**
 ```bash
@@ -85,7 +85,7 @@ docker compose logs caddy --since 1h | grep webhook
 
 # Se status = 'failed': processar de novo
 # Pega o id e força replay manual:
-curl -X POST https://api.axion.com.br/api/v1/webhooks/payment/manual-confirm \
+curl -X POST https://api.whatshybrid.com.br/api/v1/webhooks/payment/manual-confirm \
   -H "Authorization: Bearer <admin_token>" \
   -H "Content-Type: application/json" \
   -d '{"payment_id": "MP-PAYMENT-ID", "workspace_id": "WS-ID"}'
@@ -129,7 +129,7 @@ e.processOutbox(50).then(r => console.log(r));
 
 **Diagnose:**
 ```bash
-curl https://api.axion.com.br/health/deep | jq .checks.ai_providers
+curl https://api.whatshybrid.com.br/health/deep | jq .checks.ai_providers
 ```
 
 Se `active: 0`:
@@ -233,7 +233,7 @@ docker compose exec backend npm run migrate:up
 ### Smoke tests contra produção
 
 ```bash
-TEST_BASE_URL=https://api.axion.com.br npm run test:smoke
+TEST_BASE_URL=https://api.whatshybrid.com.br npm run test:smoke
 ```
 
 ---
@@ -297,7 +297,7 @@ aws s3 cp $FINAL_NAME s3://whatshybrid-backups/
 
 8. **Monitora:**
    - Sentry pra erros novos
-   - Status page status.axion.com.br atualiza automático
+   - Status page status.whatshybrid.com.br atualiza automático
 
 **Tempo alvo:** < 30 minutos do incidente até serviço operacional.
 
@@ -367,7 +367,7 @@ Em caso de incidente: documente sempre em `/docs/incidents/INCIDENT-YYYY-MM-DD.m
 Acesse o painel:
 
 ```
-https://api.axion.com.br/admin/telemetry.html
+https://api.whatshybrid.com.br/admin/telemetry.html
 ```
 
 (Cole seu JWT admin no primeiro carregamento — fica salvo em `localStorage`.)
@@ -392,7 +392,7 @@ Quatro coisas pra olhar nessa ordem:
 
 ```bash
 JWT='eyJhbGc...'   # JWT do seu user admin
-BACKEND='https://api.axion.com.br'
+BACKEND='https://api.whatshybrid.com.br'
 
 # Resumo geral
 curl -s -H "Authorization: Bearer $JWT" \

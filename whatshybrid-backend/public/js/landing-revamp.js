@@ -1,5 +1,5 @@
 /**
- * Axion — Landing Revamp
+ * WhatsHybrid Pro — Landing Revamp
  * Comportamentos específicos da landing. Não toca no futuristic.js base.
  * Carregar APÓS futuristic.js.
  */

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Axion — Health check operacional
+# WhatsHybrid Pro — Health check operacional
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Verifica TUDO o que precisa estar saudável em produção:
