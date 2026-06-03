@@ -727,12 +727,25 @@ Responda de forma natural e profissional.`;
 
     const theme = this.themes[this.state.theme];
     let saved = 0;
+    const samples = []; // v9.X — coletadas p/ o training.js propagar ao backend
 
     for (const response of this.state.approvedResponses) {
       const context = this.getMessageContext(response.id);
       if (!context) continue;
 
       try {
+        // v9.X — captura o par (pergunta → resposta aprovada) para o caller
+        // (training.js) promover a exemplo first-class e SINCRONIZAR com o
+        // backend, não só gravar no few-shot local.
+        samples.push({
+          input: context.content,
+          output: response.content,
+          category: theme.id,
+          intent: theme.id,
+          quality: response.edited ? 10 : 9,
+          edited: response.edited || false,
+        });
+
         // Salvar como exemplo de few-shot learning
         if (window.fewShotLearning) {
           await window.fewShotLearning.addExample({
@@ -774,6 +787,7 @@ Responda de forma natural e profissional.`;
 
     return {
       saved,
+      samples,
       message: `${saved} exemplo(s) salvo(s) para aprendizado`
     };
   }
