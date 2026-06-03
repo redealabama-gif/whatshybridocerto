@@ -1,6 +1,6 @@
 /**
  * 🔌 SocketManager - Gerenciador WebSocket
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  * 
  * Gerencia conexões WebSocket para sync em tempo real
  */

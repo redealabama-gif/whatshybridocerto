@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════
-# WhatsHybrid Pro — Backup do SQLite + logs
+# Axion — Backup do SQLite + logs
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Faz backup atômico do SQLite usando o comando .backup do próprio sqlite,

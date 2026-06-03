@@ -1,6 +1,6 @@
 /**
  * ⚡ Groq Provider - Ultra-fast inference
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  */
 
 const BaseProvider = require('./BaseProvider');

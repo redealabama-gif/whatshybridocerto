@@ -1,6 +1,6 @@
 /**
  * 🚨 AppError - Classes de erro customizadas
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  */
 
 class AppError extends Error {

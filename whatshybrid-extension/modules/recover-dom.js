@@ -682,7 +682,7 @@
           <span style="color: #ef4444; font-weight: bold;">🚫 Apagada: </span>
           <span style="color: #fbbf24; font-style: italic;">${escapeHtml(cached.text)}</span>
         `;
-        wrapper.title = 'Mensagem recuperada pelo WhatsHybrid';
+        wrapper.title = 'Mensagem recuperada pelo Axion';
         wrapper.style.cssText = 'display: inline; cursor: help;';
 
         // Substituir conteúdo

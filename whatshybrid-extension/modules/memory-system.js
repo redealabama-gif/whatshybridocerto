@@ -1,6 +1,6 @@
 /**
  * 🧠 Memory System - Sistema de Memória por Chat (Estilo Leão)
- * WhatsHybrid v9.0.0
+ * Axion v9.0.0
  *
  * P6 FIX: Storage migrated from chrome.storage.local (10MB limit) to
  * IndexedDB via window.IDBStorage (loaded by idb-storage.js, no practical limit).

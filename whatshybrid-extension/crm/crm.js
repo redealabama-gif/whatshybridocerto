@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid CRM - Kanban em Aba Separada
+ * Axion CRM - Kanban em Aba Separada
  * v6.9.0 - Versão completa e corrigida
  * 
  * Correções:

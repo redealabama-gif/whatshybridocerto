@@ -1,6 +1,6 @@
 /**
  * UI Helpers - Utilitários de Interface
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  */
 (function() {
   'use strict';

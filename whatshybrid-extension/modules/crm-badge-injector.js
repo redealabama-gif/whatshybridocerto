@@ -1,6 +1,6 @@
 /**
  * 🏷️ CRM Badge Injector v53 - CORRIGIDO
- * WhatsHybrid - Injeta badges visuais no WhatsApp Web
+ * Axion - Injeta badges visuais no WhatsApp Web
  * 
  * CORREÇÕES v53:
  * - Lê dados do storage CORRETO (whl_crm_v2)

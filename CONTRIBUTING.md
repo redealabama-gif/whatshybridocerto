@@ -1,6 +1,6 @@
-# Contributing to WhatsHybrid
+# Contributing to Axion
 
-Thank you for considering contributing to WhatsHybrid! This document provides guidelines and instructions for contributing.
+Thank you for considering contributing to Axion! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 

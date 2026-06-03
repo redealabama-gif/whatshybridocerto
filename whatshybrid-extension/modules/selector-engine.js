@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid SelectorEngine v1.0.0
+ * Axion SelectorEngine v1.0.0
  * Engine de seletores resiliente com múltiplos fallbacks e cache
  * 
  * O WhatsApp Web muda frequentemente seus seletores.

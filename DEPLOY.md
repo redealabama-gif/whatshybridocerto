@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Guia de Deploy em Produção
+# Axion — Guia de Deploy em Produção
 
 > **Para você que vai colocar isso em produção sozinho.**
 >
@@ -39,7 +39,7 @@ ssh root@SEU_IP_DO_VPS
 
 ### Passo 2 — Subir o código para o VPS
 
-Da sua máquina local (onde você baixou o zip do WhatsHybrid):
+Da sua máquina local (onde você baixou o zip do Axion):
 
 ```bash
 # Descompactar o zip
@@ -104,7 +104,7 @@ MERCADOPAGO_WEBHOOK_SECRET=<<secret_do_webhook>>   # em "Webhooks" do painel MP
 # https://sendgrid.com → criar API key + verificar domínio do EMAIL_FROM
 SENDGRID_API_KEY=SG.xxxxx
 EMAIL_FROM=noreply@seudominio.com.br     # precisa ser dominio verificado no SG
-EMAIL_FROM_NAME=WhatsHybrid Pro
+EMAIL_FROM_NAME=Axion
 ```
 
 `PUBLIC_BASE_URL` é derivado automaticamente de `DOMAIN` no `docker-compose.yml`
@@ -294,7 +294,7 @@ Adicione ao cron:
 ```bash
 crontab -e
 # Adicione:
-*/15 * * * * /opt/whatshybrid/deploy/scripts/health.sh > /tmp/health.log 2>&1 || mail -s "WhatsHybrid: Health check FALHOU" voce@email.com < /tmp/health.log
+*/15 * * * * /opt/whatshybrid/deploy/scripts/health.sh > /tmp/health.log 2>&1 || mail -s "Axion: Health check FALHOU" voce@email.com < /tmp/health.log
 ```
 
 ### Sentry (recomendado para erros em produção)

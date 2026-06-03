@@ -1,6 +1,6 @@
 /**
  * 💾 CacheManager - Gerenciador de Cache
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  *
  * Suporta Redis (production) e Memory (development)
  */

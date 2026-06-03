@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "name": "WhatsHybrid Pro",
+  "name": "Axion",
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg"
@@ -18,23 +18,23 @@
   "topbarLinks": [
     {
       "name": "Suporte",
-      "url": "mailto:suporte@whatshybrid.com.br"
+      "url": "mailto:suporte@axion.com.br"
     }
   ],
   "topbarCtaButton": {
     "name": "Acessar Painel",
-    "url": "https://app.whatshybrid.com.br"
+    "url": "https://app.axion.com.br"
   },
   "anchors": [
     {
       "name": "API Reference",
       "icon": "rectangle-terminal",
-      "url": "https://api.whatshybrid.com.br/api-docs.html"
+      "url": "https://api.axion.com.br/api-docs.html"
     },
     {
       "name": "Status",
       "icon": "signal-stream",
-      "url": "https://status.whatshybrid.com.br"
+      "url": "https://status.axion.com.br"
     }
   ],
   "navigation": [

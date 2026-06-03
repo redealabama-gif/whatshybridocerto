@@ -20,4 +20,4 @@ User-agent: Bingbot
 Allow: /
 
 # Sitemap
-Sitemap: https://whatshybrid.com.br/sitemap.xml
+Sitemap: https://axion.com.br/sitemap.xml

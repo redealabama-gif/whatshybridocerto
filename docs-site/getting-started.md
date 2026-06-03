@@ -4,7 +4,7 @@ Esta guia leva você do signup ao primeiro atendimento automatizado em **5 minut
 
 ## 1. Crie sua conta (1 min)
 
-1. Acesse [whatshybrid.com.br](https://whatshybrid.com.br)
+1. Acesse [axion.com.br](https://axion.com.br)
 2. Clique em **Criar conta grátis**
 3. Preencha email + senha (mínimo 8 caracteres)
 4. Você recebe **7 dias de trial gratuito** automaticamente
@@ -16,7 +16,7 @@ Esta guia leva você do signup ao primeiro atendimento automatizado em **5 minut
 1. No dashboard, vá na aba **Extensão Chrome**
 2. Clique no botão **Instalar extensão**
 3. Permita as permissões solicitadas (acesso a web.whatsapp.com)
-4. Você verá o ícone do WhatsHybrid Pro na barra do Chrome
+4. Você verá o ícone do Axion na barra do Chrome
 
 ## 3. Configure sua IA (2 min)
 
@@ -65,7 +65,7 @@ Se não está bom: volta na Base de Conhecimento e adiciona mais info.
 
 1. Abra [web.whatsapp.com](https://web.whatsapp.com) com a extensão instalada
 2. Faça login normal (QR code com seu celular)
-3. O WhatsHybrid Pro aparece como side panel à direita
+3. O Axion aparece como side panel à direita
 4. Defina **Modo Copilot** (sugere respostas pra você revisar) OU
    **Modo Auto-Reply** (responde sozinho)
 

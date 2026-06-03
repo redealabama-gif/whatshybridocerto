@@ -1,6 +1,6 @@
 /**
  * 🎨 AI System UI Handlers - Sidepanel
- * WhatsHybrid v7.6.0
+ * Axion v7.6.0
  * 
  * Handlers para as novas UIs de:
  * - Knowledge Base (treinamento)

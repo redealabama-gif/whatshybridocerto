@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Recover Advanced v7.5.0
+ * Axion Recover Advanced v7.5.0
  * Sistema completo de recuperação de mensagens
  * 
  * Implementa todas as 34 tarefas do Recover (6.1-6.18 + 8.1-8.16)
@@ -1828,7 +1828,7 @@
       return `[${date}] ${action} | De: ${m.from}${sentiment}\n${m.body || '[Mídia: ' + m.type + ']'}\n${'─'.repeat(50)}`;
     });
 
-    const txt = `WhatsHybrid Recover - Exportado em ${new Date().toLocaleString('pt-BR')}\nTotal: ${filtered.length} mensagens\n${'═'.repeat(50)}\n\n${lines.join('\n\n')}`;
+    const txt = `Axion Recover - Exportado em ${new Date().toLocaleString('pt-BR')}\nTotal: ${filtered.length} mensagens\n${'═'.repeat(50)}\n\n${lines.join('\n\n')}`;
 
     download(txt, `recover_${Date.now()}.txt`, 'text/plain;charset=utf-8');
     console.log('[RecoverAdvanced] ✅ TXT exportado:', filtered.length, 'mensagens');
@@ -1848,7 +1848,7 @@
       <!DOCTYPE html>
       <html>
       <head>
-        <title>WhatsHybrid Recover - Export</title>
+        <title>Axion Recover - Export</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
           h1 { color: #00a884; border-bottom: 2px solid #00a884; padding-bottom: 10px; }
@@ -1865,7 +1865,7 @@
         </style>
       </head>
       <body>
-        <h1>📱 WhatsHybrid Recover</h1>
+        <h1>📱 Axion Recover</h1>
         <div class="meta">
           <p>Exportado em: ${new Date().toLocaleString('pt-BR')}</p>
           <p>Total: ${filtered.length} mensagens recuperadas</p>

@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Docker Compose para produção
+# Axion — Docker Compose para produção
 #
 # Stack:
 #   - caddy:      reverse proxy + TLS automático (Let's Encrypt)
@@ -110,8 +110,8 @@ services:
       # são logados no stdout, nunca chegam no cliente. O código de
       # assinatura gerado no webhook NÃO é entregue.
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
-      - EMAIL_FROM=${EMAIL_FROM:-noreply@whatshybrid.com.br}
-      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-WhatsHybrid Pro}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@axion.com.br}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Axion}
       # Master key opcional pra acesso enterprise sem código (debug/QA).
       # Em prod, deixe vazio.
       - SUBSCRIPTION_MASTER_KEY=${SUBSCRIPTION_MASTER_KEY:-}

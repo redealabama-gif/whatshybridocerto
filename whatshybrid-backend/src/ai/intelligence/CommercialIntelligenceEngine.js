@@ -1,6 +1,6 @@
 /**
  * 🧠 CommercialIntelligenceEngine
- * WhatsHybrid Pro v10.0.0
+ * Axion v10.0.0
  *
  * Classifica o objetivo comercial da resposta ANTES do LLM,
  * permitindo que o prompt seja ajustado dinamicamente para

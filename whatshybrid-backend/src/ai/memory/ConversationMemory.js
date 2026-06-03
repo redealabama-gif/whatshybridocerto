@@ -1,6 +1,6 @@
 /**
  * 🧠 ConversationMemory - Three-Layer Memory Architecture
- * WhatsHybrid Pro v7.10.0
+ * Axion v7.10.0
  * 
  * Implements a sophisticated conversation memory system with:
  * 1. Recent messages (literal storage, last 20)

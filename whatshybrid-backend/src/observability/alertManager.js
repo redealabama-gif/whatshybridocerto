@@ -28,7 +28,7 @@ const logger = require('../utils/logger');
 class AlertManager {
   constructor() {
     this.webhookUrl = process.env.ALERT_WEBHOOK_URL || '';
-    this.appName = process.env.APP_NAME || 'WhatsHybrid Pro';
+    this.appName = process.env.APP_NAME || 'Axion';
     this.environment = process.env.NODE_ENV || 'development';
 
     // Rate limiting: { 'alertType': { count, resetAt } }

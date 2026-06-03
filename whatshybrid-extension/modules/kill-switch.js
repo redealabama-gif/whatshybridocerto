@@ -180,7 +180,7 @@
       chrome.notifications.create('whl_kill_switch_activated', {
         type: 'basic',
         iconUrl: chrome.runtime.getURL('icons/128.png'),
-        title: '🚨 WhatsHybrid - Emergency Shutdown',
+        title: '🚨 Axion - Emergency Shutdown',
         message: 'The extension has been disabled remotely by an administrator. Please contact support.',
         priority: 2,
         requireInteraction: true
