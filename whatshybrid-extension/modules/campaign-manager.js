@@ -1,5 +1,5 @@
 /**
- * 🎯 WhatsHybrid Campaign Manager v2.0
+ * 🎯 Axion Campaign Manager v2.0
  * Sistema completo de campanhas de marketing e envio em massa
  * Integrado com Backend API e HumanTyping para envio seguro e anti-ban
  * Funciona online (com backend) e offline (storage local)

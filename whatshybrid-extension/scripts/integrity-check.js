@@ -1,6 +1,6 @@
 /**
  * 🔍 Integrity Check - Verificação de Integridade do Sistema
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  * 
  * Script de diagnóstico para verificar a saúde e integridade
  * dos módulos core e dados da extensão.
@@ -263,7 +263,7 @@
    */
   async function runIntegrityCheck() {
     console.log('\n╔═══════════════════════════════════════════════════════════╗');
-    console.log('║         🔍 WhatsHybrid Integrity Check v1.0.0              ║');
+    console.log('║         🔍 Axion Integrity Check v1.0.0              ║');
     console.log('╚═══════════════════════════════════════════════════════════╝\n');
 
     const results = {

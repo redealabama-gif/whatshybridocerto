@@ -1,5 +1,5 @@
 /**
- * 📊 WhatsHybrid - Observabilidade
+ * 📊 Axion - Observabilidade
  * Módulo central de observabilidade: métricas, tracing, health checks
  * 
  * @version 7.9.13

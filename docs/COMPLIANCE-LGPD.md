@@ -1,11 +1,11 @@
-# Compliance LGPD — WhatsHybrid Pro
+# Compliance LGPD — Axion
 
 > Lei Geral de Proteção de Dados (Lei 13.709/2018). Este documento mapeia como o
 > produto cumpre os direitos do titular, qual a base de retenção e quais são os
 > subprocessadores. É evidência viva: cada item aponta para código/teste que o
 > prova.
 
-Última revisão: 2026-06-03 · Responsável: equipe WhatsHybrid.
+Última revisão: 2026-06-03 · Responsável: equipe Axion.
 
 ---
 

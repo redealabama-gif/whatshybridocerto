@@ -1,4 +1,4 @@
-# WhatsHybrid Pro v7.1.0 Enterprise
+# Axion v7.1.0 Enterprise
 
 Uma extensão para navegador que automatiza o envio de mensagens no WhatsApp Web.
 
@@ -144,7 +144,7 @@ Ctrl+Shift+T
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  WhatsHybrid Pro                │
+│                  Axion                │
 ├─────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐            │
 │  │   EventBus   │◄─┤ StateManager │            │
@@ -208,8 +208,8 @@ Os números de telefone utilizados são sempre os números reais dos contatos:
 - ✅ Documentação completa das fontes de extração
 
 ### 🎨 Interface Aprimorada
-- ✅ Logo WhatsHybrid Lite no painel principal
-- ✅ Logo WhatsHybrid Lite no popup da extensão
+- ✅ Logo Axion no painel principal
+- ✅ Logo Axion no popup da extensão
 - ✅ Design responsivo e bem posicionado
 
 ## 🚀 Funcionalidades

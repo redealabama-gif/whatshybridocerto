@@ -1,6 +1,6 @@
 /**
  * 🎓 Validated Learning Pipeline - Browser Extension Version
- * WhatsHybrid AI System v7.9.13
+ * Axion AI System v7.9.13
  * 
  * Implements strict validation criteria for pattern graduation:
  * - Minimum 5 samples required before graduation

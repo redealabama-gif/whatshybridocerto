@@ -107,7 +107,7 @@
         window.open(SM.getUpgradeUrl('starter'), '_blank');
       } else {
         chrome.storage.local.get(['whl_backend_url'], (r) => {
-          const base = r?.whl_backend_url || 'https://app.whatshybrid.com.br';
+          const base = r?.whl_backend_url || 'https://app.axion.com.br';
           window.open(`${base}/dashboard.html#billing`, '_blank');
         });
       }

@@ -1,6 +1,6 @@
 /**
  * 🎭 ClientBehaviorAdapter
- * WhatsHybrid Pro v10.1.0 — "True 10/10"
+ * Axion v10.1.0 — "True 10/10"
  *
  * Implementa as 5 camadas de micro-adaptação comportamental:
  *

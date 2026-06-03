@@ -1,6 +1,6 @@
 /**
  * 🔄 AutoLearningLoop
- * WhatsHybrid Pro v10.2.0 — Auto-Evolutionary AI
+ * Axion v10.2.0 — Auto-Evolutionary AI
  *
  * Fecha o CICLO COMPLETO de aprendizado autônomo:
  *

@@ -1046,8 +1046,8 @@
       <div class="topbar">
         <div>
           <div class="title" style="display:flex;align-items:center;gap:8px">
-            <img src="${getIconURL('48.png')}" alt="WhatsHybrid Lite" class="whl-logo" />
-            <span>WhatsHybrid Lite</span>
+            <img src="${getIconURL('48.png')}" alt="Axion" class="whl-logo" />
+            <span>Axion</span>
             <span class="status-badge stopped" id="whlStatusBadge">Parado</span>
           </div>
         </div>

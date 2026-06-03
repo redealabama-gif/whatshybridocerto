@@ -1,6 +1,6 @@
 /**
  * ⏲️ Timer Manager - Gerenciamento seguro de timers
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  *
  * Provê wrappers seguros para setTimeout e setInterval
  * com rastreamento e limpeza automática.

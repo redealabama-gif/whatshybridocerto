@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Onboarding Tour — v9.0.0
+ * Axion Onboarding Tour — v9.0.0
  *
  * Tour interativo de 5 steps no dashboard pra novos usuários.
  * Sem dependências externas — implementação manual leve.
@@ -23,7 +23,7 @@
   // Sequência: welcome → overview → extension → tokens → billing → fim.
   const STEPS = [
     {
-      title: '👋 Bem-vindo ao WhatsHybrid Pro!',
+      title: '👋 Bem-vindo ao Axion!',
       content: 'Este é o painel da sua conta — gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Em 1 minuto te mostro onde fica cada coisa.',
       target: null,
       placement: 'center',
@@ -63,7 +63,7 @@
     },
     {
       title: '🎉 Pronto pra vender!',
-      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar. Toda a operação acontece dentro da extensão — o painel aqui é pra acompanhar conta, tokens e faturas. Qualquer dúvida: suporte@whatshybrid.com.',
+      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar. Toda a operação acontece dentro da extensão — o painel aqui é pra acompanhar conta, tokens e faturas. Qualquer dúvida: suporte@axion.com.br.',
       target: null,
       placement: 'center',
       cta: 'Concluir',

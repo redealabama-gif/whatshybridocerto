@@ -1,6 +1,6 @@
 /**
  * 🟠 Anthropic Provider - Claude 3.5, Claude 3
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  */
 
 const BaseProvider = require('./BaseProvider');

@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Pro — Shared utilities
+ * Axion — Shared utilities
  * Cursor customizado + toast + helper de API
  */
 

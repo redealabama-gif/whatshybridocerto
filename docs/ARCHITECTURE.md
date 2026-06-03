@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Arquitetura do Sistema
+# Axion — Arquitetura do Sistema
 
 ## Visão Geral
 

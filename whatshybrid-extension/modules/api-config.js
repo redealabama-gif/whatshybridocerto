@@ -13,7 +13,7 @@
   const WHL_DEBUG = (typeof localStorage !== 'undefined' && localStorage.getItem('whl_debug') === 'true');
 
   // Fallback para API base
-  const API_BASE_URL = (window?.WHL_CONFIG?.apiUrl) || 'https://api.whatshybrid.com';
+  const API_BASE_URL = (window?.WHL_CONFIG?.apiUrl) || 'https://api.axion.com.br';
 
   // ============================================
   // CONFIGURAÇÃO DE PROVIDERS

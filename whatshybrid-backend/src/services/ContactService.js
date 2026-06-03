@@ -8,7 +8,7 @@
  */
 /**
  * 📇 ContactService - Serviço de Contatos
- * WhatsHybrid Pro v7.1.0
+ * Axion v7.1.0
  */
 
 const { v4: uuidv4 } = require('../utils/uuid-wrapper');

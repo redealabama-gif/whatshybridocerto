@@ -15,7 +15,7 @@
 --     "utm_campaign": "trial_starter_oct",
 --     "fbclid": "IwAR0...",
 --     "referrer": "https://www.facebook.com/",
---     "landing_url": "https://whatshybrid.com.br/?utm_source=...",
+--     "landing_url": "https://axion.com.br/?utm_source=...",
 --     "captured_at": "2026-04-18T18:38:16.000Z"
 --   }
 --

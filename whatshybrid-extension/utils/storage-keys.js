@@ -1,6 +1,6 @@
 /**
  * 🔑 Storage Keys - Chaves centralizadas para chrome.storage
- * WhatsHybrid v7.9.12
+ * Axion v7.9.12
  * 
  * Este arquivo centraliza todas as chaves de storage usadas pela extensão
  * para evitar colisões e facilitar backup/restore.

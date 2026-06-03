@@ -1,5 +1,5 @@
 /**
- * 🏥 WhatsHybrid - Health Checks
+ * 🏥 Axion - Health Checks
  * Sistema de verificação de saúde dos componentes
  * 
  * @version 7.9.13

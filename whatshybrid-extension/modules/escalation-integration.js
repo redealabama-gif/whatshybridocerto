@@ -5,7 +5,7 @@
  * permitindo escalonamento automático baseado em análise de contexto.
  * 
  * @version 1.0.0
- * @author WhatsHybrid Team
+ * @author Axion Team
  */
 
 (function() {

@@ -231,7 +231,7 @@ async function sendSubscribeForWorkspace({
   return sendEvent({
     eventName: 'Subscribe',
     eventId,
-    eventSourceUrl: attribution?.landing_url || 'https://whatshybrid.com.br/signup.html',
+    eventSourceUrl: attribution?.landing_url || 'https://axion.com.br/signup.html',
     userData,
     customData: {
       content_name: 'Plano ' + plan,
