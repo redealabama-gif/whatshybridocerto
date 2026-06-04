@@ -455,11 +455,22 @@ class AIOrchestrator {
     let retries = 0;
     let lastQuality = null;
 
-    for (let attempt = 0; attempt <= this.config.maxQualityRetries; attempt++) {
+    // CORTE DE CUSTO: para intents de baixo risco (saudação/agradecimento/
+    // confirmação) uma resposta curta já é o certo — avaliamos para registrar
+    // o score, mas NÃO gastamos LLM regenerando (maxRetries=0). Cada regeneração
+    // evitada = 1 chamada de LLM a menos. WHL_QUALITY_ALL_INTENTS=1 restaura o
+    // comportamento antigo (regenera para qualquer intent).
+    const lowStakes =
+      process.env.WHL_QUALITY_ALL_INTENTS !== '1' &&
+      ResponseQualityChecker.LOW_STAKES_INTENTS?.has?.(intentResult?.intent);
+    const maxRetries = lowStakes ? 0 : this.config.maxQualityRetries;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const quality = this.qualityChecker.evaluate(response, {
         message,
         goal: responseGoal,
         knowledge: knowledgeResults,
+        intent: intentResult?.intent,
       });
 
       lastQuality = quality;
@@ -469,7 +480,7 @@ class AIOrchestrator {
         break;
       }
 
-      if (attempt >= this.config.maxQualityRetries) {
+      if (attempt >= maxRetries) {
         logger.warn(`[QualityChecker] FAILED after ${attempt} retries. Issues: ${quality.issues.join(', ')}`);
         break;
       }
