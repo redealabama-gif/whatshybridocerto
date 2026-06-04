@@ -33,6 +33,8 @@ const { DynamicPromptBuilder, KNOWLEDGE_SEEKING_INTENTS } = require('./prompts/D
 const AIRouterModule = require('./services/AIRouterService');
 const { AIRouterService } = AIRouterModule;
 const ValidatedLearningPipeline = require('./learning/ValidatedLearningPipeline'); // P3
+// FASE 3c — correções do operador como exemplos de treino duráveis/recuperáveis.
+const LearnedExamplesStore = require('./learning/LearnedExamplesStore');
 const CommercialIntelligenceEngine = require('./intelligence/CommercialIntelligenceEngine'); // v10
 const ResponseQualityChecker = require('./quality/ResponseQualityChecker'); // v10
 const ClientBehaviorAdapter = require('./intelligence/ClientBehaviorAdapter'); // v10.1
@@ -1013,6 +1015,25 @@ class AIOrchestrator {
         });
       }
     } catch (e) { logger.debug?.(`[Orchestrator] Examples query failed: ${e.message}`); }
+
+    // ── Learned Examples (correções do operador — FASE 3c) ──────────
+    // Verdade-fundamental: um humano escreveu a resposta certa pra esta pergunta.
+    // Servidas IMEDIATAMENTE (sem esperar graduação do pipeline) e com peso de
+    // input maior que o exemplo comum, pra um match exato da pergunta liderar.
+    try {
+      const learned = LearnedExamplesStore.loadForRanking(db, this.tenantId, 200);
+      for (const ex of learned) {
+        candidates.push({
+          type: 'example',
+          content: `Resposta preferida pelo operador — quando o cliente disser "${ex.input}", responda assim: "${ex.output}"`,
+          source: 'Correção do operador',
+          fields: [
+            { text: ex.input || '', weight: 1.4 },
+            { text: ex.output || '', weight: 0.4 },
+          ],
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] Learned examples query failed: ${e.message}`); }
 
     // Ranqueia FAQs/produtos/exemplos JUNTOS (IDF compartilhada) e aplica
     // limites por tipo, mantendo a ordenação global por relevância.

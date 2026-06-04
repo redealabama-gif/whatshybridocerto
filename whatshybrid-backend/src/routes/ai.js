@@ -663,6 +663,25 @@ router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyn
     return res.json({ success: true, persisted: false });
   }
 
+  // FASE 3c — captura a correção do operador como exemplo de treino durável.
+  // O texto editado é o sinal de qualidade mais forte que existe; aqui ele passa
+  // a ser servido de volta IMEDIATAMENTE pelo _loadTrainedKnowledge (sem esperar
+  // a graduação estatística do ValidatedLearningPipeline, que exige ≥5 amostras).
+  // Best-effort — nunca quebra a resposta do feedback. WHL_LEARN_FROM_EDITS=0 desliga.
+  if (fbType === 'correction' && correctedResponse) {
+    try {
+      require('../ai/learning/LearnedExamplesStore').captureFromEdit({
+        workspaceId: req.workspaceId,
+        question: safeUserMessage,
+        originalResponse: safeAssistantResponse,
+        correctedResponse,
+        interactionId: hasInteractionId ? interactionId : null,
+      });
+    } catch (e) {
+      require('../utils/logger').warn(`[AI/feedback] learn-from-edit falhou: ${e.message}`);
+    }
+  }
+
   // v9.4.1 BUG #95 FIX: chamada anterior `pipeline.recordFeedback({...obj})` era no-op
   // por 2 razões — module.exports é a CLASSE (não instância) e a assinatura real é
   // `recordFeedback(interactionId, feedback)` recebendo string 'positive'/'negative'/'neutral'.
