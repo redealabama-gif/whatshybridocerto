@@ -13,6 +13,10 @@ const ConversationMemory = require('./memory/ConversationMemory');
 const ResponseABTester = require('./learning/ResponseABTester');
 const AIAnalyticsCollector = require('./analytics/AIAnalyticsCollector');
 const ResponseSafetyFilter = require('./safety/ResponseSafetyFilter');
+// FASE 3b — guarda de auto-envio do autopilot. Decide (no backend, único lugar
+// com todos os sinais) escalar pra humano em tema sensível / reclamação / pedido
+// de atendente / transação de alto valor / resposta sem base. O cliente honra.
+const AutopilotGuard = require('./safety/AutopilotGuard');
 const HybridSearch = require('./search/HybridSearch');
 // Ranqueador léxico local (BM25/IDF + sinônimos pt-BR) para o conhecimento
 // treinado. Substitui o overlap de substring ingênuo do _loadTrainedKnowledge.
@@ -326,6 +330,25 @@ class AIOrchestrator {
         }
       }
 
+      // ── 9b. FASE 3b — Recomendação de auto-envio do autopilot ───────────────
+      // Decisão de SEGURANÇA: escalar pra humano (não auto-enviar) quando os
+      // sinais pedem — tema sensível/PII (safety), reclamação/cliente irritado,
+      // pedido explícito de atendente, transação de alto valor, ou resposta sem
+      // base (ungrounded, casa com a Fase 3a). Advisory: o cliente honra só no
+      // auto-envio autônomo; na sugestão manual é só uma dica. Pura, sem custo de
+      // IA. Reversível por WHL_AUTOPILOT_GUARD=0.
+      let autopilotGuard = null;
+      try {
+        autopilotGuard = AutopilotGuard.evaluateAutoSend({
+          intent: intentResult.intent,
+          confidence: intentResult.confidence,
+          message,
+          safetyIssues: safetyResult?.issues || [],
+          knowledgeCount: knowledgeResults.length,
+          emotionalContext: context.emotionalContext,
+        }, { knowledgeSeekingIntents: KNOWLEDGE_SEEKING_INTENTS });
+      } catch (err) { logger.warn(`AutopilotGuard error: ${err.message}`); }
+
       // ── 10. Persistir mensagens ─────────────────────────────────────────────
       await this.conversationMemory.addMessage(chatId, { role: 'user', content: message, timestamp: new Date() });
       await this.conversationMemory.addMessage(chatId, {
@@ -427,6 +450,8 @@ class AIOrchestrator {
         metadata: {
           intent: intentResult.intent, confidence: intentResult.confidence, latency,
           variant: responseVariant, interactionId,
+          // FASE 3b — veredito de auto-envio (o cliente honra no modo autônomo)
+          autopilot: autopilotGuard,
           safetyIssues: safetyResult?.issues || [],
           knowledgeResultsCount: knowledgeResults.length,
           fewShotExamplesUsed: fewShotExamples.length,
