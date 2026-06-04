@@ -21,6 +21,7 @@ const SECTION_PRIORITIES = {
   CLIENT_BEHAVIOR: 8,      // v10.1: micro-adaptation (stage + style + energy + closing)
   CLIENT_CONTEXT: 8,
   KNOWLEDGE: 7,
+  GROUNDING_NOTICE: 9, // FASE 3a: alta prioridade — não pode ser cortado por budget
   FEW_SHOT: 6,   // P3: graduated patterns from ValidatedLearningPipeline
   ANALYSIS: 5,
   CHAIN_OF_THOUGHT: 4,
@@ -37,6 +38,7 @@ const DEFAULT_BUDGETS = {
   CLIENT_BEHAVIOR: 300,      // v10.1: micro-adaptation block
   CLIENT_CONTEXT: 200,
   KNOWLEDGE: 500,
+  GROUNDING_NOTICE: 140, // FASE 3a
   FEW_SHOT: 300,     // P3: budget for graduated examples
   ANALYSIS: 150,
   CHAIN_OF_THOUGHT: 200,
@@ -53,6 +55,34 @@ const DEFAULT_GUARDRAILS = [
   'If you don\'t know something, say "I need to verify this information"',
   'Always respect client privacy and data protection laws'
 ];
+
+/**
+ * FASE 3a — Grounding/escalonamento.
+ * Intents em que o cliente espera informação ESPECÍFICA do negócio. Se o RAG
+ * não trouxe NADA para um desses, instruímos o modelo a não inventar e oferecer
+ * um atendente — em vez de alucinar preço/prazo/política.
+ */
+const KNOWLEDGE_SEEKING_INTENTS = new Set([
+  'information', 'pricing', 'question', 'support', 'schedule', 'purchase', 'negotiation',
+]);
+
+const GROUNDING_NOTICE = {
+  'pt-BR': `# ⚠️ Sem informação específica na base
+Você NÃO recuperou informação específica da empresa para esta pergunta.
+- NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições).
+- Se puder ajudar com orientação geral e segura, ajude de forma breve.
+- Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano.`,
+  en: `# ⚠️ No specific knowledge available
+You did NOT retrieve company-specific information for this question.
+- Do NOT invent business data (prices, deadlines, policies, stock, addresses, terms).
+- If you can help with safe, general guidance, do so briefly.
+- For any specific data you are unsure about, naturally say you will confirm and offer to connect the customer with a human agent.`,
+  es: `# ⚠️ Sin información específica disponible
+NO recuperaste información específica de la empresa para esta pregunta.
+- NO inventes datos del negocio (precios, plazos, políticas, stock, direcciones, condiciones).
+- Si puedes ayudar con orientación general y segura, hazlo brevemente.
+- Para cualquier dato específico del que no estés seguro, di con naturalidad que lo confirmarás y ofrece derivar a un agente humano.`,
+};
 
 /**
  * P9 FIX: Adaptive Chain-of-Thought templates — i18n-aware.
@@ -445,8 +475,30 @@ class DynamicPromptBuilder {
   }
 
   /**
+   * FASE 3a — Aviso de grounding. Quando o cliente pergunta algo que exige
+   * conhecimento do negócio (KNOWLEDGE_SEEKING_INTENTS) mas o RAG não trouxe
+   * nada, instrui o modelo a NÃO inventar e oferecer um atendente. Desligável
+   * via WHL_GROUNDING_OFF=1.
+   *
+   * @param {string} intent       - intent classificado da mensagem do cliente
+   * @param {boolean} hasKnowledge - se a seção de conhecimento foi montada
+   * @param {string} language     - idioma da resposta
+   * @returns {string|null}
+   */
+  buildGroundingNoticeSection(intent, hasKnowledge, language = 'pt-BR') {
+    if (process.env.WHL_GROUNDING_OFF === '1') return null;
+    if (hasKnowledge) return null;
+    if (!KNOWLEDGE_SEEKING_INTENTS.has(intent)) return null;
+
+    const lang = typeof language === 'string' && language.startsWith('es') ? 'es'
+      : typeof language === 'string' && language.startsWith('en') ? 'en'
+      : 'pt-BR';
+    return GROUNDING_NOTICE[lang] || GROUNDING_NOTICE['pt-BR'];
+  }
+
+  /**
    * Builds the Analysis section (intent, sentiment, entities, urgency)
-   * 
+   *
    * @param {Object} analysis - Message analysis results
    * @param {string} analysis.intent - Detected intent
    * @param {string} analysis.sentiment - Sentiment (positive/neutral/negative)
@@ -597,6 +649,7 @@ class DynamicPromptBuilder {
     
     const {
       persona,
+      intent = null,   // FASE 3a: usado para o aviso de grounding
       memory,
       knowledge,
       analysis,
@@ -689,6 +742,19 @@ class DynamicPromptBuilder {
       });
     }
     
+    // 4b. FASE 3a: Aviso de grounding — só quando NÃO há conhecimento E o intent
+    // exige informação do negócio. Evita alucinação de preço/prazo/política.
+    const groundingText = this.buildGroundingNoticeSection(intent, !!knowledgeText, language);
+    if (groundingText) {
+      sections.push({
+        name: 'GROUNDING_NOTICE',
+        priority: SECTION_PRIORITIES.GROUNDING_NOTICE,
+        content: this.truncateToTokens(groundingText, budgets.GROUNDING_NOTICE),
+        tokens: this.estimateTokens(groundingText),
+        budgetTokens: budgets.GROUNDING_NOTICE
+      });
+    }
+
     // 5. P3 FIX: Few-Shot Examples — graduated patterns from ValidatedLearningPipeline (Priority 6)
     const fewShotText = this.buildFewShotSection(fewShotExamples);
     if (fewShotText) {
@@ -832,5 +898,6 @@ const instance = new DynamicPromptBuilder();
 module.exports = instance;
 module.exports.DynamicPromptBuilder = DynamicPromptBuilder;
 module.exports.SECTION_PRIORITIES = SECTION_PRIORITIES;
+module.exports.KNOWLEDGE_SEEKING_INTENTS = KNOWLEDGE_SEEKING_INTENTS; // FASE 3a
 module.exports.DEFAULT_BUDGETS = DEFAULT_BUDGETS;
 module.exports.COT_TEMPLATES = COT_TEMPLATES;
