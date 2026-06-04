@@ -24,7 +24,7 @@ const LocalKnowledgeRanker = require('./search/LocalKnowledgeRanker');
 // 'DynamicPromptBuilder is not a constructor' → orchestrator falhava no
 // construtor → ai-v2.js engolia o erro e respondia 503 'AIOrchestrator not
 // available' pra TODA chamada de IA. Bug fatal pra produto.
-const { DynamicPromptBuilder } = require('./prompts/DynamicPromptBuilder');
+const { DynamicPromptBuilder, KNOWLEDGE_SEEKING_INTENTS } = require('./prompts/DynamicPromptBuilder');
 // FIX: importa proxy do singleton + classe nomeada para casos de instância dedicada
 const AIRouterModule = require('./services/AIRouterService');
 const { AIRouterService } = AIRouterModule;
@@ -191,6 +191,21 @@ class AIOrchestrator {
         const trained = this._loadTrainedKnowledge(message, 6);
         if (trained.length) knowledgeResults = knowledgeResults.concat(trained);
       } catch (err) { logger.warn(`loadTrainedKnowledge error: ${err.message}`); }
+
+      // ── 3c. FASE 3a — Lacuna de conhecimento. O cliente pediu algo que exige
+      //     informação do negócio mas o RAG não trouxe nada. Registramos para o
+      //     operador saber "o que treinar a seguir" (mesmo canal de recordKnowledgeGap).
+      //     O grounding no prompt (DynamicPromptBuilder) impede a IA de inventar.
+      if (this.config.enableAnalytics && knowledgeResults.length === 0 &&
+          KNOWLEDGE_SEEKING_INTENTS.has(intentResult.intent)) {
+        try {
+          this.analytics.recordKnowledgeGap({
+            chatId, question: message, intent: intentResult.intent,
+            confidence: intentResult.confidence, reason: 'no_knowledge_retrieved',
+            context: { ...context, intentResult }
+          });
+        } catch (err) { logger.warn(`recordKnowledgeGap(no_knowledge) error: ${err.message}`); }
+      }
 
       // ── 4. v10: Classificação do objetivo comercial ANTES do prompt ─────────
       let commercialResult = null;
