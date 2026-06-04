@@ -14,7 +14,7 @@
  * - Stats tracking and performance monitoring
  * 
  * @version 1.0.0
- * @author WhatsHybrid Team
+ * @author Vórtex Team
  */
 
 (function() {

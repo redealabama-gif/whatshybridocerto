@@ -1,5 +1,5 @@
 /**
- * 🎯 Sistema de Escalonamento e SLA - WhatsHybrid
+ * 🎯 Sistema de Escalonamento e SLA - Vórtex
  * 
  * Sistema completo de escalonamento para atendimento humano com:
  * - Fila de tickets priorizada
@@ -10,7 +10,7 @@
  * - Métricas e relatórios
  * 
  * @version 1.0.0
- * @author WhatsHybrid Team
+ * @author Vórtex Team
  */
 
 (function() {
@@ -649,7 +649,7 @@
     async sendNotification(event, message, data = {}) {
       // Notificação local
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('WhatsHybrid Escalation', {
+        new Notification('Vórtex Escalation', {
           body: message,
           icon: '/icons/icon48.png'
         });

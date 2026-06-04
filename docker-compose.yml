@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Docker Compose para produção
+# Vórtex Pro — Docker Compose para produção
 #
 # Stack:
 #   - caddy:      reverse proxy + TLS automático (Let's Encrypt)
@@ -111,7 +111,7 @@ services:
       # assinatura gerado no webhook NÃO é entregue.
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
       - EMAIL_FROM=${EMAIL_FROM:-noreply@whatshybrid.com.br}
-      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-WhatsHybrid Pro}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Vórtex Pro}
       # Master key opcional pra acesso enterprise sem código (debug/QA).
       # Em prod, deixe vazio.
       - SUBSCRIPTION_MASTER_KEY=${SUBSCRIPTION_MASTER_KEY:-}

@@ -236,7 +236,7 @@
 
   // Listener immediate for background/popup ping
   // Listener immediate for background/popup messages (ChatBackup)
-// IMPORTANT: This content script coexists with WhatsHybrid/Extractor content scripts.
+// IMPORTANT: This content script coexists with Vórtex/Extractor content scripts.
 // So we MUST only answer ChatBackup-specific actions to avoid breaking other modules.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   try {

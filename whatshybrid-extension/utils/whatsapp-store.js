@@ -1,6 +1,6 @@
 /**
  * 🏪 WhatsApp Store - Wrapper seguro para window.Store
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  * 
  * Provê acesso seguro e robusto às APIs internas do WhatsApp Web.
  * 

@@ -1,6 +1,6 @@
 /**
  * 📚 Knowledge Sync Manager - Sincronização de Knowledge Base
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  * 
  * Gerencia a sincronização bidirecional de dados de Knowledge Base
  * e Few-Shot Learning com o backend.

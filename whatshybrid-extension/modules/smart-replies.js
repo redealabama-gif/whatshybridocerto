@@ -1,6 +1,6 @@
 /**
  * 🤖 SmartRepliesModule - Sistema Completo de Respostas Inteligentes com IA
- * WhatsHybrid v50 - Baseado no CopilotEngine do Quantum CRM
+ * Vórtex v50 - Baseado no CopilotEngine do Quantum CRM
  * 
  * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
  * This module has hardcoded Portuguese AI prompts that should be internationalized.

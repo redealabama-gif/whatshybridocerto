@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid TextToSpeechService v1.0.0
+ * Vórtex TextToSpeechService v1.0.0
  * Serviço de síntese de voz para leitura de mensagens
  * 
  * Suporta:

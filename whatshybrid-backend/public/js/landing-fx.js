@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Pro — Landing FX
+ * Vórtex Pro — Landing FX
  * Comportamentos premium da landing: parallax, magnetic hover,
  * coordenação do botão flutuante WhatsApp.
  * Carrega DEPOIS de landing-revamp.js.

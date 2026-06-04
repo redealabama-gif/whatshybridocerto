@@ -1,4 +1,4 @@
-# WhatsHybrid Pro v7.1.0 Enterprise
+# Vórtex Pro v7.1.0 Enterprise
 
 Uma extensão para navegador que automatiza o envio de mensagens no WhatsApp Web.
 
@@ -144,7 +144,7 @@ Ctrl+Shift+T
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  WhatsHybrid Pro                │
+│                  Vórtex Pro                │
 ├─────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐            │
 │  │   EventBus   │◄─┤ StateManager │            │
@@ -208,8 +208,8 @@ Os números de telefone utilizados são sempre os números reais dos contatos:
 - ✅ Documentação completa das fontes de extração
 
 ### 🎨 Interface Aprimorada
-- ✅ Logo WhatsHybrid Lite no painel principal
-- ✅ Logo WhatsHybrid Lite no popup da extensão
+- ✅ Logo Vórtex Lite no painel principal
+- ✅ Logo Vórtex Lite no popup da extensão
 - ✅ Design responsivo e bem posicionado
 
 ## 🚀 Funcionalidades

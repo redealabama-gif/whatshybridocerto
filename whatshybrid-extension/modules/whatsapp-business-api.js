@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║              API WHATSAPP BUSINESS INTEGRADA                              ║
- * ║                    WhatsHybrid v7.9.12                                    ║
+ * ║                    Vórtex v7.9.12                                    ║
  * ╠═══════════════════════════════════════════════════════════════════════════╣
  * ║  Integração com WhatsApp Business API (Cloud API)                         ║
  * ║  Suporta envio de mensagens, templates, mídia e webhooks                  ║

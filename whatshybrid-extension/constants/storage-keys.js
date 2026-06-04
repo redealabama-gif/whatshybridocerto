@@ -1,6 +1,6 @@
 /**
  * Storage Keys Centralizados (Compat)
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  *
  * IMPORTANTE:
  * - O contrato canônico está em `utils/storage-keys.js`

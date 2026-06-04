@@ -1,6 +1,6 @@
 /**
  * 🔄 Migrate Storage Keys - Migração de chaves de storage
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  * 
  * Script para migrar chaves de storage antigas para o novo formato
  * padronizado (whl_* e whl_*_v2 quando aplicável).
@@ -101,7 +101,7 @@
    */
   async function migrateStorageKeys(dryRun = false) {
     console.log('\n╔═══════════════════════════════════════════════════════════╗');
-    console.log('║         🔄 WhatsHybrid Storage Key Migration               ║');
+    console.log('║         🔄 Vórtex Storage Key Migration               ║');
     console.log('╚═══════════════════════════════════════════════════════════╝\n');
 
     if (dryRun) {

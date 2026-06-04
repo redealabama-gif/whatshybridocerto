@@ -45,7 +45,7 @@ function runTest(file) {
 
 async function main() {
   console.log(`╔══════════════════════════════════════════════════╗`);
-  console.log(`║  WhatsHybrid Pro — Smoke Test Suite              ║`);
+  console.log(`║  Vórtex Pro — Smoke Test Suite              ║`);
   console.log(`║  Target: ${BASE_URL.padEnd(40)}║`);
   console.log(`╚══════════════════════════════════════════════════╝`);
 

@@ -1,6 +1,6 @@
 /**
  * 🎓 AI Auto Learner - Aprendizado Contínuo Automático
- * WhatsHybrid v7.7.0
+ * Vórtex v7.7.0
  * 
  * Features:
  * - Aprendizado automático de conversas bem-sucedidas

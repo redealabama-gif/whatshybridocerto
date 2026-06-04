@@ -1,7 +1,7 @@
 {
   "name": "whatshybrid-monorepo",
   "version": "8.0.1",
-  "description": "WhatsHybrid Pro - WhatsApp Automation Platform",
+  "description": "Vórtex Pro - WhatsApp Automation Platform",
   "private": true,
   "workspaces": [
     "whatshybrid-extension",
@@ -53,6 +53,6 @@
     "chrome-extension",
     "backend"
   ],
-  "author": "WhatsHybrid Team",
+  "author": "Vórtex Team",
   "license": "MIT"
 }

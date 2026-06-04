@@ -1,5 +1,5 @@
 /**
- * 🏢 WhatsHybrid - Tenant Middleware
+ * 🏢 Vórtex - Tenant Middleware
  * Middleware para isolamento de dados multi-tenant
  *
  * @version 7.9.13

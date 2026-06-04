@@ -1,11 +1,11 @@
 #!/bin/bash
 # =====================================================
-# WhatsHybrid Backend - Script de Inicialização
+# Vórtex Backend - Script de Inicialização
 # =====================================================
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
-echo "║   🚀 WhatsHybrid Backend v7.5.0                  ║"
+echo "║   🚀 Vórtex Backend v7.5.0                  ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 

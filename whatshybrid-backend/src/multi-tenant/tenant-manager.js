@@ -1,5 +1,5 @@
 /**
- * 🏢 WhatsHybrid - Multi-Tenant Manager
+ * 🏢 Vórtex - Multi-Tenant Manager
  * Sistema completo de gerenciamento multi-tenant
  * 
  * @version 7.9.13

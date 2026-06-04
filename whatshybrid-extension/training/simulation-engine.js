@@ -1,6 +1,6 @@
 /**
  * 🧠 Simulation Engine - Motor de Simulação Neural
- * WhatsHybrid v7.7.0
+ * Vórtex v7.7.0
  * 
  * Ambiente controlado para testar e treinar a IA real
  * com conversas artificiais supervisionadas.

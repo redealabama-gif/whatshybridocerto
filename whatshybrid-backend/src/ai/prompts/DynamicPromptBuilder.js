@@ -1,6 +1,6 @@
 /**
  * 🏗️ DynamicPromptBuilder - Priority-Based Prompt Assembly System
- * WhatsHybrid Pro v7.9.13
+ * Vórtex Pro v7.9.13
  * 
  * Constructs prompts from prioritized sections with token budget management.
  * Ensures critical sections (Identity, Business Rules, Guardrails) are always included,

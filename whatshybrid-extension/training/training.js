@@ -1,5 +1,5 @@
 /**
- * Training IA - WhatsHybrid
+ * Training IA - Vórtex
  * Interface para treinamento da IA
  *
  * @version 9.5.1

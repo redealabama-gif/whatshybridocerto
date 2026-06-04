@@ -262,7 +262,7 @@ router.post('/create-token-checkout',
       const payload = {
         items: [{
           id: package_id,
-          title: `WhatsHybrid Pro — ${pkg.label}`,
+          title: `Vórtex Pro — ${pkg.label}`,
           description: `Pacote avulso de ${pkg.tokens.toLocaleString('pt-BR')} tokens de IA`,
           quantity: 1,
           currency_id: 'BRL',

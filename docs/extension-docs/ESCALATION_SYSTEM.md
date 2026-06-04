@@ -2,7 +2,7 @@
 
 ## 📋 Visão Geral
 
-O Sistema de Escalonamento e SLA do WhatsHybrid é uma solução completa para gerenciamento de atendimento humano, com tracking de SLA, fila priorizada de tickets, regras configuráveis, e métricas detalhadas.
+O Sistema de Escalonamento e SLA do Vórtex é uma solução completa para gerenciamento de atendimento humano, com tracking de SLA, fila priorizada de tickets, regras configuráveis, e métricas detalhadas.
 
 ## 🏗️ Arquitetura
 
@@ -509,7 +509,7 @@ escalation.checkSLABreaches();
 
 ## 📞 Suporte
 
-Para mais informações ou suporte, consulte a documentação principal do WhatsHybrid Pro.
+Para mais informações ou suporte, consulte a documentação principal do Vórtex Pro.
 
 ---
 

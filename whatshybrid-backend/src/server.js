@@ -1,6 +1,6 @@
 /**
- * 🚀 WhatsHybrid Backend Server
- * Enterprise API for WhatsHybrid Pro
+ * 🚀 Vórtex Backend Server
+ * Enterprise API for Vórtex Pro
  */
 
 require('dotenv').config();
@@ -535,7 +535,7 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'dashboar
 // API Documentation
 app.get('/api', (req, res) => {
   res.json({
-    name: 'WhatsHybrid API',
+    name: 'Vórtex API',
     version: packageVersion,
     documentation: '/api/docs',
     endpoints: {
@@ -671,7 +671,7 @@ async function startServer() {
     server.listen(PORT, () => {
       logger.info(`
 ╔══════════════════════════════════════════════════╗
-║   🚀 WhatsHybrid Backend Server                  ║
+║   🚀 Vórtex Backend Server                  ║
 ║   Version: ${packageVersion.padEnd(31)}║
 ║   Environment: ${config.env.padEnd(32)}║
 ║   Port: ${String(PORT).padEnd(39)}║

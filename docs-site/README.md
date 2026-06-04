@@ -1,4 +1,4 @@
-# 📚 Central de Ajuda WhatsHybrid Pro
+# 📚 Central de Ajuda Vórtex Pro
 
 Bem-vindo. Esta documentação cobre tudo que você precisa pra começar e operar.
 

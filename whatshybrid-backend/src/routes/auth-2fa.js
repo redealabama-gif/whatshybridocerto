@@ -131,7 +131,7 @@ router.post('/setup', authenticate, asyncHandler(async (req, res) => {
   // Salva temporariamente (não ativa ainda — só ativa em /verify)
   db.run('UPDATE users SET totp_secret = ? WHERE id = ?', [secret, user.id]);
 
-  const uri = generateProvisioningURI(user.email, 'WhatsHybrid Pro', secret);
+  const uri = generateProvisioningURI(user.email, 'Vórtex Pro', secret);
 
   res.json({
     secret, // mostra pro user salvar como backup

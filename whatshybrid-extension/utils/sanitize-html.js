@@ -1,6 +1,6 @@
 /**
  * sanitize-html.js
- * WhatsHybrid Pro — Utilitário de sanitização de HTML
+ * Vórtex Pro — Utilitário de sanitização de HTML
  *
  * Expõe window.WHL_SanitizeHtml com métodos de sanitização seguros.
  * Compatível com CSP da extensão (sem eval, sem Function constructor).

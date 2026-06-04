@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Guia de Instalação e Configuração
+# Vórtex Pro — Guia de Instalação e Configuração
 
 > **Versão**: 8.0.1 | **Node.js**: ≥ 18 | **Chrome**: ≥ 120
 
@@ -70,7 +70,7 @@ curl http://localhost:3000/api/health
 2. Ative o **Modo do desenvolvedor** (canto superior direito)
 3. Clique em **Carregar sem compactação**
 4. Selecione a pasta `whatshybrid-extension/`
-5. A extensão aparecerá com o ícone do WhatsHybrid
+5. A extensão aparecerá com o ícone do Vórtex
 
 ### Opção B — Instalar via ZIP empacotado (entrega ao cliente)
 

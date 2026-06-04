@@ -1,4 +1,4 @@
-# RUNBOOK Operacional — WhatsHybrid Pro
+# RUNBOOK Operacional — Vórtex Pro
 
 > Procedimentos para operar o sistema em produção. Mantenha aberto durante incidentes.
 

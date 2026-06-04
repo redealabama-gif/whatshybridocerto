@@ -36,7 +36,7 @@ router.get('/code', authenticate, asyncHandler(async (req, res) => {
     code,
     url: `${baseUrl}/signup.html?ref=${code}`,
     reward_tokens: REFERRAL_REWARD_TOKENS,
-    description: `Indique o WhatsHybrid Pro e ganhe ${REFERRAL_REWARD_TOKENS.toLocaleString('pt-BR')} tokens quando seu amigo virar cliente pagante.`,
+    description: `Indique o Vórtex Pro e ganhe ${REFERRAL_REWARD_TOKENS.toLocaleString('pt-BR')} tokens quando seu amigo virar cliente pagante.`,
   });
 }));
 

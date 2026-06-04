@@ -1,14 +1,14 @@
 /**
  * 📥 Status Download v1.0 - Download de Status/Stories do WhatsApp
  *
- * Portado do WAIncognito e adaptado para a arquitetura WhatsHybrid Pro.
+ * Portado do WAIncognito e adaptado para a arquitetura Vórtex Pro.
  * Detecta quando um status (foto/vídeo) está sendo visualizado e injeta
  * um botão de download flutuante diretamente na tela.
  *
  * Funciona 100% via DOM — não depende de WebSocket ou APIs internas.
  *
  * @version 1.0.0
- * @author WhatsHybrid Pro (baseado em WAIncognito by tomer8007)
+ * @author Vórtex Pro (baseado em WAIncognito by tomer8007)
  */
 
 (function () {
@@ -216,7 +216,7 @@
 
     const btn = document.createElement('div');
     btn.className = 'whl-status-dl-btn';
-    btn.title = 'Baixar este status (WhatsHybrid)';
+    btn.title = 'Baixar este status (Vórtex)';
     btn.innerHTML = DOWNLOAD_ICON_SVG;
     btn.setAttribute('data-whl-status-btn', src);
 

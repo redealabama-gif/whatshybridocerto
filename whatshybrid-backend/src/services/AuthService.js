@@ -16,7 +16,7 @@
  */
 /**
  * 🔐 AuthService - Serviço de Autenticação
- * WhatsHybrid Pro v7.1.0
+ * Vórtex Pro v7.1.0
  */
 
 const bcrypt = require('bcryptjs');

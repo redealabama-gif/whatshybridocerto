@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Pro — Neural Core
+ * Vórtex Pro — Neural Core
  * Acabamento do vídeo do cristal: garante loop, parallax no mouse, parallax no
  * scroll e partículas flutuando ao redor. Sem WebGL. Respeita reduced-motion/touch.
  */

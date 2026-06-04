@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Subscription Manager v1.0.0
+ * Vórtex Subscription Manager v1.0.0
  * Sistema de assinaturas robusto com controle de créditos e uso
  * 
  * Modelo: Código de assinatura único (sem login tradicional)

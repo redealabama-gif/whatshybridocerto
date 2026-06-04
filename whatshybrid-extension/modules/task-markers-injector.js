@@ -1,6 +1,6 @@
 /**
  * 📋 Task Markers Injector - Marcadores de tarefas na lista de chats
- * WhatsHybrid v49 - Baseado no Quantum CRM
+ * Vórtex v49 - Baseado no Quantum CRM
  * 
  * Funcionalidades:
  * - Mostra quantidade de tarefas pendentes por conversa
