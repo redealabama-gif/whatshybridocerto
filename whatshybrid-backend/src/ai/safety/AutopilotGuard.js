@@ -50,6 +50,23 @@ const { normalize } = require('../search/LocalKnowledgeRanker');
 // autônomo não deve fechar desconto nem confirmar cancelamento sem um humano.
 const HIGH_STAKES_INTENTS = new Set(['negotiation', 'cancellation']);
 
+// FASE 4 — Gate por INTENÇÃO em vez de um limiar global de confiança. Intents
+// de baixo risco (saudação, agradecimento, confirmação, info trivial como
+// horário) podem auto-enviar com confiança MENOR; os demais mantêm o limiar
+// normal; os escalonados nunca auto-enviam por confiança.
+const LOW_RISK_INTENTS = new Set([
+  'greeting',
+  'goodbye',
+  'thanks',
+  'feedback',
+  'confirmation',
+  'information',
+]);
+
+// Limiares de confiança do autopilot (0..100) por tier. 'escalate' é
+// inalcançável → quando escala, nunca auto-envia por confiança.
+const CONFIDENCE_TIERS = { low: 70, normal: 85, escalate: 101 };
+
 // Fallback do conjunto de intents que dependem de conhecimento do negócio. O
 // orquestrador injeta o KNOWLEDGE_SEEKING_INTENTS real (DynamicPromptBuilder)
 // via options pra não divergir; isto só vale se nada for injetado.
@@ -125,9 +142,10 @@ function asArray(x) {
  * @returns {{ allowAutoSend: boolean, escalate: boolean, reasons: string[], primaryReason: string|null }}
  */
 function evaluateAutoSend(signals = {}, options = {}) {
-  // Kill-switch — passthrough total (comportamento pré-3b).
+  // Kill-switch — passthrough total (comportamento pré-3b). minConfidence null
+  // → o cliente usa seu próprio limiar global (não força o tier por intenção).
   if (process.env.WHL_AUTOPILOT_GUARD === '0') {
-    return { allowAutoSend: true, escalate: false, reasons: [], primaryReason: null };
+    return { allowAutoSend: true, escalate: false, reasons: [], primaryReason: null, riskTier: 'normal', minConfidence: null };
   }
 
   const intent = signals.intent || 'unknown';
@@ -186,17 +204,37 @@ function evaluateAutoSend(signals = {}, options = {}) {
   const uniqueReasons = [...new Set(reasons)];
   const escalate = uniqueReasons.length > 0;
 
+  // FASE 4 — tier de confiança por intenção (advisory). O cliente compara a
+  // confiança do autopilot contra `minConfidence`: baixo risco passa com menos,
+  // os demais exigem o normal, e escalonado nunca passa por confiança.
+  let riskTier;
+  let minConfidence;
+  if (escalate) {
+    riskTier = 'high';
+    minConfidence = CONFIDENCE_TIERS.escalate;
+  } else if (LOW_RISK_INTENTS.has(intent)) {
+    riskTier = 'low';
+    minConfidence = CONFIDENCE_TIERS.low;
+  } else {
+    riskTier = 'normal';
+    minConfidence = CONFIDENCE_TIERS.normal;
+  }
+
   return {
     allowAutoSend: !escalate,
     escalate,
     reasons: uniqueReasons,
     primaryReason: uniqueReasons[0] || null,
+    riskTier,
+    minConfidence,
   };
 }
 
 module.exports = {
   evaluateAutoSend,
   HIGH_STAKES_INTENTS,
+  LOW_RISK_INTENTS,
   NEGATIVE_EMOTIONS,
   DEFAULT_KNOWLEDGE_SEEKING_INTENTS,
+  CONFIDENCE_TIERS,
 };
