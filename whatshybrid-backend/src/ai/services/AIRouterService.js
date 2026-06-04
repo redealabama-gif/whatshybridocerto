@@ -338,13 +338,20 @@ class AIRouterService {
    * FIX: tenantId incluído na chave para impedir cross-tenant cache poisoning
    */
   getCacheKey(messages, options) {
+    const tenant = options.tenantId || options.tenant || 'default';
+    // Chave semântica ESTÁVEL fornecida pelo caller (deflexão de perguntas
+    // repetidas ancoradas em conhecimento). Não depende do prompt volátil
+    // (persona/histórico/behavior) — por isso casa entre conversas distintas.
+    // O caller é responsável por só fornecê-la quando for seguro cachear.
+    if (options.cacheKey) {
+      return `${tenant}:sem:${options.cacheKey}`;
+    }
     const messagesStr = JSON.stringify(messages);
     const optionsStr = JSON.stringify({
       model: options.model,
       temperature: options.temperature,
       maxTokens: options.maxTokens
     });
-    const tenant = options.tenantId || options.tenant || 'default';
     return `${tenant}:${messagesStr}:${optionsStr}`;
   }
 
