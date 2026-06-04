@@ -14,6 +14,9 @@ const ResponseABTester = require('./learning/ResponseABTester');
 const AIAnalyticsCollector = require('./analytics/AIAnalyticsCollector');
 const ResponseSafetyFilter = require('./safety/ResponseSafetyFilter');
 const HybridSearch = require('./search/HybridSearch');
+// Ranqueador léxico local (BM25/IDF + sinônimos pt-BR) para o conhecimento
+// treinado. Substitui o overlap de substring ingênuo do _loadTrainedKnowledge.
+const LocalKnowledgeRanker = require('./search/LocalKnowledgeRanker');
 // DynamicPromptBuilder exporta INSTÂNCIA (singleton) como default e a CLASSE
 // como propriedade nomeada. Aqui precisamos da CLASSE pra instanciar com
 // config customizada por tenant (linha ~61: new DynamicPromptBuilder(config.prompts)).
@@ -783,6 +786,196 @@ class AIOrchestrator {
    * @private
    */
   _loadTrainedKnowledge(message, maxItems = 6) {
+    // Rollback instantâneo sem redeploy: WHL_RETRIEVER_LEGACY=1 volta ao
+    // scoring antigo (substring overlap), preservado em _legacyLoadTrainedKnowledge.
+    if (process.env.WHL_RETRIEVER_LEGACY === '1') {
+      return this._legacyLoadTrainedKnowledge(message, maxItems);
+    }
+    try {
+      return this._rankedTrainedKnowledge(message, maxItems);
+    } catch (err) {
+      logger.warn?.(`[Orchestrator] ranked retrieval falhou, usando legado: ${err.message}`);
+      return this._legacyLoadTrainedKnowledge(message, maxItems);
+    }
+  }
+
+  /**
+   * v11 — Recuperação de conhecimento treinado com ranqueamento léxico
+   * (LocalKnowledgeRanker: normalização de acento + match por prefixo +
+   * BM25/IDF + sinônimos pt-BR). Mesmo contrato de saída do legado:
+   * Array<{ content, source, score(0..1) }>. FAQs/produtos/exemplos são
+   * ranqueados JUNTOS (IDF compartilhada) e limitados por tipo; business info
+   * entra sempre como contexto base (igual ao legado).
+   * @private
+   */
+  _rankedTrainedKnowledge(message, maxItems = 6) {
+    const out = [];
+    let db;
+    try { db = require('../utils/database'); } catch (_) { return out; }
+    if (!db || !this.tenantId || this.tenantId === 'default') return out;
+
+    const text = String(message || '').trim();
+    if (!text) return out;
+
+    const candidates = [];
+
+    // ── FAQs (question + keywords curadas + answer) ─────────────────
+    try {
+      const faqs = db.all(
+        `SELECT question, answer, category, keywords
+           FROM faqs
+          WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC
+          LIMIT 50`,
+        [this.tenantId]
+      ) || [];
+      for (const f of faqs) {
+        let kw = '';
+        try {
+          const arr = JSON.parse(f.keywords || '[]');
+          if (Array.isArray(arr)) kw = arr.join(' ');
+        } catch (_) { /* keywords malformado → ignora */ }
+        candidates.push({
+          type: 'faq',
+          content: `Pergunta: ${f.question}\nResposta: ${f.answer}`,
+          source: `FAQ${f.category ? ` / ${f.category}` : ''}`,
+          // Pergunta e keywords pesam mais: o match relevante é com o que o
+          // cliente PERGUNTA, não com o corpo da resposta.
+          fields: [
+            { text: f.question || '', weight: 1.0 },
+            { text: kw, weight: 1.3 },
+            { text: f.answer || '', weight: 0.5 },
+          ],
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] FAQ query failed: ${e.message}`); }
+
+    // ── Products ────────────────────────────────────────────────────
+    try {
+      const products = db.all(
+        `SELECT name, description, short_description, sku, category, price, currency, stock, stock_status
+           FROM products
+          WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC
+          LIMIT 100`,
+        [this.tenantId]
+      ) || [];
+      for (const p of products) {
+        // v9.X — Estoque numérico tem prioridade sobre stock_status legado.
+        // A IA precisa de info confiável de disponibilidade pra NÃO mentir.
+        let stockLine = '';
+        if (Number.isFinite(p.stock) && p.stock !== null) {
+          stockLine = p.stock > 0
+            ? `\nEstoque: ${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} disponível${p.stock === 1 ? '' : 'eis'}`
+            : `\nEstoque: ESGOTADO — não oferecer este produto até reposição`;
+        } else if (p.stock_status) {
+          stockLine = `\nDisponibilidade: ${p.stock_status}`;
+        }
+        candidates.push({
+          type: 'product',
+          content: `Produto: ${p.name}` +
+                   (p.sku ? ` (SKU ${p.sku})` : '') +
+                   (Number.isFinite(p.price) && p.price > 0
+                      ? ` — ${p.currency || 'BRL'} ${Number(p.price).toFixed(2)}`
+                      : '') +
+                   (p.short_description ? `\nResumo: ${p.short_description}` : '') +
+                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : '') +
+                   stockLine,
+          source: `Catálogo${p.category ? ` / ${p.category}` : ''}`,
+          // Nome + SKU são decisivos (termos raros); descrição pesa menos.
+          fields: [
+            { text: `${p.name || ''} ${p.sku || ''}`, weight: 1.2 },
+            { text: p.short_description || '', weight: 0.8 },
+            { text: String(p.description || '').slice(0, 600), weight: 0.5 },
+            { text: p.category || '', weight: 0.6 },
+          ],
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] Product query failed: ${e.message}`); }
+
+    // ── Training Examples ───────────────────────────────────────────
+    try {
+      const examples = db.all(
+        `SELECT input, output, category
+           FROM training_examples
+          WHERE workspace_id = ?
+          ORDER BY usage_count DESC, updated_at DESC
+          LIMIT 100`,
+        [this.tenantId]
+      ) || [];
+      for (const ex of examples) {
+        candidates.push({
+          type: 'example',
+          content: `Exemplo aprovado — quando o cliente disser "${ex.input}", responda no estilo: "${ex.output}"`,
+          source: `Exemplo${ex.category && ex.category !== 'geral' && ex.category !== 'Geral' ? ` / ${ex.category}` : ''}`,
+          // Match relevante é com o que o cliente diz (input), não com a resposta.
+          fields: [
+            { text: ex.input || '', weight: 1.1 },
+            { text: ex.output || '', weight: 0.4 },
+          ],
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] Examples query failed: ${e.message}`); }
+
+    // Ranqueia FAQs/produtos/exemplos JUNTOS (IDF compartilhada) e aplica
+    // limites por tipo, mantendo a ordenação global por relevância.
+    const CAPS = { faq: 3, product: 2, example: 3 };
+    const counts = { faq: 0, product: 0, example: 0 };
+    let ranked = [];
+    try {
+      ranked = LocalKnowledgeRanker.rankDocuments(text, candidates) || [];
+    } catch (e) { logger.debug?.(`[Orchestrator] ranker error: ${e.message}`); }
+    for (const d of ranked) {
+      if ((counts[d.type] || 0) >= (CAPS[d.type] || 0)) continue;
+      counts[d.type]++;
+      out.push({ content: d.content, source: d.source, score: d.score });
+    }
+
+    // ── Business Info (sempre inclui se existir — é contexto base) ──
+    try {
+      const wk = db.get(
+        'SELECT data FROM workspace_knowledge WHERE workspace_id = ?',
+        [this.tenantId]
+      );
+      if (wk?.data) {
+        const bi = JSON.parse(wk.data);
+        const lines = [];
+        if (bi.name)               lines.push(`Empresa: ${bi.name}`);
+        if (bi.segment)            lines.push(`Segmento: ${bi.segment}`);
+        if (bi.description)        lines.push(`Sobre: ${String(bi.description).slice(0, 400)}`);
+        if (bi.hours)              lines.push(`Horário de atendimento: ${bi.hours}`);
+        if (bi.responseTime)       lines.push(`Tempo de resposta: ${bi.responseTime}`);
+        if (bi.phone)              lines.push(`Telefone: ${bi.phone}`);
+        if (bi.email)              lines.push(`Email: ${bi.email}`);
+        if (Array.isArray(bi.paymentMethods) && bi.paymentMethods.length) {
+          lines.push(`Formas de pagamento: ${bi.paymentMethods.join(', ')}`);
+        }
+        if (bi.deliveryPolicy)     lines.push(`Política de entrega: ${String(bi.deliveryPolicy).slice(0, 400)}`);
+        if (bi.freeShipping)       lines.push(`Frete grátis: ${bi.freeShipping}`);
+        if (bi.returnPolicy)       lines.push(`Política de troca: ${String(bi.returnPolicy).slice(0, 400)}`);
+        if (bi.customInstructions) lines.push(`Instruções da empresa: ${String(bi.customInstructions).slice(0, 800)}`);
+
+        if (lines.length) {
+          out.push({
+            content: lines.join('\n'),
+            source: 'Informações do Negócio',
+            score: 0.95, // contexto base — sempre relevante
+          });
+        }
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] BusinessInfo load failed: ${e.message}`); }
+
+    return out
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxItems);
+  }
+
+  /**
+   * Implementação LEGADA (substring overlap). Mantida intacta como fallback
+   * acionável por WHL_RETRIEVER_LEGACY=1 ou em caso de erro no ranker.
+   * @private
+   */
+  _legacyLoadTrainedKnowledge(message, maxItems = 6) {
     const out = [];
     let db;
     try { db = require('../utils/database'); } catch (_) { return out; }
