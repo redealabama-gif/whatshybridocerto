@@ -99,6 +99,7 @@
       repliedConfirmed: 0, // Novo: apenas após confirmação de envio
       failed: 0,
       skippedLowConfidence: 0,
+      skippedEscalated: 0, // FASE 3b: backend recomendou humano (não auto-enviado)
       skippedGroups: 0,
       skippedBlacklisted: 0,
       skippedNoText: 0,
@@ -913,6 +914,38 @@
       const response = confidenceCheck.answer || await generateResponse(item);
       if (!response) throw new Error('Falha ao gerar resposta');
 
+      // FASE 3b — Honra a guarda de segurança do backend. Mesmo com confiança
+      // alta no cliente, NÃO auto-enviar quando o backend recomenda humano
+      // (tema sensível, PII, cliente irritado/reclamação, pedido explícito de
+      // atendente, transação de alto valor, ou resposta sem base). Roteia pra
+      // sugestão — o humano revisa a resposta já gerada. Fail-safe: guard ausente
+      // (backend antigo / kill-switch) → segue o fluxo normal de envio.
+      const guard = item.__aiGuard;
+      if (guard && guard.allowAutoSend === false) {
+        console.log(`[Autopilot] 🧑‍💼 Escalando p/ humano (backend): ${(guard.reasons || []).join(', ') || guard.primaryReason || 'escalation'}`);
+        state.stats.skippedEscalated++;
+
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', {
+            item,
+            reason: 'backend_escalation',
+            escalation: guard.reasons || [],
+            primaryReason: guard.primaryReason || null,
+            suggestion: response, // resposta já gerada — humano aprova/edita
+          });
+        }
+        emitRuntimeEvent('suggestion-only', {
+          chatId: item.chatId,
+          phone: item.phone,
+          reason: 'backend_escalation',
+          escalation: guard.reasons || [],
+          primaryReason: guard.primaryReason || null,
+        });
+
+        nextDelayOverride = Math.random() * 1000 + 500;
+        return;
+      }
+
       // PEND-MED-009: Verificar abort antes de enviar
       if (state.abortController?.signal.aborted) {
         console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
@@ -1191,6 +1224,10 @@
         // backend retorna { success, response, metadata, intelligence }
         if (result && result.success && (result.response || result.content)) {
           const text = result.response || result.content;
+          // FASE 3b — guarda de auto-envio do backend (advisory). Anexa ao item
+          // pra o processQueue decidir enviar vs. escalar pra humano. Fail-safe:
+          // ausente (backend antigo / WHL_AUTOPILOT_GUARD=0) → não bloqueia.
+          try { item.__aiGuard = result.metadata && result.metadata.autopilot ? result.metadata.autopilot : null; } catch (_) {}
           console.log(`[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada` +
             (result.metadata?.qualityScore != null ? ` | quality=${result.metadata.qualityScore}` : '') +
             (result.intelligence?.responseGoal ? ` | goal=${result.intelligence.responseGoal}` : ''));
@@ -1457,6 +1494,7 @@
 
       const totalSkipped =
         (state.stats.skippedLowConfidence || 0) +
+        (state.stats.skippedEscalated || 0) +
         (state.stats.skippedGroups || 0) +
         (state.stats.skippedBlacklisted || 0) +
         (state.stats.skippedNoText || 0) +
