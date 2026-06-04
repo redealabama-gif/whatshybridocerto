@@ -17,6 +17,15 @@
  */
 
 const logger = require('../../config/logger');
+// Reusa o normalizador léxico (acento + match por prefixo) do ranker para o
+// check de uso-de-contexto — evita falso "no_context" quando a resposta
+// PARAFRASEIA o conhecimento (ex.: "entregamos" vs "entrega").
+const { tokenize, matchTerm } = require('../search/LocalKnowledgeRanker');
+
+// Intents de baixo risco: a resposta certa é curta/simples e regenerar via LLM
+// não compensa (alto volume, baixo valor comercial). Usado para (a) não exigir
+// regeneração cara e (b) não rotular uma saudação como "genérica".
+const LOW_STAKES_INTENTS = new Set(['greeting', 'goodbye', 'thanks', 'feedback', 'confirmation']);
 
 // ── Padrões de detecção de problemas ────────────────────────────────────────
 
@@ -92,7 +101,8 @@ class ResponseQualityChecker {
   evaluate(response, context = {}) {
     this.stats.total++;
     const issues = [];
-    const { message = '', goal = 'responder_duvida', knowledge = [] } = context;
+    const { message = '', goal = 'responder_duvida', knowledge = [], intent = null } = context;
+    const isLowStakes = LOW_STAKES_INTENTS.has(intent);
 
     // ── 1. Comprimento adequado ────────────────────────────────────────────
     if (this.config.lengthCheckEnabled) {
@@ -107,8 +117,10 @@ class ResponseQualityChecker {
     }
 
     // ── 2. Padrões genéricos ───────────────────────────────────────────────
+    // Para intents de baixo risco (saudação/agradecimento/confirmação) uma
+    // resposta "genérica" curta é o esperado — não é defeito.
     const isGeneric = GENERIC_PATTERNS.some(p => p.test(response));
-    if (isGeneric) {
+    if (isGeneric && !isLowStakes) {
       issues.push('generic');
       this.stats.issueFrequency.generic++;
     }
@@ -130,19 +142,15 @@ class ResponseQualityChecker {
     }
 
     // ── 5. Uso de contexto (se havia RAG disponível) ───────────────────────
+    // Match léxico normalizado (acento + prefixo) em vez de substring exato:
+    // "entregamos em 3 dias" CONTA como uso do conhecimento "prazo de entrega",
+    // o que antes era falso "no_context" e disparava 2 regenerações inúteis.
     if (knowledge.length > 0) {
-      // Extrair tokens significativos do RAG (>4 chars, sem stopwords básicas)
-      const STOPWORDS = new Set(['para', 'como', 'com', 'que', 'por', 'mais', 'uma', 'este', 'essa', 'isso']);
-      const knowledgeTokens = knowledge
-        .map(k => (k.content || '').toLowerCase())
-        .join(' ')
-        .split(/[\s,.:;!?()\[\]]+/)
-        .filter(t => t.length > 4 && !STOPWORDS.has(t));
+      const knowledgeTokens = tokenize(knowledge.map(k => k.content || '').join(' '), { minLen: 4, unique: true });
+      const responseTokens = tokenize(response, { minLen: 3, unique: true });
+      const overlap = knowledgeTokens.filter(kt => responseTokens.some(rt => matchTerm(kt, rt))).length;
 
-      const responseText = response.toLowerCase();
-      const overlap = knowledgeTokens.filter(t => responseText.includes(t)).length;
-
-      // Threshold: pelo menos 1 token do RAG deve aparecer na resposta
+      // Threshold: pelo menos 1 termo do RAG deve aparecer na resposta.
       if (overlap === 0 && knowledgeTokens.length > 0) {
         issues.push('no_context');
         this.stats.issueFrequency.no_context++;
@@ -205,5 +213,9 @@ class ResponseQualityChecker {
     return { ...this.stats, passRate };
   }
 }
+
+// Compartilhado com o AIOrchestrator (_runQualityCycle) para decidir quando
+// NÃO vale a pena gastar LLM regenerando.
+ResponseQualityChecker.LOW_STAKES_INTENTS = LOW_STAKES_INTENTS;
 
 module.exports = ResponseQualityChecker;
