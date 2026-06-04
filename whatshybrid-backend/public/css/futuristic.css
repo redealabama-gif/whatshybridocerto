@@ -327,6 +327,12 @@ h4 { font-size: 1.1rem; font-weight: 600; }
   display: block;
   object-fit: contain;
 }
+/* Wordmark estilizado "Vórtex Pro" — fica AO LADO do símbolo (.logo-mark),
+   que continua sendo a logo oficial. Substitui o nome em texto nos lockups. */
+.logo-wordmark {
+  height: 34px; width: auto;
+  display: block;
+}
 .nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
 .nav-links a { color: var(--text-muted); }
 .nav-links a:hover { color: white; }
