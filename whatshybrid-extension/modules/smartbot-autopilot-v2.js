@@ -19,6 +19,11 @@
     // (human-in-the-loop); 85 sits between copilot and autonomous (≥90), which is the right
     // band for "auto-send only when very confident, otherwise queue for review".
     minConfidence: 85,          // Confiança mínima para auto-send
+    // FASE 4b — Gate por intenção: limiar MENOR para mensagens obviamente de
+    // baixo risco (saudação/horário/agradecimento). Só reduz nesses casos e
+    // nunca sobe acima de minConfidence. O backend (AutopilotGuard) ainda manda:
+    // se recomendar revisão, não envia, independentemente da confiança.
+    minConfidenceLowStakes: 70,
     requireCopilotMode: true,   // Requer modo copiloto ativo
 
     // Configuráveis via UI (autopilot-handlers.js)
@@ -40,6 +45,7 @@
     'DELAY_BETWEEN_CHATS',
     'WORKING_HOURS',
     'minConfidence',
+    'minConfidenceLowStakes',
     'requireCopilotMode',
     'useConfidenceSystem',
   ];
@@ -555,6 +561,24 @@
   // ============================================
   // 7.14 - Verificar sistema de confiança
   // ============================================
+  // FASE 4b — Detector LOCAL mínimo de mensagens de baixo risco (saudação,
+  // agradecimento, despedida, "que horas/horário"). Usado SÓ para escolher o
+  // limiar de confiança PRÉ-geração; a classificação autoritativa de intenção
+  // continua no backend (AutopilotGuard). Conservador de propósito: casa só
+  // aberturas óbvias, para não afrouxar o limiar de mensagens de verdade.
+  // Padrão JÁ normalizado (minúsculo, sem acento) — \b do JS é ASCII e quebra
+  // após letra acentuada, então normalizamos o texto antes de testar.
+  const LOW_STAKES_MSG_RE = /^\s*(oi+|ola+|opa|e ai|eae|alo|hey|bom dia|boa tarde|boa noite|tudo bem|tudo certo|obrigad[oa]|obrigadissimo|valeu|vlw|brigad[oa]|tchau|ate (mais|logo|breve)|falou|que horas|qual (o |e o )?horario|horario de (atendimento|funcionamento))\b/;
+
+  function isLowStakesMessage(text) {
+    const t = String(text || '').trim();
+    // Só aberturas curtas e óbvias. Mensagens longas (mesmo começando com
+    // saudação) costumam carregar um pedido substantivo → mantêm o limiar normal.
+    if (!t || t.length > 64) return false;
+    const norm = t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return LOW_STAKES_MSG_RE.test(norm);
+  }
+
   async function checkConfidenceSystem(item) {
     // Se desabilitado, permitir sempre
     if (!CONFIG.useConfidenceSystem) {
@@ -578,11 +602,17 @@
       return { canSend: false, reason: 'copilot_disabled' };
     }
     
-    // Verificar score de confiança
+    // Verificar score de confiança. FASE 4b: mensagens obviamente de baixo risco
+    // (saudação/horário/agradecimento) usam um limiar MENOR — auto-enviam com
+    // confiança menor. Nunca acima do limiar global (Math.min).
     const score = window.confidenceSystem.getScore?.() || window.confidenceSystem.score || 0;
-    if (score < CONFIG.minConfidence) {
-      console.log(`[Autopilot] 📉 Confiança insuficiente: ${score}% < ${CONFIG.minConfidence}%`);
-      return { canSend: false, reason: 'low_confidence', score };
+    const lowStakes = isLowStakesMessage(item.message);
+    const threshold = (lowStakes && Number.isFinite(CONFIG.minConfidenceLowStakes))
+      ? Math.min(CONFIG.minConfidence, CONFIG.minConfidenceLowStakes)
+      : CONFIG.minConfidence;
+    if (score < threshold) {
+      console.log(`[Autopilot] 📉 Confiança insuficiente: ${score}% < ${threshold}%${lowStakes ? ' (low-stakes)' : ''}`);
+      return { canSend: false, reason: 'low_confidence', score, threshold };
     }
     
     // Usar decisão inteligente do ConfidenceSystem
@@ -942,6 +972,37 @@
           primaryReason: guard.primaryReason || null,
         });
 
+        nextDelayOverride = Math.random() * 1000 + 500;
+        return;
+      }
+
+      // FASE 4b — Limiar de confiança por INTENÇÃO (autoritativo do backend).
+      // Mesmo liberado pela guarda, exige a confiança mínima do tier: baixo risco
+      // passa com menos, normal exige mais. Pega o caso em que o detector local
+      // achou "baixo risco" mas o backend classificou como normal → prevalece o
+      // limiar do backend e vai pra revisão. Fail-safe: minConfidence ausente
+      // (backend antigo / kill-switch) ou score desconhecido → não bloqueia.
+      const apScore = confidenceCheck.score;
+      if (guard && Number.isFinite(guard.minConfidence) && Number.isFinite(apScore) && apScore < guard.minConfidence) {
+        console.log(`[Autopilot] 🧑‍💼 Confiança ${apScore}% < limiar do tier ${guard.minConfidence}% (${guard.riskTier || 'tier'}) → revisão`);
+        state.stats.skippedLowConfidence++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', {
+            item,
+            reason: 'tier_confidence',
+            riskTier: guard.riskTier || null,
+            minConfidence: guard.minConfidence,
+            score: apScore,
+            suggestion: response,
+          });
+        }
+        emitRuntimeEvent('suggestion-only', {
+          chatId: item.chatId,
+          phone: item.phone,
+          reason: 'tier_confidence',
+          riskTier: guard.riskTier || null,
+          score: apScore,
+        });
         nextDelayOverride = Math.random() * 1000 + 500;
         return;
       }
