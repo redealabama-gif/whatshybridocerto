@@ -10,7 +10,9 @@
 const {
   evaluateAutoSend,
   HIGH_STAKES_INTENTS,
+  LOW_RISK_INTENTS,
   DEFAULT_KNOWLEDGE_SEEKING_INTENTS,
+  CONFIDENCE_TIERS,
 } = require('../../src/ai/safety/AutopilotGuard');
 
 function withEnv(key, val, fn) {
@@ -225,5 +227,55 @@ describe('AutopilotGuard — kill-switch e exports', () => {
     expect(HIGH_STAKES_INTENTS.has('greeting')).toBe(false);
     expect(DEFAULT_KNOWLEDGE_SEEKING_INTENTS.has('pricing')).toBe(true);
     expect(DEFAULT_KNOWLEDGE_SEEKING_INTENTS.has('greeting')).toBe(false);
+  });
+});
+
+describe('AutopilotGuard — FASE 4: tier de confiança por intenção', () => {
+  test('saudação → tier low (auto-envia com confiança MENOR)', () => {
+    const r = evaluateAutoSend({ intent: 'greeting', message: 'oi, bom dia!', knowledgeCount: 0 });
+    expect(r.allowAutoSend).toBe(true);
+    expect(r.riskTier).toBe('low');
+    expect(r.minConfidence).toBe(CONFIDENCE_TIERS.low);
+  });
+
+  test('informação (horário) COM conhecimento → tier low', () => {
+    const r = evaluateAutoSend({ intent: 'information', message: 'qual o horário?', knowledgeCount: 2 });
+    expect(r.riskTier).toBe('low');
+    expect(r.minConfidence).toBe(CONFIDENCE_TIERS.low);
+  });
+
+  test('informação SEM conhecimento → ungrounded → tier high (nunca por confiança)', () => {
+    const r = evaluateAutoSend({ intent: 'information', message: 'qual o horário?', knowledgeCount: 0 });
+    expect(r.allowAutoSend).toBe(false);
+    expect(r.riskTier).toBe('high');
+    expect(r.minConfidence).toBe(CONFIDENCE_TIERS.escalate);
+  });
+
+  test('pergunta normal COM conhecimento → tier normal (85)', () => {
+    const r = evaluateAutoSend({ intent: 'pricing', message: 'qual o preço?', knowledgeCount: 3 });
+    expect(r.allowAutoSend).toBe(true);
+    expect(r.riskTier).toBe('normal');
+    expect(r.minConfidence).toBe(CONFIDENCE_TIERS.normal);
+  });
+
+  test('escalonado (reclamação) → tier high + minConfidence inalcançável', () => {
+    const r = evaluateAutoSend({ intent: 'complaint', message: 'produto quebrado', knowledgeCount: 5 });
+    expect(r.riskTier).toBe('high');
+    expect(r.minConfidence).toBe(CONFIDENCE_TIERS.escalate);
+  });
+
+  test('kill-switch → minConfidence null (cliente usa o limiar global)', () => {
+    withEnv('WHL_AUTOPILOT_GUARD', '0', () => {
+      const r = evaluateAutoSend({ intent: 'greeting', message: 'oi', knowledgeCount: 0 });
+      expect(r.minConfidence).toBeNull();
+      expect(r.riskTier).toBe('normal');
+    });
+  });
+
+  test('exports do tier', () => {
+    expect(LOW_RISK_INTENTS.has('greeting')).toBe(true);
+    expect(LOW_RISK_INTENTS.has('information')).toBe(true);
+    expect(LOW_RISK_INTENTS.has('pricing')).toBe(false);
+    expect(CONFIDENCE_TIERS.low).toBeLessThan(CONFIDENCE_TIERS.normal);
   });
 });
