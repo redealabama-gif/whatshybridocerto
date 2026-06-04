@@ -43,6 +43,13 @@ const { detectLanguage } = require('./utils/languageDetect');
 let PipelineTracer;
 try { PipelineTracer = require('../observability/pipeline-tracer'); } catch(e) { PipelineTracer = null; }
 
+// FASE 2b — Deflexão de LLM via cache semântico (opt-in: WHL_RESPONSE_CACHE=1).
+// Só cacheamos intents cujas respostas são dirigidas por CONHECIMENTO (não pela
+// conversa): informação (horário/endereço/políticas), preço e agendamento.
+// Combinado com a fingerprint do conhecimento recuperado na chave, "qual o
+// preço?" sobre o produto X nunca serve a resposta do produto Y.
+const CACHEABLE_INTENTS = new Set(['information', 'pricing', 'schedule']);
+
 class AIOrchestrator {
   /**
    * @param {Object} config
@@ -275,7 +282,8 @@ class AIOrchestrator {
 
       // ── 8. Geração de resposta com ciclo de qualidade (v10) ─────────────────
       let response = await this._generateResponse(
-        message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt, context.language
+        message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt, context.language,
+        true // cacheEligible: só a geração inicial pode usar o cache semântico
       );
 
       let qualityResult = null;
@@ -555,7 +563,36 @@ class AIOrchestrator {
    * The hardcoded stub was replaced entirely.
    * @private
    */
-  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR') {
+  /**
+   * FASE 2b — Chave de cache semântico p/ deflexão de LLM. Retorna null quando
+   * não é seguro/elegível cachear (feature opt-in via WHL_RESPONSE_CACHE=1).
+   * Elegível: intent dirigido por conhecimento (CACHEABLE_INTENTS) + conhecimento
+   * recuperado não-vazio. A fingerprint do conhecimento na chave garante que
+   * respostas específicas de produto/política não vazem entre conversas e que
+   * mudanças de treino invalidem o cache automaticamente.
+   * @private
+   */
+  _semanticCacheKey(message, intentResult, knowledgeResults, language = 'pt-BR') {
+    if (process.env.WHL_RESPONSE_CACHE !== '1') return null;
+    if (!CACHEABLE_INTENTS.has(intentResult?.intent)) return null;
+    if (!Array.isArray(knowledgeResults) || knowledgeResults.length === 0) return null;
+    try {
+      const crypto = require('crypto');
+      const q = LocalKnowledgeRanker.normalize(message);
+      const fp = knowledgeResults
+        .map(k => `${k.source || ''}|${k.content || ''}`)
+        .sort()
+        .join('||');
+      return crypto
+        .createHash('sha1')
+        .update(`${intentResult.intent}::${String(language || 'pt-BR')}::${q}::${fp}`)
+        .digest('hex');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false) {
     const systemContent = dynamicPrompt || this._fallbackSystemPrompt(language);
 
     const historyMessages = (conversationContext.recentMessages || [])
@@ -568,13 +605,22 @@ class AIOrchestrator {
       { role: 'user', content: message }
     ];
 
+    const options = {
+      maxTokens: this.config.maxResponseTokens,
+      temperature: 0.7,
+      tenantId: this.tenantId, // FIX: isola cache do AIRouter por tenant
+    };
+    // Deflexão (opt-in): só na geração INICIAL de intents ancorados em
+    // conhecimento. Pula a chamada de LLM em perguntas repetidas (horário,
+    // política, "preço do produto X") preservando todo o resto do pipeline.
+    const cacheKey = cacheEligible
+      ? this._semanticCacheKey(message, intentResult, knowledgeResults, language)
+      : null;
+    if (cacheKey) options.cacheKey = cacheKey;
+
     let content;
     try {
-      const result = await this.aiRouter.complete(messages, {
-        maxTokens: this.config.maxResponseTokens,
-        temperature: 0.7,
-        tenantId: this.tenantId, // FIX: isola cache do AIRouter por tenant
-      });
+      const result = await this.aiRouter.complete(messages, options);
       content = result.content || result.text || result.message || '';
     } catch (routerErr) {
       logger.error(`AIRouterService failed: ${routerErr.message}`);
