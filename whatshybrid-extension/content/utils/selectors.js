@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Lite - DOM Selector Helpers
+ * Vórtex Lite - DOM Selector Helpers
  * Robust, configurable selector helpers to future-proof against WhatsApp UI changes
  */
 

@@ -1,11 +1,11 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "WhatsHybrid Pro API",
-    "description": "API REST do WhatsHybrid Pro — CRM SaaS B2B com IA neural para WhatsApp.",
+    "title": "Vórtex Pro API",
+    "description": "API REST do Vórtex Pro — CRM SaaS B2B com IA neural para WhatsApp.",
     "version": "9.0.0",
     "contact": {
-      "name": "Suporte WhatsHybrid",
+      "name": "Suporte Vórtex",
       "email": "suporte@whatshybrid.com.br",
       "url": "https://whatshybrid.com.br"
     },

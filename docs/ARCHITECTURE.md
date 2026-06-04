@@ -1,4 +1,4 @@
-# WhatsHybrid Pro — Arquitetura do Sistema
+# Vórtex Pro — Arquitetura do Sistema
 
 ## Visão Geral
 

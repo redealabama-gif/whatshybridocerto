@@ -138,7 +138,7 @@ export function handleSummary(data) {
 function textSummary(data) {
   return `
 ╔══════════════════════════════════════════════════╗
-║  WhatsHybrid Pro — Load Test Results             ║
+║  Vórtex Pro — Load Test Results             ║
 ╚══════════════════════════════════════════════════╝
 
 Iterations: ${data.metrics.iterations.values.count}

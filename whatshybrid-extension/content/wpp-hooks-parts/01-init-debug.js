@@ -5,7 +5,7 @@
  */
 
 /**
- * WhatsHybrid Lite - WPP Hooks (WPP Boladão tested approach)
+ * Vórtex Lite - WPP Hooks (WPP Boladão tested approach)
  * Uses require() to load internal WhatsApp modules via webpack
  * Does NOT use window.Store directly (CSP blocking)
  */

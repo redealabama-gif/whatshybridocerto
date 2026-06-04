@@ -1,4 +1,4 @@
-# Site WhatsHybrid Pro — Como visualizar
+# Site Vórtex Pro — Como visualizar
 
 Esta pasta contém as 4 páginas públicas da SaaS.
 

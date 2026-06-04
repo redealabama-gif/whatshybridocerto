@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Backend - Recover Routes v7.5.0
+ * Vórtex Backend - Recover Routes v7.5.0
  * Endpoints para suporte ao módulo Recover Advanced
  * 
  * FEATURES:
@@ -515,7 +515,7 @@ router.post('/media/download', async (req, res) => {
       maxContentLength: RECOVER_MAX_ENCRYPTED_BYTES,
       maxBodyLength: RECOVER_MAX_ENCRYPTED_BYTES,
       headers: {
-        'User-Agent': 'WhatsHybrid-Recover/7.9.13'
+        'User-Agent': 'Vórtex-Recover/7.9.13'
       }
     });
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * bump-version.js
- * WhatsHybrid Pro — Sincronizador de versão
+ * Vórtex Pro — Sincronizador de versão
  *
  * Atualiza a versão em TODOS os arquivos relevantes de uma só vez:
  *   - package.json (root)

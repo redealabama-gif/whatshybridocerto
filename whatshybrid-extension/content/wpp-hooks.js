@@ -12,7 +12,7 @@ console.log('[WHL WPP Hooks] carregando');
  */
 
 /**
- * WhatsHybrid Lite - WPP Hooks (WPP Boladão tested approach)
+ * Vórtex Lite - WPP Hooks (WPP Boladão tested approach)
  * Uses require() to load internal WhatsApp modules via webpack
  * Does NOT use window.Store directly (CSP blocking)
  */
@@ -6699,7 +6699,7 @@ if (!window.whl_hooks_loaded) {
                 const banner = document.createElement('div');
                 banner.id = 'whl-fallback-banner';
                 banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#1a1a1a;padding:12px 20px;text-align:center;font-family:sans-serif;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
-                banner.textContent = '⚠️ WhatsHybrid: automação indisponível (WhatsApp atualizou). Modo manual ativo.';
+                banner.textContent = '⚠️ Vórtex: automação indisponível (WhatsApp atualizou). Modo manual ativo.';
                 const close = document.createElement('button');
                 close.textContent = '✕';
                 close.style.cssText = 'background:none;border:0;font-size:18px;cursor:pointer;margin-left:16px;';

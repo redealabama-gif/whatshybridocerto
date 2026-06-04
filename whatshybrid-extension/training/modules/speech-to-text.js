@@ -1,5 +1,5 @@
 /**
- * 🗣️ WhatsHybrid - Speech to Text
+ * 🗣️ Vórtex - Speech to Text
  * Transcrição de áudio com múltiplos provedores e idiomas
  * @version 7.9.13
  */

@@ -1,8 +1,8 @@
-# WhatsHybrid Lite - Technical Documentation
+# Vórtex Lite - Technical Documentation
 
 ## Overview
 
-WhatsHybrid Lite is a Chrome extension that automates message sending on WhatsApp Web. This documentation provides technical details for developers working on the project.
+Vórtex Lite is a Chrome extension that automates message sending on WhatsApp Web. This documentation provides technical details for developers working on the project.
 
 ## Architecture
 

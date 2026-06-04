@@ -1,12 +1,12 @@
 {
-  "_comment": "White-label branding configuration for WhatsHybrid Pro.",
+  "_comment": "White-label branding configuration for Vórtex Pro.",
   "_usage": "Set BUILD_BRAND=<key> before running npm run build:extension",
 
   "default": {
-    "name": "WhatsHybrid Pro",
-    "shortName": "WHP",
+    "name": "Vórtex Pro",
+    "shortName": "Vórtex",
     "description": "CRM e automação inteligente para WhatsApp. IA avançada com RAG, multi-agentes, aprendizado contínuo, análise comportamental e muito mais.",
-    "author": "WhatsHybrid Team",
+    "author": "Vórtex Team",
     "supportEmail": "suporte@whatshybrid.com",
     "website": "https://whatshybrid.com",
     "primaryColor": "#25D366",

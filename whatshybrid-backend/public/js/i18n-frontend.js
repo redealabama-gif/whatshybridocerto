@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Frontend i18n — v9.0.0
+ * Vórtex Frontend i18n — v9.0.0
  *
  * Aplica traduções nos elementos com data-i18n="key" e data-i18n-placeholder="key".
  *

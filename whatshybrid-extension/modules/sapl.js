@@ -1,7 +1,7 @@
 /**
  * 🔰 SAPL — System Auto-Protection Layer v1.0
  *
- * Camada orquestradora de proteção do WhatsHybrid Pro.
+ * Camada orquestradora de proteção do Vórtex Pro.
  *
  * O projeto já tem peças individuais (anti-break-system, graceful-degradation,
  * smoke-test, kill-switch). O SAPL não os duplica — ele os une e preenche o
@@ -32,7 +32,7 @@
  *                             thresholds em runtime.
  *
  * @version 1.0.0
- * @author  WhatsHybrid Pro
+ * @author  Vórtex Pro
  * @depends EventBus, AntiBreakSystem, GracefulDegradation, SmokeTest (opcionais)
  */
 

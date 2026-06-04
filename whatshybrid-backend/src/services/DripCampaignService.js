@@ -28,7 +28,7 @@ const TRIAL_STEPS = [
     subject: '🚀 Configure sua IA em 5 minutos',
     body: (user) => `
       <p>Olá ${escape(user.name)},</p>
-      <p>Bem-vindo ao WhatsHybrid Pro. Pra tirar o máximo da plataforma, você
+      <p>Bem-vindo ao Vórtex Pro. Pra tirar o máximo da plataforma, você
       precisa configurar a personalidade da sua IA — leva 5 minutos.</p>
       <p><strong>3 passos:</strong></p>
       <ol>
@@ -65,7 +65,7 @@ const TRIAL_STEPS = [
     subject: '📈 Como uma loja aumentou conversão em 30%',
     body: (user) => `
       <p>Olá ${escape(user.name)},</p>
-      <p>Caso real: uma loja de cosméticos (10 atendentes) ativou WhatsHybrid Pro.
+      <p>Caso real: uma loja de cosméticos (10 atendentes) ativou Vórtex Pro.
       Resultado em 30 dias:</p>
       <ul>
         <li><strong>+30% conversão</strong> em mensagens fora do horário comercial</li>
@@ -119,7 +119,7 @@ const ENGAGEMENT_STEPS = [
     subject: '✨ Tirando mais da IA — dicas avançadas',
     body: (user) => `
       <p>Olá ${escape(user.name)},</p>
-      <p>Já uma semana de WhatsHybrid Pro 🎉. Algumas dicas que clientes adoram:</p>
+      <p>Já uma semana de Vórtex Pro 🎉. Algumas dicas que clientes adoram:</p>
       <ul>
         <li>Use <strong>tags</strong> em contatos pra segmentar campanhas</li>
         <li>Configure <strong>respostas variadas</strong> (Variant A/B testing já está rodando)</li>

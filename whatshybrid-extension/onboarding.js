@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid - Sistema de Onboarding Premium v4.0
+ * Vórtex - Sistema de Onboarding Premium v4.0
  * Tutorial interativo com spotlight real, setas animadas e destaque de elementos
  */
 
@@ -15,7 +15,7 @@ class OnboardingSystem {
             {
                 id: 'welcome',
                 type: 'welcome',
-                title: 'Bem-vindo ao WhatsHybrid! 🎉',
+                title: 'Bem-vindo ao Vórtex! 🎉',
                 subtitle: 'A extensão mais completa para WhatsApp Web',
                 description: 'Vamos fazer um tour rápido pelas principais funcionalidades. Este tutorial levará apenas 2 minutos.',
                 icon: '👋',
@@ -263,7 +263,7 @@ class OnboardingSystem {
                 type: 'conclusion',
                 title: 'Pronto para começar! 🚀',
                 subtitle: 'Você completou o tutorial',
-                description: 'Agora você conhece todas as funcionalidades do WhatsHybrid. Explore e potencialize seu WhatsApp!',
+                description: 'Agora você conhece todas as funcionalidades do Vórtex. Explore e potencialize seu WhatsApp!',
                 icon: '🎯',
                 shortcuts: [
                     { keys: ['Ctrl', 'H'], action: 'Ver histórico de extrações' },
@@ -466,7 +466,7 @@ class OnboardingSystem {
             
             <div class="whl-tour-panel-mock">
                 <div class="panel-mock-header">
-                    <span class="panel-mock-logo">🟢 WhatsHybrid</span>
+                    <span class="panel-mock-logo">🟢 Vórtex</span>
                 </div>
                 <div class="panel-mock-buttons">
                     ${step.buttons.map((btn, i) => `
@@ -566,7 +566,7 @@ class OnboardingSystem {
             <div class="whl-tour-header-mock">
                 <div class="header-mock-left">
                     <span class="header-mock-logo">🟢</span>
-                    <span class="header-mock-title">WhatsHybrid</span>
+                    <span class="header-mock-title">Vórtex</span>
                 </div>
                 <div class="header-mock-right">
                     ${step.buttons.map(btn => `
@@ -749,7 +749,7 @@ class OnboardingSystem {
             <div class="toast-icon">🎉</div>
             <div class="toast-content">
                 <strong>Tutorial concluído!</strong>
-                <p>Você está pronto para usar o WhatsHybrid.</p>
+                <p>Você está pronto para usar o Vórtex.</p>
             </div>
             <button class="toast-close">✕</button>
         `;

@@ -1,5 +1,5 @@
 /**
- * 🏢 WhatsHybrid - Multi-Tenant Module
+ * 🏢 Vórtex - Multi-Tenant Module
  * Módulo central de multi-tenancy
  * 
  * @version 7.9.13

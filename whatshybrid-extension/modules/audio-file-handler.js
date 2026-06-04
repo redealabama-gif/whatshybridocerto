@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Audio & File Handler v7.5.1
+ * Vórtex Audio & File Handler v7.5.1
  * 
  * SOLUÇÃO TÉCNICA:
  * - window.Store do WhatsApp NÃO está acessível (isolated world)

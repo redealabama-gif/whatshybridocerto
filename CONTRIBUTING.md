@@ -1,6 +1,6 @@
-# Contributing to WhatsHybrid
+# Contributing to Vórtex
 
-Thank you for considering contributing to WhatsHybrid! This document provides guidelines and instructions for contributing.
+Thank you for considering contributing to Vórtex! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 

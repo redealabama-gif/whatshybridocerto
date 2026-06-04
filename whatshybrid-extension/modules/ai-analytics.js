@@ -1,6 +1,6 @@
 /**
  * 📈 AI Analytics - Dashboard de Performance da IA
- * WhatsHybrid v7.7.0
+ * Vórtex v7.7.0
  * 
  * Features:
  * - Métricas de qualidade

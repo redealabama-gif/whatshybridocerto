@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Onboarding Tour — v9.0.0
+ * Vórtex Onboarding Tour — v9.0.0
  *
  * Tour interativo de 5 steps no dashboard pra novos usuários.
  * Sem dependências externas — implementação manual leve.
@@ -23,7 +23,7 @@
   // Sequência: welcome → overview → extension → tokens → billing → fim.
   const STEPS = [
     {
-      title: '👋 Bem-vindo ao WhatsHybrid Pro!',
+      title: '👋 Bem-vindo ao Vórtex Pro!',
       content: 'Este é o painel da sua conta — gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Em 1 minuto te mostro onde fica cada coisa.',
       target: null,
       placement: 'center',

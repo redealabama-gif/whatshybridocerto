@@ -1,6 +1,6 @@
 /**
  * 🎓 Onboarding Tour v2.0
- * Tour de inicialização do WhatsHybrid
+ * Tour de inicialização do Vórtex
  * 
  * @version 2.0.0
  */
@@ -17,7 +17,7 @@
   const TOUR_SLIDES = [
     {
       id: 'welcome',
-      title: '🚀 Bem-vindo ao WhatsHybrid!',
+      title: '🚀 Bem-vindo ao Vórtex!',
       content: `
         <p>O sistema mais completo para <strong>automatizar e potencializar</strong> seu WhatsApp.</p>
         <p style="margin-top: 16px;">Vamos conhecer todas as funcionalidades?</p>
@@ -178,7 +178,7 @@
           <li>📖 Documentação online</li>
         </ul>
         <p style="margin-top: 16px; color: #8b5cf6; font-weight: 600;">
-          Aproveite o WhatsHybrid! 🚀
+          Aproveite o Vórtex! 🚀
         </p>
       `,
       icon: '❓'
@@ -490,7 +490,7 @@
       window.EventBus.emit(window.WHL_EVENTS.UI_NOTIFICATION, {
         type: 'success',
         title: 'Pronto!',
-        message: 'Você está pronto para usar o WhatsHybrid!'
+        message: 'Você está pronto para usar o Vórtex!'
       });
     }
   }

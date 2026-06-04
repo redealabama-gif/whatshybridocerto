@@ -1,6 +1,6 @@
 /**
  * 📝 PromptManager - Gerenciador de Prompts
- * WhatsHybrid Pro v7.1.0
+ * Vórtex Pro v7.1.0
  * 
  * Templates de prompts para diferentes casos de uso
  */

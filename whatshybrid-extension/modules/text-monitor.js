@@ -1,6 +1,6 @@
 /**
  * 📊 Text Monitor - Análise de Sentimento, Intenção e Urgência
- * WhatsHybrid v7.6.0
+ * Vórtex v7.6.0
  * 
  * Funcionalidades:
  * - Análise de sentimento (positivo/negativo/neutro)

@@ -1,6 +1,6 @@
 /**
  * 🎓 Validated Learning Pipeline - Node.js Backend Version
- * WhatsHybrid AI System v7.9.13
+ * Vórtex AI System v7.9.13
  * 
  * Implements strict validation criteria for pattern graduation:
  * - Minimum 5 samples required before graduation

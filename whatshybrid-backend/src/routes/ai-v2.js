@@ -1,6 +1,6 @@
 /**
  * 🤖 AI Routes - Endpoints de IA
- * WhatsHybrid Pro v7.1.0
+ * Vórtex Pro v7.1.0
  */
 
 const express = require('express');

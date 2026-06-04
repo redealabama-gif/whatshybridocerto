@@ -1,5 +1,5 @@
 /**
- * 🗣️ WhatsHybrid - Speech API Routes
+ * 🗣️ Vórtex - Speech API Routes
  * Rotas para Speech-to-Text e Text-to-Speech
  * 
  * @version 7.9.13

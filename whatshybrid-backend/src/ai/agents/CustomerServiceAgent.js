@@ -1,6 +1,6 @@
 /**
  * 🤖 CustomerServiceAgent - Agente de Atendimento Autônomo
- * WhatsHybrid Pro v7.1.0
+ * Vórtex Pro v7.1.0
  * 
  * Agente que pode responder automaticamente a clientes
  * com base em FAQs, contexto e regras de negócio

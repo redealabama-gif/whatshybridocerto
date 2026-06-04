@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                       JOBS RUNNER ROBUSTO                                 ║
- * ║                        WhatsHybrid Backend                                ║
+ * ║                        Vórtex Backend                                ║
  * ╠═══════════════════════════════════════════════════════════════════════════╣
  * ║  Sistema de processamento de jobs em background com:                      ║
  * ║  - Lock anti-duplicação                                                   ║

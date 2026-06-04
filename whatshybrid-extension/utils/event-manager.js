@@ -1,6 +1,6 @@
 /**
  * 📡 Event Manager - Gerenciamento de listeners de eventos
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  *
  * Gerencia event listeners para prevenir duplicação e facilitar cleanup.
  *

@@ -1,6 +1,6 @@
 /**
  * UI Helpers - Utilitários de Interface
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  */
 (function() {
   'use strict';

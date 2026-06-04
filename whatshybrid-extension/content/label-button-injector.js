@@ -1,6 +1,6 @@
 /**
  * 🏷️ Label Button Injector - Botão de etiqueta na lista de chats
- * WhatsHybrid v51 - Sincronizado com LabelsModule
+ * Vórtex v51 - Sincronizado com LabelsModule
  * 
  * Funcionalidades:
  * - Botão 🏷️ ao passar mouse sobre conversa

@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Lite - Phone Number Validator
+ * Vórtex Lite - Phone Number Validator
  * Centralized phone validation logic to eliminate redundancy
  */
 

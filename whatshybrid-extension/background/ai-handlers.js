@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Background - AI / Memory / Few-shot / Proxy handlers
+ * Vórtex Background - AI / Memory / Few-shot / Proxy handlers
  *
  * Este arquivo foi extraído do `background.js` para reduzir tamanho e melhorar manutenibilidade
  * sem alterar comportamento (HIGH-011).

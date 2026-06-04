@@ -894,7 +894,7 @@ router.post('/forgot-password',
             preheader: 'Link válido por 1 hora',
             body: `
               <p>Olá ${emailService._escape(user.name)},</p>
-              <p>Recebemos um pedido para redefinir sua senha do WhatsHybrid Pro.</p>
+              <p>Recebemos um pedido para redefinir sua senha do Vórtex Pro.</p>
               <p>Este link expira em <strong>1 hora</strong>. Se você não solicitou, ignore este email.</p>
             `,
             ctaLabel: 'Redefinir senha',
@@ -903,7 +903,7 @@ router.post('/forgot-password',
 
           await emailService.send({
             to: user.email,
-            subject: 'Redefinir senha — WhatsHybrid Pro',
+            subject: 'Redefinir senha — Vórtex Pro',
             html,
           });
         } catch (emailErr) {

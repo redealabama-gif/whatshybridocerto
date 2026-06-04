@@ -1,5 +1,5 @@
 /**
- * WhatsHybrid Pro — Shared utilities
+ * Vórtex Pro — Shared utilities
  * Cursor customizado + toast + helper de API
  */
 

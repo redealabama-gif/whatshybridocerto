@@ -1,6 +1,6 @@
 /**
  * Version Utility
- * WhatsHybrid v7.9.12
+ * Vórtex v7.9.12
  */
 (function() {
   'use strict';

@@ -1,6 +1,6 @@
 /**
  * 📊 Training Stats - Estatísticas de Treinamento
- * WhatsHybrid v7.6.0
+ * Vórtex v7.6.0
  * 
  * Funcionalidades:
  * - Rastreamento de estatísticas de treinamento

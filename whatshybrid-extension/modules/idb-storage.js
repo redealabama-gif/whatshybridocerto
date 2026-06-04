@@ -1,6 +1,6 @@
 /**
  * idb-storage.js — IndexedDB Storage Adapter
- * WhatsHybrid Pro v9.0.0
+ * Vórtex Pro v9.0.0
  *
  * P6 FIX: Replaces chrome.storage.local (10MB limit) with IndexedDB,
  * which supports up to 50–80% of available disk space (typically GBs).
