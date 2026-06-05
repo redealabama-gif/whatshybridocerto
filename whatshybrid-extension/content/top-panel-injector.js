@@ -104,9 +104,9 @@
         panel.innerHTML = `
             <div class="top-panel-container">
                 <div class="top-panel-left">
-                    <div class="top-panel-logo" title="Vórtex">
-                        <img src="${chrome.runtime.getURL('icons/48.png')}" alt="Vórtex" class="logo-icon-img" style="width:24px;height:24px;border-radius:4px;">
-                        <span class="logo-text">Vórtex</span>
+                    <div class="top-panel-logo" title="Vórtex Pro">
+                        <img src="${chrome.runtime.getURL('icons/48.png')}" alt="" class="logo-icon-img" style="width:24px;height:24px;border-radius:4px;">
+                        <img src="${chrome.runtime.getURL('icons/vortex-wordmark.png')}" alt="Vórtex Pro" class="logo-wordmark-img" style="height:20px;width:auto;display:block;">
                     </div>
                 </div>
                 <div class="top-panel-center">
