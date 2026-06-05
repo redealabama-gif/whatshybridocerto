@@ -412,10 +412,13 @@ router.get('/knowledge/search', authenticate, asyncHandler(async (req, res) => {
  * v10.1: Processa mensagem com pipeline completo de IA (intent → goal → behavior → LLM → quality)
  * Alias conveniente de /api/v2/intelligence/process para clientes que já usam /api/v2/ai/*
  *
- * Body: { chatId, message, language?, businessRules? }
+ * Body: { chatId, message, language?, businessRules?, persona?, history? }
+ *   history: [{ role:'user'|'assistant', content }] — últimas mensagens reais da
+ *   conversa (lidas da tela do WhatsApp pela extensão). Dá ao orquestrador o
+ *   contexto anterior à última mensagem. Opcional e sanitizado abaixo.
  */
 router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
-  const { chatId, message, language = 'pt-BR', businessRules, persona } = req.body;
+  const { chatId, message, language = 'pt-BR', businessRules, persona, history } = req.body;
   // FIX v9.3.0 BUG CRÍTICO MULTI-TENANT:
   //   Antes: req.user.tenantId (não existe) || req.user.workspaceId (camelCase, não existe — user tem workspace_id snake_case)
   //   Resultado: TODAS as chamadas caíam no 'default' — multi-tenant quebrado.
@@ -447,6 +450,24 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
       description: clip(persona.description, 300),
       systemPrompt: clip(persona.systemPrompt, 2000),
     };
+  }
+
+  // Histórico AO VIVO da conversa (últimas mensagens reais do WhatsApp, lidas
+  // pela extensão). É input do cliente → sanitiza antes de chegar ao prompt:
+  // só aceita { role, content }, normaliza o papel, corta o tamanho de cada
+  // mensagem e limita a quantidade (defesa contra payload gigante / injeção).
+  let safeHistory = [];
+  if (Array.isArray(history) && history.length) {
+    const MAX_HISTORY = 40;          // teto de mensagens aceitas do cliente
+    const MAX_MSG_LEN = 4000;        // teto por mensagem
+    safeHistory = history
+      .filter((m) => m && typeof m === 'object' && typeof m.content === 'string')
+      .slice(-MAX_HISTORY)
+      .map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content.slice(0, MAX_MSG_LEN),
+      }))
+      .filter((m) => m.content.trim().length > 0);
   }
 
   // v9.3.9 BILLING FIX CRÍTICO: pre-check saldo de tokens ANTES de chamar IA.
@@ -531,6 +552,7 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
         language: language || 'pt-BR',
         businessRules: businessRules || [],
         persona: safePersona,
+        history: safeHistory,
         workspaceConfig,
       }, { priority: 1 });
       // Espera o worker terminar o job. Default 45s — DEVE ser:
@@ -552,6 +574,7 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
       language: language || 'pt-BR',
       businessRules: businessRules || [],
       persona: safePersona,
+      history: safeHistory,
     });
   }
 

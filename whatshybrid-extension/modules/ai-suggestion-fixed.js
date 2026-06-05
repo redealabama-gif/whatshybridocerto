@@ -25,7 +25,10 @@
     BUTTON_ID: 'whl-ai-btn-fixed',
     PANEL_ID: 'whl-ai-panel-fixed',
     BUTTON_SIZE: 42,
-    CHECK_INTERVAL: 2000
+    CHECK_INTERVAL: 2000,
+    // Quantas mensagens recentes da conversa enviar ao backend como contexto.
+    // A IA foca na última mensagem, mas lê estas para não responder "vazio".
+    HISTORY_LIMIT: 30,
   };
 
   let state = {
@@ -98,6 +101,50 @@
       .filter(m => safeText(m?.content))
       .map(m => `${m.role === 'assistant' ? 'Atendente' : (m.role === 'system' ? 'Sistema' : 'Cliente')}: ${safeText(m.content)}`)
       .join('\n');
+  }
+
+  /**
+   * Monta o histórico recente da conversa para enviar ao backend orchestrator.
+   *
+   * Antes, o caminho principal (Tier 0) mandava SÓ a última mensagem — a IA
+   * respondia coerente com ela, mas sem o contexto anterior. Aqui montamos as
+   * últimas CONFIG.HISTORY_LIMIT mensagens (você + contato) para o backend
+   * injetar no prompt, focando na última mas LENDO a conversa toda.
+   *
+   * Fonte preferida: CopilotEngine.extractMessagesFromDOM — usa a Store API do
+   * WhatsApp (loadEarlierMsgs) e lê o histórico de forma INVISÍVEL, sem rolar a
+   * tela. Fallback: as mensagens já extraídas do DOM (localMessages).
+   *
+   * @param {Array<{role:string, content:string}>} localMessages
+   * @returns {Array<{role:'user'|'assistant', content:string}>}
+   */
+  function buildBackendHistory(localMessages) {
+    const limit = CONFIG.HISTORY_LIMIT || 30;
+
+    // 1) Tenta a leitura rica via Store API (histórico carregado, invisível).
+    let source = null;
+    try {
+      if (typeof window.CopilotEngine?.extractMessagesFromDOM === 'function') {
+        const fromStore = window.CopilotEngine.extractMessagesFromDOM(limit);
+        if (Array.isArray(fromStore) && fromStore.length) source = fromStore;
+      }
+    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
+
+    // 2) Fallback: usa o que já foi extraído do DOM. Se o Store trouxe menos que
+    //    o DOM local, fica com o maior (mais contexto).
+    if (!source || (Array.isArray(localMessages) && localMessages.length > source.length)) {
+      source = Array.isArray(localMessages) ? localMessages : (source || []);
+    }
+
+    // Normaliza: só user/assistant com texto; descarta system/placeholders vazios.
+    const history = [];
+    for (const m of source) {
+      const content = safeText(m?.content);
+      if (!content) continue;
+      if (m?.role !== 'user' && m?.role !== 'assistant') continue;
+      history.push({ role: m.role, content });
+    }
+    return history.slice(-limit);
   }
 
   /**
@@ -1156,12 +1203,18 @@
             }
           } catch (_) { /* persona é opcional */ }
 
+          // Histórico recente da conversa (você + contato). A IA foca na última
+          // mensagem, mas agora LÊ o contexto anterior — antes só a última ia, e
+          // a resposta saía "vazia" de contexto em conversas com histórico.
+          const history = buildBackendHistory(messages);
+
           // Timeout 18s: backend tem quality cycle (até 2 retries de LLM ~6s cada).
           // Se passar disso, provavelmente está sob carga ou caiu — vai pro fallback local.
           const orchestrated = await Promise.race([
             window.BackendClient.ai.process(chatKey, lastUserMsg, {
               language: 'pt-BR',
               persona: personaPayload,
+              history,
             }),
             new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 18000)),
           ]);

@@ -1233,6 +1233,28 @@
     emitRuntimeEvent('tier-degraded', { chatId, silent: true });
   }
 
+  // Monta o histórico recente do chat ATIVO para enviar ao orquestrador.
+  // Reaproveita a leitura INVISÍVEL (Store API / loadEarlierMsgs) do CopilotEngine.
+  // O autopilot abre e foca o chat (openChatForItem) antes de gerar, então o chat
+  // ativo é o alvo correto. Sem isto o autopilot mandava só a última mensagem.
+  function buildAutopilotHistory(limit = 30) {
+    try {
+      if (typeof window.CopilotEngine?.extractMessagesFromDOM !== 'function') return [];
+      const raw = window.CopilotEngine.extractMessagesFromDOM(limit);
+      if (!Array.isArray(raw) || !raw.length) return [];
+      const out = [];
+      for (const m of raw) {
+        const content = (m && typeof m.content === 'string') ? m.content.trim() : '';
+        if (!content) continue;
+        if (m.role !== 'user' && m.role !== 'assistant') continue;
+        out.push({ role: m.role, content });
+      }
+      return out.slice(-limit);
+    } catch (_) {
+      return [];
+    }
+  }
+
   async function generateResponse(item) {
     const chatId = item.chatId || (item.phone ? `${String(item.phone).replace(/\D/g, '')}@c.us` : '');
     const messageText = item.message || item.text || '';
@@ -1277,9 +1299,15 @@
     if (window.BackendClient?.ai?.process) {
       tier0Attempted = true;
       try {
+        // Histórico recente da conversa (você + contato), lido invisivelmente.
+        // Dá ao orquestrador o contexto anterior à última mensagem — igual à
+        // sugestão manual. Vazio → backend usa só a memória do banco (como antes).
+        const history = buildAutopilotHistory();
+
         const result = await window.BackendClient.ai.process(chatId, messageText, {
           language: 'pt-BR',
           persona: personaPayload,
+          history,
         });
 
         // backend retorna { success, response, metadata, intelligence }
