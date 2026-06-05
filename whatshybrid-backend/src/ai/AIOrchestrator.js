@@ -118,7 +118,13 @@ class AIOrchestrator {
       maxQualityRetries: 2,               // v10
       confidenceThreshold: 0.7,
       maxResponseTokens: config.maxResponseTokens || 400,  // CORREÇÃO P3: configurável por tenant
-      maxHistoryMessages: 10,
+      // Janela de turnos da conversa enviada ao LLM. Subiu de 10 → 24 para que o
+      // histórico ao vivo do WhatsApp (enviado pela extensão em context.history)
+      // chegue de fato ao prompt — antes a resposta só "via" a última mensagem em
+      // chats que o orquestrador ainda não tinha persistido na memória do banco.
+      // O caminho só-banco continua limitado por MAX_RECENT_MESSAGES (20), então
+      // o impacto de custo fica restrito a quando há histórico real injetado.
+      maxHistoryMessages: 24,
       ...config
     };
 
@@ -157,6 +163,21 @@ class AIOrchestrator {
     try {
       // ── 1. Contexto de memória (inclui clientStage e lastDominantIntent via v10) ──
       const conversationContext = await this.conversationMemory.getContext(chatId);
+
+      // ── 1b. Histórico AO VIVO da conversa (enviado pela extensão) ────────────
+      // A extensão lê as últimas N mensagens reais do WhatsApp (ambos os lados,
+      // de forma invisível via Store/loadEarlierMsgs) e manda em context.history.
+      // Sem isto, o orquestrador só conhecia o que ELE mesmo já tinha persistido
+      // no banco — então um chat recém-aberto com histórico longo respondia só à
+      // última mensagem, sem o contexto anterior. Aditivo: se history vier vazio,
+      // o comportamento é exatamente o de antes (usa só a memória do banco).
+      if (Array.isArray(context.history) && context.history.length) {
+        conversationContext.recentMessages = this._applyLiveHistory(
+          conversationContext.recentMessages,
+          context.history,
+          message
+        );
+      }
 
       // ── 2. Classificação de intent ──────────────────────────────────────────
       tracer?.startStage('intent_classification');
@@ -632,6 +653,48 @@ class AIOrchestrator {
     } catch (_) {
       return null;
     }
+  }
+
+  /**
+   * Mescla o histórico AO VIVO recebido da extensão (conversa real do WhatsApp)
+   * com a memória persistida no banco, devolvendo a janela recente que o resto
+   * do pipeline (intent, comercial, behavior, LLM) vai enxergar.
+   *
+   * Estratégia: o histórico ao vivo reflete o que está de fato na tela — ambos
+   * os lados — então ele é a fonte autoritativa da janela recente. O banco
+   * continua sendo a fonte de profile/summaries/clientStage (não tocados aqui).
+   *
+   * - Normaliza para { role:'user'|'assistant', content }.
+   * - Remove a última entrada se ela for igual à `currentMessage` (a mensagem
+   *   atual é anexada separadamente no fim do prompt — evita duplicar).
+   * - Limita à janela do LLM (maxHistoryMessages) para conter custo de tokens.
+   *
+   * @param {Array} dbRecent     recentMessages vindos do ConversationMemory
+   * @param {Array} liveHistory  context.history enviado pela extensão
+   * @param {string} currentMessage  a mensagem sendo respondida agora
+   * @returns {Array} janela recente normalizada
+   */
+  _applyLiveHistory(dbRecent, liveHistory, currentMessage) {
+    const cap = (this.config.maxHistoryMessages || 24) * 2; // folga p/ intent/contexto
+    const normalized = [];
+    for (const m of liveHistory) {
+      if (!m || typeof m !== 'object') continue;
+      const content = typeof m.content === 'string' ? m.content.trim() : '';
+      if (!content) continue;
+      const role = m.role === 'assistant' ? 'assistant' : 'user';
+      normalized.push({ role, content });
+    }
+    if (normalized.length === 0) {
+      // Nada utilizável no histórico ao vivo → mantém a memória do banco.
+      return Array.isArray(dbRecent) ? dbRecent : [];
+    }
+    // Dedup da última mensagem: a `currentMessage` é anexada no fim do prompt.
+    const cur = typeof currentMessage === 'string' ? currentMessage.trim() : '';
+    const last = normalized[normalized.length - 1];
+    if (cur && last && last.content === cur) {
+      normalized.pop();
+    }
+    return normalized.slice(-cap);
   }
 
   async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false) {

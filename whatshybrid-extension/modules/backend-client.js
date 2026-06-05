@@ -1076,7 +1076,10 @@
     // strategy + behavior adapter + few-shot graduados + quality cycle + safety + auto-learn).
     // Use ESTA chamada pra sugestões reais — NÃO use complete() que é pass-through cru.
     //
-    // Body: { chatId, message, language?, businessRules? }
+    // Body: { chatId, message, language?, businessRules?, persona?, history? }
+    // history: últimas mensagens reais da conversa ([{ role:'user'|'assistant', content }])
+    //          lidas da tela do WhatsApp — dá ao orquestrador o contexto anterior
+    //          à última mensagem (antes ele só recebia a última e respondia "vazio").
     // Retorna: { success, response, metadata: { intent, qualityScore, clientStage, ... }, intelligence }
     process: (chatId, message, options = {}) => post('/api/v2/ai/process', {
       chatId,
@@ -1084,6 +1087,7 @@
       language: options.language || 'pt-BR',
       businessRules: options.businessRules || [],
       persona: options.persona || null,
+      history: Array.isArray(options.history) ? options.history : [],
     }),
 
     // Feedback do usuário — fecha ciclo de aprendizado.
