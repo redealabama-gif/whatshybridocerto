@@ -28,43 +28,19 @@
       position: relative;
       min-height: 100vh;
       min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding: clamp(40px, 5vw, 80px);
       overflow: hidden;
       border-right: 1px solid rgba(111, 0, 255, 0.22);
       background-color: var(--brand-surface);
+      /* Ilustração limpa, sem texto sobreposto: imagem clara ancorada no rodapé
+         para mostrar o corpo inteiro do personagem (incl. as pernas/pés). */
       background-image:
-        linear-gradient(180deg, rgba(3,0,20,0.4) 0%, rgba(3,0,20,0.12) 26%, rgba(3,0,20,0.72) 60%, rgba(3,0,20,0.97) 100%),
         url('assets/login-hero.png'),
         radial-gradient(120% 60% at 50% 0%, rgba(111,0,255,0.42), transparent 60%);
       background-repeat: no-repeat;
-      background-position: center top, center 6%, center;
-      background-size: cover, cover, cover;
+      background-position: left bottom, center;
+      background-size: cover, cover;
+      filter: brightness(1.12) saturate(1.05);
     }
-    .auth-visual-caption { position: relative; z-index: 1; max-width: 30ch; }
-    .av-eyebrow {
-      display: inline-block;
-      font-size: 0.8rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
-      color: var(--text-muted);
-      padding: 6px 14px; border-radius: 999px;
-      background: rgba(111, 0, 255, 0.16);
-      border: 1px solid rgba(111, 0, 255, 0.35);
-    }
-    .auth-visual-caption h2 {
-      font-size: clamp(1.6rem, 2.4vw, 2.4rem); line-height: 1.18; margin: 20px 0 12px;
-    }
-    .auth-visual-caption p { color: var(--text-muted); font-size: clamp(0.95rem, 1.1vw, 1.08rem); line-height: 1.6; max-width: 40ch; margin: 0; }
-    .auth-visual-features {
-      list-style: none; margin: 26px 0 0; padding: 0;
-      display: flex; flex-direction: column; gap: 13px;
-    }
-    .auth-visual-features li {
-      display: flex; align-items: center; gap: 11px;
-      font-size: clamp(0.9rem, 1vw, 1rem); color: var(--text-muted);
-    }
-    .auth-visual-features i { width: 18px; height: 18px; color: var(--brand-cyan); flex: none; }
 
     .auth-card {
       position: relative;
@@ -145,18 +121,7 @@
 <div class="bg-glow cyan"></div>
 
 <div class="auth-split">
-  <aside class="auth-visual" aria-hidden="true">
-    <div class="auth-visual-caption">
-      <span class="av-eyebrow">Vórtex <span style="color: var(--brand-cyan);">Pro</span></span>
-      <h2>Sua IA neural atendendo no WhatsApp</h2>
-      <p>Atendimento automatizado que aprende a cada conversa — seguro, contínuo e sempre evoluindo.</p>
-      <ul class="auth-visual-features">
-        <li><i data-lucide="shield-check"></i> Acesso seguro e criptografado</li>
-        <li><i data-lucide="brain-circuit"></i> IA que aprende sozinha, 24/7</li>
-        <li><i data-lucide="message-circle"></i> Integrado ao WhatsApp Web</li>
-      </ul>
-    </div>
-  </aside>
+  <aside class="auth-visual" aria-hidden="true"></aside>
 
   <div class="auth-card">
   <div class="auth-header">
