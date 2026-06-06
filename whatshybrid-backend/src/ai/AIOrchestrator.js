@@ -38,6 +38,8 @@ const LearnedExamplesStore = require('./learning/LearnedExamplesStore');
 const CommercialIntelligenceEngine = require('./intelligence/CommercialIntelligenceEngine'); // v10
 const ResponseQualityChecker = require('./quality/ResponseQualityChecker'); // v10
 const ClientBehaviorAdapter = require('./intelligence/ClientBehaviorAdapter'); // v10.1
+const EmotionToneEngine = require('./intelligence/EmotionToneEngine'); // v11: Camada 1 (emoção/tom)
+const CustomerDossier = require('./intelligence/CustomerDossier'); // v11: Camada 3 (memória de relacionamento)
 // v10.2: Auto-Evolutionary AI
 const ResponseOutcomeTracker = require('./learning/outcome/ResponseOutcomeTracker');
 const PerformanceScoreEngine = require('./learning/outcome/PerformanceScoreEngine');
@@ -93,6 +95,8 @@ class AIOrchestrator {
     this.commercialEngine = new CommercialIntelligenceEngine(config.commercial || {}); // v10
     this.qualityChecker = new ResponseQualityChecker(config.quality || {}); // v10
     this.behaviorAdapter = new ClientBehaviorAdapter(config.behavior || {}); // v10.1
+    this.emotionEngine = new EmotionToneEngine(); // v11: percepção de emoção/tom (Camada 1)
+    this.customerDossier = new CustomerDossier(); // v11: memória de relacionamento (Camada 3)
 
     // v10.2: Auto-Evolutionary AI — ciclo completo de aprendizado por outcome real
     this.outcomeTracker   = new ResponseOutcomeTracker(config.outcome || {});
@@ -325,13 +329,51 @@ class AIOrchestrator {
         fewShotExamples = this.learningPipeline.getTopGraduated(intentResult.intent, 3);
       } catch (err) { logger.warn(`getTopGraduated error: ${err.message}`); }
 
+      // ── 6b. v11: Camadas de inteligência adicionais (à prova de falha) ───────
+      //  (1) Emoção/tom  → diretriz de resposta PROPORCIONAL ao sentimento
+      //  (3) Dossiê      → memória de relacionamento derivada do histórico (stateless)
+      //  (4) Clarify     → pede esclarecimento quando falta base (em vez de adivinhar)
+      //  (2) Deliberação → "pense antes de responder" (sempre ligada no prompt)
+      // Estes alimentam seções do DynamicPromptBuilder que já existiam mas ficavam
+      // DESLIGADAS (empatia/urgência/estratégia dependiam de `analysis`, nunca enviado).
+      let emotionProfile = null;
+      try {
+        emotionProfile = this.emotionEngine.analyze(message, conversationContext.recentMessages, context.language);
+      } catch (err) { logger.debug?.(`[Orchestrator] EmotionToneEngine error: ${err.message}`); }
+
+      let clientDossier = null;
+      try {
+        clientDossier = this.customerDossier.build(
+          conversationContext.profile,
+          conversationContext.recentMessages,
+          { clientStage: conversationContext.clientStage }
+        );
+      } catch (err) { logger.debug?.(`[Orchestrator] CustomerDossier error: ${err.message}`); }
+
+      const shouldClarify =
+        (typeof intentResult.confidence === 'number' && intentResult.confidence < this.config.confidenceThreshold) ||
+        (knowledgeResults.length === 0 && KNOWLEDGE_SEEKING_INTENTS.has(intentResult.intent));
+
+      // `analysis` liga as seções de empatia/urgência/estratégia (Chain-of-Thought)
+      // que já existiam no builder. Sempre um objeto (intent garantido).
+      const analysis = {
+        intent: intentResult.intent,
+        sentiment: emotionProfile?.sentiment,
+        sentimentScore: emotionProfile?.sentimentScore,
+        urgency: emotionProfile?.urgency,
+        emotion: emotionProfile?.emotion,
+        intensity: emotionProfile?.intensity,
+      };
+
       // ── 6. Build do prompt dinâmico (agora com behavioralDirective + responseGoal) ─
       let dynamicPrompt = null;
       try {
         const promptResult = this.promptBuilder.build({
           intent: intentResult.intent,
           confidence: intentResult.confidence,
-          memory: conversationContext,
+          // v11 (Camada 3): injeta o dossiê do cliente no Client Context (memória
+          // de relacionamento). Spread para não mutar o conversationContext original.
+          memory: clientDossier ? { ...conversationContext, client: clientDossier } : conversationContext,
           knowledge: knowledgeResults,
           emotionalContext: context.emotionalContext,
           fewShotExamples,
@@ -345,6 +387,10 @@ class AIOrchestrator {
           behavioralDirective,   // v10
           responseGoal,          // v10
           behaviorProfile,       // v10.1
+          analysis,                                    // v11: liga ANALYSIS + Chain-of-Thought (empatia/urgência)
+          emotionalDirective: emotionProfile?.guidance || null, // v11 Camada 1: resposta proporcional à emoção
+          deliberate: true,                            // v11 Camada 2: "pense antes de responder"
+          clarify: shouldClarify,                      // v11 Camada 4: "pergunte quando em dúvida"
         });
         dynamicPrompt = promptResult && promptResult.prompt ? promptResult.prompt : promptResult;
       } catch (err) { logger.warn(`DynamicPromptBuilder error: ${err.message}`); }
