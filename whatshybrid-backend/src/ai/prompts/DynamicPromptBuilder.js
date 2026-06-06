@@ -591,7 +591,7 @@ class DynamicPromptBuilder {
    * Todos opcionais; retorna null se nenhum estiver ativo (aditivo, sem efeito
    * quando o orquestrador não envia nada).
    */
-  buildResponseApproachSection({ emotionalDirective = null, deliberate = false, clarify = false } = {}, language = 'pt-BR') {
+  buildResponseApproachSection({ emotionalDirective = null, deliberate = false, clarify = false, clarifyHint = null } = {}, language = 'pt-BR') {
     const lang = String(language || 'pt-BR').startsWith('en') ? 'en'
       : String(language || 'pt-BR').startsWith('es') ? 'es' : 'pt-BR';
     const L = {
@@ -615,7 +615,9 @@ class DynamicPromptBuilder {
     const parts = [];
     if (emotionalDirective && String(emotionalDirective).trim()) parts.push(String(emotionalDirective).trim());
     if (deliberate) parts.push(L.deliberate);
-    if (clarify) parts.push(L.clarify);
+    // v11: pergunta de esclarecimento — usa a dica ESPECÍFICA (o que falta) quando
+    // disponível; senão, a instrução genérica.
+    if (clarify) parts.push(clarifyHint && String(clarifyHint).trim() ? String(clarifyHint).trim() : L.clarify);
     if (parts.length === 0) return null;
 
     return `${L.header}\n${parts.join('\n')}`;
@@ -709,6 +711,7 @@ class DynamicPromptBuilder {
       emotionalDirective = null,  // v11: diretriz proporcional do EmotionToneEngine (Camada 1)
       deliberate = false,         // v11: "pense antes de responder" (Camada 2)
       clarify = false,            // v11: "pergunte quando em dúvida" (Camada 4)
+      clarifyHint = null,         // v11: dica específica do que perguntar (o que falta)
       totalBudget = 2000,
       sectionBudgets = {}
     } = config;
@@ -843,7 +846,7 @@ class DynamicPromptBuilder {
     // 7b. v11: Tom & Abordagem — emoção proporcional + deliberação + esclarecimento.
     // Prioridade alta (mesma de behavioral) para não ser cortada pelo budget: é a
     // diretriz que torna a resposta humana e proporcional ao momento.
-    const approachText = this.buildResponseApproachSection({ emotionalDirective, deliberate, clarify }, language);
+    const approachText = this.buildResponseApproachSection({ emotionalDirective, deliberate, clarify, clarifyHint }, language);
     if (approachText) {
       sections.push({
         name: 'RESPONSE_APPROACH',

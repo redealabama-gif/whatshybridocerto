@@ -39,6 +39,7 @@ function purge({
   apply = false,
   webhookDays = envInt('RETENTION_WEBHOOK_DAYS', 90),
   auditDays = envInt('RETENTION_AUDIT_DAYS', 365),
+  dossierDays = envInt('RETENTION_DOSSIER_DAYS', 180),
   now = Date.now(),
 } = {}) {
   const nowStr = sqlTime(now);
@@ -60,6 +61,14 @@ function purge({
       where: `created_at < ?`,
       table: 'data_deletion_log',
       params: [sqlTime(now - auditDays * 86400000)],
+    },
+    {
+      // v11: memória persistente do dossiê do cliente (PII). Se a tabela não
+      // existir (feature desligada), o COUNT abaixo falha e o job é pulado.
+      name: `customer_dossiers (memória persistente) > ${dossierDays}d`,
+      where: `updated_at < ?`,
+      table: 'customer_dossiers',
+      params: [sqlTime(now - dossierDays * 86400000)],
     },
   ];
 

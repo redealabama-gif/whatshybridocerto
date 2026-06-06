@@ -40,6 +40,7 @@ const ResponseQualityChecker = require('./quality/ResponseQualityChecker'); // v
 const ClientBehaviorAdapter = require('./intelligence/ClientBehaviorAdapter'); // v10.1
 const EmotionToneEngine = require('./intelligence/EmotionToneEngine'); // v11: Camada 1 (emoção/tom)
 const CustomerDossier = require('./intelligence/CustomerDossier'); // v11: Camada 3 (memória de relacionamento)
+const DossierStore = require('./memory/DossierStore'); // v11: persistência opt-in do dossiê (cross-sessão)
 // v10.2: Auto-Evolutionary AI
 const ResponseOutcomeTracker = require('./learning/outcome/ResponseOutcomeTracker');
 const PerformanceScoreEngine = require('./learning/outcome/PerformanceScoreEngine');
@@ -97,6 +98,10 @@ class AIOrchestrator {
     this.behaviorAdapter = new ClientBehaviorAdapter(config.behavior || {}); // v10.1
     this.emotionEngine = new EmotionToneEngine(); // v11: percepção de emoção/tom (Camada 1)
     this.customerDossier = new CustomerDossier(); // v11: memória de relacionamento (Camada 3)
+    // v11: persistência do dossiê entre conversas. DESLIGADA por padrão — envolve
+    // reter dados pessoais (LGPD). Ligue com WHL_PERSISTENT_DOSSIER=1.
+    this.dossierStore = new DossierStore(this.tenantId);
+    this.persistDossier = process.env.WHL_PERSISTENT_DOSSIER === '1';
 
     // v10.2: Auto-Evolutionary AI — ciclo completo de aprendizado por outcome real
     this.outcomeTracker   = new ResponseOutcomeTracker(config.outcome || {});
@@ -350,9 +355,38 @@ class AIOrchestrator {
         );
       } catch (err) { logger.debug?.(`[Orchestrator] CustomerDossier error: ${err.message}`); }
 
+      // v11: memória PERSISTENTE entre conversas (opt-in via WHL_PERSISTENT_DOSSIER).
+      // Funde o dossiê ao vivo com o salvo de sessões anteriores e persiste a união
+      // (LGPD: purgável via lgpd-retention-purge). Sem a flag, é no-op (stateless).
+      if (this.persistDossier && this.tenantId && this.tenantId !== 'default') {
+        try {
+          const stored = this.dossierStore.load(chatId) || { name: null, facts: [] };
+          const liveFacts = (clientDossier && Array.isArray(clientDossier.facts)) ? clientDossier.facts : [];
+          const mergedFacts = Array.from(new Set([...(stored.facts || []), ...liveFacts])).slice(-8);
+          const mergedName = (clientDossier && clientDossier.name) || stored.name || null;
+          if (mergedName || mergedFacts.length) {
+            this.dossierStore.save(chatId, { name: mergedName, facts: mergedFacts });
+            clientDossier = {
+              name: mergedName,
+              facts: mergedFacts,
+              stage: (clientDossier && clientDossier.stage) || conversationContext.clientStage || null,
+              tags: (clientDossier && clientDossier.tags) || [],
+            };
+          }
+        } catch (err) { logger.debug?.(`[Orchestrator] persistDossier: ${err.message}`); }
+      }
+
       const shouldClarify =
         (typeof intentResult.confidence === 'number' && intentResult.confidence < this.config.confidenceThreshold) ||
         (knowledgeResults.length === 0 && KNOWLEDGE_SEEKING_INTENTS.has(intentResult.intent));
+
+      // v11: dica ESPECÍFICA do que perguntar quando falta base (Camada 4 — evolução).
+      let clarifyHint = null;
+      if (shouldClarify) {
+        clarifyHint = (knowledgeResults.length === 0 && KNOWLEDGE_SEEKING_INTENTS.has(intentResult.intent))
+          ? 'Você não tem dados suficientes da empresa para responder com precisão. Faça UMA pergunta objetiva que revele exatamente o que o cliente precisa (qual produto/serviço, qual situação, qual objetivo) — evite pergunta genérica.'
+          : 'A intenção do cliente está ambígua. Faça UMA pergunta natural e específica para entender exatamente o que ele quer antes de responder.';
+      }
 
       // `analysis` liga as seções de empatia/urgência/estratégia (Chain-of-Thought)
       // que já existiam no builder. Sempre um objeto (intent garantido).
@@ -391,6 +425,7 @@ class AIOrchestrator {
           emotionalDirective: emotionProfile?.guidance || null, // v11 Camada 1: resposta proporcional à emoção
           deliberate: true,                            // v11 Camada 2: "pense antes de responder"
           clarify: shouldClarify,                      // v11 Camada 4: "pergunte quando em dúvida"
+          clarifyHint,                                 // v11: dica específica do que perguntar
         });
         dynamicPrompt = promptResult && promptResult.prompt ? promptResult.prompt : promptResult;
       } catch (err) { logger.warn(`DynamicPromptBuilder error: ${err.message}`); }
@@ -417,7 +452,8 @@ class AIOrchestrator {
       if (this.config.enableQualityChecker) {
         qualityResult = await this._runQualityCycle(
           response, message, responseGoal, knowledgeResults,
-          intentResult, conversationContext, responseVariant, dynamicPrompt, context.language
+          intentResult, conversationContext, responseVariant, dynamicPrompt, context.language,
+          emotionProfile // v11: autocrítica de tom (tone_mismatch)
         );
         response = qualityResult.finalResponse;
       }
@@ -605,7 +641,8 @@ class AIOrchestrator {
    */
   async _runQualityCycle(
     initialResponse, message, responseGoal, knowledgeResults,
-    intentResult, conversationContext, responseVariant, dynamicPrompt, language = 'pt-BR'
+    intentResult, conversationContext, responseVariant, dynamicPrompt, language = 'pt-BR',
+    emotionProfile = null
   ) {
     let response = initialResponse;
     let retries = 0;
@@ -627,6 +664,8 @@ class AIOrchestrator {
         goal: responseGoal,
         knowledge: knowledgeResults,
         intent: intentResult?.intent,
+        emotion: emotionProfile?.emotion,            // v11: autocrítica de tom
+        emotionIntensity: emotionProfile?.intensity,
       });
 
       lastQuality = quality;
