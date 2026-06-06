@@ -188,6 +188,23 @@ class HybridSearch {
   }
 
   /**
+   * Remove TODOS os documentos e estruturas de índice (BM25 + embeddings).
+   * Usado para reindexação full-replace (ex.: o conhecimento treinado mudou).
+   * Mantém o EmbeddingProvider e seu cache (acelera o re-embed dos mesmos textos).
+   */
+  clear() {
+    this.documents.clear();
+    this.termFrequencies.clear();
+    this.documentFrequencies.clear();
+    this.documentLengths.clear();
+    this.embeddings.clear();
+    this.averageDocumentLength = 0;
+    this.totalDocuments = 0;
+    this.stats.totalDocuments = 0;
+    this._schedulePersistence();
+  }
+
+  /**
    * Add a document to the index
    * @param {Object} doc - Document to add
    * @param {string} doc.id - Unique document ID
