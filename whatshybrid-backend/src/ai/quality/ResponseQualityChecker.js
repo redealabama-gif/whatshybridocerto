@@ -60,6 +60,11 @@ const CTA_PATTERNS = [
   /\?$/m,  // termina com pergunta
 ];
 
+// v11: autocrítica de TOM. Quando o cliente está negativo/irritado, a resposta
+// precisa ACOLHER (empatia) antes de resolver e NÃO empurrar venda.
+const EMPATHY_MARKERS = /\b(entendo|compreendo|imagino|sinto\s+muito|lamento|desculp|peço\s+desculpas?|poxa|que\s+chato|sei\s+como|reconheço)\b/i;
+const SALESY_MARKERS = /\b(aproveite|promoç|oferta|desconto|compre|garanta?\s+(já|ja|agora)|não\s+perca|últimas?\s+unidades?|condição\s+especial|imperdível)\b/i;
+
 const MIN_RESPONSE_LENGTH = 20;   // chars — evita respostas tipo "Ok!"
 const MAX_RESPONSE_LENGTH = 1200; // chars — evita novelas desnecessárias
 
@@ -78,12 +83,13 @@ class ResponseQualityChecker {
       failed: 0,
       regenerated: 0,
       issueFrequency: {
-        too_short:    0,
-        too_long:     0,
-        generic:      0,
-        robotic:      0,
-        missing_cta:  0,
-        no_context:   0,
+        too_short:     0,
+        too_long:      0,
+        generic:       0,
+        robotic:       0,
+        missing_cta:   0,
+        no_context:    0,
+        tone_mismatch: 0,
       },
     };
   }
@@ -101,7 +107,10 @@ class ResponseQualityChecker {
   evaluate(response, context = {}) {
     this.stats.total++;
     const issues = [];
-    const { message = '', goal = 'responder_duvida', knowledge = [], intent = null } = context;
+    const {
+      message = '', goal = 'responder_duvida', knowledge = [], intent = null,
+      emotion = null, emotionIntensity = 0, // v11: contexto emocional p/ autocrítica de tom
+    } = context;
     const isLowStakes = LOW_STAKES_INTENTS.has(intent);
 
     // ── 1. Comprimento adequado ────────────────────────────────────────────
@@ -157,6 +166,19 @@ class ResponseQualityChecker {
       }
     }
 
+    // ── 6. v11: Tom incompatível com a emoção do cliente ───────────────────
+    // Cliente claramente negativo/irritado (intensidade >= 3): a resposta TEM que
+    // acolher (empatia) e NÃO pode empurrar venda. Senão, regenera com reforço.
+    const negativeEmotion = emotion === 'anger' || emotion === 'disappointment' || emotion === 'anxiety';
+    if (negativeEmotion && Number(emotionIntensity) >= 3) {
+      const hasEmpathy = EMPATHY_MARKERS.test(response);
+      const hasSalesPush = SALESY_MARKERS.test(response);
+      if (!hasEmpathy || hasSalesPush) {
+        issues.push('tone_mismatch');
+        this.stats.issueFrequency.tone_mismatch = (this.stats.issueFrequency.tone_mismatch || 0) + 1;
+      }
+    }
+
     const passed = issues.length === 0;
     const score = Math.max(0, 100 - issues.length * 20);
 
@@ -200,6 +222,12 @@ class ResponseQualityChecker {
     }
     if (issues.includes('no_context')) {
       parts.push('- Não utilizou o CONHECIMENTO disponível. Use as informações da empresa na resposta.');
+    }
+    if (issues.includes('tone_mismatch')) {
+      const emo = context.emotion === 'anxiety' ? 'ansioso/inseguro'
+        : context.emotion === 'disappointment' ? 'decepcionado'
+        : 'irritado/frustrado';
+      parts.push(`- O TOM não combina com o momento: o cliente está ${emo}. ACOLHA o sentimento dele primeiro (ex.: "entendo", "sinto muito"), seja humano e direto na solução, e NÃO use linguagem de venda/promoção.`);
     }
 
     parts.push('\nREGENERE agora com todas as correções aplicadas:');
