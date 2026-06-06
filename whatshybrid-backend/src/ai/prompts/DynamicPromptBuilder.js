@@ -397,12 +397,20 @@ class DynamicPromptBuilder {
     let section = `# Client Context\n`;
     
     if (memory.client) {
-      section += `Client: ${memory.client.name || 'Unknown'}\n`;
+      // v11: só imprime o nome quando existe (evita "Client: Unknown" inútil).
+      if (memory.client.name) {
+        section += `Client: ${memory.client.name}\n`;
+      }
       if (memory.client.stage) {
         section += `Stage: ${memory.client.stage}\n`;
       }
       if (memory.client.tags && memory.client.tags.length > 0) {
         section += `Tags: ${memory.client.tags.join(', ')}\n`;
+      }
+      // v11 (Camada 3): fatos que o cliente já contou — para soar pessoal/contínuo.
+      if (Array.isArray(memory.client.facts) && memory.client.facts.length > 0) {
+        section += `Lembretes sobre o cliente (use com naturalidade, não repita de forma robótica):\n`;
+        memory.client.facts.forEach((f) => { section += `- ${f}\n`; });
       }
     }
     
@@ -576,6 +584,44 @@ class DynamicPromptBuilder {
   }
 
   /**
+   * v11: "Tom e Abordagem da Resposta" — combina três camadas de inteligência:
+   *  - emotionalDirective: como responder PROPORCIONAL à emoção (EmotionToneEngine)
+   *  - deliberate: "pense antes de responder" (raciocínio interno, sem expor)
+   *  - clarify: "pergunte quando em dúvida" em vez de adivinhar
+   * Todos opcionais; retorna null se nenhum estiver ativo (aditivo, sem efeito
+   * quando o orquestrador não envia nada).
+   */
+  buildResponseApproachSection({ emotionalDirective = null, deliberate = false, clarify = false } = {}, language = 'pt-BR') {
+    const lang = String(language || 'pt-BR').startsWith('en') ? 'en'
+      : String(language || 'pt-BR').startsWith('es') ? 'es' : 'pt-BR';
+    const L = {
+      'pt-BR': {
+        header: '# Tom e Abordagem da Resposta',
+        deliberate: 'Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio.',
+        clarify: 'Se você não tiver informação suficiente para responder com precisão, faça UMA pergunta de esclarecimento curta e natural, em vez de adivinhar ou dar resposta genérica.',
+      },
+      en: {
+        header: '# Response Tone & Approach',
+        deliberate: 'Before replying, think internally: (1) what the customer truly wants now, (2) how they feel, (3) the best next action. Reply ONLY with the final message — natural, human and proportional to the moment. Do NOT show this reasoning.',
+        clarify: 'If you do not have enough information to answer accurately, ask ONE short, natural clarifying question instead of guessing or giving a generic answer.',
+      },
+      es: {
+        header: '# Tono y Enfoque de la Respuesta',
+        deliberate: 'Antes de responder, piensa internamente: (1) qué quiere realmente el cliente ahora, (2) cómo se siente, (3) la mejor próxima acción. Responde SOLO con el mensaje final — natural, humano y proporcional al momento. NO muestres este razonamiento.',
+        clarify: 'Si no tienes información suficiente para responder con precisión, haz UNA pregunta de aclaración breve y natural en vez de adivinar o dar una respuesta genérica.',
+      },
+    }[lang];
+
+    const parts = [];
+    if (emotionalDirective && String(emotionalDirective).trim()) parts.push(String(emotionalDirective).trim());
+    if (deliberate) parts.push(L.deliberate);
+    if (clarify) parts.push(L.clarify);
+    if (parts.length === 0) return null;
+
+    return `${L.header}\n${parts.join('\n')}`;
+  }
+
+  /**
    * Builds the Guardrails section
    * 
    * @param {Array<string>} customGuardrails - Additional custom guardrails
@@ -660,6 +706,9 @@ class DynamicPromptBuilder {
       behavioralDirective = null, // v10: from CommercialIntelligenceEngine
       responseGoal = null,        // v10: classified commercial goal
       behaviorProfile = null,     // v10.1: from ClientBehaviorAdapter
+      emotionalDirective = null,  // v11: diretriz proporcional do EmotionToneEngine (Camada 1)
+      deliberate = false,         // v11: "pense antes de responder" (Camada 2)
+      clarify = false,            // v11: "pergunte quando em dúvida" (Camada 4)
       totalBudget = 2000,
       sectionBudgets = {}
     } = config;
@@ -788,6 +837,20 @@ class DynamicPromptBuilder {
         content: this.truncateToTokens(cotText, budgets.CHAIN_OF_THOUGHT),
         tokens: this.estimateTokens(cotText),
         budgetTokens: budgets.CHAIN_OF_THOUGHT
+      });
+    }
+
+    // 7b. v11: Tom & Abordagem — emoção proporcional + deliberação + esclarecimento.
+    // Prioridade alta (mesma de behavioral) para não ser cortada pelo budget: é a
+    // diretriz que torna a resposta humana e proporcional ao momento.
+    const approachText = this.buildResponseApproachSection({ emotionalDirective, deliberate, clarify }, language);
+    if (approachText) {
+      sections.push({
+        name: 'RESPONSE_APPROACH',
+        priority: SECTION_PRIORITIES.BEHAVIORAL_DIRECTIVE,
+        content: this.truncateToTokens(approachText, 400),
+        tokens: this.estimateTokens(approachText),
+        budgetTokens: 400
       });
     }
     
