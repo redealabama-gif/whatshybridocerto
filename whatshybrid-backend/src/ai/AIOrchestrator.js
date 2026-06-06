@@ -134,6 +134,16 @@ class AIOrchestrator {
     // Limite de 1000 entradas para evitar memory leak (TTL implícito por tamanho)
     this._interactionMetadataMaxSize = 1000;
 
+    // RAG semântico: estado da indexação do conhecimento treinado no HybridSearch.
+    // _knowledgeSig = assinatura (counts + max updated_at) do que está indexado;
+    // _knowledgeCheckedAt = última verificação (throttle); _knowledgeIndexing = lock.
+    // Antes o índice nascia vazio (nenhum job de indexação era enfileirado), então
+    // a busca semântica sempre voltava vazia. Agora populamos a partir das tabelas
+    // de treinamento no init() e atualizamos quando o treinamento muda.
+    this._knowledgeSig = null;
+    this._knowledgeCheckedAt = 0;
+    this._knowledgeIndexing = false;
+
     logger.info(`AIOrchestrator initialized for tenant "${this.tenantId}"`);
   }
 
@@ -142,6 +152,15 @@ class AIOrchestrator {
       this.conversationMemory.init ? this.conversationMemory.init() : Promise.resolve(),
       this.learningPipeline.init ? this.learningPipeline.init() : Promise.resolve(),
     ]);
+    // Popula o índice semântico (HybridSearch) com o conhecimento treinado.
+    // Aditivo e à prova de falha: se isto quebrar, a geração segue normalmente
+    // usando só o caminho de palavra-chave (_loadTrainedKnowledge), que é o
+    // comportamento atual. Roda em background (a registry não bloqueia o request).
+    try {
+      await this._indexTrainedKnowledge();
+    } catch (err) {
+      logger.warn(`[Orchestrator] indexação inicial do conhecimento falhou: ${err.message}`);
+    }
     logger.info(`AIOrchestrator ready (tenant: ${this.tenantId})`);
   }
 
@@ -161,6 +180,11 @@ class AIOrchestrator {
     context.language = this._resolveLanguage(message, context.language);
 
     try {
+      // Mantém o índice semântico em dia com o treinamento (throttled, em
+      // background — nunca bloqueia esta resposta). Pega FAQs/produtos novos
+      // sem esperar o reload da instância. No-op se nada mudou.
+      this._maybeRefreshKnowledge();
+
       // ── 1. Contexto de memória (inclui clientStage e lastDominantIntent via v10) ──
       const conversationContext = await this.conversationMemory.getContext(chatId);
 
@@ -204,7 +228,22 @@ class AIOrchestrator {
       let knowledgeResults = [];
       try {
         const searchResult = await this.hybridSearch.search(message, 5);
-        knowledgeResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
+        const rawResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
+        // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
+        // { content, source, score }. O search() devolve { docId, score(fusão ~0.02),
+        // document:{content}, metadata } — SEM content no topo e com score abaixo do
+        // minScore (0.3) do builder. Sem esta normalização os resultados semânticos
+        // não renderizavam no prompt mesmo com o índice populado. Score fixo 0.5:
+        // passa o filtro, fica abaixo da info do negócio (0.95) e de matches exatos
+        // fortes — só preenche as vagas quando o caminho de palavra-chave é fraco/vazio
+        // (o caso da pergunta parafraseada, exatamente o que queremos cobrir).
+        knowledgeResults = rawResults
+          .map((r) => ({
+            content: r?.document?.content || r?.content || '',
+            source: r?.metadata?.source || r?.document?.metadata?.source || 'Base de conhecimento',
+            score: 0.5,
+          }))
+          .filter((r) => r.content);
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
 
       // ── 3b. v9.7.x — Conhecimento treinado pelo usuário (FAQs / produtos /
@@ -925,6 +964,168 @@ class AIOrchestrator {
 
   _estimateTokens(text) {
     return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Assinatura barata do conhecimento treinado (contagens + max updated_at).
+   * Usada para detectar quando re-indexar sem reprocessar tudo a cada mensagem.
+   * @returns {string|null} assinatura, ou null se indisponível
+   * @private
+   */
+  _computeKnowledgeSignature() {
+    try {
+      const db = require('../utils/database');
+      if (!db || !this.tenantId || this.tenantId === 'default') return null;
+      const row = db.get(
+        `SELECT
+           (SELECT COUNT(*)        FROM faqs              WHERE workspace_id = ? AND is_active = 1) AS f,
+           (SELECT COUNT(*)        FROM products          WHERE workspace_id = ? AND is_active = 1) AS p,
+           (SELECT COUNT(*)        FROM training_examples WHERE workspace_id = ?)                   AS e,
+           (SELECT MAX(updated_at) FROM faqs              WHERE workspace_id = ?)                   AS mf,
+           (SELECT MAX(updated_at) FROM products          WHERE workspace_id = ?)                   AS mp,
+           (SELECT MAX(updated_at) FROM training_examples WHERE workspace_id = ?)                   AS me`,
+        [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
+      );
+      if (!row) return null;
+      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}`;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Dispara re-indexação do conhecimento em BACKGROUND quando o treinamento
+   * mudou — sem bloquear a resposta atual. Throttled (1x/60s por instância) e
+   * com lock para evitar reindexações concorrentes. Mantém a busca semântica
+   * em dia mesmo no processo worker (onde a registry.remove da rota não chega).
+   * @private
+   */
+  _maybeRefreshKnowledge() {
+    try {
+      if (this._knowledgeIndexing) return;              // já reindexando (fast-path)
+      const now = Date.now();
+      if (now - (this._knowledgeCheckedAt || 0) < 60000) return; // throttle 60s
+      this._knowledgeCheckedAt = now;
+
+      const sig = this._computeKnowledgeSignature();
+      if (sig === null || sig === this._knowledgeSig) return; // sem mudança real
+
+      // Não await: roda em background. O lock anti-concorrência vive dentro de
+      // _indexTrainedKnowledge, então init() e este caminho nunca colidem.
+      this._indexTrainedKnowledge(sig)
+        .catch((err) => logger.debug?.(`[Orchestrator] refresh do índice falhou: ${err.message}`));
+    } catch (err) {
+      logger.debug?.(`[Orchestrator] _maybeRefreshKnowledge erro: ${err.message}`);
+    }
+  }
+
+  /**
+   * Popula o índice semântico (HybridSearch) com o conhecimento treinado
+   * (FAQs / produtos / exemplos), a partir das MESMAS tabelas que o caminho de
+   * palavra-chave (_loadTrainedKnowledge) já usa. Idempotente via assinatura.
+   *
+   * Por que isto existe: o índice nunca era populado (a fila `ai-embeddings` não
+   * tinha produtor), então `hybridSearch.search()` em todo processMessage voltava
+   * vazio — a busca SEMÂNTICA era código morto. O caminho de palavra-chave seguia
+   * alimentando o prompt, então isto é uma MELHORIA de recall (perguntas
+   * parafraseadas), não uma correção de quebra. À prova de falha: erros são
+   * engolidos e o sistema continua com o caminho de palavra-chave.
+   *
+   * Obs.: business info (workspace_knowledge) NÃO entra aqui de propósito — ela
+   * já é sempre injetada por _loadTrainedKnowledge (score 0.95), não precisa de
+   * recuperação semântica.
+   * @param {string} [signature] assinatura já calculada (evita recomputar)
+   * @private
+   */
+  async _indexTrainedKnowledge(signature = undefined) {
+    let db;
+    try { db = require('../utils/database'); } catch (_) { return; }
+    if (!db || !this.tenantId || this.tenantId === 'default') return;
+    if (!this.hybridSearch || typeof this.hybridSearch.addDocument !== 'function') return;
+
+    const sig = signature !== undefined ? signature : this._computeKnowledgeSignature();
+    // Idempotência: nada mudou desde a última indexação E já há docs → não refaz.
+    if (sig !== null && sig === this._knowledgeSig && (this.hybridSearch.documents?.size || 0) > 0) return;
+
+    const docs = [];
+
+    // ── FAQs ────────────────────────────────────────────────────────
+    try {
+      const faqs = db.all(
+        `SELECT id, question, answer, category, keywords
+           FROM faqs WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC LIMIT 300`,
+        [this.tenantId]
+      ) || [];
+      for (const f of faqs) {
+        let kw = '';
+        try { const arr = JSON.parse(f.keywords || '[]'); if (Array.isArray(arr)) kw = arr.join(' '); } catch (_) { /* ignora */ }
+        docs.push({
+          id: `faq:${f.id}`,
+          content: `Pergunta: ${f.question}\nResposta: ${f.answer}${kw ? `\nPalavras-chave: ${kw}` : ''}`,
+          metadata: { source: `FAQ${f.category ? ` / ${f.category}` : ''}`, type: 'faq' },
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] index faqs: ${e.message}`); }
+
+    // ── Produtos ────────────────────────────────────────────────────
+    try {
+      const products = db.all(
+        `SELECT id, name, description, short_description, sku, category
+           FROM products WHERE workspace_id = ? AND is_active = 1
+          ORDER BY updated_at DESC LIMIT 300`,
+        [this.tenantId]
+      ) || [];
+      for (const p of products) {
+        docs.push({
+          id: `product:${p.id}`,
+          content: `Produto: ${p.name}${p.sku ? ` (SKU ${p.sku})` : ''}` +
+                   (p.short_description ? `\nResumo: ${p.short_description}` : '') +
+                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : ''),
+          metadata: { source: `Catálogo${p.category ? ` / ${p.category}` : ''}`, type: 'product' },
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] index products: ${e.message}`); }
+
+    // ── Exemplos treinados ──────────────────────────────────────────
+    try {
+      const examples = db.all(
+        `SELECT id, input, output, category
+           FROM training_examples WHERE workspace_id = ?
+          ORDER BY updated_at DESC LIMIT 300`,
+        [this.tenantId]
+      ) || [];
+      for (const ex of examples) {
+        docs.push({
+          id: `example:${ex.id}`,
+          content: `Cliente: ${ex.input}\nResposta ideal: ${ex.output}`,
+          metadata: { source: `Exemplo treinado${ex.category ? ` / ${ex.category}` : ''}`, type: 'example' },
+        });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] index examples: ${e.message}`); }
+
+    // Sem nada treinado: marca a assinatura e sai (não mexe no índice).
+    if (docs.length === 0) { this._knowledgeSig = sig; return; }
+
+    // Lock anti-concorrência só na MUTAÇÃO (clear + addDocument). O carregamento
+    // do DB acima é read-only e seguro; se outra reindexação já está mexendo no
+    // índice, esta desiste (a vencedora deixa o índice consistente).
+    if (this._knowledgeIndexing) return;
+    this._knowledgeIndexing = true;
+    try {
+      // Full-replace: limpa e re-adiciona (cobre edições/remoções do treinamento).
+      if (typeof this.hybridSearch.clear === 'function') this.hybridSearch.clear();
+      for (const d of docs) {
+        try { await this.hybridSearch.addDocument(d); }
+        catch (e) { logger.debug?.(`[Orchestrator] addDocument ${d.id}: ${e.message}`); }
+      }
+      this._knowledgeSig = sig;
+      logger.info(`[Orchestrator] Índice semântico atualizado: ${docs.length} doc(s) (tenant=${this.tenantId})`);
+    } catch (e) {
+      logger.warn(`[Orchestrator] _indexTrainedKnowledge falhou: ${e.message}`);
+    } finally {
+      this._knowledgeIndexing = false;
+    }
   }
 
   /**
