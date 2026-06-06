@@ -116,26 +116,41 @@ class EmotionToneEngine {
         ctx = lastClient;
       } catch (_) { /* histórico é opcional */ }
 
-      // Contagem de sinais por emoção (mensagem atual pesa 2x, contexto 1x).
+      // Emoção da MENSAGEM ATUAL. O histórico (ctx) NÃO entra aqui de propósito:
+      // senão uma conversa antes tensa "contamina" uma mensagem claramente
+      // positiva (ex.: "agora ficou ótimo, obrigado!" lido como raiva). O peso do
+      // histórico fica na TRAJETÓRIA, mais abaixo.
       const scores = {};
       for (const [emo, list] of Object.entries(LEX)) {
-        scores[emo] = countHits(text, list) * 2 + countHits(ctx, list);
+        scores[emo] = countHits(text, list);
       }
 
-      // Sinais universais
+      // Sinais universais (sobre a mensagem atual)
       const exclamations = (raw.match(/!/g) || []).length;
       const capsWords = (raw.match(/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}\b/g) || []).length;
       const repeats = /(.)\1{2,}/.test(text); // "muitooo", "ajudaaa"
       const hasIntensifier = INTENSIFIERS.some((w) => text.includes(w));
-      if (POSITIVE_EMOJI.test(raw)) scores.excitement += 2;
+      if (POSITIVE_EMOJI.test(raw)) scores.excitement += 1;
       if (NEGATIVE_EMOJI.test(raw)) scores.anger += 1;
       if (text.includes('?') || /\?\?+/.test(raw)) scores.confusion += 1;
 
-      // Emoção dominante
+      // Emoção dominante da mensagem atual
       let emotion = 'neutral';
       let best = 0;
       for (const [emo, sc] of Object.entries(scores)) {
         if (sc > best) { best = sc; emotion = emo; }
+      }
+
+      // Se a mensagem atual é neutra, herda LEVEMENTE o clima recente (ctx) — assim
+      // uma fala curta ("e aí?") depois de várias reclamações ainda soa no tom certo.
+      if (best === 0 && ctx) {
+        let cbest = 0;
+        let cemo = 'neutral';
+        for (const [emo, list] of Object.entries(LEX)) {
+          const sc = countHits(ctx, list);
+          if (sc > cbest) { cbest = sc; cemo = emo; }
+        }
+        if (cbest >= 2) { emotion = cemo; best = 1; }
       }
 
       // Intensidade 1..5
@@ -182,14 +197,47 @@ class EmotionToneEngine {
         guidance = guidance ? `${guidance}\n${u}` : u;
       }
 
-      return { emotion, intensity, sentiment, sentimentScore, urgency, guidance };
+      // ── Trajetória emocional ────────────────────────────────────────────────
+      // Olha o ARCO da conversa (não só a mensagem atual): o cliente está ficando
+      // cada vez mais irritado? Já reclamou várias vezes? Isso muda a resposta de
+      // um humano — que desescala e oferece ajuda humana antes de piorar.
+      let trajectory = 'stable';
+      let handoffSuggested = false;
+      try {
+        const priorClient = (Array.isArray(recentMessages) ? recentMessages : [])
+          .filter((m) => m && m.role === 'user' && typeof m.content === 'string')
+          .slice(-5)
+          .map((m) => norm(m.content));
+        const negTurns = priorClient.filter(
+          (t) => countHits(t, LEX.anger) + countHits(t, LEX.disappointment) + countHits(t, LEX.anxiety) > 0
+        ).length;
+        const currentNeg = sentiment === 'negative';
+        if (currentNeg && negTurns >= 2) trajectory = 'escalating';
+        else if (!currentNeg && negTurns >= 2) trajectory = 'improving';
+        // Sugere passar pra humano: irritação forte agora OU recorrente na conversa.
+        if (currentNeg && (intensity >= 4 || negTurns >= 3)) handoffSuggested = true;
+      } catch (_) { /* histórico é opcional */ }
+
+      if (trajectory === 'escalating') {
+        const esc = langKey === 'en'
+          ? 'The customer has been getting MORE upset across the conversation. De-escalate first: be brief, solve fast, do not repeat what was already said, and proactively offer to connect them with a human agent.'
+          : langKey === 'es'
+          ? 'El cliente se ha ido irritando MÁS a lo largo de la conversación. Prioriza desescalar: sé breve, resuelve rápido, no repitas lo ya dicho y ofrece proactivamente hablar con un agente humano.'
+          : 'O cliente está ficando CADA VEZ MAIS irritado ao longo da conversa. Priorize DESESCALAR: seja breve, resolva rápido, não repita o que já foi dito e ofereça proativamente falar com um atendente humano.';
+        guidance = guidance ? `${guidance}\n${esc}` : esc;
+      }
+
+      return { emotion, intensity, sentiment, sentimentScore, urgency, guidance, trajectory, handoffSuggested };
     } catch (_) {
       return this._neutral();
     }
   }
 
   _neutral() {
-    return { emotion: 'neutral', intensity: 1, sentiment: 'neutral', sentimentScore: 0, urgency: 'low', guidance: null };
+    return {
+      emotion: 'neutral', intensity: 1, sentiment: 'neutral', sentimentScore: 0,
+      urgency: 'low', guidance: null, trajectory: 'stable', handoffSuggested: false,
+    };
   }
 }
 
