@@ -41,6 +41,7 @@ const ClientBehaviorAdapter = require('./intelligence/ClientBehaviorAdapter'); /
 const EmotionToneEngine = require('./intelligence/EmotionToneEngine'); // v11: Camada 1 (emoção/tom)
 const CustomerDossier = require('./intelligence/CustomerDossier'); // v11: Camada 3 (memória de relacionamento)
 const DossierStore = require('./memory/DossierStore'); // v11: persistência opt-in do dossiê (cross-sessão)
+const EmotionStrategyStore = require('./learning/EmotionStrategyStore'); // v11: aprende tom por emoção (opt-in)
 // v10.2: Auto-Evolutionary AI
 const ResponseOutcomeTracker = require('./learning/outcome/ResponseOutcomeTracker');
 const PerformanceScoreEngine = require('./learning/outcome/PerformanceScoreEngine');
@@ -102,6 +103,10 @@ class AIOrchestrator {
     // reter dados pessoais (LGPD). Ligue com WHL_PERSISTENT_DOSSIER=1.
     this.dossierStore = new DossierStore(this.tenantId);
     this.persistDossier = process.env.WHL_PERSISTENT_DOSSIER === '1';
+    // v11: aprende qual abordagem de tom converte por emoção (contadores agregados,
+    // sem PII). DESLIGADO por padrão — ligue com WHL_EMOTION_LEARNING=1.
+    this.emotionStrategyStore = new EmotionStrategyStore(this.tenantId);
+    this.emotionLearning = process.env.WHL_EMOTION_LEARNING === '1';
 
     // v10.2: Auto-Evolutionary AI — ciclo completo de aprendizado por outcome real
     this.outcomeTracker   = new ResponseOutcomeTracker(config.outcome || {});
@@ -346,6 +351,18 @@ class AIOrchestrator {
         emotionProfile = this.emotionEngine.analyze(message, conversationContext.recentMessages, context.language);
       } catch (err) { logger.debug?.(`[Orchestrator] EmotionToneEngine error: ${err.message}`); }
 
+      // v11: aprendizado de TOM por emoção (opt-in). Escolhe a abordagem (explora/
+      // explota pelo histórico de aprovação) e a injeta na diretriz emocional.
+      // emotionApproach é lembrado p/ atribuir o resultado no recordFeedback.
+      let emotionApproach = null;
+      if (this.emotionLearning && emotionProfile && emotionProfile.emotion && emotionProfile.emotion !== 'neutral') {
+        try {
+          emotionApproach = this.emotionStrategyStore.pickApproach(emotionProfile.emotion);
+          const dir = this.emotionStrategyStore.getApproachDirective(emotionApproach, context.language);
+          if (dir) emotionProfile.guidance = emotionProfile.guidance ? `${emotionProfile.guidance}\n${dir}` : dir;
+        } catch (err) { logger.debug?.(`[Orchestrator] emotionStrategy pick: ${err.message}`); }
+      }
+
       let clientDossier = null;
       try {
         clientDossier = this.customerDossier.build(
@@ -552,6 +569,9 @@ class AIOrchestrator {
           responseGoal,
           clientStage: conversationContext.clientStage,
           variant: responseVariant,
+          // v11: p/ aprender tom por emoção no recordFeedback (in-memory; sem PII no DB)
+          emotion: emotionProfile?.emotion || null,
+          emotionApproach: emotionApproach || null,
         });
 
         // Também persistir no banco para sobreviver a restarts
@@ -921,6 +941,17 @@ class AIOrchestrator {
 
       // Também persistir no StrategySelector e PerformanceScoreEngine via banco
       this._persistStrategyFeedback(interactionId, meta, feedback);
+
+      // v11: aprende qual abordagem de tom converte por emoção. Aprovado/convertido
+      // → positivo; rejeitado/editado → negativo (editado = o tom precisou de ajuste).
+      if (this.emotionLearning && meta.emotion && meta.emotionApproach) {
+        const outcome = (feedback === 'positive' || feedback === 'converted') ? 'positive'
+          : (feedback === 'negative' || feedback === 'edited') ? 'negative' : null;
+        if (outcome) {
+          try { this.emotionStrategyStore.record(meta.emotion, meta.emotionApproach, outcome); }
+          catch (err) { logger.debug?.(`[Orchestrator] emotionStrategy record: ${err.message}`); }
+        }
+      }
     } else {
       logger.warn(`[Orchestrator] recordFeedback: metadados não encontrados para interactionId=${interactionId}`);
     }
