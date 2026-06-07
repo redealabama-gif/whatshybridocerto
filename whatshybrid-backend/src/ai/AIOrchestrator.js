@@ -490,6 +490,10 @@ class AIOrchestrator {
           safetyIssues: safetyResult?.issues || [],
           knowledgeCount: knowledgeResults.length,
           emotionalContext: context.emotionalContext,
+          // v11: trajetória emocional → o autopilot NÃO auto-envia a um cliente
+          // cada vez mais irritado; escala pra humano (handoffSuggested embute
+          // intensidade forte ou irritação recorrente na conversa).
+          emotionEscalating: !!(emotionProfile && (emotionProfile.handoffSuggested || emotionProfile.trajectory === 'escalating')),
         }, { knowledgeSeekingIntents: KNOWLEDGE_SEEKING_INTENTS });
       } catch (err) { logger.warn(`AutopilotGuard error: ${err.message}`); }
 

@@ -137,6 +137,7 @@ function asArray(x) {
  * @param {Array}   [signals.safetyIssues]     issues do ResponseSafetyFilter
  * @param {number}  [signals.knowledgeCount]   nº de itens de conhecimento recuperados
  * @param {string}  [signals.emotionalContext] emoção do cliente, se disponível
+ * @param {boolean} [signals.emotionEscalating] cliente cada vez mais irritado (trajetória)
  * @param {object}  [options]
  * @param {Set}     [options.knowledgeSeekingIntents]
  * @returns {{ allowAutoSend: boolean, escalate: boolean, reasons: string[], primaryReason: string|null }}
@@ -188,6 +189,15 @@ function evaluateAutoSend(signals = {}, options = {}) {
     issueTypes.has('inappropriate_tone')
   ) {
     reasons.push('negative_sentiment');
+  }
+
+  // ── 4b. v11: Emoção ESCALANDO (trajetória) → cliente cada vez mais irritado ─
+  // Sinal do EmotionToneEngine (handoffSuggested / trajectory='escalating'):
+  // negativo + forte ou recorrente AO LONGO da conversa. Diferente do léxico
+  // pontual da seção 4 — pega a TENDÊNCIA, não uma palavra isolada. É o momento
+  // em que um humano deve assumir antes de o bot piorar a situação.
+  if (signals.emotionEscalating === true) {
+    reasons.push('emotion_escalating');
   }
 
   // ── 5. Transação de alto valor (negociação/cancelamento) ───────────────────
