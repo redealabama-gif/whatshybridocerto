@@ -591,28 +591,34 @@ class DynamicPromptBuilder {
    * Todos opcionais; retorna null se nenhum estiver ativo (aditivo, sem efeito
    * quando o orquestrador não envia nada).
    */
-  buildResponseApproachSection({ emotionalDirective = null, deliberate = false, clarify = false, clarifyHint = null } = {}, language = 'pt-BR') {
+  buildResponseApproachSection({ emotionalDirective = null, deliberate = false, clarify = false, clarifyHint = null, responseStyle = false } = {}, language = 'pt-BR') {
     const lang = String(language || 'pt-BR').startsWith('en') ? 'en'
       : String(language || 'pt-BR').startsWith('es') ? 'es' : 'pt-BR';
     const L = {
       'pt-BR': {
         header: '# Tom e Abordagem da Resposta',
+        style: 'Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto.',
         deliberate: 'Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio.',
         clarify: 'Se você não tiver informação suficiente para responder com precisão, faça UMA pergunta de esclarecimento curta e natural, em vez de adivinhar ou dar resposta genérica.',
       },
       en: {
         header: '# Response Tone & Approach',
+        style: 'Write like a thoughtful human in a real conversation: briefly acknowledge what the person said, then answer completely and warmly (usually 2 to 4 sentences). When it makes sense, add a helpful detail or a natural next step. Keep a warm, natural tone — like a person talking, not robotic or overly formal. Avoid dry one-line replies, but also avoid walls of text. If the customer is upset or in a hurry, be more concise.',
         deliberate: 'Before replying, think internally: (1) what the customer truly wants now, (2) how they feel, (3) the best next action. Reply ONLY with the final message — natural, human and proportional to the moment. Do NOT show this reasoning.',
         clarify: 'If you do not have enough information to answer accurately, ask ONE short, natural clarifying question instead of guessing or giving a generic answer.',
       },
       es: {
         header: '# Tono y Enfoque de la Respuesta',
+        style: 'Escribe como una persona atenta en una conversación real: reconoce brevemente lo que dijo la persona y responde de forma completa y cálida (por lo general 2 a 4 frases). Cuando tenga sentido, agrega un detalle útil o un próximo paso natural. Mantén un tono cordial y natural — como hablaría una persona, sin sonar robótico ni demasiado formal. Evita respuestas secas de una línea, pero también evita textos larguísimos. Si el cliente está molesto o con prisa, sé más conciso.',
         deliberate: 'Antes de responder, piensa internamente: (1) qué quiere realmente el cliente ahora, (2) cómo se siente, (3) la mejor próxima acción. Responde SOLO con el mensaje final — natural, humano y proporcional al momento. NO muestres este razonamiento.',
         clarify: 'Si no tienes información suficiente para responder con precisión, haz UNA pregunta de aclaración breve y natural en vez de adivinar o dar una respuesta genérica.',
       },
     }[lang];
 
     const parts = [];
+    // v11: estilo de resposta primeiro (baseline humano/caloroso). A diretriz
+    // emocional vem depois e pode "enxugar" o tom em cliente irritado/urgente.
+    if (responseStyle) parts.push(L.style);
     if (emotionalDirective && String(emotionalDirective).trim()) parts.push(String(emotionalDirective).trim());
     if (deliberate) parts.push(L.deliberate);
     // v11: pergunta de esclarecimento — usa a dica ESPECÍFICA (o que falta) quando
@@ -712,6 +718,7 @@ class DynamicPromptBuilder {
       deliberate = false,         // v11: "pense antes de responder" (Camada 2)
       clarify = false,            // v11: "pergunte quando em dúvida" (Camada 4)
       clarifyHint = null,         // v11: dica específica do que perguntar (o que falta)
+      responseStyle = false,      // v11: tom humano/caloroso (não seco), sem textão
       totalBudget = 2000,
       sectionBudgets = {}
     } = config;
@@ -846,7 +853,7 @@ class DynamicPromptBuilder {
     // 7b. v11: Tom & Abordagem — emoção proporcional + deliberação + esclarecimento.
     // Prioridade alta (mesma de behavioral) para não ser cortada pelo budget: é a
     // diretriz que torna a resposta humana e proporcional ao momento.
-    const approachText = this.buildResponseApproachSection({ emotionalDirective, deliberate, clarify, clarifyHint }, language);
+    const approachText = this.buildResponseApproachSection({ emotionalDirective, deliberate, clarify, clarifyHint, responseStyle }, language);
     if (approachText) {
       sections.push({
         name: 'RESPONSE_APPROACH',

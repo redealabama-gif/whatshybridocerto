@@ -426,6 +426,9 @@ class AIOrchestrator {
           deliberate: true,                            // v11 Camada 2: "pense antes de responder"
           clarify: shouldClarify,                      // v11 Camada 4: "pergunte quando em dúvida"
           clarifyHint,                                 // v11: dica específica do que perguntar
+          // v11: tom humano/caloroso (não seco), porém sem textão. Ligado por
+          // padrão; desligável com WHL_RESPONSE_STYLE=off.
+          responseStyle: process.env.WHL_RESPONSE_STYLE !== 'off',
         });
         dynamicPrompt = promptResult && promptResult.prompt ? promptResult.prompt : promptResult;
       } catch (err) { logger.warn(`DynamicPromptBuilder error: ${err.message}`); }
