@@ -199,6 +199,18 @@ class AIOrchestrator {
       // sem esperar o reload da instância. No-op se nada mudou.
       this._maybeRefreshKnowledge();
 
+      // ── 0. Fecha o ciclo de auto-aprendizado (fluxo da extensão) ────────────
+      // Esta mensagem É a resposta do cliente à ÚLTIMA resposta que enviamos neste
+      // chat. Notificamos o outcome tracker ANTES de gerar a nova: resolve o outcome
+      // pendente (cliente respondeu = engajou; detecta conversão/desinteresse pelo
+      // texto) e alimenta o AutoLearningLoop com sinal REAL. Sem isto, só o fluxo de
+      // webhook (POST /webhooks/incoming) fechava o ciclo; o caminho bearer da
+      // extensão (POST /api/v2/ai/process) nunca devolvia o sinal e os outcomes
+      // expiravam como 'timeout'/'ignored' → a IA quase não aprendia sozinha.
+      // Seguro/idempotente: no-op se não houver pendência na janela; resolve só o
+      // mais recente (sem double-count) e já trata erros internamente.
+      this.onClientMessage(chatId, message);
+
       // ── 1. Contexto de memória (inclui clientStage e lastDominantIntent via v10) ──
       const conversationContext = await this.conversationMemory.getContext(chatId);
 
@@ -874,17 +886,31 @@ class AIOrchestrator {
       : null;
     if (cacheKey) options.cacheKey = cacheKey;
 
-    let content;
+    let content = '';
     try {
       const result = await this.aiRouter.complete(messages, options);
-      content = result.content || result.text || result.message || '';
+      content = (result.content || result.text || result.message || '').trim();
     } catch (routerErr) {
       logger.error(`AIRouterService failed: ${routerErr.message}`);
-      // Graceful degradation: top knowledge result if available
+    }
+
+    // Degradação HONESTA quando o provider falhou OU devolveu vazio:
+    //  - havendo conhecimento treinado relevante, devolve o topo — resposta
+    //    ANCORADA no treinamento do workspace (degradada, mas coerente);
+    //  - sem conhecimento, NÃO mascara como sucesso: lança LLM_UNAVAILABLE para o
+    //    processMessage devolver { success:false }. Assim a extensão/autopilot
+    //    engajam o próprio fallback (ou escalam pra humano) em vez de exibir/enviar
+    //    uma frase genérica ("Desculpe, não consegui processar…") como se a
+    //    "inteligência avançada" tivesse respondido. Esta era a causa-raiz de
+    //    respostas incoerentes entregues com success:true.
+    if (!content) {
       if (knowledgeResults.length > 0 && knowledgeResults[0]?.content) {
         content = String(knowledgeResults[0].content).replace(/<[^>]*>/g, '').trim();
-      } else {
-        content = 'Desculpe, não consegui processar sua mensagem agora. Tente novamente em instantes.';
+      }
+      if (!content) {
+        const err = new Error('LLM indisponível e sem conhecimento ancorado para fallback');
+        err.code = 'LLM_UNAVAILABLE';
+        throw err;
       }
     }
 
