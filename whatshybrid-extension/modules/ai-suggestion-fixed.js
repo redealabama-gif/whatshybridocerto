@@ -1208,15 +1208,17 @@
           // a resposta saía "vazia" de contexto em conversas com histórico.
           const history = buildBackendHistory(messages);
 
-          // Timeout 18s: backend tem quality cycle (até 2 retries de LLM ~6s cada).
-          // Se passar disso, provavelmente está sob carga ou caiu — vai pro fallback local.
+          // Timeout 30s: o backend tem ciclo de qualidade (até 2 retries de LLM
+          // ~6s cada) + RAG + memória. 18s cortava ANTES de o pipeline terminar,
+          // jogando o cliente no fallback genérico mesmo com a IA avançada prestes
+          // a responder. 30s dá margem; o backend já tem teto próprio (45s na fila).
           const orchestrated = await Promise.race([
             window.BackendClient.ai.process(chatKey, lastUserMsg, {
               language: 'pt-BR',
               persona: personaPayload,
               history,
             }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 18000)),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 30000)),
           ]);
 
           if (orchestrated?.success && orchestrated?.response) {
@@ -1321,36 +1323,43 @@
         }
       }
 
-      // MÉTODO 3: SmartSuggestions (local, sem API) — somente se não houver IA
+      // MÉTODO 3 (v11 FIX): Backend LLM direto (real, lê a conversa) — AGORA ANTES
+      // do SmartSuggestions. Antes o SmartSuggestions (frases prontas) vinha primeiro
+      // e SEMPRE devolvia algo; então quando o Tier 0 falhava, o cliente recebia uma
+      // frase genérica em vez de uma resposta real — mesmo com o backend no ar.
+      // Também corrige a assinatura: ai.complete(messages, options) — antes passava
+      // um objeto { messages } como 1º argumento (body malformado → sempre falhava).
+      if (!suggestion && window.BackendClient?.isConnected?.() && window.BackendClient.ai?.complete) {
+        try {
+          const result = await window.BackendClient.ai.complete([
+            { role: 'system', content: 'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.' },
+            { role: 'user', content: `Conversa recente:\n${transcript}\n\nResponda à ÚLTIMA mensagem do cliente de forma humana e coerente.` },
+          ], { temperature: 0.7, maxTokens: 320 });
+          const text = result?.text || result?.content;
+          if (text && String(text).trim()) {
+            suggestion = String(text).trim();
+            tierUsed = 'tier_3_backend_complete';
+            log('✅ Sugestão via BackendClient.complete (LLM real)');
+          }
+        } catch (e) {
+          log('BackendClient.complete falhou:', e?.message || e);
+        }
+      }
+
+      // MÉTODO 4: SmartSuggestions (local, frases prontas) — ÚLTIMO recurso real.
+      // É CEGO ao conteúdo (devolve frase genérica tipo "Ok! Em que posso ser útil?"),
+      // então só deve entrar quando NÃO há backend nem providers. Ficar por último
+      // evita que ele "engula" a resposta real do LLM.
       if (!suggestion && window.SmartSuggestions?.getSuggestion) {
         try {
           const result = window.SmartSuggestions.getSuggestion(lastUserMsg, messages);
           if (result?.text) {
             suggestion = result.text;
-            tierUsed = 'tier_3_smart_suggestions';
-            log('✅ Sugestão via SmartSuggestions:', result.category);
+            tierUsed = 'tier_4_smart_suggestions';
+            log('✅ Sugestão via SmartSuggestions (último recurso):', result.category);
           }
         } catch (e) {
           log('SmartSuggestions falhou:', e);
-        }
-      }
-
-      // MÉTODO 4: BackendClient (usa .complete, não .chat)
-      if (!suggestion && window.BackendClient?.isConnected?.()) {
-        try {
-          const result = await window.BackendClient.ai.complete({
-            messages: [
-              { role: 'system', content: 'Você é um assistente de atendimento profissional. Gere respostas úteis e concisas em português.' },
-              { role: 'user', content: `Última mensagem do cliente: ${lastUserMsg}\n\nGere uma resposta profissional.` }
-            ]
-          });
-          if (result?.text) {
-            suggestion = result.text.trim();
-            tierUsed = 'tier_4_backend_complete';
-            log('✅ Sugestão via BackendClient');
-          }
-        } catch (e) {
-          log('BackendClient falhou:', e);
         }
       }
 
