@@ -1,0 +1,111 @@
+name: CD — Deploy to VPS
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Continuous Deployment do backend Vórtex Pro.
+#
+# O QUE FAZ
+#   A cada push na `main` (ou disparo manual), conecta via SSH no VPS de produção
+#   e roda deploy/scripts/deploy.sh a partir da raiz do projeto. Esse script:
+#   faz backup do DB, dá `git pull` na branch atual, rebuilda as imagens Docker,
+#   sobe com `docker compose up -d` e roda um loop de health em /health. Depois
+#   rodamos deploy/scripts/health.sh e falhamos o job se reportar erro crítico.
+#
+#   "Mergeou na main = está no ar." Era exatamente o passo manual que faltava —
+#   antes o deploy do backend era 100% manual (sem CD), então merges não
+#   refletiam no WhatsApp real até alguém rodar o deploy.sh à mão.
+#
+# PRÉ-REQUISITO CRÍTICO (sem isto, o CD não publica código novo)
+#   A cópia em $DEPLOY_APP_DIR no VPS precisa ser um clone GIT real deste repo,
+#   na branch `main`, com `origin` apontando pra cá — porque deploy.sh só puxa
+#   código novo via `git pull` quando existe `.git`. Se o servidor foi populado
+#   por rsync/unzip (sem .git), deploy.sh só rebuilda o que já está em disco.
+#
+# SECRETS NECESSÁRIOS  (Settings → Secrets and variables → Actions)
+#   DEPLOY_SSH_HOST   IP/hostname do VPS            ex.: 172.93.55.1
+#   DEPLOY_SSH_USER   usuário SSH                   ex.: root  (ou: deploy)
+#   DEPLOY_SSH_KEY    chave PRIVADA (PEM completo)  conteúdo de um id_ed25519
+#   DEPLOY_SSH_PORT   porta SSH (opcional, def. 22) ex.: 22  (ou 2222)
+#   DEPLOY_APP_DIR    raiz do projeto (opcional)    ex.: /opt/whatshybrid
+#
+# SEGURANÇA
+#   - concurrency: serializa deploys (nunca dois ao mesmo tempo).
+#   - fork guard: só roda no repo canônico, nunca em forks.
+#   - health gate: deploy.sh já checa /health; reexecutamos health.sh e falhamos
+#     o job em erro crítico (exit 2). Avisos (exit 1) são tolerados.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Nunca rodar dois deploys juntos; deixa o que está em andamento terminar (não
+# cancela no meio — cancelar um `docker compose up` deixaria estado parcial).
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to production VPS
+    runs-on: ubuntu-latest
+    # Guard: só o repo real publica. Forks (e PRs de fork) viram no-op.
+    if: github.repository == 'redealabama-gif/whatshybridocerto'
+    environment: production
+
+    steps:
+      - name: Checkout (referência / consistência do workflow)
+        uses: actions/checkout@v4
+
+      # ── Deploy: roda deploy.sh no servidor via SSH ────────────────────────
+      # O appleboy/ssh-action abre a conexão a partir do runner; o trabalho
+      # pesado (git pull, docker build, compose up, loop de health) acontece no
+      # VPS dentro de deploy/scripts/deploy.sh.
+      - name: Run deploy.sh on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.DEPLOY_APP_DIR || '/opt/whatshybrid' }}"
+            echo "==> Deploy em ${APP_DIR}"
+            cd "${APP_DIR}"
+            # Garante que o servidor está na main antes do deploy.sh dar pull.
+            git fetch origin main
+            git checkout main
+            chmod +x deploy/scripts/*.sh || true
+            # deploy.sh: backup -> git pull -> docker compose build/up -> health
+            bash deploy/scripts/deploy.sh
+
+      # ── Health gate pós-deploy ────────────────────────────────────────────
+      # deploy.sh já checa /health, mas reexecutamos o health.sh completo e
+      # falhamos o job em erro crítico. health.sh: 0 = ok, 1 = avisos, 2 = crítico.
+      - name: Post-deploy health check
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          command_timeout: 5m
+          script: |
+            set -uo pipefail
+            APP_DIR="${{ secrets.DEPLOY_APP_DIR || '/opt/whatshybrid' }}"
+            cd "${APP_DIR}"
+            chmod +x deploy/scripts/health.sh || true
+            bash deploy/scripts/health.sh
+            STATUS=$?
+            echo "health.sh exit code: ${STATUS}"
+            if [ "${STATUS}" -ge 2 ]; then
+              echo "::error::Health check pós-deploy reportou erros CRÍTICOS"
+              exit 1
+            fi
+            exit 0
