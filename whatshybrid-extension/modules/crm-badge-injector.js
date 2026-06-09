@@ -862,27 +862,29 @@
         let contact = displayName ? contactByName[normalizeName(displayName)] : null;
         let labels;
 
+        // Resolve o chatId SEMPRE (não só no fallback): o chip de etiqueta
+        // rápida precisa do telefone mesmo quando o contato já existe.
+        let chatId = null;
+        try {
+            if (window.WHL_WaBridge?.getActiveChatId) {
+                chatId = window.WHL_WaBridge.getActiveChatId();
+            }
+        } catch (_) {}
+        if (!chatId) {
+            const idEl = header.querySelector('[data-id]') ||
+                         document.querySelector('#main [data-id]');
+            const dataId = idEl?.getAttribute('data-id') || '';
+            const m = dataId.match(/(\d+)@([cg])\.us/);
+            if (m) chatId = `${m[1]}@${m[2]}.us`;
+        }
+
         if (contact) {
             labels = getLabelsForContact(contact);
         } else {
-            // Fallback: resolve chatId (contato não salvo / número visível).
-            let chatId = null;
-            try {
-                if (window.WHL_WaBridge?.getActiveChatId) {
-                    chatId = window.WHL_WaBridge.getActiveChatId();
-                }
-            } catch (_) {}
-            if (!chatId) {
-                const idEl = header.querySelector('[data-id]') ||
-                             document.querySelector('#main [data-id]');
-                const dataId = idEl?.getAttribute('data-id') || '';
-                const m = dataId.match(/(\d+)@([cg])\.us/);
-                if (m) chatId = `${m[1]}@${m[2]}.us`;
-            }
+            // Contato não salvo / número visível.
             contact = findContactByChatId(chatId);
             labels = findLabelsByChatId(chatId);
         }
-        if (!contact && labels.length === 0) return;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'whl-header-badge-wrapper whl-badge-wrapper-v53';
@@ -900,6 +902,14 @@
                 wrapper.appendChild(createLabelBadge(labels[i]));
             }
         }
+
+        // Etiqueta rápida: chip "+🏷️" sempre visível no header de conversas
+        // individuais (@c.us). Clique = cria/atualiza o contato no CRM com
+        // nome+telefone do chat aberto e abre o seletor de etiquetas padrão.
+        // Grupos ficam de fora (não têm telefone de contato).
+        const quickChip = createQuickLabelChip(displayName, chatId);
+        if (quickChip) wrapper.appendChild(quickChip);
+
         if (wrapper.children.length > 0) {
             const parent = nameEl.parentElement;
             if (parent) {
@@ -907,6 +917,77 @@
                 parent.style.alignItems = 'center';
             }
             nameEl.after(wrapper);
+        }
+    }
+
+    // ============================================
+    // ETIQUETA RÁPIDA NO HEADER DO CHAT
+    // ============================================
+
+    // Chip clicável injetado ao lado do nome no header. Reusa 100% dos fluxos
+    // existentes: CRMModule.upsertContact (persiste + sincroniza com backend)
+    // e CRMModule.showLabelPickerForContact (mesmo seletor de etiquetas do
+    // painel) — então o contato etiquetado aparece no CRM, no kanban e no
+    // painel lateral automaticamente, sem caminho novo de dados.
+    function createQuickLabelChip(displayName, chatId) {
+        // Só conversa individual tem telefone; sem CRMModule (bundle avançado
+        // ainda não carregado) o clique não teria o que chamar — não renderiza.
+        if (!chatId || !/@c\.us$/.test(chatId)) return null;
+        if (!window.CRMModule?.upsertContact || !window.CRMModule?.showLabelPickerForContact) return null;
+
+        const chip = document.createElement('button');
+        chip.className = 'whl-quick-label-chip';
+        chip.type = 'button';
+        chip.title = 'Adicionar etiqueta a este contato';
+        chip.textContent = '🏷️+';
+        chip.style.cssText = [
+            'display:inline-flex', 'align-items:center', 'gap:2px',
+            'padding:1px 7px', 'border-radius:10px', 'font-size:11px',
+            'line-height:18px', 'cursor:pointer', 'border:1px dashed rgba(134,150,160,0.6)',
+            'background:transparent', 'color:inherit', 'opacity:0.75', 'flex:none'
+        ].join(';');
+        chip.addEventListener('mouseenter', () => { chip.style.opacity = '1'; });
+        chip.addEventListener('mouseleave', () => { chip.style.opacity = '0.75'; });
+        chip.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openQuickLabelFlow(displayName, chatId);
+        });
+        return chip;
+    }
+
+    async function openQuickLabelFlow(displayName, chatId) {
+        try {
+            const phone = String(chatId).split('@')[0];
+            if (!phone) return;
+
+            // init() de ambos é idempotente (guard interno). Garante state
+            // carregado do storage ANTES do upsert — sem isto, um CRM nunca
+            // inicializado nesta aba salvaria state vazio por cima dos dados.
+            try { await window.CRMModule.init?.(); } catch (_) {}
+            try { await window.LabelsModule?.init?.(); } catch (_) {}
+
+            // Cria (ou atualiza) o contato com nome e telefone do chat aberto.
+            // saveData interno já persiste local + sincroniza com o backend.
+            const contact = await window.CRMModule.upsertContact({
+                phone,
+                name: displayName || phone,
+                source: 'quick_label_header'
+            });
+            if (!contact) {
+                console.warn('[BadgeInjector v53] Etiqueta rápida: upsertContact não retornou contato');
+                return;
+            }
+
+            // Seletor de etiquetas padrão do CRM (toggle persiste via
+            // LabelsModule). Ao fechar, os badges atualizam no próximo ciclo.
+            window.CRMModule.showLabelPickerForContact(phone);
+
+            // Refresh próximo: dá tempo do usuário marcar a etiqueta e ver o
+            // badge aparecer sem esperar o RECHECK_INTERVAL inteiro.
+            setTimeout(() => { try { scheduleUpdate(); } catch (_) {} }, 1500);
+        } catch (error) {
+            console.error('[BadgeInjector v53] Etiqueta rápida falhou:', error);
         }
     }
 

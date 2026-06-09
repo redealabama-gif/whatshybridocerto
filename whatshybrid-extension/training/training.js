@@ -5,6 +5,138 @@
  * @version 9.5.1
  */
 
+// Sugestões de FAQ pré-estabelecidas (lista do dono do produto). Clicar numa
+// pergunta abre o modal "Nova FAQ" com ela preenchida — o cliente só escreve
+// a resposta. Mantido como const fora da classe pra ser fácil de editar a
+// lista sem mexer em lógica.
+const FAQ_SUGGESTIONS = [
+  {
+    category: '🕐 Atendimento e Horário',
+    questions: [
+      'Qual é o horário de funcionamento?',
+      'Vocês atendem aos finais de semana?',
+      'Vocês atendem em feriados?',
+      'Vocês possuem atendimento presencial?',
+      'Como posso falar com um atendente?',
+      'Quanto tempo demora para me responderem?',
+      'Estou falando com uma pessoa ou com um robô?',
+    ],
+  },
+  {
+    category: '📦 Produtos e Serviços',
+    questions: [
+      'Quais produtos/serviços vocês oferecem?',
+      'Vocês possuem catálogo?',
+      'Esse produto/serviço está disponível em estoque?',
+      'Qual é o produto/serviço mais procurado?',
+      'Como funciona o serviço de vocês?',
+      'Vocês trabalham com produtos personalizados ou encomendas?',
+      'Qual a diferença entre os planos/opções disponíveis?',
+    ],
+  },
+  {
+    category: '💰 Preços e Orçamento',
+    questions: [
+      'Qual é o valor?',
+      'Vocês têm tabela de preços?',
+      'Como faço um orçamento?',
+      'O orçamento é gratuito?',
+      'Existe valor mínimo para compra?',
+      'Têm desconto para pagamento à vista?',
+    ],
+  },
+  {
+    category: '🎉 Promoções e Descontos',
+    questions: [
+      'Vocês têm alguma promoção ativa?',
+      'Existe desconto para compras em quantidade?',
+      'Vocês têm programa de fidelidade?',
+      'Como fico sabendo das promoções?',
+    ],
+  },
+  {
+    category: '💳 Pagamento',
+    questions: [
+      'Quais formas de pagamento vocês aceitam?',
+      'Aceitam PIX?',
+      'Aceitam cartão de crédito/débito?',
+      'É possível parcelar? Em quantas vezes?',
+      'Posso pagar na entrega?',
+      'Vocês emitem nota fiscal?',
+    ],
+  },
+  {
+    category: '🚚 Entrega e Logística',
+    questions: [
+      'Vocês fazem entrega?',
+      'Vocês entregam na minha região?',
+      'Qual é o valor do frete?',
+      'Qual é o prazo de entrega?',
+      'Vocês fazem entrega expressa?',
+      'Posso retirar no local?',
+    ],
+  },
+  {
+    category: '📅 Agendamento',
+    questions: [
+      'Como faço para agendar?',
+      'Existe disponibilidade para hoje?',
+      'Posso remarcar meu horário?',
+      'Qual é a política de cancelamento?',
+      'Quanto tempo dura o atendimento/serviço?',
+    ],
+  },
+  {
+    category: '🛒 Pedidos e Acompanhamento',
+    questions: [
+      'Como faço um pedido?',
+      'Meu pedido foi confirmado?',
+      'Como acompanho o status do meu pedido?',
+      'Posso alterar meu pedido?',
+      'Posso cancelar meu pedido?',
+      'Meu pedido ainda não chegou, o que faço?',
+    ],
+  },
+  {
+    category: '🔄 Trocas, Devoluções e Garantia',
+    questions: [
+      'Como solicitar uma troca?',
+      'Como solicitar uma devolução?',
+      'Qual é o prazo para troca ou devolução?',
+      'O produto chegou com defeito, o que faço?',
+      'Como funciona a garantia?',
+      'Como acionar a garantia?',
+    ],
+  },
+  {
+    category: '📍 Localização',
+    questions: [
+      'Onde vocês estão localizados?',
+      'Qual é o endereço completo?',
+      'Como chegar até vocês?',
+      'Vocês possuem estacionamento?',
+    ],
+  },
+  {
+    category: '✅ Credibilidade e Confiança',
+    questions: [
+      'Há quanto tempo vocês estão no mercado?',
+      'Vocês possuem CNPJ?',
+      'Vocês têm avaliações de clientes?',
+      'Onde posso ver depoimentos de clientes?',
+    ],
+  },
+  {
+    category: '🛠️ Pós-venda e Suporte',
+    questions: [
+      'Como funciona o suporte após a compra?',
+      'Como entrar em contato com o suporte técnico?',
+      'Preciso de ajuda com algo que já comprei.',
+      'Como faço uma reclamação ou sugestão?',
+    ],
+  },
+];
+
 class TrainingApp {
   constructor() {
     this.examples = [];
@@ -223,6 +355,21 @@ class TrainingApp {
     // FAQs
     document.getElementById('btnAddFaq')?.addEventListener('click', () => this.openFaqModal());
     document.getElementById('btnSaveFaq')?.addEventListener('click', () => this.saveFaq());
+
+    // Sugestões de FAQ
+    document.getElementById('btnFaqSuggestions')?.addEventListener('click', () => this.openFaqSuggestions());
+    document.getElementById('closeFaqSuggestionsModal')?.addEventListener('click', () => this.closeModal('faqSuggestionsModal'));
+    document.getElementById('btnCloseFaqSuggestions')?.addEventListener('click', () => this.closeModal('faqSuggestionsModal'));
+    document.getElementById('faqSuggestionsFilter')?.addEventListener('input', (e) => this.renderFaqSuggestions(e.target.value));
+    document.getElementById('faqSuggestionsList')?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-gi]');
+      if (item && !item.hasAttribute('data-added')) {
+        const gi = parseInt(item.getAttribute('data-gi'), 10);
+        const qi = parseInt(item.getAttribute('data-qi'), 10);
+        const question = FAQ_SUGGESTIONS[gi]?.questions?.[qi];
+        this.pickFaqSuggestion(question);
+      }
+    });
     document.getElementById('btnDeleteFaq')?.addEventListener('click', () => this.deleteFaq());
     document.getElementById('btnCancelFaq')?.addEventListener('click', () => this.closeModal('faqModal'));
     document.getElementById('closeFaqModal')?.addEventListener('click', () => this.closeModal('faqModal'));
@@ -724,7 +871,7 @@ class TrainingApp {
   // MODALS - FAQs
   // ============================================
 
-  openFaqModal(id = null) {
+  openFaqModal(id = null, prefill = null) {
     const modal = document.getElementById('faqModal');
     const titleEl = document.getElementById('faqModalTitle');
     const deleteBtn = document.getElementById('btnDeleteFaq');
@@ -746,9 +893,92 @@ class TrainingApp {
       titleEl.textContent = 'Nova FAQ';
       deleteBtn.style.display = 'none';
       document.getElementById('faqForm').reset();
+
+      // Vindo das Sugestões de FAQ: pergunta já preenchida, cursor direto
+      // na resposta — o fluxo de salvar é o normal (sync incluído).
+      if (prefill && prefill.question) {
+        document.getElementById('faqQuestion').value = prefill.question;
+        setTimeout(() => document.getElementById('faqAnswer')?.focus(), 50);
+      }
     }
 
     modal.classList.add('active');
+  }
+
+  // ============================================
+  // SUGESTÕES DE FAQ
+  // ============================================
+
+  // Normaliza pra detectar "já cadastrada": minúsculas, sem acento, sem
+  // pontuação final — assim "Aceitam PIX?" casa com "aceitam pix".
+  _normalizeFaqQuestion(q) {
+    return String(q || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[?!.\s]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  _faqAlreadyExists(question) {
+    const norm = this._normalizeFaqQuestion(question);
+    return this.faqs.some(f => this._normalizeFaqQuestion(f.q || f.question) === norm);
+  }
+
+  openFaqSuggestions() {
+    const filterEl = document.getElementById('faqSuggestionsFilter');
+    if (filterEl) filterEl.value = '';
+    this.renderFaqSuggestions('');
+    document.getElementById('faqSuggestionsModal')?.classList.add('active');
+  }
+
+  renderFaqSuggestions(filterText = '') {
+    const list = document.getElementById('faqSuggestionsList');
+    if (!list) return;
+
+    const norm = this._normalizeFaqQuestion(filterText);
+    let total = 0;
+
+    const html = FAQ_SUGGESTIONS.map((group, gi) => {
+      const entries = group.questions
+        .map((q, qi) => ({ q, qi }))
+        .filter(({ q }) =>
+          !norm || this._normalizeFaqQuestion(q).includes(norm) ||
+          this._normalizeFaqQuestion(group.category).includes(norm)
+        );
+      if (entries.length === 0) return '';
+      total += entries.length;
+
+      // Referência por índice (data-gi/data-qi) em vez de embutir o texto no
+      // atributo: escapeHtml não escapa aspas, então texto em atributo podia
+      // quebrar o HTML. O texto vem de FAQ_SUGGESTIONS no clique.
+      const items = entries.map(({ q, qi }) => {
+        const added = this._faqAlreadyExists(q);
+        return `
+          <div data-gi="${gi}" data-qi="${qi}" ${added ? 'data-added="1"' : ''}
+               style="padding:9px 12px;border:1px solid ${added ? 'rgba(34,197,94,0.35)' : 'rgba(148,163,184,0.25)'};border-radius:8px;margin-bottom:6px;font-size:13px;display:flex;align-items:center;gap:8px;${added ? 'opacity:0.55;cursor:default;background:rgba(34,197,94,0.06);' : 'cursor:pointer;'}"
+               ${added ? '' : 'onmouseover="this.style.background=\'rgba(59,130,246,0.08)\'" onmouseout="this.style.background=\'\'"'}>
+            <span>${added ? '✓' : '➕'}</span>
+            <span style="flex:1;">${this.escapeHtml(q)}</span>
+            ${added ? '<span style="font-size:11px;color:#22C55E;">já adicionada</span>' : ''}
+          </div>`;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px;opacity:0.85;">${this.escapeHtml(group.category)}</div>
+          ${items}
+        </div>`;
+    }).join('');
+
+    list.innerHTML = total > 0 ? html
+      : '<div style="text-align:center;opacity:0.6;padding:24px;font-size:13px;">Nenhuma sugestão encontrada para esse filtro.</div>';
+  }
+
+  pickFaqSuggestion(question) {
+    if (!question) return;
+    this.closeModal('faqSuggestionsModal');
+    this.openFaqModal(null, { question });
   }
 
   async saveFaq() {
