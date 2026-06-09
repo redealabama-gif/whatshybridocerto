@@ -48,6 +48,25 @@
       window.EventBus.on(window.WHL_EVENTS?.NOTIFICATION_SHOW, data => {
         show(data);
       });
+
+      // Autopilot escalou pra revisão humana (confiança baixa ou fallback
+      // local sem a guarda do backend). O autopilot NÃO envia nada nesses
+      // casos — sem este aviso o operador nunca ficava sabendo que havia
+      // uma conversa esperando resposta manual.
+      window.EventBus.on('autopilot:suggestion-only', data => {
+        const chat = data?.item?.contactName || data?.item?.phone || data?.item?.chatId || 'uma conversa';
+        const motivos = {
+          fallback_no_guard: 'resposta gerada localmente, sem validação do servidor',
+          low_confidence: 'confiança baixa da IA',
+        };
+        const motivo = motivos[data?.reason] || (data?.reason ? String(data.reason) : 'revisão recomendada');
+        show({
+          type: 'warning',
+          title: '🧑‍💼 Autopilot pediu sua revisão',
+          message: `${chat}: a IA preparou uma sugestão mas não enviou (${motivo}). Abra a conversa e responda manualmente.`,
+          duration: 12000,
+        });
+      });
     }
   }
 

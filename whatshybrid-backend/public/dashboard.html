@@ -587,6 +587,24 @@
             <button class="btn btn-ghost" onclick="cancelSubscription()" style="color: var(--error);">Cancelar</button>
           </div>
         </div>
+
+        <!-- Chave de ativação da extensão — só aparece quando o workspace tem
+             código vigente (gerado no pagamento aprovado). Segundo caminho
+             além do email: se a mensagem cair no spam, a chave está aqui. -->
+        <div id="activation-key-block" class="mt-4" style="display:none;">
+          <div class="text-muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Chave de ativação da extensão</div>
+          <div class="mt-2" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <code id="activation-key-code" style="font-size:1.05rem;padding:8px 12px;background:rgba(0,255,255,0.06);border:1px solid rgba(0,255,255,0.3);border-radius:8px;letter-spacing:1px;">—</code>
+            <button class="btn btn-ghost" onclick="copyActivationKey()">
+              <i data-lucide="copy" style="width:16px;height:16px;"></i>
+              Copiar
+            </button>
+          </div>
+          <p class="text-muted mt-2" style="font-size:0.8rem;">
+            Use esta chave para ativar a extensão (ou entre com seu email e senha).
+            Ela fica vinculada a 1 dispositivo por vez.
+          </p>
+        </div>
       </div>
 
       <div class="section">
@@ -1164,10 +1182,35 @@
 
   window.addEventListener('hashchange', () => { routeFromHash(); });
 
+  // ── Chave de ativação (aba Assinatura) ───────────────────
+  // O backend só devolve activation_code pra owner/admin e só quando existe
+  // código vigente (pós-pagamento) — pra todo o resto o bloco fica oculto.
+  async function loadActivationKey() {
+    try {
+      const r = await api.get('/api/v1/subscription/');
+      const ac = r.subscription && r.subscription.activation_code;
+      if (ac && ac.code) {
+        document.getElementById('activation-key-code').textContent = ac.code;
+        document.getElementById('activation-key-block').style.display = 'block';
+      }
+    } catch (e) {
+      console.warn('activation key error', e);
+    }
+  }
+
+  window.copyActivationKey = function() {
+    const code = document.getElementById('activation-key-code').textContent;
+    navigator.clipboard.writeText(code).then(
+      () => toast('Chave copiada!', 'success'),
+      () => toast('Não foi possível copiar — selecione e copie manualmente', 'error')
+    );
+  };
+
   // ── Initialize ───────────────────────────────────────────
   loadUser().then(handlePostLoadRouting);
   loadTokens();
   loadInvoices();
+  loadActivationKey();
 
   // ── Auto-refresh do saldo de tokens a cada 60s. A Visão Geral é estática
   //    (welcome + features), não precisa de refresh — antes tinha KPIs que

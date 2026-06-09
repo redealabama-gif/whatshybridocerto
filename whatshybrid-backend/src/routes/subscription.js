@@ -108,6 +108,29 @@ router.get('/', asyncHandler(async (req, res) => {
   const isInTrial = trialEnd && trialEnd > now && ws.subscription_status === 'trialing';
   const trialDaysLeft = isInTrial ? Math.ceil((trialEnd - now) / 86400000) : 0;
 
+  // Chave de ativação da extensão — visível só pra owner/admin do workspace.
+  // A chave só chegava pelo email de pagamento confirmado; se o email se
+  // perde (spam, SendGrid mal configurado), o cliente ficava sem ela. Com a
+  // chave no painel (aba Assinatura) sempre existe um segundo caminho.
+  // unused/active contam como vigentes; revoked/expired não aparecem.
+  let activationCode = null;
+  const role = req.user?.role || '';
+  if (role === 'owner' || role === 'admin') {
+    const codeRow = db.get(
+      `SELECT code, status, expires_at FROM subscription_codes
+       WHERE workspace_id = ? AND status IN ('unused', 'active')
+       ORDER BY created_at DESC LIMIT 1`,
+      [req.workspaceId]
+    );
+    if (codeRow) {
+      activationCode = {
+        code: codeRow.code,
+        status: codeRow.status,
+        expires_at: codeRow.expires_at,
+      };
+    }
+  }
+
   res.json({
     subscription: {
       plan: ws.plan,
@@ -121,6 +144,7 @@ router.get('/', asyncHandler(async (req, res) => {
       is_in_trial: isInTrial,
       trial_days_left: trialDaysLeft,
       credits: ws.credits,
+      activation_code: activationCode,
     },
   });
 }));
