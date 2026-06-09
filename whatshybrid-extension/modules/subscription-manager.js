@@ -92,7 +92,10 @@
         mediaPerDay: 100,
         exportsPerDay: 10,
         aiRepliesPerDay: -1,
-        bulkContactsPerDay: -1
+        // 500/dia (não -1): o disparo "expandido até 2.000/dia" é o diferencial
+        // vendido no PRO — starter ilimitado invertia a hierarquia dos planos.
+        // Espelha PLAN_LIMITS.starter.bulk_contacts_per_day no backend.
+        bulkContactsPerDay: 500
       }
     },
     pro: {
@@ -102,7 +105,10 @@
       color: '#8b5cf6',
       icon: '🚀',
       features: {
-        maxContacts: 10000,
+        // -1 (sem teto): a landing vende "CRM ilimitado" no Pro e o backend
+        // (PLAN_LIMITS.pro.contacts) também é -1. O teto local de 10.000
+        // contradizia a promessa e o servidor.
+        maxContacts: -1,
         maxChatsPerDay: -1, // ilimitado
         maxCampaigns: 20,
         maxFlows: 10,
@@ -130,7 +136,10 @@
         mediaPerDay: 500,
         exportsPerDay: -1,
         aiRepliesPerDay: -1,
-        bulkContactsPerDay: -1
+        // Promessa da landing no card Pro: "Disparo em massa expandido — até
+        // 2.000 mensagens por dia". Espelha PLAN_LIMITS.pro.bulk_contacts_per_day
+        // no backend; -1 deixava a promessa imprecisa e sem proteção anti-ban.
+        bulkContactsPerDay: 2000
       }
     },
     enterprise: {

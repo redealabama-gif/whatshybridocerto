@@ -29,7 +29,22 @@ class EmailService {
     this.baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
     this.dryRun = !this.apiKey;
     if (this.dryRun) {
-      logger.warn('[EmailService] SENDGRID_API_KEY ausente — modo dry-run (não envia emails)');
+      // Em produção isso é incidente, não detalhe: NENHUM email sai —
+      // boas-vindas, reset de senha e, pior, o email de pagamento que carrega
+      // a CHAVE DE ATIVAÇÃO da extensão. Warn se perdia no meio do log; em
+      // produção loga error + alerta o owner. Em dev continua só o warn.
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('[EmailService] SENDGRID_API_KEY ausente EM PRODUÇÃO — nenhum email será enviado (boas-vindas, reset de senha, chave de ativação pós-pagamento). Configure SENDGRID_API_KEY.');
+        try {
+          const alertManager = require('../observability/alertManager');
+          alertManager.send('critical', 'EmailService em dry-run EM PRODUÇÃO', {
+            impacto: 'clientes não recebem chave de ativação nem reset de senha',
+            acao: 'definir SENDGRID_API_KEY no ambiente',
+          });
+        } catch (_) { /* alertManager indisponível não pode quebrar o boot */ }
+      } else {
+        logger.warn('[EmailService] SENDGRID_API_KEY ausente — modo dry-run (não envia emails)');
+      }
     }
   }
 
@@ -219,9 +234,13 @@ class EmailService {
         <p><strong>Próximos passos:</strong></p>
         <ol style="color:#cbd5e1;line-height:1.8;">
           <li>Instale a extensão Vórtex Pro no Chrome</li>
+          <li>Conecte a extensão entrando com este email e a senha que você criou</li>
           <li>Configure o treinamento da IA dentro da extensão</li>
           <li>Abra o WhatsApp Web e comece a atender</li>
         </ol>
+        <p style="color:#94a3b8;font-size:13px;">Quando o seu pagamento for confirmado,
+        você também recebe por email uma <strong>chave de ativação</strong> — ela fica
+        disponível no seu painel, na aba Assinatura.</p>
       `,
       ctaLabel: 'Acessar meu painel',
       ctaUrl: `${this.baseUrl}/dashboard.html`,

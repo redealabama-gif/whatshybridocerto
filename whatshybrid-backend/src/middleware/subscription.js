@@ -63,8 +63,13 @@ const FEATURE_PLANS = {
   // que ele não consegue invocar.
   'training': ['starter', 'pro', 'enterprise'],
 
-  // Equipe
-  'team': ['enterprise'],
+  // Equipe — a landing (index.html) vende "Equipe: adicione membros da sua
+  // equipe ao mesmo workspace" como recurso dos planos PAGOS (card Starter).
+  // Gatear em enterprise contradizia a promessa de venda: cliente Starter
+  // pagante batia em 402 ao usar o que comprou. Papéis/permissões granulares
+  // (team_roles) continuam exclusivos do enterprise — isso não é prometido
+  // nos planos menores.
+  'team': ['starter', 'pro', 'enterprise'],
   'team_roles': ['enterprise'],
 
   // CRM - criação de registros (bloqueado após trial expirar / past_due / suspended)
@@ -92,7 +97,10 @@ const FEATURE_PLANS = {
  */
 const PLAN_LIMITS = {
   free: {
-    contacts: 100,
+    // 50 (não 100): a landing promete "CRM básico — até 50 contatos" no Free.
+    // O número aqui é o contrato; 100 deixava client (50) e server (100)
+    // divergentes e a promessa de venda imprecisa.
+    contacts: 50,
     deals: 10,
     tasks: 50,
     campaigns: 0,
@@ -105,7 +113,11 @@ const PLAN_LIMITS = {
     tasks: 200,
     campaigns: 5,
     ai_requests_per_day: 100,
-    bulk_contacts_per_day: -1
+    // Teto intermediário: a landing vende o disparo "expandido até 2.000/dia"
+    // como diferencial do PRO — starter ilimitado invertia a hierarquia.
+    // 500/dia segue "limites bem maiores" que o Free (5/dia) sem canibalizar
+    // o upgrade. Ajustável por decisão comercial.
+    bulk_contacts_per_day: 500
   },
   pro: {
     contacts: -1, // unlimited
@@ -113,7 +125,10 @@ const PLAN_LIMITS = {
     tasks: -1,
     campaigns: -1,
     ai_requests_per_day: 500,
-    bulk_contacts_per_day: -1
+    // Promessa da landing no card Pro: "Disparo em massa expandido — até
+    // 2.000 mensagens por dia". -1 (sem teto) tornava a promessa imprecisa
+    // e remove a proteção anti-ban que o número comunica.
+    bulk_contacts_per_day: 2000
   },
   enterprise: {
     contacts: -1,
