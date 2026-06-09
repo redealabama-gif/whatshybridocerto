@@ -98,7 +98,14 @@ class AIRouterService {
     const msg = String(error?.message || '').toLowerCase();
 
     if (status === 401 || status === 403 || msg.includes('api key') || msg.includes('unauthorized')) {
-      return { type: 'auth', action: 'cooldown', durationMs: 24 * 60 * 60 * 1000, provider: providerName };
+      // Antes: 24h. Um único 401 — que pode ser transitório (rotação de chave,
+      // blip de auth) ou uma chave ruim que o operador corrige em seguida —
+      // derrubava o provider por um DIA inteiro; pior: mesmo DEPOIS de corrigir a
+      // chave, o provider só voltava no fim do cooldown (ou com restart). 15min
+      // recupera sozinho de blips e, após um fix, o provider volta rápido.
+      // Ajustável via AI_AUTH_COOLDOWN_MS.
+      const durationMs = parseInt(process.env.AI_AUTH_COOLDOWN_MS, 10) || (15 * 60 * 1000);
+      return { type: 'auth', action: 'cooldown', durationMs, provider: providerName };
     }
     if (status === 429 || msg.includes('rate limit') || msg.includes('quota')) {
       return { type: 'rate_limit', action: 'cooldown', durationMs: 60 * 60 * 1000, provider: providerName };
