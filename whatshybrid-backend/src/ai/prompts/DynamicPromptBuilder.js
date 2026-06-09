@@ -417,7 +417,13 @@ class DynamicPromptBuilder {
     if (memory.recentMessages && memory.recentMessages.length > 0) {
       section += `\nRecent Conversation:\n`;
       memory.recentMessages.slice(-5).forEach(msg => {
-        const speaker = msg.fromMe ? 'Agent' : 'Client';
+        // Aceita as DUAS formas de mensagem que chegam aqui: as do banco
+        // (ConversationMemory, com `fromMe`) e as do histórico AO VIVO da extensão
+        // (normalizadas como `{ role }` em _applyLiveHistory). Antes só olhava
+        // `fromMe` → o histórico ao vivo (que usa `role`) rotulava TODOS como
+        // "Client", embaralhando quem disse o quê neste bloco de contexto.
+        const isAgent = msg.fromMe === true || msg.role === 'assistant';
+        const speaker = isAgent ? 'Agent' : 'Client';
         section += `${speaker}: ${msg.content}\n`;
       });
     }

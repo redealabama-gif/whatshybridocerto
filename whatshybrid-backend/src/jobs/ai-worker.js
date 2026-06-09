@@ -142,6 +142,13 @@ async function processBatchJob(job) {
 }
 
 // ── Processor: ai:embeddings ──────────────────────────────────────────────────
+// NOTA: hoje NÃO há produtor enfileirando em `ai:embeddings` — o índice semântico
+// é populado direto pelo AIOrchestrator (_indexTrainedKnowledge / _ensureIndexed),
+// que é quem o caminho de inferência de fato consulta. Este processor fica como
+// ponto de extensão. Duas ressalvas se um dia for usado: (1) o método correto do
+// HybridSearch é `addDocument` (antes chamava `indexDocument`, que NÃO existe →
+// todo job falhava); (2) ele indexa num HybridSearch novo e DESCARTÁVEL por job,
+// que não é o índice do orquestrador — pra valer, precisa indexar no mesmo índice.
 async function processEmbeddingsJob(job) {
   const { tenantId, documents } = job.data;
   let indexed = 0;
@@ -150,7 +157,7 @@ async function processEmbeddingsJob(job) {
     try {
       const HybridSearch = require('../ai/search/HybridSearch');
       const search = new HybridSearch({ tenantId });
-      await search.indexDocument(doc);
+      await search.addDocument(doc);
       indexed++;
       await job.updateProgress(Math.round((indexed / documents.length) * 100));
     } catch (err) {

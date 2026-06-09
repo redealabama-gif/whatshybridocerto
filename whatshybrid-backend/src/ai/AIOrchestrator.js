@@ -170,12 +170,54 @@ class AIOrchestrator {
     // Aditivo e à prova de falha: se isto quebrar, a geração segue normalmente
     // usando só o caminho de palavra-chave (_loadTrainedKnowledge), que é o
     // comportamento atual. Roda em background (a registry não bloqueia o request).
+    // Aquece o índice semântico (memoizado): init() e o 1º processMessage
+    // compartilham a MESMA indexação — sem corrida nem trabalho dobrado.
     try {
-      await this._indexTrainedKnowledge();
+      await this._startIndexing();
     } catch (err) {
       logger.warn(`[Orchestrator] indexação inicial do conhecimento falhou: ${err.message}`);
     }
     logger.info(`AIOrchestrator ready (tenant: ${this.tenantId})`);
+  }
+
+  /**
+   * Inicia (uma única vez) a indexação semântica do conhecimento treinado e
+   * memoiza a promise. init() e processMessage compartilham esta MESMA promise,
+   * evitando duas indexações concorrentes (o lock interno faria a 2ª desistir
+   * com o índice ainda parcial). À prova de falha: erros liberam pra retry.
+   * @private
+   */
+  _startIndexing() {
+    if (!this._indexingPromise) {
+      this._indexingPromise = this._indexTrainedKnowledge()
+        .then(() => { this._indexReady = true; })
+        .catch((err) => {
+          logger.debug?.(`[Orchestrator] _startIndexing: ${err.message}`);
+          this._indexingPromise = null; // permite retry na próxima mensagem
+        });
+    }
+    return this._indexingPromise;
+  }
+
+  /**
+   * Garante que o índice semântico foi populado antes da 1ª busca RAG, com
+   * espera LIMITADA: a 1ª mensagem aquece o índice, mas nunca trava a resposta
+   * além do orçamento. Se estourar (catálogo grande), segue com o caminho de
+   * palavra-chave (_loadTrainedKnowledge) e o índice fica quente pra próxima.
+   * @private
+   */
+  async _ensureIndexed(maxWaitMs = 4000) {
+    if (this._indexReady) return;
+    const p = this._startIndexing();
+    let timer;
+    try {
+      await Promise.race([
+        p,
+        new Promise((res) => { timer = setTimeout(res, maxWaitMs); }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   async processMessage(chatId, message, context = {}) {
@@ -253,6 +295,10 @@ class AIOrchestrator {
       // extrai .results e cai em [] em qualquer formato inesperado.
       let knowledgeResults = [];
       try {
+        // Aquece o índice semântico antes da 1ª busca (init() popula, mas a
+        // registry/worker não esperam o init() → as primeiras mensagens buscavam
+        // num índice vazio, com recall semântico frio). Espera limitada.
+        await this._ensureIndexed();
         const searchResult = await this.hybridSearch.search(message, 5);
         const rawResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
         // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
@@ -1152,6 +1198,10 @@ class AIOrchestrator {
   _maybeRefreshKnowledge() {
     try {
       if (this._knowledgeIndexing) return;              // já reindexando (fast-path)
+      // A 1ª indexação é responsabilidade do _ensureIndexed (memoizada). Aqui só
+      // tratamos REFRESHES após o índice estar quente — evita disparar uma 2ª
+      // indexação concorrente com a inicial (que deixaria o índice parcial).
+      if (!this._indexReady) return;
       const now = Date.now();
       if (now - (this._knowledgeCheckedAt || 0) < 60000) return; // throttle 60s
       this._knowledgeCheckedAt = now;
