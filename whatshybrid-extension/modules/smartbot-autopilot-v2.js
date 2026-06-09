@@ -944,6 +944,32 @@
       const response = confidenceCheck.answer || await generateResponse(item);
       if (!response) throw new Error('Falha ao gerar resposta');
 
+      // SEGURANÇA — fallback local NÃO é auto-enviado. Quando o Tier 0
+      // (orquestrador / "inteligência avançada") cai, a resposta vem do CopilotEngine
+      // local, que NÃO traz a guarda de segurança do backend (tema sensível, PII,
+      // cliente irritado, alto valor, resposta sem base) nem o treinamento do
+      // workspace. Decisão de produto: nesse caso o autopilot NÃO envia sozinho —
+      // roteia pra revisão humana com a resposta já gerada (o operador aprova/edita).
+      // Assim o autopilot só auto-envia o que a IA avançada de fato aprovou.
+      if (item.__responseTier === 'fallback') {
+        console.warn(`[Autopilot] 🧑‍💼 Fallback local sem guarda do backend → revisão humana: ${item.chatId || item.phone}`);
+        state.stats.skippedEscalated++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', {
+            item,
+            reason: 'fallback_no_guard',
+            suggestion: response,
+          });
+        }
+        emitRuntimeEvent('suggestion-only', {
+          chatId: item.chatId,
+          phone: item.phone,
+          reason: 'fallback_no_guard',
+        });
+        nextDelayOverride = Math.random() * 1000 + 500;
+        return;
+      }
+
       // FASE 3b — Honra a guarda de segurança do backend. Mesmo com confiança
       // alta no cliente, NÃO auto-enviar quando o backend recomenda humano
       // (tema sensível, PII, cliente irritado/reclamação, pedido explícito de
@@ -1259,6 +1285,13 @@
     const chatId = item.chatId || (item.phone ? `${String(item.phone).replace(/\D/g, '')}@c.us` : '');
     const messageText = item.message || item.text || '';
 
+    // Marca de qual camada veio a resposta. 'tier0' = orquestrador (com guarda de
+    // segurança + treinamento do workspace). 'fallback' = CopilotEngine local
+    // (SEM guarda nem treinamento). O processQueue usa isto pra decidir auto-enviar
+    // vs. escalar pra revisão humana — o autopilot só envia sozinho o que a IA
+    // avançada aprovou. Resetado por mensagem pra não herdar valor de item reusado.
+    item.__responseTier = null;
+
     console.log(`[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: ${chatId}`);
 
     // v9.7.x — FIX CRÍTICO: o autopilot agora usa o MESMO caminho da sugestão manual
@@ -1304,11 +1337,19 @@
         // sugestão manual. Vazio → backend usa só a memória do banco (como antes).
         const history = buildAutopilotHistory();
 
-        const result = await window.BackendClient.ai.process(chatId, messageText, {
-          language: 'pt-BR',
-          persona: personaPayload,
-          history,
-        });
+        // Teto de 30s (paridade com a sugestão manual). Sem isto, o ai.process
+        // herdava só o timeout interno do BackendClient (30s) MAS com até 3 retries
+        // em 5xx/timeout → a fila podia travar ~90s numa mensagem com o backend
+        // congelado. 30s dá margem pro ciclo de qualidade (o backend tem teto
+        // próprio na fila) e, ao estourar, cai pro fallback → revisão humana.
+        const result = await Promise.race([
+          window.BackendClient.ai.process(chatId, messageText, {
+            language: 'pt-BR',
+            persona: personaPayload,
+            history,
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 30000)),
+        ]);
 
         // backend retorna { success, response, metadata, intelligence }
         if (result && result.success && (result.response || result.content)) {
@@ -1317,6 +1358,8 @@
           // pra o processQueue decidir enviar vs. escalar pra humano. Fail-safe:
           // ausente (backend antigo / WHL_AUTOPILOT_GUARD=0) → não bloqueia.
           try { item.__aiGuard = result.metadata && result.metadata.autopilot ? result.metadata.autopilot : null; } catch (_) {}
+          // Veio do orquestrador → tem guarda + treinamento → pode auto-enviar.
+          item.__responseTier = 'tier0';
           console.log(`[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada` +
             (result.metadata?.qualityScore != null ? ` | quality=${result.metadata.qualityScore}` : '') +
             (result.intelligence?.responseGoal ? ` | goal=${result.intelligence.responseGoal}` : ''));
@@ -1364,6 +1407,11 @@
           if (tier0Attempted && tier0Failed) {
             notifyAutopilotDegraded(chatId);
           }
+          // Resposta local SEM a guarda de segurança do backend nem o treinamento
+          // do workspace. O processQueue vai rotear isto pra revisão humana em vez
+          // de auto-enviar (decisão de produto: o autopilot só envia sozinho o que
+          // a IA avançada aprovou).
+          item.__responseTier = 'fallback';
           return result.content;
         }
       } catch (e) {
