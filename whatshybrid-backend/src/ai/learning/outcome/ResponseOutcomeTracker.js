@@ -55,6 +55,10 @@ class ResponseOutcomeTracker extends EventEmitter {
       ...config,
     };
 
+    // Tenant pra escopar a persistência dos pending no DB (multi-tenant). Sem
+    // tenant (ou 'default'), a persistência fica desligada → só memória.
+    this.tenantId = config.tenantId || null;
+
     // Map de interactionId → pending outcome
     // Fica aqui até o cliente responder ou o timeout expirar
     this.pending = new Map();
@@ -77,6 +81,11 @@ class ResponseOutcomeTracker extends EventEmitter {
     // Cleanup periódico de pendings expirados
     this._cleanupInterval = setInterval(() => this._expirePending(), 5 * 60 * 1000);
     if (this._cleanupInterval.unref) this._cleanupInterval.unref();
+
+    // Re-hidrata os pending persistidos no DB (sobrevive a restart / eviction do
+    // orquestrador). Best-effort e assíncrono: a fonte quente continua sendo o
+    // Map em memória; se o DB estiver fora, segue só em memória (como antes).
+    this._hydrateFromDb().catch(() => {});
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -113,6 +122,9 @@ class ResponseOutcomeTracker extends EventEmitter {
       sentAt:       Date.now(),
       outcome:      null,   // preenchido quando cliente responder
     });
+
+    // Espelha no DB pra sobreviver a restart (best-effort, não bloqueia).
+    this._persistPending(this.pending.get(interactionId));
 
     // Timeout: se ninguém responder em 30min, marcar como ignored
     setTimeout(() => {
@@ -238,6 +250,8 @@ class ResponseOutcomeTracker extends EventEmitter {
     if (!pending) return;
 
     this.pending.delete(interactionId);
+    // Resolvido → tira do espelho persistido (best-effort).
+    this._unpersistPending(interactionId);
 
     const resolved = { ...pending, outcome, resolvedAt: Date.now() };
     this.resolved.push(resolved);
@@ -274,6 +288,109 @@ class ResponseOutcomeTracker extends EventEmitter {
           replyTimeMs: null, replyText: null, reason: 'expired',
         });
       }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PERSISTÊNCIA (espelho dos pending no DB — sobrevive a restart)
+  // Tudo aqui é best-effort e à prova de falha: qualquer erro/DB ausente cai
+  // de volta no comportamento só-memória. A persistência só liga com tenant.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  _db() {
+    if (this._dbRef !== undefined) return this._dbRef;
+    try { this._dbRef = require('../../../utils/database'); }
+    catch (_) { this._dbRef = null; }
+    return this._dbRef;
+  }
+
+  _persistEnabled() {
+    return !!(this.tenantId && this.tenantId !== 'default' && this._db());
+  }
+
+  _persistPending(p) {
+    if (!p || !this._persistEnabled()) return;
+    try {
+      const r = this._db().run(
+        `INSERT OR REPLACE INTO response_outcomes_pending
+           (interaction_id, workspace_id, chat_id, response, response_goal,
+            client_stage, intent, variant, quality_score, sent_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [p.interactionId, this.tenantId, p.chatId, p.response ?? null,
+         p.responseGoal, p.clientStage, p.intent, p.variant,
+         p.qualityScore ?? null, p.sentAt]
+      );
+      if (r && typeof r.catch === 'function') r.catch(() => {});
+    } catch (_) { /* best-effort */ }
+  }
+
+  _unpersistPending(interactionId) {
+    if (!this._persistEnabled()) return;
+    try {
+      const r = this._db().run(
+        `DELETE FROM response_outcomes_pending WHERE interaction_id = ? AND workspace_id = ?`,
+        [interactionId, this.tenantId]
+      );
+      if (r && typeof r.catch === 'function') r.catch(() => {});
+    } catch (_) { /* best-effort */ }
+  }
+
+  // Recarrega os pending da tabela pro Map no boot. Funciona com driver sync
+  // (sqlite) ou async (postgres) via Promise.resolve. Re-arma o timeout de
+  // "ignored" pro tempo restante e descarta o que já passou da janela de 24h.
+  async _hydrateFromDb() {
+    if (!this._persistEnabled()) return;
+    let rows;
+    try {
+      rows = await Promise.resolve(this._db().all(
+        `SELECT interaction_id, chat_id, response, response_goal, client_stage,
+                intent, variant, quality_score, sent_at
+           FROM response_outcomes_pending WHERE workspace_id = ?`,
+        [this.tenantId]
+      ));
+    } catch (_) { return; }
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    const now = Date.now();
+    let loaded = 0, stale = 0;
+    for (const row of rows) {
+      const sentAt = Number(row.sent_at) || 0;
+      if (now - sentAt > this.config.conversionWindowMs) {
+        this._unpersistPending(row.interaction_id); // fora da janela → limpa
+        stale++;
+        continue;
+      }
+      if (this.pending.has(row.interaction_id)) continue; // já em memória
+
+      this.pending.set(row.interaction_id, {
+        interactionId: row.interaction_id,
+        chatId:        row.chat_id,
+        response:      row.response,
+        responseGoal:  row.response_goal || 'responder_duvida',
+        clientStage:   row.client_stage  || 'cold',
+        intent:        row.intent        || 'unknown',
+        variant:       row.variant       || 'default',
+        qualityScore:  row.quality_score ?? null,
+        sentAt,
+        outcome:       null,
+      });
+      loaded++;
+
+      // Re-arma o timeout de "ignored" pro tempo restante da replyWindow.
+      const remaining = Math.max(0, sentAt + this.config.replyWindowMs - now);
+      const id = row.interaction_id;
+      const t = setTimeout(() => {
+        if (this.pending.has(id)) {
+          this._resolveOutcome(id, {
+            replied: false, converted: false, disinterested: false,
+            replyTimeMs: null, replyText: null, reason: 'timeout',
+          });
+        }
+      }, remaining);
+      if (t.unref) t.unref();
+    }
+    if (loaded || stale) {
+      logger.info(`[OutcomeTracker] Hidratado do DB: ${loaded} pendente(s), ${stale} expirado(s) (tenant=${this.tenantId})`);
     }
   }
 }
