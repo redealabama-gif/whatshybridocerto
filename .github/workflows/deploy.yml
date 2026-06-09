@@ -3,8 +3,8 @@ name: CD — Deploy to VPS
 # ─────────────────────────────────────────────────────────────────────────────
 # Continuous Deployment do backend Vórtex Pro.
 #
-# O QUE FAZ
-#   A cada push na `main` (ou disparo manual), conecta via SSH no VPS de produção
+# O QUE FAZ  (⚠️ DORMENTE — disparo MANUAL apenas; ver bloco `on:` abaixo)
+#   Quando disparado manualmente (Actions → Run workflow), conecta via SSH no VPS
 #   e roda deploy/scripts/deploy.sh a partir da raiz do projeto. Esse script:
 #   faz backup do DB, dá `git pull` na branch atual, rebuilda as imagens Docker,
 #   sobe com `docker compose up -d` e roda um loop de health em /health. Depois
@@ -34,9 +34,15 @@ name: CD — Deploy to VPS
 #     o job em erro crítico (exit 2). Avisos (exit 1) são tolerados.
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ⚠️ DORMENTE por decisão do dono: o projeto roda LOCAL; o deploy só acontece
+# quando ele decidir ir pro ar. Por isso o gatilho automático no push pra `main`
+# está DESLIGADO (sem isso, todo merge marcava ❌ no Actions por falta de
+# servidor/secrets). Hoje o workflow só roda por disparo MANUAL:
+#   Actions → "CD — Deploy to VPS" → Run workflow.
+# Pra religar o "merge = no ar", basta reativar o bloco push:
+#   push:
+#     branches: [main]
 on:
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 # Nunca rodar dois deploys juntos; deixa o que está em andamento terminar (não
