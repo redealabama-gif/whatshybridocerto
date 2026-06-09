@@ -109,7 +109,7 @@ class AIOrchestrator {
     this.emotionLearning = process.env.WHL_EMOTION_LEARNING === '1';
 
     // v10.2: Auto-Evolutionary AI — ciclo completo de aprendizado por outcome real
-    this.outcomeTracker   = new ResponseOutcomeTracker(config.outcome || {});
+    this.outcomeTracker   = new ResponseOutcomeTracker({ ...(config.outcome || {}), tenantId: this.tenantId });
     this.scoreEngine      = new PerformanceScoreEngine(config.scoring || {});
     this.strategySelector = new StrategySelector(config.strategy || {});
     this.autoLearningLoop = new AutoLearningLoop({

@@ -131,6 +131,7 @@ function adaptSqliteSql(sql) {
     billing_invoices: 'id',
     autopilot_sessions: 'id',
     interaction_metadata: 'interaction_id',
+    response_outcomes_pending: 'interaction_id',
     faqs: 'id',
     products: 'id',
     training_examples: 'id',
