@@ -202,6 +202,9 @@
                     <button class="btn btn-primary" id="btnAddFaq">
                         <span>➕</span> Nova FAQ
                     </button>
+                    <button class="btn btn-secondary" id="btnFaqSuggestions" style="margin-left:8px;">
+                        <span>💡</span> Sugestões de FAQ
+                    </button>
                 </div>
 
                 <!-- v9.X — Card explicativo "FAQ vs Exemplo" -->
@@ -519,6 +522,31 @@
                     <button class="btn btn-secondary" id="btnCancelFaq">Cancelar</button>
                     <button class="btn btn-danger" id="btnDeleteFaq" style="display: none;">Excluir</button>
                     <button class="btn btn-primary" id="btnSaveFaq">Salvar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Sugestões de FAQ — lista pré-estabelecida; clicar numa
+             pergunta abre o modal "Nova FAQ" com ela já preenchida, faltando
+             só a resposta. Perguntas já cadastradas aparecem marcadas. -->
+        <div class="modal" id="faqSuggestionsModal">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h2>💡 Sugestões de FAQ</h2>
+                    <button class="modal-close" id="closeFaqSuggestionsModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size:13px;opacity:0.8;margin-bottom:12px;">
+                        Clique numa pergunta para cadastrá-la — ela já vem preenchida,
+                        você só escreve a resposta e salva. As marcadas com ✓ você já tem.
+                    </p>
+                    <div class="form-group">
+                        <input type="text" id="faqSuggestionsFilter" placeholder="🔎 Filtrar sugestões... (ex: entrega, pagamento)">
+                    </div>
+                    <div id="faqSuggestionsList" style="max-height:55vh;overflow-y:auto;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btnCloseFaqSuggestions">Fechar</button>
                 </div>
             </div>
         </div>

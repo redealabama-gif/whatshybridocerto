@@ -118,6 +118,14 @@
         localKey: 'whl_smart_templates',
         endpoint: '/api/v1/sync/smart_templates',
         priority: 'low'
+      },
+      // Feedback 👍/👎 dado nas sugestões de IA. Sem isto o histórico era
+      // local-only: trocar de computador perdia todo o feedback acumulado.
+      // O endpoint /sync/:module do backend é genérico, não precisa de rota nova.
+      ai_feedback: {
+        localKey: 'whl_ai_feedback_system',
+        endpoint: '/api/v1/sync/ai_feedback',
+        priority: 'low'
       }
     }
   };

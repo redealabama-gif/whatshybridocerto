@@ -599,10 +599,15 @@
               <i data-lucide="copy" style="width:16px;height:16px;"></i>
               Copiar
             </button>
+            <button class="btn btn-ghost" onclick="unbindActivationKey()" title="Liberar a chave para usar em outro computador">
+              <i data-lucide="monitor-x" style="width:16px;height:16px;"></i>
+              Desvincular dispositivo
+            </button>
           </div>
           <p class="text-muted mt-2" style="font-size:0.8rem;">
             Use esta chave para ativar a extensão (ou entre com seu email e senha).
-            Ela fica vinculada a 1 dispositivo por vez.
+            Ela fica vinculada a 1 dispositivo por vez — trocou de computador?
+            Clique em <strong>Desvincular dispositivo</strong> e ative na máquina nova.
           </p>
         </div>
       </div>
@@ -1204,6 +1209,21 @@
       () => toast('Chave copiada!', 'success'),
       () => toast('Não foi possível copiar — selecione e copie manualmente', 'error')
     );
+  };
+
+  // Troca de computador: zera o vínculo de dispositivo da chave no servidor.
+  // A próxima ativação (na máquina nova) registra o novo dispositivo. Na
+  // máquina antiga a extensão perde a validação no próximo /validate.
+  window.unbindActivationKey = async function() {
+    const code = document.getElementById('activation-key-code').textContent;
+    if (!code || code === '—') return;
+    if (!confirm('Desvincular esta chave do dispositivo atual?\n\nUse isto para ativar a extensão em outro computador. O computador antigo perde o acesso pela chave (você ainda pode entrar lá com email e senha).')) return;
+    try {
+      await api.post(`/api/v1/subscription/codes/${encodeURIComponent(code)}/unbind`);
+      toast('Chave desvinculada! Agora ative a extensão no novo computador.', 'success', 6000);
+    } catch (e) {
+      toast('Erro ao desvincular: ' + e.message, 'error');
+    }
   };
 
   // ── Initialize ───────────────────────────────────────────
