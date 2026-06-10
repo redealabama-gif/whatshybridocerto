@@ -696,9 +696,11 @@
       return;
     }
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Testando...'; }
-    showUrlTestResult('Testando ' + url + '/api/health …', 'info');
+    // AUDITORIA 2026-06-10: o backend serve /health (sem /api) — testar
+    // /api/health devolvia 404 e o botão acusava erro mesmo com servidor ok.
+    showUrlTestResult('Testando ' + url + '/health …', 'info');
     try {
-      const resp = await fetch(url + '/api/health', { method: 'GET', cache: 'no-store' });
+      const resp = await fetch(url + '/health', { method: 'GET', cache: 'no-store' });
       if (resp.ok) {
         let body = '';
         try { body = (await resp.text()).slice(0, 120); } catch (_) {}
