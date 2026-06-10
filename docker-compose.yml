@@ -82,6 +82,11 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      # AUDITORIA 2026-06-10: config/index.js RECUSA subir sem WEBHOOK_SECRET
+      # (mín. 16 chars). O compose não repassava a variável → container em
+      # crash-loop no primeiro deploy (provado em simulação). O :? falha já
+      # no `docker compose up` com mensagem clara, em vez de loop silencioso.
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required (>=16 chars)}
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -90,7 +95,13 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ORCHESTRATOR_MAX_TENANTS=${ORCHESTRATOR_MAX_TENANTS:-200}
       - ORCHESTRATOR_TTL_MS=${ORCHESTRATOR_TTL_MS:-1800000}
-      - CORS_ORIGINS=${CORS_ORIGINS:-https://${DOMAIN}}
+      # AUDITORIA 2026-06-10: o config lê CORS_ORIGIN (singular) — o antigo
+      # CORS_ORIGINS era ignorado e a restrição aparente não valia. O default
+      # INCLUI chrome-extension://* de propósito: em produção o config só
+      # aceita origens de extensão se o wildcard estiver explícito na lista
+      # (IDs de extensão variam por instalação até publicar na Web Store;
+      # depois de publicar, dá pra trocar o wildcard pelo ID fixo).
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://${DOMAIN},chrome-extension://*}
       - REDIS_DISABLED=${REDIS_DISABLED:-false}
       # ── Billing (MercadoPago) ──────────────────────────────────────────
       # Sem essas envs o checkout não consegue criar preference/preapproval
@@ -146,6 +157,9 @@ services:
     environment:
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      # Mesmo motivo do backend: o worker carrega o mesmo config, que exige
+      # WEBHOOK_SECRET no boot (auditoria 2026-06-10).
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required (>=16 chars)}
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
