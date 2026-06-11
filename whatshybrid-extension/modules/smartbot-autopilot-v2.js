@@ -929,10 +929,30 @@
         return;
       }
 
-      // Abrir chat
-      const opened = await openChatForItem(item);
-      if (!opened) throw new Error('Falha ao abrir chat');
-      await sleep(1500);
+      // Abrir chat — e CONFIRMAR que ele ficou ATIVO na tela. Nunca seguir às
+      // cegas: se o WhatsApp demora a trocar de conversa (ou o operador clicou
+      // em outra), o alvo visível pode ser outro chat → resposta no chat errado.
+      // Roda ANTES de gerar, pois o histórico é lido do chat ATIVO.
+      const ready = await ensureChatActive(item);
+      if (!ready) {
+        item.__openAttempts = (item.__openAttempts || 0) + 1;
+        if (item.__openAttempts < 3) {
+          // Transitório (WA ainda carregando): devolve pra fila e tenta de novo.
+          // A mensagem NÃO se perde.
+          state.queue.unshift(item);
+          nextDelayOverride = 1500 * item.__openAttempts;
+          emitRuntimeEvent('skipped', { reason: 'open_unconfirmed', chatId: item.chatId, attempt: item.__openAttempts });
+        } else {
+          // Não dá pra abrir com segurança → escala pra revisão humana em vez
+          // de perder a mensagem OU arriscar enviar no chat errado.
+          state.stats.skippedEscalated++;
+          if (window.EventBus) {
+            window.EventBus.emit('autopilot:suggestion-only', { item, reason: 'open_failed' });
+          }
+          emitRuntimeEvent('suggestion-only', { chatId: item.chatId, phone: item.phone, reason: 'open_failed' });
+        }
+        return;
+      }
 
       // PEND-MED-009: Verificar abort antes de gerar resposta
       if (state.abortController?.signal.aborted) {
@@ -1036,6 +1056,19 @@
       // PEND-MED-009: Verificar abort antes de enviar
       if (state.abortController?.signal.aborted) {
         console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
+        return;
+      }
+
+      // Reconfirma o chat ANTES de digitar: gerar a resposta no backend pode
+      // ter levado até 30s, tempo de sobra pro operador clicar em outra
+      // conversa (ou outra mensagem roubar o foco). Se mudou, reabre; não
+      // conseguindo, devolve pra fila — JAMAIS envia no chat errado.
+      const stillTarget = await ensureChatActive(item, { retries: 1 });
+      if (!stillTarget) {
+        console.warn('[Autopilot] ↪️ Chat ativo mudou antes do envio — re-enfileirando:', item.chatId);
+        state.queue.unshift(item);
+        nextDelayOverride = 1200;
+        emitRuntimeEvent('skipped', { reason: 'chat_changed_before_send', chatId: item.chatId });
         return;
       }
 
@@ -1342,14 +1375,18 @@
         // em 5xx/timeout → a fila podia travar ~90s numa mensagem com o backend
         // congelado. 30s dá margem pro ciclo de qualidade (o backend tem teto
         // próprio na fila) e, ao estourar, cai pro fallback → revisão humana.
+        // Timer cancelável: sem o clearTimeout, o setTimeout perdedor da race
+        // continuava pendente 30s mesmo quando o backend respondia na hora —
+        // vazando um timer por mensagem (e mantendo o event loop vivo à toa).
+        let __toId = null;
         const result = await Promise.race([
           window.BackendClient.ai.process(chatId, messageText, {
             language: 'pt-BR',
             persona: personaPayload,
             history,
           }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('orchestrator_timeout')), 30000)),
-        ]);
+          new Promise((_, rej) => { __toId = setTimeout(() => rej(new Error('orchestrator_timeout')), 30000); }),
+        ]).finally(() => { if (__toId) clearTimeout(__toId); });
 
         // backend retorna { success, response, metadata, intelligence }
         if (result && result.success && (result.response || result.content)) {
@@ -1761,10 +1798,12 @@
     });
   }
 
-  async function getActiveChatInfo() {
+  async function getActiveChatInfo({ force = false } = {}) {
     let chatId = null;
-    // Caminho moderno: bridge.
-    const fresh = (Date.now() - _activeChatCache.ts) < 1500;
+    // Caminho moderno: bridge. `force` ignora o cache de 1,5s — usado pela
+    // verificação de chat ativo, que precisa do estado REAL agora, não do
+    // último lido (senão confirmaríamos o chat errado por cache velho).
+    const fresh = !force && (Date.now() - _activeChatCache.ts) < 1500;
     if (fresh && _activeChatCache.id) {
       chatId = _activeChatCache.id;
     } else {
@@ -1791,6 +1830,58 @@
 
     const phone = chatId ? extractPhoneFromChatId(chatId) : '';
     return { chatId, phone, name: safeText(name) };
+  }
+
+  // Leitura SÍNCRONA e rápida do chat aberto, direto do DOM (sem esperar o
+  // bridge, que tem timeout de 2s e não compõe bem com polling apertado).
+  // As rows de mensagem do #main carregam data-id no formato
+  // `{fromMe}_{chatId}_{msgId}` (ex.: false_5511...@c.us_3EB0...), então o
+  // chatId sai de dentro dele. Mesmo padrão já usado pelo crm-badge-injector.
+  function getActiveChatIdFromDom() {
+    try {
+      if (typeof document === 'undefined' || !document.querySelector) return '';
+      const el = document.querySelector('#main [data-id]') ||
+                 document.querySelector('#main header [data-id]');
+      const dataId = (el && el.getAttribute) ? (el.getAttribute('data-id') || '') : '';
+      const m = dataId.match(/(\d+)@([cg])\.us/);
+      if (m) return normalizeChatId(`${m[1]}@${m[2]}.us`);
+    } catch (_) {}
+    return '';
+  }
+
+  // Garante que o chat do `item` é o que está ABERTO na tela antes de ler o
+  // histórico / digitar / enviar. Sem isto, numa rajada de várias conversas
+  // (ou se o operador clicou em outra), o autopilot leria o histórico errado e
+  // digitaria a resposta no chat ERRADO. Retorna true só quando o chat ativo
+  // (lido fresco) bate com o alvo — abrindo o chat e re-checando até `retries`.
+  async function ensureChatActive(item, { retries = 2 } = {}) {
+    const target = normalizeChatId(
+      item?.chatId || (item?.phone ? `${String(item.phone).replace(/\D/g, '')}@c.us` : '')
+    );
+    if (!target) return false;
+
+    // "Estou no chat certo?" — DOM rápido primeiro; bridge canônico se o DOM
+    // não bater (cobre layouts onde a row ainda não renderizou).
+    const isActive = async () => {
+      if (getActiveChatIdFromDom() === target) return true;
+      const info = await getActiveChatInfo({ force: true });
+      return normalizeChatId(info?.chatId || '') === target;
+    };
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (await isActive()) return true;
+
+      await openChatForItem(item);
+      // Dá tempo do DOM/Store trocarem de conversa, re-checando rápido via DOM.
+      for (let i = 0; i < 8; i++) {
+        await sleep(250);
+        if (getActiveChatIdFromDom() === target) return true;
+      }
+      // Confirmação canônica (bridge) ao fim da tentativa.
+      if (await isActive()) return true;
+      await sleep(300 * (attempt + 1));
+    }
+    return false;
   }
 
   try {
