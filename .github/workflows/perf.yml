@@ -24,7 +24,7 @@ jobs:
       JWT_SECRET: ci-jwt-key-for-pipeline-runs-not-a-real-key
       WEBHOOK_SECRET: ci-webhook-key-for-pipeline-runs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

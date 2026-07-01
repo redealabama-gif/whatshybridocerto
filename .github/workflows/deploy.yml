@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout (referência / consistência do workflow)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # ── Deploy: roda deploy.sh no servidor via SSH ────────────────────────
       # O appleboy/ssh-action abre a conexão a partir do runner; o trabalho
