@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.20.0",
-    "pdfjs-dist": "^5.7.284",
+    "pdfjs-dist": "^6.1.200",
     "xlsx": "^0.18.5"
   }
 }
