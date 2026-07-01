@@ -71,7 +71,7 @@ jobs:
       # pesado (git pull, docker build, compose up, loop de health) acontece no
       # VPS dentro de deploy/scripts/deploy.sh.
       - name: Run deploy.sh on VPS
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
@@ -95,7 +95,7 @@ jobs:
       # deploy.sh já checa /health, mas reexecutamos o health.sh completo e
       # falhamos o job em erro crítico. health.sh: 0 = ok, 1 = avisos, 2 = crítico.
       - name: Post-deploy health check
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
