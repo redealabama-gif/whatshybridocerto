@@ -114,7 +114,9 @@ function middleware(opts = {}) {
         code: 'EXTENSION_TOO_OLD',
         current_version: version,
         min_supported: MIN_SUPPORTED,
-        update_url: 'https://chrome.google.com/webstore/detail/whatshybrid-pro/your-extension-id',
+        // Link real da Chrome Web Store (CHROME_WEBSTORE_URL); antes era um
+        // placeholder ".../your-extension-id". null até a extensão ser publicada.
+        update_url: process.env.CHROME_WEBSTORE_URL || null,
       });
     }
 
