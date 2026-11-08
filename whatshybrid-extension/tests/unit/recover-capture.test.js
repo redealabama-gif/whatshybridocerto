@@ -587,3 +587,29 @@ test('Recover: diagnóstico WHL_RecoverDiag mostra de onde veio o conteúdo de c
   assert.match(last.fontes, /tela/);
   assert.strictEqual(last.texto, true);
 });
+
+// ─── Formato do WhatsApp atual (diagnóstico real, v9.6.4) ───────────────────
+
+test('Recover: balão com data-id só com o id da mensagem (WhatsApp atual) é lido na exclusão', async () => {
+  const msg = makeMsg('');
+  const dom = { [msg.id.id]: 'teste diag' }; // data-id="3EB0…", não "true_<chat>_<id>"
+  const { coll, records } = await bootHooks({ dom });
+  coll.put(msg);
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r);
+  assert.strictEqual(r.body, 'teste diag');
+  assert.strictEqual(r.contentCaptured, true);
+});
+
+test('Recover: mensagem que entrou VAZIA no cache é atualizada pela varredura antes de ser apagada', async () => {
+  const { coll, records, sweepActiveChat } = await bootHooks();
+  const msg = makeMsg(''); // a mensagem enviada entra na coleção antes do texto
+  coll.add(msg);
+  msg.body = 'texto preenchido depois';
+  sweepActiveChat(); // varredura periódica (coleção geral)
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r);
+  assert.strictEqual(r.body, 'texto preenchido depois', 'cache vazio não foi atualizado');
+});

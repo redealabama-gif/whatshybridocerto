@@ -1673,10 +1673,17 @@ window.whl_hooks_main = () => {
         let canBlob = false;
         try { canBlob = !!(msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob); } catch (_) { canBlob = false; }
         if (!canFields && !canBlob) return;
+        const idCurto = String(ids[0] || '').slice(-8);
         setTimeout(() => {
             baixarMidiaWA(msgModel, fields || {})
-                .then(dataUrl => { if (dataUrl) aplicarMidiaBaixada(ids, dataUrl, fields); })
-                .catch(e => console.warn('[WHL Media] Falha ao completar mídia apagada:', e && e.message));
+                .then(dataUrl => {
+                    diagDownload({ id: idCurto, via: canBlob ? 'memória/campos' : 'campos', ok: !!dataUrl, kb: dataUrl ? Math.round(dataUrl.length / 1365) : 0 });
+                    if (dataUrl) aplicarMidiaBaixada(ids, dataUrl, fields);
+                })
+                .catch(e => {
+                    diagDownload({ id: idCurto, ok: false, erro: String((e && (e.status || e.message)) || e).slice(0, 80) });
+                    console.warn('[WHL Media] Falha ao completar mídia apagada:', e && e.message);
+                });
         }, 0);
     }
 
@@ -1687,11 +1694,18 @@ window.whl_hooks_main = () => {
      * WhatsApp redesenhar o balão como "Mensagem apagada", então o conteúdo
      * ainda está no DOM. Emojis viram o texto alternativo da imagem.
      */
-    function lerBalaoDoDom(serializedId) {
+    function lerBalaoDoDom(serializedId, shortId) {
         try {
-            if (!serializedId || typeof document === 'undefined' || !document.querySelector) return null;
-            const id = String(serializedId).replace(/["\\]/g, '');
-            const el = document.querySelector(`[data-id="${id}"]`);
+            if ((!serializedId && !shortId) || typeof document === 'undefined' || !document.querySelector) return null;
+            // data-id pode ser o id serializado ("true_<chat>_<id>") ou — no
+            // WhatsApp atual — só o id da mensagem.
+            const clean = (v) => String(v || '').replace(/["\\]/g, '');
+            let el = null;
+            for (const v of [serializedId, shortId]) {
+                if (!v) continue;
+                el = document.querySelector(`[data-id="${clean(v)}"]`);
+                if (el) break;
+            }
             if (!el) return null;
             if (el.querySelector('[data-icon="recalled"], [data-icon="recalled-in"], [data-icon="recalled-out"]')) return null;
 
@@ -1758,13 +1772,17 @@ window.whl_hooks_main = () => {
         }
     }
 
-    function lerTextoDoBalao(serializedId) {
-        const b = lerBalaoDoDom(serializedId);
+    function lerTextoDoBalao(serializedId, shortId) {
+        const b = lerBalaoDoDom(serializedId, shortId);
         return b && b.text ? b.text : null;
     }
 
     // Diagnóstico (no console do WhatsApp Web: WHL_RecoverDiag()).
-    const recoverDiag = { adds: 0, revokes: [], sweeps: 0, sweepAdded: 0 };
+    const recoverDiag = { adds: 0, revokes: [], sweeps: 0, sweepAdded: 0, sweepRefreshed: 0, downloads: [] };
+    function diagDownload(info) {
+        recoverDiag.downloads.push({ em: new Date().toLocaleTimeString('pt-BR'), ...info });
+        if (recoverDiag.downloads.length > 20) recoverDiag.downloads.shift();
+    }
     function diagRevoke(info) {
         recoverDiag.revokes.push({ em: new Date().toLocaleTimeString('pt-BR'), ...info });
         if (recoverDiag.revokes.length > 20) recoverDiag.revokes.shift();
