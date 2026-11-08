@@ -67,7 +67,9 @@ log_info "[1/7] Atualizando pacotes do sistema..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get upgrade -yqq
-apt-get install -yqq curl wget git ufw fail2ban htop jq unzip
+# rsync: cópia do código (passo 5). sqlite3: o backup.sh e o restore.sh
+# conferem a integridade do banco restaurado no host.
+apt-get install -yqq curl wget git ufw fail2ban htop jq unzip rsync sqlite3
 
 # ── 2. Docker ────────────────────────────────────────────────────────────
 log_info "[2/7] Instalando Docker..."
