@@ -1,0 +1,337 @@
+{
+  "results": [
+    {
+      "id": "A_guard_bloqueia",
+      "desc": "Backend OK com guarda allowAutoSend=false (controle)",
+      "msg": "Quero cancelar e falar com um humano",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "ai_will_generate",
+          "answer": null
+        },
+        "backend": {
+          "success": true,
+          "response": "Claro, vou te ajudar com o cancelamento.",
+          "metadata": {
+            "autopilot": {
+              "allowAutoSend": false,
+              "escalate": true,
+              "reasons": [
+                "human_requested"
+              ],
+              "riskTier": "high",
+              "minConfidence": 101
+            }
+          }
+        }
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "backend_escalation"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: ai_will_generate, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] 🧑‍💼 Escalando p/ humano (backend): human_requested"
+      ]
+    },
+    {
+      "id": "B_sem_guarda",
+      "desc": "Backend OK mas SEM metadata.autopilot (backend antigo / WHL_AUTOPILOT_GUARD=0)",
+      "msg": "Quero meu dinheiro de volta, vou no Procon",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "ai_will_generate",
+          "answer": null
+        },
+        "backend": {
+          "success": true,
+          "response": "Claro! Vamos devolver seu dinheiro hoje mesmo.",
+          "metadata": {}
+        }
+      },
+      "sent": [
+        "Claro! Vamos devolver seu dinheiro hoje mesmo."
+      ],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:auto-responded",
+          null
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "logs": [
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: ai_will_generate, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada"
+      ]
+    },
+    {
+      "id": "C_backend_offline",
+      "desc": "Backend fora do ar → fallback local (controle)",
+      "msg": "Qual o horário de vocês?",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "ai_will_generate",
+          "answer": null
+        },
+        "backend": "offline"
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:tier:degraded",
+          null
+        ],
+        [
+          "autopilot:suggestion-only",
+          "fallback_no_guard"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: ai_will_generate, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ❌ ai.process falhou: Failed to fetch",
+        "[Autopilot] ⚠️ [MOTOR: FALLBACK/CopilotEngine] usando caminho v1",
+        "[Autopilot] tier degradado (Tier 1 local) chatId=5511999990001@c.us — UI silenciada",
+        "[Autopilot] 🧑‍💼 Fallback local sem guarda do backend → revisão humana: 5511999990001@c.us"
+      ]
+    },
+    {
+      "id": "D_faq_sem_backend",
+      "desc": "Sistema de confiança devolve resposta de FAQ (faq_match) — reclamação/pedido de humano",
+      "msg": "Péssimo atendimento! Qual o prazo de entrega? Quero falar com um humano agora",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "faq_match",
+          "confidence": 90,
+          "answer": "Nosso prazo de entrega é de 5 a 7 dias úteis."
+        },
+        "backend": {
+          "success": true,
+          "response": "x",
+          "metadata": {
+            "autopilot": {
+              "allowAutoSend": false,
+              "reasons": [
+                "human_requested"
+              ]
+            }
+          }
+        }
+      },
+      "sent": [
+        "Nosso prazo de entrega é de 5 a 7 dias úteis."
+      ],
+      "backendCalls": 0,
+      "bus": [
+        [
+          "autopilot:auto-responded",
+          null
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: faq_match, confidence: 90, answer: Nosso prazo de entrega é de 5 a 7 dias úteis.}",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada"
+      ]
+    },
+    {
+      "id": "E_preco_inventado",
+      "desc": "Pergunta de PREÇO sem base; backend classifica como saudação e libera (como no cenário S1 do backend)",
+      "msg": "Oi, quanto custa o plano mensal de vocês? Tem desconto no anual?",
+      "sc": {
+        "score": 90,
+        "confidence": {
+          "canSend": true,
+          "reason": "ai_will_generate",
+          "answer": null
+        },
+        "backend": {
+          "success": true,
+          "response": "O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!",
+          "metadata": {
+            "intent": "greeting",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "riskTier": "low",
+              "minConfidence": 70
+            }
+          }
+        }
+      },
+      "sent": [
+        "O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!"
+      ],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:auto-responded",
+          null
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "logs": [
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: ai_will_generate, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada"
+      ]
+    }
+  ],
+  "tabs": [
+    {
+      "sent": [
+        "O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!"
+      ],
+      "tabCoordinator": "undefined",
+      "killSwitch": "undefined"
+    },
+    {
+      "sent": [
+        "O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!"
+      ],
+      "tabCoordinator": "undefined",
+      "killSwitch": "undefined"
+    }
+  ]
+}

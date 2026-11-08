@@ -1,0 +1,5 @@
+
+> whatshybrid-extension@9.6.6 verify:bundles
+> node scripts/build-sources-hash.js --check
+
+[bundles] ✅ bundles em sincronia com a fonte (133 arquivos).

@@ -1,0 +1,7 @@
+
+> whatshybrid-extension@9.6.6 canary
+> node scripts/wa-selector-canary.js
+
+[WACanary] fonte:   modules/anti-break-system.js
+[WACanary] chaves:  canário=10  runtime=10
+[WACanary] ✅ OK — 10 seletores em sincronia com o runtime, forma válida.

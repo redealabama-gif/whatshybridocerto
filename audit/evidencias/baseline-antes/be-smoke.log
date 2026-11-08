@@ -1,0 +1,19 @@
+
+> whatshybrid-backend@9.5.8 test
+> node tests/smoke/run-all.js
+
+╔══════════════════════════════════════════════════╗
+║  Vórtex Pro — Smoke Test Suite              ║
+║  Target: http://localhost:3000                   ║
+╚══════════════════════════════════════════════════╝
+
+❌ Server unreachable at http://localhost:3000
+   Inicie o backend e rode novamente.
+
+npm error Lifecycle script `test` failed with error:
+npm error code 2
+npm error path /home/user/whatshybridocerto/whatshybrid-backend
+npm error workspace whatshybrid-backend@9.5.8
+npm error location /home/user/whatshybridocerto/whatshybrid-backend
+npm error command failed
+npm error command sh -c node tests/smoke/run-all.js

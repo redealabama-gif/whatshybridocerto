@@ -1,0 +1,14 @@
+[Build] wpp-hooks.js: concatenado de 4 pedaços (330.7KB)
+
+🔨 Vórtex Extension Build v9.0.0
+   Minifier: manual
+
+  ⚠️  lib/socket.io.min.js não encontrado
+✅ core-bundle.js: 91.7KB (raw 150.7KB, -39%) — 19 scripts
+✅ content-bundle.js: 1479.5KB (raw 2371.0KB, -38%) — 100 scripts
+✅ advanced-bundle.js: 240.8KB (raw 391.2KB, -38%) — 11 scripts
+[bundles] hash gravado: f7ad6f91f9ea… (133 fontes)
+
+📝 manifest.json: 139 scripts → 2 bundles
+   advanced-bundle.js carregado dinamicamente
+
