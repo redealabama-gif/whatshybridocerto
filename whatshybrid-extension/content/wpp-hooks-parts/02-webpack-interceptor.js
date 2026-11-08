@@ -161,14 +161,122 @@
         return phone.replace(WHATSAPP_SUFFIXES_REGEX, '').replace(/\D/g, '');
     }
     
+    // ===== COLEÇÃO GLOBAL DE MENSAGENS DO WHATSAPP WEB =====
+    // O WhatsApp Web atual expõe a coleção como require('WAWebCollections').Msg
+    // (o mesmo caminho usado pelo whatsapp-web.js) e/ou como
+    // require('WAWebMsgCollection').MsgCollection. O código antigo só testava
+    // `.Msg` em WAWebMsgCollection/WAWebMsgModel; sem esse export, os hooks de
+    // add/remove/ack não se registravam — o cache nunca recebia as mensagens
+    // enviadas por você e as exclusões delas não eram registradas no Recover.
+    function getMsgCollection() {
+        const isColl = (c) => !!(c && typeof c.on === 'function' && typeof c.get === 'function');
+        const candidates = [];
+        for (const name of ['WAWebCollections', 'WAWebMsgCollection', 'WAWebMsgModel']) {
+            try {
+                const m = tryRequireModule(name);
+                if (m) candidates.push(m.Msg, m.MsgCollection, m.default && m.default.MsgCollection, m);
+            } catch (_) {}
+        }
+        try { if (window.Store) candidates.push(window.Store.Msg); } catch (_) {}
+        for (const c of candidates) {
+            if (isColl(c)) return c;
+        }
+        return null;
+    }
+
+    /**
+     * Texto atual de uma mensagem no Store do WhatsApp. Chamado ANTES de a
+     * edição ser aplicada, devolve o texto ANTIGO — último recurso quando o
+     * cache não tem o conteúdo anterior (ex.: mensagem carregada antes de a
+     * extensão iniciar).
+     */
+    function lookupStoreBody(key) {
+        if (!key) return '';
+        const keys = [key];
+        if (typeof key === 'object' && key._serialized) keys.push(key._serialized);
+        const readBody = (m) => {
+            if (!m || m.type === 'revoked') return '';
+            const b = m.body || m.caption;
+            return typeof b === 'string' && b ? stripEditMarker(b) : '';
+        };
+        try {
+            const coll = getMsgCollection();
+            if (coll) {
+                for (const k of keys) {
+                    const b = readBody(coll.get(k));
+                    if (b) return b;
+                }
+            }
+        } catch (_) {}
+        try {
+            for (const k of keys) {
+                const b = readBody(findMessageById(k));
+                if (b) return b;
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    /**
+     * Revogação vista direto no Store (msg.type virou 'revoked'). Cobre o que o
+     * revoke_handler (protocolo recebido em processRenderableMessages) não
+     * cobre — principalmente as mensagens que VOCÊ apagou para todos, aqui ou
+     * no celular. O conteúdo original vem do messageCache, preenchido quando a
+     * mensagem foi enviada/recebida/carregada (antes da revogação).
+     *
+     * opts.requireCached: só registra se o cache tinha o conteúdo. Usado no
+     * Msg.on('add'), que também dispara para revogações ANTIGAS ao abrir um
+     * chat — sem o cache, seriam registros falsos com o horário de agora.
+     */
+    function registrarRevogacaoDoStore(msg, opts) {
+        if (!msg || msg.type !== 'revoked' || !msg.id || !msg.id.id) return false;
+        const shortId = msg.id.id;
+        // Já registrada (pelo revoke_handler ou por outro evento do Store)?
+        if (historicoRecover.some(h => h && h.id === shortId && h.action === 'revoked')) return false;
+        const cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
+        const hasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
+        if (opts && opts.requireCached && !hasContent) return false;
+        salvarMensagemRecuperada({
+            id: msg.id,
+            // salvarMensagemRecuperada procura o original no cache por esta chave
+            protocolMessageKey: msg.id,
+            from: msg.from,
+            to: msg.to,
+            author: msg.author,
+            chatId: msg.id.remote,
+            t: msg.t,
+            // tipo real vem do cache; 'revoked' não é um tipo de conteúdo
+            type: (cached && cached.type) || undefined
+        });
+        return true;
+    }
+
     /**
      * CORREÇÃO 1.2 + BUG 2 + BUG 3: Salvar mensagem apagada com notificação persistente e tipo de deleção
      */
     function salvarMensagemApagada(msg) {
         let from = extractPhoneNumber(msg);
         const to = extractPhoneNumber({ to: msg.to || msg.chatId || msg.id?.remote });
-        const body = msg.body || '[mensagem sem texto]';
         const chatId = (msg.id?.remote?._serialized || msg.chatId?._serialized || msg.chatId || msg.id?.remote || null);
+
+        // Conteúdo: texto, ou legenda + mídia. Em mídia, msg.body é a miniatura.
+        const isMediaMsg = MEDIA_MSG_TYPES.includes(msg.type);
+        const rawBody = typeof msg.body === 'string' ? msg.body : '';
+        const cachedDel = (msg.id && (messageCache.get(msg.id.id) || messageCache.get(msg.id._serialized))) || null;
+        const textBody = isMediaMsg
+            ? (msg.caption || (rawBody && !pareceBase64(rawBody) ? rawBody : '') || (cachedDel && cachedDel.body) || '')
+            : (rawBody || (cachedDel && cachedDel.body) || '');
+        let delMedia = null;
+        let delMediaIsThumb = false;
+        if (cachedDel && typeof cachedDel.mediaData === 'string' && cachedDel.mediaData !== '__HAS_MEDIA__' && cachedDel.mediaData.length > 50) {
+            delMedia = cachedDel.mediaData;
+            delMediaIsThumb = !!cachedDel.mediaIsThumbnail;
+        } else if (isMediaMsg && pareceBase64(rawBody)) {
+            delMedia = rawBody;
+            delMediaIsThumb = true;
+        }
+        const delFields = isMediaMsg ? camposDeMidia(msg) : null;
+        const body = textBody || (isMediaMsg ? '' : '[mensagem sem texto]');
         
         // BUG 3: Detect deletion type
         const deletionType = detectDeletionType(msg);
@@ -207,10 +315,23 @@
             type: detectMessageType(body, msg.type),
             action: isRevoke ? 'revoked' : 'deleted',
             mediaType: msg.type,
-            mediaData: null,
+            mediaData: delMedia,
+            mediaIsThumbnail: !!(delMedia && delMediaIsThumb),
+            mimetype: (delFields && delFields.mimetype) || null,
+            filename: (delFields && delFields.filename) || null,
+            directPath: (delFields && delFields.directPath) || null,
+            mediaKey: (delFields && delFields.mediaKey) || null,
+            mediaKeyTimestamp: (delFields && delFields.mediaKeyTimestamp) || null,
+            filehash: (delFields && delFields.filehash) || null,
+            encFilehash: (delFields && delFields.encFilehash) || null,
+            size: (delFields && delFields.size) || null,
             deviceType: _deviceType,
             deviceIcon: _senderIsPhone ? '📱' : '💻',
             timestamp: Date.now(),
+            // Horário em que a mensagem foi enviada (o timestamp acima é o da exclusão)
+            originalTimestamp: typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null,
+            fromMe: !!(msg.id && msg.id.fromMe),
+            contentCaptured: !!(textBody || delMedia || isMediaMsg),
             // BUG 3: Add deletion type info
             deletionType: deletionType,
             deletionInfo: {
@@ -259,12 +380,13 @@
             console.error('[WHL Recover] Erro ao salvar mensagem apagada:', e);
         }
         
-        // Notificar UI
+        // Notificar UI — com a ação real. Antes ia sempre `action: 'deleted'`,
+        // e uma revogação detectada aqui era contada como "Apagada" no painel.
         window.postMessage({
             type: 'WHL_RECOVER_NEW_MESSAGE',
             payload: {
                 ...entrada,
-                action: 'deleted'
+                action: entrada.action
             },
             message: entrada,
             total: historicoRecover.length
@@ -280,6 +402,12 @@
             }
         } catch (e) {
             // Ignorar erros de contexto
+        }
+
+        // Mídia: o modelo ainda está inteiro (apagada só para mim) — baixa o
+        // original e completa o registro.
+        if (isMediaMsg && (!delMedia || delMediaIsThumb)) {
+            completarMidiaDoRegistro([entrada.id, msg.id?._serialized], msg, delFields);
         }
         
         console.log(`[WHL Recover] 🗑️ Mensagem apagada (${deletionType}) de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
@@ -342,13 +470,16 @@
             const cached = messageCache.get(id);
             if (cached?.body) return stripEditMarker(String(cached.body));
         }
-        return '';
+        // Último recurso: o Store ainda tem o texto antigo (a edição só é
+        // aplicada depois do nosso hook). Só pela chave da mensagem ORIGINAL —
+        // msg.id aqui é o id da mensagem de protocolo da edição.
+        return lookupStoreBody(msg.protocolMessageKey);
     }
 
     /**
      * Bug fix + BUG 2: Save edited message to history with persistent notification
      */
-    function salvarMensagemEditada(message) {
+    function salvarMensagemEditada(message, previousOverride) {
         // FIX v9.6.6: strip do marker no body lido — em edits subsequentes
         // a msg pode chegar com .body já marcado de um tick anterior (ou de
         // re-render via processRenderableMessages que jogou marker no cache).
@@ -368,8 +499,12 @@
         // re-renderiza via processRenderableMessages que repõe o marker em
         // messageCache via cachearMensagem. Sem strip aqui, o previousContent
         // gravado em re-edits virava o marker da edição anterior (nested).
-        const rawPrevious = message.previousBody || originalCached?.body || null;
-        const previousContent = rawPrevious ? stripEditMarker(rawPrevious) : null;
+        // Ordem: o que o hook já leu (parentMsg/Store antes de aplicar) → cache
+        // → Store. Antes só olhava o cache, que ficava vazio para as mensagens
+        // enviadas por você — o painel mostrava só o texto novo.
+        const rawPrevious = previousOverride || message.previousBody || originalCached?.body ||
+            getCachedPreviousBody(message) || null;
+        const previousContent = rawPrevious ? (stripEditMarker(String(rawPrevious)) || null) : null;
         
         const entrada = {
             id: originalId,
@@ -383,6 +518,9 @@
             previousContent: previousContent,
             previousBody: previousContent, // PHASE 2: Add for compatibility
             timestamp: Date.now(),
+            // Horário de envio da mensagem original (o timestamp acima é o da edição)
+            originalTimestamp: originalCached?.t || null,
+            fromMe: !!(message.id && message.id.fromMe) || !!originalCached?.fromMe,
             // BUG 3: Add deletion type info (for consistency)
             deletionType: 'edited',
             deletionInfo: {
@@ -475,9 +613,17 @@
         let body = msg.body || msg.caption || msg.text || '';
         let from = extractPhoneNumber(msg);
         let mediaData = null;
+        let mediaIsThumbnail = false;
         let mediaType = msg.type || 'chat';
         let mimetype = msg.mimetype || null;
         let filename = msg.filename || null;
+        // Em mídia, msg.body é a miniatura — não é o texto da mensagem.
+        if (MEDIA_MSG_TYPES.includes(msg.type) && pareceBase64(body)) {
+            mediaData = body;
+            mediaIsThumbnail = true;
+            body = msg.caption || '';
+        }
+        const liveFields = MEDIA_MSG_TYPES.includes(msg.type) ? camposDeMidia(msg) : null;
         
         // Se body estiver vazio ou for mídia, TENTAR RECUPERAR DO CACHE
         const possibleIds = [
@@ -491,10 +637,17 @@
         let cachedDirectPath = null;
         let cachedMediaKey = null;
         let cachedMediaUrl = null;
+        let cachedT = null;
+        let cachedFromMe = false;
+        let cachedIsMedia = false;
+        let cachedFields = null;
 
         for (const id of possibleIds) {
             const cached = messageCache.get(id);
             if (cached) {
+                if (cached.t && !cachedT) cachedT = cached.t;
+                if (cached.fromMe) cachedFromMe = true;
+                if (cached.isMedia) cachedIsMedia = true;
                 // Recuperar body se vazio
                 if (!body && cached.body) {
                     body = cached.body;
@@ -504,11 +657,31 @@
                     from = extractPhoneNumber({ from: { _serialized: cached.from } });
                 }
                 // NOVO: Recuperar dados de mídia — validar que é uma string base64 real
+                // (o original baixado tem prioridade sobre a miniatura)
                 if (cached.mediaData &&
                     cached.mediaData !== '__HAS_MEDIA__' &&
                     typeof cached.mediaData === 'string' &&
-                    cached.mediaData.length > 50) {
+                    cached.mediaData.length > 50 &&
+                    (!mediaData || (mediaIsThumbnail && !cached.mediaIsThumbnail))) {
                     mediaData = cached.mediaData;
+                    mediaIsThumbnail = !!cached.mediaIsThumbnail;
+                } else if (!mediaData && cached.thumbnail) {
+                    mediaData = cached.thumbnail;
+                    mediaIsThumbnail = true;
+                }
+                if (cached.isMedia && !cachedFields) {
+                    cachedFields = {
+                        type: cached.type || null,
+                        mimetype: cached.mimetype || null,
+                        filename: cached.filename || null,
+                        size: cached.size || null,
+                        directPath: cached.directPath || null,
+                        mediaKey: cached.mediaKey || null,
+                        mediaKeyTimestamp: cached.mediaKeyTimestamp || null,
+                        filehash: cached.filehash || null,
+                        encFilehash: cached.encFilehash || null,
+                        mediaUrl: cached.mediaUrl || null
+                    };
                 }
                 if (cached.type) {
                     mediaType = cached.type;
@@ -530,10 +703,20 @@
             }
         }
         
-        // Validar resultados
-        if (!body && !mediaData) body = '[Mensagem sem texto - mídia ou sticker]';
+        // Validar resultados. O rótulo antigo "[Mensagem sem texto - mídia ou
+        // sticker]" afirmava que era mídia sem saber disso (e o contador de
+        // mídias, que olha o tipo real, mostrava 0). Agora: se o cache sabia
+        // que era mídia, o tipo vem dele; senão, o texto diz a verdade.
+        const contentCaptured = !!(body || mediaData || cachedIsMedia);
+        if (!body && !mediaData) {
+            body = cachedIsMedia
+                ? `[${mediaType} apagado — arquivo não disponível]`
+                : '[Conteúdo não capturado — a mensagem foi apagada antes de ser carregada pela extensão]';
+        }
         if (!from || from === 'Desconhecido') from = 'Número desconhecido';
         
+        const mediaFieldsFinal = cachedFields || liveFields;
+
         // BUG 3: Detect deletion type (revoked)
         const deletionType = 'revoked_by_sender'; // Always revoked for this function
         const originalId = msg.protocolMessageKey?.id || msg.quotedStanzaID || msg.id?.id || Date.now().toString();
@@ -564,7 +747,17 @@
             directPath: cachedDirectPath || msg.directPath || null,
             mediaKey: cachedMediaKey || msg.mediaKey || null,
             mediaUrl: cachedMediaUrl || msg.deprecatedMms3Url || msg.url || null,
+            mediaKeyTimestamp: (mediaFieldsFinal && mediaFieldsFinal.mediaKeyTimestamp) || null,
+            filehash: (mediaFieldsFinal && mediaFieldsFinal.filehash) || null,
+            encFilehash: (mediaFieldsFinal && mediaFieldsFinal.encFilehash) || null,
+            size: (mediaFieldsFinal && mediaFieldsFinal.size) || null,
+            // true = só a miniatura por enquanto (o original está sendo baixado)
+            mediaIsThumbnail: !!(mediaData && mediaIsThumbnail),
             timestamp: Date.now(),
+            // Horário em que a mensagem foi enviada (o timestamp acima é o da revogação)
+            originalTimestamp: cachedT || (typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null),
+            fromMe: cachedFromMe || !!(msg.id && msg.id.fromMe) || !!(msg.protocolMessageKey && msg.protocolMessageKey.fromMe),
+            contentCaptured: contentCaptured,
             // PrivacyShield+: Informações de dispositivo remetente
             deviceType: deviceType,
             deviceIcon: deviceIcon,
@@ -617,6 +810,9 @@
             const dataToSave = JSON.stringify(historicoRecover);
             const sizeKB = (new Blob([dataToSave]).size / 1024).toFixed(2);
             localStorage.setItem('whl_recover_history', dataToSave);
+            // Como nos registros de apagada/editada (antes só sincronizava no
+            // caminho de erro).
+            syncRecoverToExtension(historicoRecover);
             console.log(`[WHL Recover] Histórico salvo: ${historicoRecover.length} mensagens, ${sizeKB}KB`);
         } catch(e) {
             console.error('[WHL Recover] Erro ao salvar (limite excedido?)', e);
@@ -652,6 +848,12 @@
             }
         } catch (e) {
             // Ignorar erros de contexto
+        }
+
+        // Mídia sem o arquivo original (ou só com a miniatura): baixa agora,
+        // pelos campos guardados antes da revogação, e completa o registro.
+        if (mediaFieldsFinal && (!mediaData || mediaIsThumbnail)) {
+            completarMidiaDoRegistro([originalId, ...possibleIds], null, mediaFieldsFinal);
         }
         
         console.log(`[WHL Recover] Mensagem recuperada de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
@@ -974,7 +1176,7 @@
                                 if (env.legacyMsg) {
                                     const msg = env.legacyMsg;
                                     const prev = getCachedPreviousBody(msg);
-                                    try { salvarMensagemEditada(msg); } catch (e) {}
+                                    try { salvarMensagemEditada(msg, prev); } catch (e) {}
                                     const target = typeof msg.body === 'string' && msg.body.length > 0 ? 'body' : 'caption';
                                     const composed = composeEditMarker(prev, msg[target] || '');
                                     if (composed) msg[target] = composed;
@@ -1071,8 +1273,9 @@
                 // (precisa do estado pré-edit pra mostrar "Antes: ...").
                 const previousBody = getCachedPreviousBody(message);
 
-                // Salva no histórico ANTES de mutar o objeto.
-                salvarMensagemEditada(message);
+                // Salva no histórico ANTES de mutar o objeto (com o texto
+                // anterior já lido — cache ou Store, antes da edição aplicar).
+                salvarMensagemEditada(message, previousBody);
 
                 const messageContent = stripEditMarker(message?.body || message?.caption || '');
                 message.type = 'chat';
@@ -1131,17 +1334,20 @@
             if (this.is_registered) return;
             super.register();
             
-            // Tentar múltiplos módulos possíveis
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for delete hook');
                 return;
             }
-            
+
             try {
-                // Hook no evento 'remove' da coleção de mensagens
-                storeMod.Msg.on('remove', (msg) => {
+                // Hook no evento 'remove' da coleção de mensagens. A coleção
+                // também remove mensagens antigas para liberar memória — por isso
+                // só conta como "apagada para mim" a mensagem nova (isNewMsg),
+                // o mesmo critério do whatsapp-web.js. Revogadas vão pelo
+                // RevokeChangeHook.
+                msgCollection.on('remove', (msg) => {
+                    if (!msg || !msg.isNewMsg || msg.type === 'revoked') return;
                     DeletedMessageHook.handle_deleted_message(msg);
                 });
                 
@@ -1181,26 +1387,47 @@
             if (this.is_registered) return;
             super.register();
             
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for add hook');
                 return;
             }
-            
+
             try {
-                storeMod.Msg.on('add', (msg) => {
+                msgCollection.on('add', (msg) => {
                     MessageCreatedHook.handle_created_message(msg);
                 });
-                
+
                 console.log('[WHL Hooks] MessageCreatedHook registered on Msg.on("add")');
             } catch (e) {
                 console.warn('[WHL Hooks] Failed to register add hook:', e);
             }
+
+            // Pré-carga do cache com as mensagens que já estavam abertas antes
+            // de a extensão iniciar. Sem isso, apagar/editar uma delas não tinha
+            // de onde recuperar o conteúdo original.
+            try {
+                const models = typeof msgCollection.getModelsArray === 'function'
+                    ? msgCollection.getModelsArray() || []
+                    : [];
+                const recent = models.slice(-MESSAGE_CACHE_SEED_LIMIT);
+                for (const m of recent) cachearMensagem(m, { seed: true });
+                console.log(`[WHL Hooks] Cache pré-carregado com ${recent.length} mensagens já abertas`);
+            } catch (e) {
+                console.warn('[WHL Hooks] Falha na pré-carga do cache:', e);
+            }
         }
-        
+
         static handle_created_message(message) {
             if (!message) return;
+
+            // Modelo que já chega revogado (alguns fluxos trocam o modelo em
+            // vez de mudar o tipo). Registra só se o cache tinha o conteúdo —
+            // abrir um chat também "adiciona" revogações antigas.
+            if (message.type === 'revoked') {
+                registrarRevogacaoDoStore(message, { requireCached: true });
+                return;
+            }
 
             // FIX v9.6.5: era `cacheMessage(message)` — função inexistente neste
             // escopo (cacheMessage existe só em recover-dom.js, módulo separado).
@@ -1237,15 +1464,14 @@
             if (this.is_registered) return;
             super.register();
             
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for ack hook');
                 return;
             }
-            
+
             try {
-                storeMod.Msg.on('change:ack', (msg, ack) => {
+                msgCollection.on('change:ack', (msg, ack) => {
                     MessageFailedHook.handle_ack_change(msg, ack);
                 });
                 
@@ -1581,8 +1807,41 @@
         }
     }
 
+    // ===== HOOK: REVOGAÇÃO VISTA NO STORE (change:type → 'revoked') =====
+    // Mensagem apagada "para todos" vira type === 'revoked' no modelo — tanto
+    // as do contato quanto as SUAS (apagadas aqui ou no celular). O
+    // revoke_handler só via o protocolo recebido em processRenderableMessages,
+    // então as suas nunca entravam no Recover. Mesmo evento usado pelo
+    // whatsapp-web.js (message_revoke_everyone). Duplicatas com o
+    // revoke_handler são barradas pelo id em registrarRevogacaoDoStore.
+    class RevokeChangeHook extends Hook {
+        register() {
+            if (this.is_registered) return;
+            super.register();
+
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
+                console.warn('[WHL Hooks] Msg store not available for revoke hook');
+                return;
+            }
+            try {
+                msgCollection.on('change:type', (msg) => {
+                    try {
+                        if (msg && msg.type === 'revoked') registrarRevogacaoDoStore(msg);
+                    } catch (e) {
+                        console.warn('[WHL Hooks] revoke (change:type) error:', e);
+                    }
+                });
+                console.log('[WHL Hooks] RevokeChangeHook registered on Msg.on("change:type")');
+            } catch (e) {
+                console.warn('[WHL Hooks] Failed to register revoke hook:', e);
+            }
+        }
+    }
+
     const hooks = {
         keep_revoked_messages: new RenderableMessageHook(),
+        keep_store_revokes: new RevokeChangeHook(),
         keep_edited_messages: new EditMessageHook(),
         keep_deleted_messages: new DeletedMessageHook(),
         message_created: new MessageCreatedHook(),

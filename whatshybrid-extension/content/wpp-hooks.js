@@ -1462,6 +1462,9 @@ window.whl_hooks_main = () => {
     // Mantém as últimas 1000 mensagens em memória
     const messageCache = new Map(); // Map<messageId, {body, from, timestamp, type}>
     const MAX_CACHE_SIZE = 1000; // Aumentar para 1000
+    // Pré-carga: quantas mensagens já abertas entram no cache ao iniciar
+    // (cada uma ocupa até 3 chaves — cabe folgado nas 1000).
+    const MESSAGE_CACHE_SEED_LIMIT = 300;
     
     // Array para armazenar histórico de mensagens recuperadas
     let historicoRecover = [];
@@ -1472,12 +1475,224 @@ window.whl_hooks_main = () => {
     const MAX_RECOVER_MESSAGES = 100; // Maximum number of messages to keep
     const FALLBACK_RECOVER_MESSAGES = 50; // Fallback when storage is full
     
+    // ── Mídia (imagem, vídeo, áudio, figurinha, documento) ──────────────
+    // O WhatsApp Web atual não expõe window.Store.DownloadManager (nada na
+    // extensão o cria), então os downloads antigos nunca rodavam e a mídia
+    // apagada ficava sem o arquivo. O download real é feito pelo módulo
+    // WAWebDownloadManager com os campos da mensagem (directPath, mediaKey,
+    // hashes) — guardados no cache ANTES de a mensagem ser apagada, porque
+    // depois da revogação o modelo perde esses campos.
+    const MEDIA_MSG_TYPES = ['image', 'sticker', 'video', 'ptt', 'audio', 'document'];
+    // Download antecipado (mensagem nova, ainda não apagada): só arquivos até
+    // este tamanho, e no máximo este total em memória. Maiores são baixados
+    // na hora em que a mensagem é apagada, pelos mesmos campos.
+    const PROACTIVE_MEDIA_MAX_BYTES = 4 * 1024 * 1024;
+    const PROACTIVE_MEDIA_BUDGET_BYTES = 60 * 1024 * 1024;
+    let proactiveMediaBytes = 0;
+    const proactiveMediaOrder = []; // [{ ids, bytes }] — mais antigo primeiro
+
+    // Em mensagens de mídia o WhatsApp Web guarda a MINIATURA (base64) em
+    // msg.body; o texto digitado fica em msg.caption.
+    function pareceBase64(str) {
+        if (typeof str !== 'string' || !str) return false;
+        if (/^data:[^;,]+;base64,/.test(str)) return true;
+        return str.length >= 80 && /^[A-Za-z0-9+/]+={0,2}$/.test(str);
+    }
+
+    function camposDeMidia(msg) {
+        if (!msg) return null;
+        const md = msg.mediaData && typeof msg.mediaData === 'object' ? msg.mediaData : {};
+        return {
+            type: msg.type || null,
+            mimetype: msg.mimetype || md.mimetype || null,
+            filename: msg.filename || md.filename || null,
+            size: typeof msg.size === 'number' ? msg.size : (typeof md.size === 'number' ? md.size : null),
+            directPath: msg.directPath || null,
+            mediaKey: msg.mediaKey || null,
+            mediaKeyTimestamp: msg.mediaKeyTimestamp || null,
+            filehash: msg.filehash || null,
+            encFilehash: msg.encFilehash || null,
+            mediaUrl: msg.deprecatedMms3Url || msg.url || null
+        };
+    }
+
+    function bufferParaDataUrl(buf, mime) {
+        const bytes = ArrayBuffer.isView(buf)
+            ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            : new Uint8Array(buf);
+        if (!bytes.length) return null;
+        let bin = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        return `data:${mime || 'application/octet-stream'};base64,${btoa(bin)}`;
+    }
+
+    async function midiaParaDataUrl(media, mime) {
+        if (!media) return null;
+        if (typeof media === 'string') {
+            if (media.startsWith('data:')) return media;
+            return pareceBase64(media) ? `data:${mime || 'application/octet-stream'};base64,${media}` : null;
+        }
+        if (typeof media.arrayBuffer === 'function' && typeof media.size === 'number') { // Blob/File
+            return bufferParaDataUrl(await media.arrayBuffer(), media.type || mime);
+        }
+        // ArrayBuffer ou typed array (comparação por tag: funciona entre realms)
+        if (Object.prototype.toString.call(media) === '[object ArrayBuffer]' || ArrayBuffer.isView(media)) {
+            return bufferParaDataUrl(media, mime);
+        }
+        return null;
+    }
+
+    /**
+     * Baixa a mídia ORIGINAL. `msgModel` é o modelo vivo (pode ser null depois
+     * da revogação); `fields` são os campos guardados no cache.
+     * Retorna data URL ou null.
+     */
+    async function baixarMidiaWA(msgModel, fields) {
+        const f = fields || camposDeMidia(msgModel) || {};
+        const mime = f.mimetype || null;
+
+        // 1) Arquivo já decriptado em memória (mídia que o WhatsApp exibiu).
+        try {
+            const blobRef = msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob;
+            if (blobRef) {
+                const blob = typeof blobRef.forceToBlob === 'function' ? blobRef.forceToBlob() : blobRef;
+                const url = await midiaParaDataUrl(blob, mime);
+                if (url) return url;
+            }
+        } catch (_) { /* tenta o próximo */ }
+
+        // 2) Download + decriptação pelo módulo do WhatsApp.
+        if (f.directPath && f.mediaKey) {
+            try {
+                const mod = tryRequireModule('WAWebDownloadManager');
+                const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
+                if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
+                    const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
+                    const buf = await dm.downloadAndMaybeDecrypt({
+                        directPath: f.directPath,
+                        encFilehash: f.encFilehash,
+                        filehash: f.filehash,
+                        mediaKey: f.mediaKey,
+                        mediaKeyTimestamp: f.mediaKeyTimestamp,
+                        type: f.type,
+                        signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
+                        downloadQpl: noopQpl
+                    });
+                    const url = await midiaParaDataUrl(buf, mime);
+                    if (url) return url;
+                }
+            } catch (e) {
+                console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', e && (e.status || e.message));
+            }
+        }
+
+        // 3) Caminho antigo (versões do WhatsApp que expunham window.Store).
+        try {
+            if (msgModel && window.Store?.DownloadManager?.downloadMedia) {
+                const url = await midiaParaDataUrl(await window.Store.DownloadManager.downloadMedia(msgModel), mime);
+                if (url) return url;
+            }
+        } catch (_) { /* sem mais opções */ }
+
+        return null;
+    }
+
+    /**
+     * Grava a mídia baixada no cache e nos registros do Recover que ainda
+     * estavam sem o arquivo (ou só com a miniatura), e avisa a extensão.
+     * opts.budget: conta no limite de memória do download antecipado.
+     */
+    function aplicarMidiaBaixada(ids, dataUrl, meta, opts) {
+        if (!dataUrl || !Array.isArray(ids) || !ids.length) return 0;
+        const idsSet = new Set(ids.filter(Boolean).map(String));
+        const mimetype = (meta && meta.mimetype) || (dataUrl.match(/^data:([^;,]+)/) || [])[1] || null;
+
+        idsSet.forEach(id => {
+            const existing = messageCache.get(id);
+            if (existing) {
+                messageCache.set(id, { ...existing, mediaData: dataUrl, mediaIsThumbnail: false, mediaDownloadTime: Date.now() });
+            }
+        });
+
+        if (opts && opts.budget) {
+            proactiveMediaBytes += dataUrl.length;
+            proactiveMediaOrder.push({ ids: [...idsSet], bytes: dataUrl.length });
+            while (proactiveMediaBytes > PROACTIVE_MEDIA_BUDGET_BYTES && proactiveMediaOrder.length > 1) {
+                const old = proactiveMediaOrder.shift();
+                proactiveMediaBytes -= old.bytes;
+                old.ids.forEach(id => {
+                    const c = messageCache.get(id);
+                    if (c && c.mediaDownloadTime && !c.mediaIsThumbnail) {
+                        // Libera a memória; os campos continuam para baixar de novo se for apagada.
+                        messageCache.set(id, { ...c, mediaData: c.thumbnail || '__HAS_MEDIA__', mediaIsThumbnail: !!c.thumbnail });
+                    }
+                });
+            }
+        }
+
+        let updated = 0;
+        for (let i = 0; i < historicoRecover.length; i++) {
+            const h = historicoRecover[i];
+            if (!h || !(idsSet.has(String(h.id || '')) || idsSet.has(String(h.protocolId || '')))) continue;
+            const current = h.mediaData;
+            const needsUpdate = h.mediaIsThumbnail || !current || current === '__HAS_MEDIA__' ||
+                typeof current !== 'string' || current.length < 50;
+            if (!needsUpdate) continue;
+            const body = typeof h.body === 'string' && /^\[[^\]]* apagad[oa] — arquivo não disponível\]$/.test(h.body) ? '' : h.body;
+            historicoRecover[i] = { ...h, body, mediaData: dataUrl, mediaIsThumbnail: false, mimetype: h.mimetype || mimetype, contentCaptured: true };
+            updated++;
+            window.postMessage({
+                type: 'WHL_RECOVER_MEDIA_READY',
+                payload: {
+                    id: h.id,
+                    protocolId: h.protocolId || null,
+                    action: h.action,
+                    mediaData: dataUrl,
+                    mimetype: h.mimetype || mimetype,
+                    filename: h.filename || (meta && meta.filename) || null
+                }
+            }, window.location.origin);
+        }
+
+        if (updated) {
+            try {
+                localStorage.setItem('whl_recover_history', JSON.stringify(historicoRecover));
+            } catch (_) { /* limite do localStorage: a extensão guarda a cópia completa */ }
+            try { syncRecoverToExtension(historicoRecover); } catch (_) {}
+            console.log('[WHL Media] ✅ Mídia original anexada a', updated, 'registro(s) do Recover');
+        }
+        return updated;
+    }
+
+    /**
+     * Baixa (em segundo plano) a mídia de um registro recém-criado que ficou
+     * sem o arquivo ou só com a miniatura.
+     */
+    function completarMidiaDoRegistro(ids, msgModel, fields) {
+        if (!fields || !(fields.directPath && fields.mediaKey) && !(msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob)) return;
+        setTimeout(() => {
+            baixarMidiaWA(msgModel, fields)
+                .then(dataUrl => { if (dataUrl) aplicarMidiaBaixada(ids, dataUrl, fields); })
+                .catch(e => console.warn('[WHL Media] Falha ao completar mídia apagada:', e && e.message));
+        }, 0);
+    }
+
     /**
      * CORREÇÃO BUG 4: Cachear mensagem recebida para poder recuperá-la se for apagada
      * ATUALIZADO: Agora também captura dados de mídia (stickers, imagens, etc)
      */
-    function cachearMensagem(msg) {
+    // opts.seed = true: pré-carga em massa das mensagens já abertas (ver
+    // MessageCreatedHook). Não loga e não dispara o download proativo de
+    // mídia — senão abrir o WhatsApp baixaria todas as mídias carregadas.
+    function cachearMensagem(msg, opts) {
         if (!msg) return;
+        const seed = !!(opts && opts.seed);
+        // Mensagem já revogada não tem mais conteúdo: não sobrescreve o que
+        // o cache guardou antes da revogação (é dali que o Recover lê).
+        if (msg.type === 'revoked') return;
         
         // Múltiplos IDs para cache
         const ids = [
@@ -1485,15 +1700,28 @@ window.whl_hooks_main = () => {
             msg.id?._serialized,
             msg.id?.remote?._serialized + '_' + msg.id?.id
         ].filter(Boolean);
+
+        // Mídia original já baixada para esta mensagem: não troca pela miniatura
+        // quando a mesma mensagem passa por aqui de novo.
+        const prevCached = ids.length ? messageCache.get(ids[0]) : null;
+        const prevFullMedia = prevCached && prevCached.mediaDownloadTime && !prevCached.mediaIsThumbnail
+            ? prevCached.mediaData : null;
         
-        const body = msg.body || msg.caption || msg.text || '';
+        let mediaType = msg.type || 'chat';
+        const isMediaMsg = MEDIA_MSG_TYPES.includes(mediaType);
+        const rawBody = typeof msg.body === 'string' ? msg.body : '';
+        // Mídia: o texto é a legenda; msg.body é a miniatura em base64.
+        const body = isMediaMsg
+            ? (msg.caption || (rawBody && !pareceBase64(rawBody) ? rawBody : '') || '')
+            : (rawBody || msg.caption || msg.text || '');
+        const thumbnail = isMediaMsg && pareceBase64(rawBody) ? rawBody : null;
         const from = msg.from?._serialized || msg.from?.user || msg.author?._serialized || msg.id?.remote?._serialized || '';
         
         // Capturar dados de mídia se disponível
         let mediaData = null;
-        let mediaType = msg.type || 'chat';
-        let mimetype = msg.mimetype || null;
-        let filename = msg.filename || null;
+        const mediaFields = isMediaMsg ? camposDeMidia(msg) : null;
+        let mimetype = (mediaFields && mediaFields.mimetype) || msg.mimetype || null;
+        let filename = (mediaFields && mediaFields.filename) || msg.filename || null;
         
         // Tentar extrair mídia base64 de MÚLTIPLAS fontes possíveis
         // Ordem de prioridade: mediaData -> mediaPreview -> thumbnailData -> body
@@ -1520,8 +1748,9 @@ window.whl_hooks_main = () => {
                         mediaData = source;
                         break;
                     }
-                } else if (source.preview || source.data) {
-                    mediaData = source.preview || source.data;
+                } else if (typeof source.preview === 'string' || typeof source.data === 'string') {
+                    // Só strings: objetos internos do WhatsApp não são serializáveis
+                    mediaData = typeof source.preview === 'string' ? source.preview : source.data;
                     break;
                 }
             }
@@ -1536,9 +1765,13 @@ window.whl_hooks_main = () => {
         
         // FIX PEND-MED-005: Mark media for potential download
         const hasMediaUrl = !!(msg.deprecatedMms3Url || msg.directPath || msg.url);
-        const needsDownload = !mediaData && hasMediaUrl;
+        const canDownload = !!(mediaFields && mediaFields.directPath && mediaFields.mediaKey);
+        // O que veio embutido na mensagem é a miniatura quando dá para baixar o original.
+        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg && canDownload);
+        const needsDownload = !prevFullMedia && isMediaMsg && (canDownload || hasMediaUrl) && (!mediaData || mediaIsThumbnail);
+        if (prevFullMedia) mediaData = prevFullMedia;
 
-        if (needsDownload) {
+        if (!mediaData && hasMediaUrl) {
             // Marcar que tem mídia mas dados não disponíveis localmente
             mediaData = '__HAS_MEDIA__';
         }
@@ -1549,17 +1782,28 @@ window.whl_hooks_main = () => {
             body: body,
             from: from,
             timestamp: Date.now(),
+            // Horário real de envio (msg.t vem em segundos no WhatsApp Web).
+            t: typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null,
+            fromMe: !!(msg.id && msg.id.fromMe),
             type: mediaType,
             mimetype: mimetype,
             filename: filename,
             mediaData: mediaData, // NOVO: dados de mídia
-            isMedia: ['image', 'sticker', 'video', 'ptt', 'audio', 'document'].includes(mediaType),
+            mediaIsThumbnail: mediaIsThumbnail,
+            mediaDownloadTime: prevFullMedia ? prevCached.mediaDownloadTime : null,
+            thumbnail: thumbnail,
+            isMedia: isMediaMsg,
             // Dados extras para debug
             hasUrl: hasMediaUrl,
             // 🔧 FIX: Guardar dados de URL para re-download futuro (fallback quando __HAS_MEDIA__)
             directPath: msg.directPath || null,
             mediaKey: msg.mediaKey || null,
             mediaUrl: msg.deprecatedMms3Url || msg.url || null,
+            // Campos para baixar/decriptar o original depois da revogação
+            mediaKeyTimestamp: (mediaFields && mediaFields.mediaKeyTimestamp) || null,
+            filehash: (mediaFields && mediaFields.filehash) || null,
+            encFilehash: (mediaFields && mediaFields.encFilehash) || null,
+            size: (mediaFields && mediaFields.size) || null,
         };
 
         // Cachear com TODOS os IDs possíveis
@@ -1567,80 +1811,21 @@ window.whl_hooks_main = () => {
             messageCache.set(id, cacheData);
         });
 
-        // FIX PEND-MED-005: Proactive media download for critical types
-        if (needsDownload) {
-            const criticalMediaTypes = ['image', 'sticker', 'video', 'audio', 'ptt', 'document'];
-
-            if (criticalMediaTypes.includes(mediaType) && window.Store?.DownloadManager?.downloadMedia) {
-                // Attempt async download without blocking message processing
-                setTimeout(async () => {
-                    try {
-                        const media = await window.Store.DownloadManager.downloadMedia(msg);
-                        if (!media) return;
-
-                        // 🔧 FIX CRÍTICO: DownloadManager retorna um Blob que NÃO é serializável em JSON.
-                        // Converter para base64 Data URI antes de armazenar no cache/histórico.
-                        let base64Media = null;
-                        if (typeof media === 'string') {
-                            base64Media = media; // já é string/base64
-                        } else if (media instanceof Blob) {
-                            base64Media = await new Promise((res, rej) => {
-                                const reader = new FileReader();
-                                reader.onload = () => res(reader.result); // "data:mime;base64,..."
-                                reader.onerror = () => rej(new Error('FileReader error'));
-                                reader.readAsDataURL(media);
-                            });
-                        }
-
-                        if (!base64Media || base64Media.length < 50) return;
-
-                        // Atualizar messageCache com base64 serializável
-                        ids.forEach(id => {
-                            const existing = messageCache.get(id);
-                            if (existing) {
-                                messageCache.set(id, {
-                                    ...existing,
-                                    mediaData: base64Media,
-                                    mediaDownloadTime: Date.now()
-                                });
-                            }
-                        });
-
-                        // 🔧 FIX RACE CONDITION: Atualizar entradas do historicoRecover que foram
-                        // gravadas como '__HAS_MEDIA__' antes do download terminar.
-                        const idsSet = new Set(ids.map(String));
-                        let histUpdated = false;
-                        for (let i = 0; i < historicoRecover.length; i++) {
-                            const h = historicoRecover[i];
-                            const hId = String(h.id || '');
-                            const hPid = String(h.protocolId || '');
-                            if (idsSet.has(hId) || idsSet.has(hPid)) {
-                                const currentMedia = h.mediaData;
-                                const needsUpdate = !currentMedia ||
-                                    currentMedia === '__HAS_MEDIA__' ||
-                                    typeof currentMedia !== 'string' ||
-                                    currentMedia.length < 50;
-                                if (needsUpdate) {
-                                    historicoRecover[i] = { ...h, mediaData: base64Media };
-                                    histUpdated = true;
-                                    console.log('[WHL Cache] ✅ historicoRecover atualizado com mídia real (race condition fix):', hId.substring(0, 12));
-                                }
-                            }
-                        }
-
-                        if (histUpdated) {
-                            try {
-                                localStorage.setItem('whl_recover_history', JSON.stringify(historicoRecover));
-                                syncRecoverToExtension(historicoRecover);
-                            } catch (_) {}
-                        }
-
-                        console.log('[WHL Cache] ✅ Proactive media cached as base64:', ids[0]?.substring(0, 8), `(${Math.round(base64Media.length / 1024)}KB)`);
-                    } catch (e) {
-                        console.warn('[WHL Cache] Proactive media download failed:', e?.message);
-                    }
-                }, 100); // Small delay to not block message rendering
-            }
+        // FIX PEND-MED-005: download antecipado da mídia original (mensagens
+        // novas). A pré-carga (seed) não baixa nada: centenas de mensagens
+        // antigas — se uma delas for apagada, o original é baixado na hora.
+        if (needsDownload && !seed && (!mediaFields || !mediaFields.size || mediaFields.size <= PROACTIVE_MEDIA_MAX_BYTES)) {
+            setTimeout(() => {
+                baixarMidiaWA(msg, mediaFields)
+                    .then(dataUrl => {
+                        if (!dataUrl || dataUrl.length < 50) return;
+                        // Atualiza o cache e, se a mensagem já foi apagada nesse meio
+                        // tempo, o registro do Recover (antes ficava '__HAS_MEDIA__').
+                        aplicarMidiaBaixada(ids, dataUrl, mediaFields, { budget: true });
+                        console.log('[WHL Cache] ✅ Mídia original em cache:', ids[0]?.substring(0, 8), `(${Math.round(dataUrl.length / 1024)}KB)`);
+                    })
+                    .catch(e => console.warn('[WHL Cache] Proactive media download failed:', e?.message));
+            }, 100); // Small delay to not block message rendering
         }
         
         // Limitar tamanho do cache (reduzido para comportar mídia)
@@ -1648,9 +1833,14 @@ window.whl_hooks_main = () => {
             const firstKey = messageCache.keys().next().value;
             messageCache.delete(firstKey);
         }
-        
-        const logInfo = mediaData && mediaData !== '__HAS_MEDIA__' 
-            ? `[MÍDIA:${mediaType} - ${mediaData.substring(0,10)}...]` 
+
+        // Pré-carga: só alimenta o cache. Sem log e, principalmente, sem o
+        // WHL_MESSAGE_RECEIVED abaixo — ele aciona o autopilot, que não pode
+        // responder mensagens antigas só porque o cache foi pré-carregado.
+        if (seed) return;
+
+        const logInfo = mediaData && mediaData !== '__HAS_MEDIA__'
+            ? `[MÍDIA:${mediaType} - ${String(mediaData).substring(0,10)}...]` 
             : mediaData === '__HAS_MEDIA__' 
                 ? `[MÍDIA:${mediaType} - URL]`
                 : body.substring(0, 30);
@@ -1897,14 +2087,122 @@ window.whl_hooks_main = () => {
         return phone.replace(WHATSAPP_SUFFIXES_REGEX, '').replace(/\D/g, '');
     }
     
+    // ===== COLEÇÃO GLOBAL DE MENSAGENS DO WHATSAPP WEB =====
+    // O WhatsApp Web atual expõe a coleção como require('WAWebCollections').Msg
+    // (o mesmo caminho usado pelo whatsapp-web.js) e/ou como
+    // require('WAWebMsgCollection').MsgCollection. O código antigo só testava
+    // `.Msg` em WAWebMsgCollection/WAWebMsgModel; sem esse export, os hooks de
+    // add/remove/ack não se registravam — o cache nunca recebia as mensagens
+    // enviadas por você e as exclusões delas não eram registradas no Recover.
+    function getMsgCollection() {
+        const isColl = (c) => !!(c && typeof c.on === 'function' && typeof c.get === 'function');
+        const candidates = [];
+        for (const name of ['WAWebCollections', 'WAWebMsgCollection', 'WAWebMsgModel']) {
+            try {
+                const m = tryRequireModule(name);
+                if (m) candidates.push(m.Msg, m.MsgCollection, m.default && m.default.MsgCollection, m);
+            } catch (_) {}
+        }
+        try { if (window.Store) candidates.push(window.Store.Msg); } catch (_) {}
+        for (const c of candidates) {
+            if (isColl(c)) return c;
+        }
+        return null;
+    }
+
+    /**
+     * Texto atual de uma mensagem no Store do WhatsApp. Chamado ANTES de a
+     * edição ser aplicada, devolve o texto ANTIGO — último recurso quando o
+     * cache não tem o conteúdo anterior (ex.: mensagem carregada antes de a
+     * extensão iniciar).
+     */
+    function lookupStoreBody(key) {
+        if (!key) return '';
+        const keys = [key];
+        if (typeof key === 'object' && key._serialized) keys.push(key._serialized);
+        const readBody = (m) => {
+            if (!m || m.type === 'revoked') return '';
+            const b = m.body || m.caption;
+            return typeof b === 'string' && b ? stripEditMarker(b) : '';
+        };
+        try {
+            const coll = getMsgCollection();
+            if (coll) {
+                for (const k of keys) {
+                    const b = readBody(coll.get(k));
+                    if (b) return b;
+                }
+            }
+        } catch (_) {}
+        try {
+            for (const k of keys) {
+                const b = readBody(findMessageById(k));
+                if (b) return b;
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    /**
+     * Revogação vista direto no Store (msg.type virou 'revoked'). Cobre o que o
+     * revoke_handler (protocolo recebido em processRenderableMessages) não
+     * cobre — principalmente as mensagens que VOCÊ apagou para todos, aqui ou
+     * no celular. O conteúdo original vem do messageCache, preenchido quando a
+     * mensagem foi enviada/recebida/carregada (antes da revogação).
+     *
+     * opts.requireCached: só registra se o cache tinha o conteúdo. Usado no
+     * Msg.on('add'), que também dispara para revogações ANTIGAS ao abrir um
+     * chat — sem o cache, seriam registros falsos com o horário de agora.
+     */
+    function registrarRevogacaoDoStore(msg, opts) {
+        if (!msg || msg.type !== 'revoked' || !msg.id || !msg.id.id) return false;
+        const shortId = msg.id.id;
+        // Já registrada (pelo revoke_handler ou por outro evento do Store)?
+        if (historicoRecover.some(h => h && h.id === shortId && h.action === 'revoked')) return false;
+        const cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
+        const hasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
+        if (opts && opts.requireCached && !hasContent) return false;
+        salvarMensagemRecuperada({
+            id: msg.id,
+            // salvarMensagemRecuperada procura o original no cache por esta chave
+            protocolMessageKey: msg.id,
+            from: msg.from,
+            to: msg.to,
+            author: msg.author,
+            chatId: msg.id.remote,
+            t: msg.t,
+            // tipo real vem do cache; 'revoked' não é um tipo de conteúdo
+            type: (cached && cached.type) || undefined
+        });
+        return true;
+    }
+
     /**
      * CORREÇÃO 1.2 + BUG 2 + BUG 3: Salvar mensagem apagada com notificação persistente e tipo de deleção
      */
     function salvarMensagemApagada(msg) {
         let from = extractPhoneNumber(msg);
         const to = extractPhoneNumber({ to: msg.to || msg.chatId || msg.id?.remote });
-        const body = msg.body || '[mensagem sem texto]';
         const chatId = (msg.id?.remote?._serialized || msg.chatId?._serialized || msg.chatId || msg.id?.remote || null);
+
+        // Conteúdo: texto, ou legenda + mídia. Em mídia, msg.body é a miniatura.
+        const isMediaMsg = MEDIA_MSG_TYPES.includes(msg.type);
+        const rawBody = typeof msg.body === 'string' ? msg.body : '';
+        const cachedDel = (msg.id && (messageCache.get(msg.id.id) || messageCache.get(msg.id._serialized))) || null;
+        const textBody = isMediaMsg
+            ? (msg.caption || (rawBody && !pareceBase64(rawBody) ? rawBody : '') || (cachedDel && cachedDel.body) || '')
+            : (rawBody || (cachedDel && cachedDel.body) || '');
+        let delMedia = null;
+        let delMediaIsThumb = false;
+        if (cachedDel && typeof cachedDel.mediaData === 'string' && cachedDel.mediaData !== '__HAS_MEDIA__' && cachedDel.mediaData.length > 50) {
+            delMedia = cachedDel.mediaData;
+            delMediaIsThumb = !!cachedDel.mediaIsThumbnail;
+        } else if (isMediaMsg && pareceBase64(rawBody)) {
+            delMedia = rawBody;
+            delMediaIsThumb = true;
+        }
+        const delFields = isMediaMsg ? camposDeMidia(msg) : null;
+        const body = textBody || (isMediaMsg ? '' : '[mensagem sem texto]');
         
         // BUG 3: Detect deletion type
         const deletionType = detectDeletionType(msg);
@@ -1943,10 +2241,23 @@ window.whl_hooks_main = () => {
             type: detectMessageType(body, msg.type),
             action: isRevoke ? 'revoked' : 'deleted',
             mediaType: msg.type,
-            mediaData: null,
+            mediaData: delMedia,
+            mediaIsThumbnail: !!(delMedia && delMediaIsThumb),
+            mimetype: (delFields && delFields.mimetype) || null,
+            filename: (delFields && delFields.filename) || null,
+            directPath: (delFields && delFields.directPath) || null,
+            mediaKey: (delFields && delFields.mediaKey) || null,
+            mediaKeyTimestamp: (delFields && delFields.mediaKeyTimestamp) || null,
+            filehash: (delFields && delFields.filehash) || null,
+            encFilehash: (delFields && delFields.encFilehash) || null,
+            size: (delFields && delFields.size) || null,
             deviceType: _deviceType,
             deviceIcon: _senderIsPhone ? '📱' : '💻',
             timestamp: Date.now(),
+            // Horário em que a mensagem foi enviada (o timestamp acima é o da exclusão)
+            originalTimestamp: typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null,
+            fromMe: !!(msg.id && msg.id.fromMe),
+            contentCaptured: !!(textBody || delMedia || isMediaMsg),
             // BUG 3: Add deletion type info
             deletionType: deletionType,
             deletionInfo: {
@@ -1995,12 +2306,13 @@ window.whl_hooks_main = () => {
             console.error('[WHL Recover] Erro ao salvar mensagem apagada:', e);
         }
         
-        // Notificar UI
+        // Notificar UI — com a ação real. Antes ia sempre `action: 'deleted'`,
+        // e uma revogação detectada aqui era contada como "Apagada" no painel.
         window.postMessage({
             type: 'WHL_RECOVER_NEW_MESSAGE',
             payload: {
                 ...entrada,
-                action: 'deleted'
+                action: entrada.action
             },
             message: entrada,
             total: historicoRecover.length
@@ -2016,6 +2328,12 @@ window.whl_hooks_main = () => {
             }
         } catch (e) {
             // Ignorar erros de contexto
+        }
+
+        // Mídia: o modelo ainda está inteiro (apagada só para mim) — baixa o
+        // original e completa o registro.
+        if (isMediaMsg && (!delMedia || delMediaIsThumb)) {
+            completarMidiaDoRegistro([entrada.id, msg.id?._serialized], msg, delFields);
         }
         
         console.log(`[WHL Recover] 🗑️ Mensagem apagada (${deletionType}) de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
@@ -2078,13 +2396,16 @@ window.whl_hooks_main = () => {
             const cached = messageCache.get(id);
             if (cached?.body) return stripEditMarker(String(cached.body));
         }
-        return '';
+        // Último recurso: o Store ainda tem o texto antigo (a edição só é
+        // aplicada depois do nosso hook). Só pela chave da mensagem ORIGINAL —
+        // msg.id aqui é o id da mensagem de protocolo da edição.
+        return lookupStoreBody(msg.protocolMessageKey);
     }
 
     /**
      * Bug fix + BUG 2: Save edited message to history with persistent notification
      */
-    function salvarMensagemEditada(message) {
+    function salvarMensagemEditada(message, previousOverride) {
         // FIX v9.6.6: strip do marker no body lido — em edits subsequentes
         // a msg pode chegar com .body já marcado de um tick anterior (ou de
         // re-render via processRenderableMessages que jogou marker no cache).
@@ -2104,8 +2425,12 @@ window.whl_hooks_main = () => {
         // re-renderiza via processRenderableMessages que repõe o marker em
         // messageCache via cachearMensagem. Sem strip aqui, o previousContent
         // gravado em re-edits virava o marker da edição anterior (nested).
-        const rawPrevious = message.previousBody || originalCached?.body || null;
-        const previousContent = rawPrevious ? stripEditMarker(rawPrevious) : null;
+        // Ordem: o que o hook já leu (parentMsg/Store antes de aplicar) → cache
+        // → Store. Antes só olhava o cache, que ficava vazio para as mensagens
+        // enviadas por você — o painel mostrava só o texto novo.
+        const rawPrevious = previousOverride || message.previousBody || originalCached?.body ||
+            getCachedPreviousBody(message) || null;
+        const previousContent = rawPrevious ? (stripEditMarker(String(rawPrevious)) || null) : null;
         
         const entrada = {
             id: originalId,
@@ -2119,6 +2444,9 @@ window.whl_hooks_main = () => {
             previousContent: previousContent,
             previousBody: previousContent, // PHASE 2: Add for compatibility
             timestamp: Date.now(),
+            // Horário de envio da mensagem original (o timestamp acima é o da edição)
+            originalTimestamp: originalCached?.t || null,
+            fromMe: !!(message.id && message.id.fromMe) || !!originalCached?.fromMe,
             // BUG 3: Add deletion type info (for consistency)
             deletionType: 'edited',
             deletionInfo: {
@@ -2211,9 +2539,17 @@ window.whl_hooks_main = () => {
         let body = msg.body || msg.caption || msg.text || '';
         let from = extractPhoneNumber(msg);
         let mediaData = null;
+        let mediaIsThumbnail = false;
         let mediaType = msg.type || 'chat';
         let mimetype = msg.mimetype || null;
         let filename = msg.filename || null;
+        // Em mídia, msg.body é a miniatura — não é o texto da mensagem.
+        if (MEDIA_MSG_TYPES.includes(msg.type) && pareceBase64(body)) {
+            mediaData = body;
+            mediaIsThumbnail = true;
+            body = msg.caption || '';
+        }
+        const liveFields = MEDIA_MSG_TYPES.includes(msg.type) ? camposDeMidia(msg) : null;
         
         // Se body estiver vazio ou for mídia, TENTAR RECUPERAR DO CACHE
         const possibleIds = [
@@ -2227,10 +2563,17 @@ window.whl_hooks_main = () => {
         let cachedDirectPath = null;
         let cachedMediaKey = null;
         let cachedMediaUrl = null;
+        let cachedT = null;
+        let cachedFromMe = false;
+        let cachedIsMedia = false;
+        let cachedFields = null;
 
         for (const id of possibleIds) {
             const cached = messageCache.get(id);
             if (cached) {
+                if (cached.t && !cachedT) cachedT = cached.t;
+                if (cached.fromMe) cachedFromMe = true;
+                if (cached.isMedia) cachedIsMedia = true;
                 // Recuperar body se vazio
                 if (!body && cached.body) {
                     body = cached.body;
@@ -2240,11 +2583,31 @@ window.whl_hooks_main = () => {
                     from = extractPhoneNumber({ from: { _serialized: cached.from } });
                 }
                 // NOVO: Recuperar dados de mídia — validar que é uma string base64 real
+                // (o original baixado tem prioridade sobre a miniatura)
                 if (cached.mediaData &&
                     cached.mediaData !== '__HAS_MEDIA__' &&
                     typeof cached.mediaData === 'string' &&
-                    cached.mediaData.length > 50) {
+                    cached.mediaData.length > 50 &&
+                    (!mediaData || (mediaIsThumbnail && !cached.mediaIsThumbnail))) {
                     mediaData = cached.mediaData;
+                    mediaIsThumbnail = !!cached.mediaIsThumbnail;
+                } else if (!mediaData && cached.thumbnail) {
+                    mediaData = cached.thumbnail;
+                    mediaIsThumbnail = true;
+                }
+                if (cached.isMedia && !cachedFields) {
+                    cachedFields = {
+                        type: cached.type || null,
+                        mimetype: cached.mimetype || null,
+                        filename: cached.filename || null,
+                        size: cached.size || null,
+                        directPath: cached.directPath || null,
+                        mediaKey: cached.mediaKey || null,
+                        mediaKeyTimestamp: cached.mediaKeyTimestamp || null,
+                        filehash: cached.filehash || null,
+                        encFilehash: cached.encFilehash || null,
+                        mediaUrl: cached.mediaUrl || null
+                    };
                 }
                 if (cached.type) {
                     mediaType = cached.type;
@@ -2266,10 +2629,20 @@ window.whl_hooks_main = () => {
             }
         }
         
-        // Validar resultados
-        if (!body && !mediaData) body = '[Mensagem sem texto - mídia ou sticker]';
+        // Validar resultados. O rótulo antigo "[Mensagem sem texto - mídia ou
+        // sticker]" afirmava que era mídia sem saber disso (e o contador de
+        // mídias, que olha o tipo real, mostrava 0). Agora: se o cache sabia
+        // que era mídia, o tipo vem dele; senão, o texto diz a verdade.
+        const contentCaptured = !!(body || mediaData || cachedIsMedia);
+        if (!body && !mediaData) {
+            body = cachedIsMedia
+                ? `[${mediaType} apagado — arquivo não disponível]`
+                : '[Conteúdo não capturado — a mensagem foi apagada antes de ser carregada pela extensão]';
+        }
         if (!from || from === 'Desconhecido') from = 'Número desconhecido';
         
+        const mediaFieldsFinal = cachedFields || liveFields;
+
         // BUG 3: Detect deletion type (revoked)
         const deletionType = 'revoked_by_sender'; // Always revoked for this function
         const originalId = msg.protocolMessageKey?.id || msg.quotedStanzaID || msg.id?.id || Date.now().toString();
@@ -2300,7 +2673,17 @@ window.whl_hooks_main = () => {
             directPath: cachedDirectPath || msg.directPath || null,
             mediaKey: cachedMediaKey || msg.mediaKey || null,
             mediaUrl: cachedMediaUrl || msg.deprecatedMms3Url || msg.url || null,
+            mediaKeyTimestamp: (mediaFieldsFinal && mediaFieldsFinal.mediaKeyTimestamp) || null,
+            filehash: (mediaFieldsFinal && mediaFieldsFinal.filehash) || null,
+            encFilehash: (mediaFieldsFinal && mediaFieldsFinal.encFilehash) || null,
+            size: (mediaFieldsFinal && mediaFieldsFinal.size) || null,
+            // true = só a miniatura por enquanto (o original está sendo baixado)
+            mediaIsThumbnail: !!(mediaData && mediaIsThumbnail),
             timestamp: Date.now(),
+            // Horário em que a mensagem foi enviada (o timestamp acima é o da revogação)
+            originalTimestamp: cachedT || (typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null),
+            fromMe: cachedFromMe || !!(msg.id && msg.id.fromMe) || !!(msg.protocolMessageKey && msg.protocolMessageKey.fromMe),
+            contentCaptured: contentCaptured,
             // PrivacyShield+: Informações de dispositivo remetente
             deviceType: deviceType,
             deviceIcon: deviceIcon,
@@ -2353,6 +2736,9 @@ window.whl_hooks_main = () => {
             const dataToSave = JSON.stringify(historicoRecover);
             const sizeKB = (new Blob([dataToSave]).size / 1024).toFixed(2);
             localStorage.setItem('whl_recover_history', dataToSave);
+            // Como nos registros de apagada/editada (antes só sincronizava no
+            // caminho de erro).
+            syncRecoverToExtension(historicoRecover);
             console.log(`[WHL Recover] Histórico salvo: ${historicoRecover.length} mensagens, ${sizeKB}KB`);
         } catch(e) {
             console.error('[WHL Recover] Erro ao salvar (limite excedido?)', e);
@@ -2388,6 +2774,12 @@ window.whl_hooks_main = () => {
             }
         } catch (e) {
             // Ignorar erros de contexto
+        }
+
+        // Mídia sem o arquivo original (ou só com a miniatura): baixa agora,
+        // pelos campos guardados antes da revogação, e completa o registro.
+        if (mediaFieldsFinal && (!mediaData || mediaIsThumbnail)) {
+            completarMidiaDoRegistro([originalId, ...possibleIds], null, mediaFieldsFinal);
         }
         
         console.log(`[WHL Recover] Mensagem recuperada de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
@@ -2710,7 +3102,7 @@ window.whl_hooks_main = () => {
                                 if (env.legacyMsg) {
                                     const msg = env.legacyMsg;
                                     const prev = getCachedPreviousBody(msg);
-                                    try { salvarMensagemEditada(msg); } catch (e) {}
+                                    try { salvarMensagemEditada(msg, prev); } catch (e) {}
                                     const target = typeof msg.body === 'string' && msg.body.length > 0 ? 'body' : 'caption';
                                     const composed = composeEditMarker(prev, msg[target] || '');
                                     if (composed) msg[target] = composed;
@@ -2807,8 +3199,9 @@ window.whl_hooks_main = () => {
                 // (precisa do estado pré-edit pra mostrar "Antes: ...").
                 const previousBody = getCachedPreviousBody(message);
 
-                // Salva no histórico ANTES de mutar o objeto.
-                salvarMensagemEditada(message);
+                // Salva no histórico ANTES de mutar o objeto (com o texto
+                // anterior já lido — cache ou Store, antes da edição aplicar).
+                salvarMensagemEditada(message, previousBody);
 
                 const messageContent = stripEditMarker(message?.body || message?.caption || '');
                 message.type = 'chat';
@@ -2867,17 +3260,20 @@ window.whl_hooks_main = () => {
             if (this.is_registered) return;
             super.register();
             
-            // Tentar múltiplos módulos possíveis
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for delete hook');
                 return;
             }
-            
+
             try {
-                // Hook no evento 'remove' da coleção de mensagens
-                storeMod.Msg.on('remove', (msg) => {
+                // Hook no evento 'remove' da coleção de mensagens. A coleção
+                // também remove mensagens antigas para liberar memória — por isso
+                // só conta como "apagada para mim" a mensagem nova (isNewMsg),
+                // o mesmo critério do whatsapp-web.js. Revogadas vão pelo
+                // RevokeChangeHook.
+                msgCollection.on('remove', (msg) => {
+                    if (!msg || !msg.isNewMsg || msg.type === 'revoked') return;
                     DeletedMessageHook.handle_deleted_message(msg);
                 });
                 
@@ -2917,26 +3313,47 @@ window.whl_hooks_main = () => {
             if (this.is_registered) return;
             super.register();
             
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for add hook');
                 return;
             }
-            
+
             try {
-                storeMod.Msg.on('add', (msg) => {
+                msgCollection.on('add', (msg) => {
                     MessageCreatedHook.handle_created_message(msg);
                 });
-                
+
                 console.log('[WHL Hooks] MessageCreatedHook registered on Msg.on("add")');
             } catch (e) {
                 console.warn('[WHL Hooks] Failed to register add hook:', e);
             }
+
+            // Pré-carga do cache com as mensagens que já estavam abertas antes
+            // de a extensão iniciar. Sem isso, apagar/editar uma delas não tinha
+            // de onde recuperar o conteúdo original.
+            try {
+                const models = typeof msgCollection.getModelsArray === 'function'
+                    ? msgCollection.getModelsArray() || []
+                    : [];
+                const recent = models.slice(-MESSAGE_CACHE_SEED_LIMIT);
+                for (const m of recent) cachearMensagem(m, { seed: true });
+                console.log(`[WHL Hooks] Cache pré-carregado com ${recent.length} mensagens já abertas`);
+            } catch (e) {
+                console.warn('[WHL Hooks] Falha na pré-carga do cache:', e);
+            }
         }
-        
+
         static handle_created_message(message) {
             if (!message) return;
+
+            // Modelo que já chega revogado (alguns fluxos trocam o modelo em
+            // vez de mudar o tipo). Registra só se o cache tinha o conteúdo —
+            // abrir um chat também "adiciona" revogações antigas.
+            if (message.type === 'revoked') {
+                registrarRevogacaoDoStore(message, { requireCached: true });
+                return;
+            }
 
             // FIX v9.6.5: era `cacheMessage(message)` — função inexistente neste
             // escopo (cacheMessage existe só em recover-dom.js, módulo separado).
@@ -2973,15 +3390,14 @@ window.whl_hooks_main = () => {
             if (this.is_registered) return;
             super.register();
             
-            const storeMod = tryRequireModule('WAWebMsgCollection') || tryRequireModule('WAWebMsgModel');
-            
-            if (!storeMod || !storeMod.Msg) {
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
                 console.warn('[WHL Hooks] Msg store not available for ack hook');
                 return;
             }
-            
+
             try {
-                storeMod.Msg.on('change:ack', (msg, ack) => {
+                msgCollection.on('change:ack', (msg, ack) => {
                     MessageFailedHook.handle_ack_change(msg, ack);
                 });
                 
@@ -3317,8 +3733,41 @@ window.whl_hooks_main = () => {
         }
     }
 
+    // ===== HOOK: REVOGAÇÃO VISTA NO STORE (change:type → 'revoked') =====
+    // Mensagem apagada "para todos" vira type === 'revoked' no modelo — tanto
+    // as do contato quanto as SUAS (apagadas aqui ou no celular). O
+    // revoke_handler só via o protocolo recebido em processRenderableMessages,
+    // então as suas nunca entravam no Recover. Mesmo evento usado pelo
+    // whatsapp-web.js (message_revoke_everyone). Duplicatas com o
+    // revoke_handler são barradas pelo id em registrarRevogacaoDoStore.
+    class RevokeChangeHook extends Hook {
+        register() {
+            if (this.is_registered) return;
+            super.register();
+
+            const msgCollection = getMsgCollection();
+            if (!msgCollection) {
+                console.warn('[WHL Hooks] Msg store not available for revoke hook');
+                return;
+            }
+            try {
+                msgCollection.on('change:type', (msg) => {
+                    try {
+                        if (msg && msg.type === 'revoked') registrarRevogacaoDoStore(msg);
+                    } catch (e) {
+                        console.warn('[WHL Hooks] revoke (change:type) error:', e);
+                    }
+                });
+                console.log('[WHL Hooks] RevokeChangeHook registered on Msg.on("change:type")');
+            } catch (e) {
+                console.warn('[WHL Hooks] Failed to register revoke hook:', e);
+            }
+        }
+    }
+
     const hooks = {
         keep_revoked_messages: new RenderableMessageHook(),
+        keep_store_revokes: new RevokeChangeHook(),
         keep_edited_messages: new EditMessageHook(),
         keep_deleted_messages: new DeletedMessageHook(),
         message_created: new MessageCreatedHook(),
@@ -6586,6 +7035,41 @@ window.whl_hooks_main = () => {
                     const chatIdStr = normalizeChatId(chatId);
                     let blob = null;
 
+                    // Estratégia 0: o original já em cache, ou baixado pelos campos
+                    // guardados antes da revogação (o modelo revogado não tem mais
+                    // directPath/mediaKey; o cache tem).
+                    try {
+                        const c = messageCache.get(String(messageId)) || null;
+                        let dataUrl = null;
+                        if (c && typeof c.mediaData === 'string' && c.mediaData.startsWith('data:') && !c.mediaIsThumbnail) {
+                            dataUrl = c.mediaData;
+                        } else {
+                            const d = event.data || {};
+                            dataUrl = await baixarMidiaWA(null, {
+                                type: d.mediaType || (c && c.type) || null,
+                                mimetype: mimetype || (c && c.mimetype) || null,
+                                filename: filename || (c && c.filename) || null,
+                                directPath: directPath || (c && c.directPath) || null,
+                                mediaKey: mediaKey || (c && c.mediaKey) || null,
+                                mediaKeyTimestamp: d.mediaKeyTimestamp || (c && c.mediaKeyTimestamp) || null,
+                                filehash: d.filehash || (c && c.filehash) || null,
+                                encFilehash: d.encFilehash || (c && c.encFilehash) || null
+                            });
+                        }
+                        if (dataUrl) {
+                            window.postMessage({
+                                type: 'WHL_RECOVER_REDOWNLOAD_RESULT',
+                                success: true,
+                                base64: dataUrl,
+                                messageId,
+                                filename: filename || (c && c.filename) || `recover_${Date.now()}`
+                            }, window.location.origin);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('[WHL Hooks] Re-download pelos campos guardados falhou:', e?.message);
+                    }
+
                     // Estratégia 1: Resolver pelo modelo de chat e usar DownloadManager
                     try {
                         const ChatCollection = window.require?.('WAWebChatCollection')?.ChatCollection;
@@ -6599,9 +7083,9 @@ window.whl_hooks_main = () => {
                                     const mid = String(m?.id?.id || m?.id?._serialized || '');
                                     return mid === String(messageId) || mid.includes(String(messageId));
                                 });
-                                if (targetMsg && window.Store?.DownloadManager?.downloadMedia) {
-                                    const media = await window.Store.DownloadManager.downloadMedia(targetMsg);
-                                    if (media instanceof Blob) blob = media;
+                                if (targetMsg && targetMsg.type !== 'revoked') {
+                                    const url = await baixarMidiaWA(targetMsg, camposDeMidia(targetMsg));
+                                    if (url) blob = await (await fetch(url)).blob();
                                 }
                             }
                         }

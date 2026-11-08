@@ -1120,6 +1120,41 @@
                     const chatIdStr = normalizeChatId(chatId);
                     let blob = null;
 
+                    // Estratégia 0: o original já em cache, ou baixado pelos campos
+                    // guardados antes da revogação (o modelo revogado não tem mais
+                    // directPath/mediaKey; o cache tem).
+                    try {
+                        const c = messageCache.get(String(messageId)) || null;
+                        let dataUrl = null;
+                        if (c && typeof c.mediaData === 'string' && c.mediaData.startsWith('data:') && !c.mediaIsThumbnail) {
+                            dataUrl = c.mediaData;
+                        } else {
+                            const d = event.data || {};
+                            dataUrl = await baixarMidiaWA(null, {
+                                type: d.mediaType || (c && c.type) || null,
+                                mimetype: mimetype || (c && c.mimetype) || null,
+                                filename: filename || (c && c.filename) || null,
+                                directPath: directPath || (c && c.directPath) || null,
+                                mediaKey: mediaKey || (c && c.mediaKey) || null,
+                                mediaKeyTimestamp: d.mediaKeyTimestamp || (c && c.mediaKeyTimestamp) || null,
+                                filehash: d.filehash || (c && c.filehash) || null,
+                                encFilehash: d.encFilehash || (c && c.encFilehash) || null
+                            });
+                        }
+                        if (dataUrl) {
+                            window.postMessage({
+                                type: 'WHL_RECOVER_REDOWNLOAD_RESULT',
+                                success: true,
+                                base64: dataUrl,
+                                messageId,
+                                filename: filename || (c && c.filename) || `recover_${Date.now()}`
+                            }, window.location.origin);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('[WHL Hooks] Re-download pelos campos guardados falhou:', e?.message);
+                    }
+
                     // Estratégia 1: Resolver pelo modelo de chat e usar DownloadManager
                     try {
                         const ChatCollection = window.require?.('WAWebChatCollection')?.ChatCollection;
@@ -1133,9 +1168,9 @@
                                     const mid = String(m?.id?.id || m?.id?._serialized || '');
                                     return mid === String(messageId) || mid.includes(String(messageId));
                                 });
-                                if (targetMsg && window.Store?.DownloadManager?.downloadMedia) {
-                                    const media = await window.Store.DownloadManager.downloadMedia(targetMsg);
-                                    if (media instanceof Blob) blob = media;
+                                if (targetMsg && targetMsg.type !== 'revoked') {
+                                    const url = await baixarMidiaWA(targetMsg, camposDeMidia(targetMsg));
+                                    if (url) blob = await (await fetch(url)).blob();
                                 }
                             }
                         }

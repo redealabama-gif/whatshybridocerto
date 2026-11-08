@@ -1455,6 +1455,9 @@ window.whl_hooks_main = () => {
     // Mantém as últimas 1000 mensagens em memória
     const messageCache = new Map(); // Map<messageId, {body, from, timestamp, type}>
     const MAX_CACHE_SIZE = 1000; // Aumentar para 1000
+    // Pré-carga: quantas mensagens já abertas entram no cache ao iniciar
+    // (cada uma ocupa até 3 chaves — cabe folgado nas 1000).
+    const MESSAGE_CACHE_SEED_LIMIT = 300;
     
     // Array para armazenar histórico de mensagens recuperadas
     let historicoRecover = [];
@@ -1465,12 +1468,224 @@ window.whl_hooks_main = () => {
     const MAX_RECOVER_MESSAGES = 100; // Maximum number of messages to keep
     const FALLBACK_RECOVER_MESSAGES = 50; // Fallback when storage is full
     
+    // ── Mídia (imagem, vídeo, áudio, figurinha, documento) ──────────────
+    // O WhatsApp Web atual não expõe window.Store.DownloadManager (nada na
+    // extensão o cria), então os downloads antigos nunca rodavam e a mídia
+    // apagada ficava sem o arquivo. O download real é feito pelo módulo
+    // WAWebDownloadManager com os campos da mensagem (directPath, mediaKey,
+    // hashes) — guardados no cache ANTES de a mensagem ser apagada, porque
+    // depois da revogação o modelo perde esses campos.
+    const MEDIA_MSG_TYPES = ['image', 'sticker', 'video', 'ptt', 'audio', 'document'];
+    // Download antecipado (mensagem nova, ainda não apagada): só arquivos até
+    // este tamanho, e no máximo este total em memória. Maiores são baixados
+    // na hora em que a mensagem é apagada, pelos mesmos campos.
+    const PROACTIVE_MEDIA_MAX_BYTES = 4 * 1024 * 1024;
+    const PROACTIVE_MEDIA_BUDGET_BYTES = 60 * 1024 * 1024;
+    let proactiveMediaBytes = 0;
+    const proactiveMediaOrder = []; // [{ ids, bytes }] — mais antigo primeiro
+
+    // Em mensagens de mídia o WhatsApp Web guarda a MINIATURA (base64) em
+    // msg.body; o texto digitado fica em msg.caption.
+    function pareceBase64(str) {
+        if (typeof str !== 'string' || !str) return false;
+        if (/^data:[^;,]+;base64,/.test(str)) return true;
+        return str.length >= 80 && /^[A-Za-z0-9+/]+={0,2}$/.test(str);
+    }
+
+    function camposDeMidia(msg) {
+        if (!msg) return null;
+        const md = msg.mediaData && typeof msg.mediaData === 'object' ? msg.mediaData : {};
+        return {
+            type: msg.type || null,
+            mimetype: msg.mimetype || md.mimetype || null,
+            filename: msg.filename || md.filename || null,
+            size: typeof msg.size === 'number' ? msg.size : (typeof md.size === 'number' ? md.size : null),
+            directPath: msg.directPath || null,
+            mediaKey: msg.mediaKey || null,
+            mediaKeyTimestamp: msg.mediaKeyTimestamp || null,
+            filehash: msg.filehash || null,
+            encFilehash: msg.encFilehash || null,
+            mediaUrl: msg.deprecatedMms3Url || msg.url || null
+        };
+    }
+
+    function bufferParaDataUrl(buf, mime) {
+        const bytes = ArrayBuffer.isView(buf)
+            ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            : new Uint8Array(buf);
+        if (!bytes.length) return null;
+        let bin = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        return `data:${mime || 'application/octet-stream'};base64,${btoa(bin)}`;
+    }
+
+    async function midiaParaDataUrl(media, mime) {
+        if (!media) return null;
+        if (typeof media === 'string') {
+            if (media.startsWith('data:')) return media;
+            return pareceBase64(media) ? `data:${mime || 'application/octet-stream'};base64,${media}` : null;
+        }
+        if (typeof media.arrayBuffer === 'function' && typeof media.size === 'number') { // Blob/File
+            return bufferParaDataUrl(await media.arrayBuffer(), media.type || mime);
+        }
+        // ArrayBuffer ou typed array (comparação por tag: funciona entre realms)
+        if (Object.prototype.toString.call(media) === '[object ArrayBuffer]' || ArrayBuffer.isView(media)) {
+            return bufferParaDataUrl(media, mime);
+        }
+        return null;
+    }
+
+    /**
+     * Baixa a mídia ORIGINAL. `msgModel` é o modelo vivo (pode ser null depois
+     * da revogação); `fields` são os campos guardados no cache.
+     * Retorna data URL ou null.
+     */
+    async function baixarMidiaWA(msgModel, fields) {
+        const f = fields || camposDeMidia(msgModel) || {};
+        const mime = f.mimetype || null;
+
+        // 1) Arquivo já decriptado em memória (mídia que o WhatsApp exibiu).
+        try {
+            const blobRef = msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob;
+            if (blobRef) {
+                const blob = typeof blobRef.forceToBlob === 'function' ? blobRef.forceToBlob() : blobRef;
+                const url = await midiaParaDataUrl(blob, mime);
+                if (url) return url;
+            }
+        } catch (_) { /* tenta o próximo */ }
+
+        // 2) Download + decriptação pelo módulo do WhatsApp.
+        if (f.directPath && f.mediaKey) {
+            try {
+                const mod = tryRequireModule('WAWebDownloadManager');
+                const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
+                if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
+                    const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
+                    const buf = await dm.downloadAndMaybeDecrypt({
+                        directPath: f.directPath,
+                        encFilehash: f.encFilehash,
+                        filehash: f.filehash,
+                        mediaKey: f.mediaKey,
+                        mediaKeyTimestamp: f.mediaKeyTimestamp,
+                        type: f.type,
+                        signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
+                        downloadQpl: noopQpl
+                    });
+                    const url = await midiaParaDataUrl(buf, mime);
+                    if (url) return url;
+                }
+            } catch (e) {
+                console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', e && (e.status || e.message));
+            }
+        }
+
+        // 3) Caminho antigo (versões do WhatsApp que expunham window.Store).
+        try {
+            if (msgModel && window.Store?.DownloadManager?.downloadMedia) {
+                const url = await midiaParaDataUrl(await window.Store.DownloadManager.downloadMedia(msgModel), mime);
+                if (url) return url;
+            }
+        } catch (_) { /* sem mais opções */ }
+
+        return null;
+    }
+
+    /**
+     * Grava a mídia baixada no cache e nos registros do Recover que ainda
+     * estavam sem o arquivo (ou só com a miniatura), e avisa a extensão.
+     * opts.budget: conta no limite de memória do download antecipado.
+     */
+    function aplicarMidiaBaixada(ids, dataUrl, meta, opts) {
+        if (!dataUrl || !Array.isArray(ids) || !ids.length) return 0;
+        const idsSet = new Set(ids.filter(Boolean).map(String));
+        const mimetype = (meta && meta.mimetype) || (dataUrl.match(/^data:([^;,]+)/) || [])[1] || null;
+
+        idsSet.forEach(id => {
+            const existing = messageCache.get(id);
+            if (existing) {
+                messageCache.set(id, { ...existing, mediaData: dataUrl, mediaIsThumbnail: false, mediaDownloadTime: Date.now() });
+            }
+        });
+
+        if (opts && opts.budget) {
+            proactiveMediaBytes += dataUrl.length;
+            proactiveMediaOrder.push({ ids: [...idsSet], bytes: dataUrl.length });
+            while (proactiveMediaBytes > PROACTIVE_MEDIA_BUDGET_BYTES && proactiveMediaOrder.length > 1) {
+                const old = proactiveMediaOrder.shift();
+                proactiveMediaBytes -= old.bytes;
+                old.ids.forEach(id => {
+                    const c = messageCache.get(id);
+                    if (c && c.mediaDownloadTime && !c.mediaIsThumbnail) {
+                        // Libera a memória; os campos continuam para baixar de novo se for apagada.
+                        messageCache.set(id, { ...c, mediaData: c.thumbnail || '__HAS_MEDIA__', mediaIsThumbnail: !!c.thumbnail });
+                    }
+                });
+            }
+        }
+
+        let updated = 0;
+        for (let i = 0; i < historicoRecover.length; i++) {
+            const h = historicoRecover[i];
+            if (!h || !(idsSet.has(String(h.id || '')) || idsSet.has(String(h.protocolId || '')))) continue;
+            const current = h.mediaData;
+            const needsUpdate = h.mediaIsThumbnail || !current || current === '__HAS_MEDIA__' ||
+                typeof current !== 'string' || current.length < 50;
+            if (!needsUpdate) continue;
+            const body = typeof h.body === 'string' && /^\[[^\]]* apagad[oa] — arquivo não disponível\]$/.test(h.body) ? '' : h.body;
+            historicoRecover[i] = { ...h, body, mediaData: dataUrl, mediaIsThumbnail: false, mimetype: h.mimetype || mimetype, contentCaptured: true };
+            updated++;
+            window.postMessage({
+                type: 'WHL_RECOVER_MEDIA_READY',
+                payload: {
+                    id: h.id,
+                    protocolId: h.protocolId || null,
+                    action: h.action,
+                    mediaData: dataUrl,
+                    mimetype: h.mimetype || mimetype,
+                    filename: h.filename || (meta && meta.filename) || null
+                }
+            }, window.location.origin);
+        }
+
+        if (updated) {
+            try {
+                localStorage.setItem('whl_recover_history', JSON.stringify(historicoRecover));
+            } catch (_) { /* limite do localStorage: a extensão guarda a cópia completa */ }
+            try { syncRecoverToExtension(historicoRecover); } catch (_) {}
+            console.log('[WHL Media] ✅ Mídia original anexada a', updated, 'registro(s) do Recover');
+        }
+        return updated;
+    }
+
+    /**
+     * Baixa (em segundo plano) a mídia de um registro recém-criado que ficou
+     * sem o arquivo ou só com a miniatura.
+     */
+    function completarMidiaDoRegistro(ids, msgModel, fields) {
+        if (!fields || !(fields.directPath && fields.mediaKey) && !(msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob)) return;
+        setTimeout(() => {
+            baixarMidiaWA(msgModel, fields)
+                .then(dataUrl => { if (dataUrl) aplicarMidiaBaixada(ids, dataUrl, fields); })
+                .catch(e => console.warn('[WHL Media] Falha ao completar mídia apagada:', e && e.message));
+        }, 0);
+    }
+
     /**
      * CORREÇÃO BUG 4: Cachear mensagem recebida para poder recuperá-la se for apagada
      * ATUALIZADO: Agora também captura dados de mídia (stickers, imagens, etc)
      */
-    function cachearMensagem(msg) {
+    // opts.seed = true: pré-carga em massa das mensagens já abertas (ver
+    // MessageCreatedHook). Não loga e não dispara o download proativo de
+    // mídia — senão abrir o WhatsApp baixaria todas as mídias carregadas.
+    function cachearMensagem(msg, opts) {
         if (!msg) return;
+        const seed = !!(opts && opts.seed);
+        // Mensagem já revogada não tem mais conteúdo: não sobrescreve o que
+        // o cache guardou antes da revogação (é dali que o Recover lê).
+        if (msg.type === 'revoked') return;
         
         // Múltiplos IDs para cache
         const ids = [
@@ -1478,15 +1693,28 @@ window.whl_hooks_main = () => {
             msg.id?._serialized,
             msg.id?.remote?._serialized + '_' + msg.id?.id
         ].filter(Boolean);
+
+        // Mídia original já baixada para esta mensagem: não troca pela miniatura
+        // quando a mesma mensagem passa por aqui de novo.
+        const prevCached = ids.length ? messageCache.get(ids[0]) : null;
+        const prevFullMedia = prevCached && prevCached.mediaDownloadTime && !prevCached.mediaIsThumbnail
+            ? prevCached.mediaData : null;
         
-        const body = msg.body || msg.caption || msg.text || '';
+        let mediaType = msg.type || 'chat';
+        const isMediaMsg = MEDIA_MSG_TYPES.includes(mediaType);
+        const rawBody = typeof msg.body === 'string' ? msg.body : '';
+        // Mídia: o texto é a legenda; msg.body é a miniatura em base64.
+        const body = isMediaMsg
+            ? (msg.caption || (rawBody && !pareceBase64(rawBody) ? rawBody : '') || '')
+            : (rawBody || msg.caption || msg.text || '');
+        const thumbnail = isMediaMsg && pareceBase64(rawBody) ? rawBody : null;
         const from = msg.from?._serialized || msg.from?.user || msg.author?._serialized || msg.id?.remote?._serialized || '';
         
         // Capturar dados de mídia se disponível
         let mediaData = null;
-        let mediaType = msg.type || 'chat';
-        let mimetype = msg.mimetype || null;
-        let filename = msg.filename || null;
+        const mediaFields = isMediaMsg ? camposDeMidia(msg) : null;
+        let mimetype = (mediaFields && mediaFields.mimetype) || msg.mimetype || null;
+        let filename = (mediaFields && mediaFields.filename) || msg.filename || null;
         
         // Tentar extrair mídia base64 de MÚLTIPLAS fontes possíveis
         // Ordem de prioridade: mediaData -> mediaPreview -> thumbnailData -> body
@@ -1513,8 +1741,9 @@ window.whl_hooks_main = () => {
                         mediaData = source;
                         break;
                     }
-                } else if (source.preview || source.data) {
-                    mediaData = source.preview || source.data;
+                } else if (typeof source.preview === 'string' || typeof source.data === 'string') {
+                    // Só strings: objetos internos do WhatsApp não são serializáveis
+                    mediaData = typeof source.preview === 'string' ? source.preview : source.data;
                     break;
                 }
             }
@@ -1529,9 +1758,13 @@ window.whl_hooks_main = () => {
         
         // FIX PEND-MED-005: Mark media for potential download
         const hasMediaUrl = !!(msg.deprecatedMms3Url || msg.directPath || msg.url);
-        const needsDownload = !mediaData && hasMediaUrl;
+        const canDownload = !!(mediaFields && mediaFields.directPath && mediaFields.mediaKey);
+        // O que veio embutido na mensagem é a miniatura quando dá para baixar o original.
+        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg && canDownload);
+        const needsDownload = !prevFullMedia && isMediaMsg && (canDownload || hasMediaUrl) && (!mediaData || mediaIsThumbnail);
+        if (prevFullMedia) mediaData = prevFullMedia;
 
-        if (needsDownload) {
+        if (!mediaData && hasMediaUrl) {
             // Marcar que tem mídia mas dados não disponíveis localmente
             mediaData = '__HAS_MEDIA__';
         }
@@ -1542,17 +1775,28 @@ window.whl_hooks_main = () => {
             body: body,
             from: from,
             timestamp: Date.now(),
+            // Horário real de envio (msg.t vem em segundos no WhatsApp Web).
+            t: typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null,
+            fromMe: !!(msg.id && msg.id.fromMe),
             type: mediaType,
             mimetype: mimetype,
             filename: filename,
             mediaData: mediaData, // NOVO: dados de mídia
-            isMedia: ['image', 'sticker', 'video', 'ptt', 'audio', 'document'].includes(mediaType),
+            mediaIsThumbnail: mediaIsThumbnail,
+            mediaDownloadTime: prevFullMedia ? prevCached.mediaDownloadTime : null,
+            thumbnail: thumbnail,
+            isMedia: isMediaMsg,
             // Dados extras para debug
             hasUrl: hasMediaUrl,
             // 🔧 FIX: Guardar dados de URL para re-download futuro (fallback quando __HAS_MEDIA__)
             directPath: msg.directPath || null,
             mediaKey: msg.mediaKey || null,
             mediaUrl: msg.deprecatedMms3Url || msg.url || null,
+            // Campos para baixar/decriptar o original depois da revogação
+            mediaKeyTimestamp: (mediaFields && mediaFields.mediaKeyTimestamp) || null,
+            filehash: (mediaFields && mediaFields.filehash) || null,
+            encFilehash: (mediaFields && mediaFields.encFilehash) || null,
+            size: (mediaFields && mediaFields.size) || null,
         };
 
         // Cachear com TODOS os IDs possíveis
@@ -1560,80 +1804,21 @@ window.whl_hooks_main = () => {
             messageCache.set(id, cacheData);
         });
 
-        // FIX PEND-MED-005: Proactive media download for critical types
-        if (needsDownload) {
-            const criticalMediaTypes = ['image', 'sticker', 'video', 'audio', 'ptt', 'document'];
-
-            if (criticalMediaTypes.includes(mediaType) && window.Store?.DownloadManager?.downloadMedia) {
-                // Attempt async download without blocking message processing
-                setTimeout(async () => {
-                    try {
-                        const media = await window.Store.DownloadManager.downloadMedia(msg);
-                        if (!media) return;
-
-                        // 🔧 FIX CRÍTICO: DownloadManager retorna um Blob que NÃO é serializável em JSON.
-                        // Converter para base64 Data URI antes de armazenar no cache/histórico.
-                        let base64Media = null;
-                        if (typeof media === 'string') {
-                            base64Media = media; // já é string/base64
-                        } else if (media instanceof Blob) {
-                            base64Media = await new Promise((res, rej) => {
-                                const reader = new FileReader();
-                                reader.onload = () => res(reader.result); // "data:mime;base64,..."
-                                reader.onerror = () => rej(new Error('FileReader error'));
-                                reader.readAsDataURL(media);
-                            });
-                        }
-
-                        if (!base64Media || base64Media.length < 50) return;
-
-                        // Atualizar messageCache com base64 serializável
-                        ids.forEach(id => {
-                            const existing = messageCache.get(id);
-                            if (existing) {
-                                messageCache.set(id, {
-                                    ...existing,
-                                    mediaData: base64Media,
-                                    mediaDownloadTime: Date.now()
-                                });
-                            }
-                        });
-
-                        // 🔧 FIX RACE CONDITION: Atualizar entradas do historicoRecover que foram
-                        // gravadas como '__HAS_MEDIA__' antes do download terminar.
-                        const idsSet = new Set(ids.map(String));
-                        let histUpdated = false;
-                        for (let i = 0; i < historicoRecover.length; i++) {
-                            const h = historicoRecover[i];
-                            const hId = String(h.id || '');
-                            const hPid = String(h.protocolId || '');
-                            if (idsSet.has(hId) || idsSet.has(hPid)) {
-                                const currentMedia = h.mediaData;
-                                const needsUpdate = !currentMedia ||
-                                    currentMedia === '__HAS_MEDIA__' ||
-                                    typeof currentMedia !== 'string' ||
-                                    currentMedia.length < 50;
-                                if (needsUpdate) {
-                                    historicoRecover[i] = { ...h, mediaData: base64Media };
-                                    histUpdated = true;
-                                    console.log('[WHL Cache] ✅ historicoRecover atualizado com mídia real (race condition fix):', hId.substring(0, 12));
-                                }
-                            }
-                        }
-
-                        if (histUpdated) {
-                            try {
-                                localStorage.setItem('whl_recover_history', JSON.stringify(historicoRecover));
-                                syncRecoverToExtension(historicoRecover);
-                            } catch (_) {}
-                        }
-
-                        console.log('[WHL Cache] ✅ Proactive media cached as base64:', ids[0]?.substring(0, 8), `(${Math.round(base64Media.length / 1024)}KB)`);
-                    } catch (e) {
-                        console.warn('[WHL Cache] Proactive media download failed:', e?.message);
-                    }
-                }, 100); // Small delay to not block message rendering
-            }
+        // FIX PEND-MED-005: download antecipado da mídia original (mensagens
+        // novas). A pré-carga (seed) não baixa nada: centenas de mensagens
+        // antigas — se uma delas for apagada, o original é baixado na hora.
+        if (needsDownload && !seed && (!mediaFields || !mediaFields.size || mediaFields.size <= PROACTIVE_MEDIA_MAX_BYTES)) {
+            setTimeout(() => {
+                baixarMidiaWA(msg, mediaFields)
+                    .then(dataUrl => {
+                        if (!dataUrl || dataUrl.length < 50) return;
+                        // Atualiza o cache e, se a mensagem já foi apagada nesse meio
+                        // tempo, o registro do Recover (antes ficava '__HAS_MEDIA__').
+                        aplicarMidiaBaixada(ids, dataUrl, mediaFields, { budget: true });
+                        console.log('[WHL Cache] ✅ Mídia original em cache:', ids[0]?.substring(0, 8), `(${Math.round(dataUrl.length / 1024)}KB)`);
+                    })
+                    .catch(e => console.warn('[WHL Cache] Proactive media download failed:', e?.message));
+            }, 100); // Small delay to not block message rendering
         }
         
         // Limitar tamanho do cache (reduzido para comportar mídia)
@@ -1641,9 +1826,14 @@ window.whl_hooks_main = () => {
             const firstKey = messageCache.keys().next().value;
             messageCache.delete(firstKey);
         }
-        
-        const logInfo = mediaData && mediaData !== '__HAS_MEDIA__' 
-            ? `[MÍDIA:${mediaType} - ${mediaData.substring(0,10)}...]` 
+
+        // Pré-carga: só alimenta o cache. Sem log e, principalmente, sem o
+        // WHL_MESSAGE_RECEIVED abaixo — ele aciona o autopilot, que não pode
+        // responder mensagens antigas só porque o cache foi pré-carregado.
+        if (seed) return;
+
+        const logInfo = mediaData && mediaData !== '__HAS_MEDIA__'
+            ? `[MÍDIA:${mediaType} - ${String(mediaData).substring(0,10)}...]` 
             : mediaData === '__HAS_MEDIA__' 
                 ? `[MÍDIA:${mediaType} - URL]`
                 : body.substring(0, 30);

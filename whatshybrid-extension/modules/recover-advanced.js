@@ -359,7 +359,43 @@
    * @param {Object} msg - Mensagem
    * @returns {string} Chave única
    */
+  // Rótulo antigo de "conteúdo não capturado" (afirmava ser mídia sem saber).
+  const LEGACY_MISSING_BODY = '[Mensagem sem texto - mídia ou sticker]';
+
+  function hasStoredMedia(msg) {
+    return !!msg && typeof msg.mediaData === 'string' && msg.mediaData.length > 50 && msg.mediaData !== '__HAS_MEDIA__';
+  }
+
+  function isContentMissing(msg) {
+    if (!msg || msg.contentCaptured === false) return true;
+    if (hasStoredMedia(msg)) return false;
+    return !msg.body || msg.body === LEGACY_MISSING_BODY;
+  }
+
+  // Núcleo do id de mensagem do WhatsApp ("3EB0…", também dentro de
+  // "true_5521…@c.us_3EB0…"), para comparar ids vindos de fontes diferentes.
+  // O fallback Date.now() (13 dígitos) não é um id de mensagem.
+  function messageIdCore(id) {
+    const s = String(id || '');
+    const m = s.match(/[A-F0-9]{16,}/i);
+    if (m) return m[0].toUpperCase();
+    return /^\d{12,14}$/.test(s) ? '' : s;
+  }
+
   function generateDeduplicationKey(msg) {
+    // Com id real, a chave é a própria mensagem + a ação. Antes era só
+    // texto + números + minuto: duas mensagens diferentes com o mesmo texto
+    // apagadas no mesmo minuto viravam uma só (a segunda sumia do histórico).
+    // Edição inclui o texto novo: a mesma mensagem pode ser editada várias vezes.
+    const idCore = messageIdCore(msg.id || msg.msgId);
+    if (idCore) {
+      const action = msg.action || '';
+      if (action === 'edited') {
+        return `${idCore}_edited_${hashString(String(msg.body || '').trim())}`;
+      }
+      return `${idCore}_${action}`;
+    }
+
     const body = (msg.body || msg.text || msg.originalBody || '').trim().slice(0, 100);
     const from = cleanPhoneNumber(msg.from || '') || 'unknown';
     const to = cleanPhoneNumber(msg.to || msg.chatId || '') || 'unknown';
@@ -409,9 +445,11 @@
         const existingFromValid = isRealPhoneNumber(existing.from);
         const existingToValid = isRealPhoneNumber(existing.to || existing.chatId);
         
-        // Preferir a versão com números válidos
-        if ((fromValid || toValid) && !(existingFromValid || existingToValid)) {
-          // Nova mensagem tem números melhores, substituir
+        // Preferir a versão com números válidos — ou, empatando, a que tem o
+        // conteúdo original (a mesma exclusão pode chegar de duas fontes).
+        const betterNumbers = (fromValid || toValid) && !(existingFromValid || existingToValid);
+        const betterContent = isContentMissing(existing) && !isContentMissing(msg);
+        if (betterNumbers || betterContent) {
           const idx = result.indexOf(existing);
           if (idx !== -1) {
             result[idx] = msg;
@@ -600,6 +638,8 @@
       
       if (recoverTypes.includes(e.data?.type)) {
         await handleNewMessage(e.data.payload || e.data);
+      } else if (e.data?.type === 'WHL_RECOVER_MEDIA_READY') {
+        await applyMediaUpdate(e.data.payload);
       }
     });
 
@@ -685,10 +725,14 @@
       body: msgData.body || msgData.text || msgData.caption || '',
       previousBody: msgData.previousBody || msgData.previousContent || null,
       mediaType: msgData.mediaType || msgData.mimetype || null,
+      mimetype: msgData.mimetype || null,
+      filename: msgData.filename || null,
       mediaDataPreview: msgData.mediaDataPreview || msgData.thumbnail || null,
       mediaDataFull: null, // Só preenchido quando usuário solicitar
       transcription: msgData.transcription || null,
       timestamp: msgData.timestamp || Date.now(),
+      contentCaptured: msgData.contentCaptured !== false,
+      mediaIsThumbnail: msgData.mediaIsThumbnail === true,
       origin,
       capturedAt: Date.now()
     };
@@ -805,8 +849,27 @@
       mediaType: data.mediaType || data.mimetype || null,
       filename: data.filename || null,
       previousContent: data.previousContent || data.originalBody || null,  // Para mensagens editadas
+      // Horário em que a mensagem foi ENVIADA (timestamp acima = momento do
+      // evento: exclusão/revogação/edição). null quando não foi possível saber.
+      originalTimestamp: typeof data.originalTimestamp === 'number' && data.originalTimestamp > 0
+        ? data.originalTimestamp : null,
+      // false = o evento foi visto, mas o conteúdo original não estava no cache
+      contentCaptured: data.contentCaptured !== false,
+      fromMe: data.fromMe === true,
+      // Mídia: campos para baixar/decriptar o original depois (painel → Baixar)
+      mediaIsThumbnail: data.mediaIsThumbnail === true,
+      directPath: data.directPath || null,
+      mediaKey: data.mediaKey || null,
+      mediaKeyTimestamp: data.mediaKeyTimestamp || null,
+      filehash: data.filehash || null,
+      encFilehash: data.encFilehash || null,
+      size: typeof data.size === 'number' ? data.size : null,
       sentiment: null
     };
+    if (!msg.mimetype && typeof data.mediaData === 'string') {
+      const mm = data.mediaData.match(/^data:([^;,]+)[;,]/);
+      if (mm) msg.mimetype = mm[1];
+    }
 
     // 8.4 - Análise de sentimento
     if (msg.body) {
@@ -814,14 +877,15 @@
     }
 
     // 6.16-6.18 - Capturar mídia em qualidade original
+    // O original costuma chegar depois (WHL_RECOVER_MEDIA_READY, baixado pela
+    // página). O download por aqui é só reserva e roda em segundo plano: antes
+    // era aguardado (até 3 tentativas com espera) e atrasava o registro — e o
+    // banner da mensagem apagada no chat ficava sem conteúdo nesse intervalo.
+    let backgroundDownload = false;
     if (data.mediaData && data.mediaData !== '__HAS_MEDIA__') {
       msg.mediaData = data.mediaData;
     } else if (data.mediaKey || ['image', 'video', 'audio', 'ptt', 'sticker', 'document'].includes(msg.type)) {
-      // 8.1 - Tentar download ativo
-      const downloaded = await downloadMediaActive(data);
-      if (downloaded?.success && downloaded.data) {
-        msg.mediaData = downloaded.data;
-      }
+      backgroundDownload = true;
     }
 
     // 8.15 - Compressão se necessário (tamanho REAL em bytes, não .length)
@@ -871,10 +935,14 @@
       const existingFromValid = isRealPhoneNumber(existing.from);
       const existingToValid = isRealPhoneNumber(existing.to);
       
-      // Substituir apenas se a nova versão tiver números melhores
+      // Substituir se a nova versão tiver números melhores — ou se trouxer o
+      // conteúdo original que a primeira não tinha (mantém o horário do evento).
       if ((fromValid || toValid) && !(existingFromValid || existingToValid)) {
         console.log('[RecoverAdvanced] 🔄 Substituindo duplicata com números válidos');
         state.messages[existingIdx] = msg;
+      } else if (isContentMissing(existing) && !isContentMissing(msg)) {
+        console.log('[RecoverAdvanced] 🔄 Completando registro com o conteúdo original');
+        state.messages[existingIdx] = { ...msg, timestamp: existing.timestamp || msg.timestamp };
       } else {
         console.log('[RecoverAdvanced] ⚠️ Duplicata ignorada:', dedupKey);
       }
@@ -901,6 +969,91 @@
     }
 
     console.log('[RecoverAdvanced] ✅ Mensagem capturada:', msg.action, msg.type, msg.from);
+
+    if (backgroundDownload) {
+      // 8.1 - Tentar download ativo (reserva: backend com mediaKey/directPath)
+      downloadMediaActive(data)
+        .then(downloaded => {
+          if (downloaded?.success && downloaded.data) {
+            return applyMediaUpdate({ id: msg.id, action: msg.action, mediaData: downloaded.data, mimetype: msg.mimetype });
+          }
+          return null;
+        })
+        .catch(e => console.warn('[RecoverAdvanced] Download de mídia em segundo plano falhou:', e?.message || e));
+    }
+  }
+
+  // Rótulo que a página grava quando a mídia ainda não tinha o arquivo.
+  const MEDIA_PENDING_BODY_RE = /^\[[^\]]* apagad[oa] — arquivo não disponível\]$/;
+
+  /**
+   * Anexa a mídia ORIGINAL (baixada depois do registro) às mensagens do
+   * Recover com esse id e ao histórico de versões. Usado pelo
+   * WHL_RECOVER_MEDIA_READY da página e pelo download em segundo plano.
+   */
+  async function applyMediaUpdate(payload) {
+    if (!payload || typeof payload.mediaData !== 'string' || payload.mediaData.length < 50) return 0;
+    const ids = new Set([messageIdCore(payload.id), messageIdCore(payload.protocolId)].filter(Boolean));
+    if (!ids.size) return 0;
+
+    let mimetype = payload.mimetype || null;
+    const mm = payload.mediaData.match(/^data:([^;,]+)[;,]/);
+    if (!mimetype && mm) mimetype = mm[1];
+
+    let mediaData = stripDataUrlPrefix(payload.mediaData);
+    if (estimateBase64Bytes(mediaData) > CONFIG.MAX_MEDIA_SIZE) {
+      const compressed = await compressMedia(mediaData, payload.type || mimetype);
+      if (estimateBase64Bytes(compressed) > CONFIG.MAX_MEDIA_SIZE) {
+        // Grande demais para guardar: o botão Baixar do painel busca de novo
+        // pelos campos (directPath/mediaKey) que o registro já tem.
+        console.warn('[RecoverAdvanced] ⚠️ Mídia original acima do limite — mantendo só os dados para baixar');
+        return 0;
+      }
+      mediaData = compressed;
+    }
+
+    let updated = 0;
+    state.messages.forEach((m, i) => {
+      if (!m || !(ids.has(messageIdCore(m.id)) || ids.has(messageIdCore(m.protocolId)))) return;
+      if (payload.action && m.action && payload.action !== m.action && m.action === 'edited') return;
+      const hasFull = typeof m.mediaData === 'string' && m.mediaData.length > 50 &&
+        m.mediaData !== '__HAS_MEDIA__' && !m.mediaIsThumbnail;
+      if (hasFull) return;
+      state.messages[i] = {
+        ...m,
+        body: typeof m.body === 'string' && MEDIA_PENDING_BODY_RE.test(m.body) ? '' : m.body,
+        mediaData,
+        mediaIsThumbnail: false,
+        mimetype: m.mimetype || mimetype,
+        filename: m.filename || payload.filename || null,
+        contentCaptured: true
+      };
+      updated++;
+    });
+
+    messageVersions.forEach((entry, key) => {
+      if (!entry || !(ids.has(messageIdCore(key)) || ids.has(messageIdCore(entry.id)))) return;
+      (entry.history || []).forEach(ev => {
+        if (ev && ev.state !== MESSAGE_STATES.EDITED && REVOKED_UNIVERSE_STATES.includes(ev.state)) {
+          ev.mediaDataPreview = mediaData;
+          ev.mediaIsThumbnail = false;
+          ev.contentCaptured = true;
+          if (!ev.mediaType && mimetype) ev.mediaType = mimetype;
+          if (!ev.mimetype && mimetype) ev.mimetype = mimetype;
+          if (!ev.filename && payload.filename) ev.filename = payload.filename;
+          if (typeof ev.body === 'string' && MEDIA_PENDING_BODY_RE.test(ev.body)) ev.body = '';
+        }
+      });
+    });
+
+    if (updated) {
+      await saveToStorage();
+      if (window.EventBus) {
+        window.EventBus.emit('recover:message_updated', { id: payload.id, mediaReady: true });
+      }
+      console.log('[RecoverAdvanced] ✅ Mídia original anexada:', updated, 'registro(s)');
+    }
+    return updated;
   }
 
   // ============================================
@@ -2142,15 +2295,32 @@
     }
   }
 
+  // Tipo de mídia de um registro (ou null se não for mídia). Olha o tipo da
+  // mensagem e também o mediaType/mimetype — um registro de imagem gravado com
+  // type 'chat' e mediaType 'image' ou 'image/jpeg' contava no filtro, mas não
+  // no contador "Mídias" (que só olhava type). Fonte única para os dois.
+  const MEDIA_KINDS = ['image', 'video', 'audio', 'ptt', 'document', 'sticker'];
+  function mediaKindOf(m) {
+    if (!m) return null;
+    const norm = (k) => (k === 'ptt' ? 'audio' : k);
+    const type = String(m.type || '').toLowerCase();
+    if (MEDIA_KINDS.includes(type)) return norm(type);
+    const mt = String(m.mediaType || m.mimetype || '').toLowerCase();
+    if (MEDIA_KINDS.includes(mt)) return norm(mt);
+    if (mt.startsWith('image/')) return 'image';
+    if (mt.startsWith('video/')) return 'video';
+    if (mt.startsWith('audio/')) return 'audio';
+    if (mt.startsWith('application/')) return 'document';
+    return null;
+  }
+
   function getFilteredMessages() {
     let filtered = [...state.messages];
 
     // Filtro por tipo de ação
     if (state.filters.type !== 'all') {
       if (state.filters.type === 'media') {
-        filtered = filtered.filter(m => 
-          ['image', 'video', 'audio', 'ptt', 'document', 'sticker'].includes(m.type)
-        );
+        filtered = filtered.filter(m => mediaKindOf(m) !== null);
       } else if (state.filters.type === 'favorites') {
         // CORREÇÃO 2.1: Adicionar filtro de favoritos
         filtered = filtered.filter(m => state.favorites.has(m.id));
@@ -2220,13 +2390,16 @@
       // dessincronizado do refresh. Inclui aqui pra sair do stats síncrono.
       ver1x: all.filter(m => m.action === 'view_once' || m.isViewOnce === true).length,
       favorites: state.favorites.size,
+      // Mesmo critério do filtro "Mídia" (mediaKindOf). "Mídias" no painel =
+      // registros do Recover (apagados/revogados/editados) cujo conteúdo é
+      // mídia — não toda mídia da conversa.
       byType: {
-        chat: all.filter(m => m.type === 'chat').length,
-        image: all.filter(m => m.type === 'image').length,
-        video: all.filter(m => m.type === 'video').length,
-        audio: all.filter(m => ['audio', 'ptt'].includes(m.type)).length,
-        sticker: all.filter(m => m.type === 'sticker').length,
-        document: all.filter(m => m.type === 'document').length
+        chat: all.filter(m => mediaKindOf(m) === null).length,
+        image: all.filter(m => mediaKindOf(m) === 'image').length,
+        video: all.filter(m => mediaKindOf(m) === 'video').length,
+        audio: all.filter(m => mediaKindOf(m) === 'audio').length,
+        sticker: all.filter(m => mediaKindOf(m) === 'sticker').length,
+        document: all.filter(m => mediaKindOf(m) === 'document').length
       },
       bySentiment: {
         positive: all.filter(m => m.sentiment === 'positive').length,
@@ -2890,6 +3063,7 @@
     
     // Mensagens
     getMessages: () => [...state.messages],
+    applyMediaUpdate,
     getFilteredMessages,
     addMessage: handleNewMessage,
     

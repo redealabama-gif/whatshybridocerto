@@ -180,6 +180,18 @@
     // Também verificar quando a conversa muda
     setupChatChangeListener();
 
+    // Registro novo (ou mídia que chegou depois) no Recover → completa os
+    // banners na hora, sem esperar a próxima verificação periódica.
+    if (window.EventBus?.on) {
+      let kickTimer = null;
+      const kick = () => {
+        clearTimeout(kickTimer);
+        kickTimer = setTimeout(processExistingMessages, 150);
+      };
+      window.EventBus.on('recover:message_added', kick);
+      window.EventBus.on('recover:message_updated', kick);
+    }
+
     initialized = true;
     console.log('[RecoverVisualInjector] ✅ Inicializado com', persistentMarkers.size, 'marcadores');
 
@@ -293,9 +305,13 @@
         font-size: 14px;
       }
 
+      /* Cor herdada do balão: segue o tema do WhatsApp (claro/escuro), não o
+         do sistema — antes, com sistema claro e WhatsApp escuro, o texto
+         original ficava escuro sobre o balão escuro (quase invisível). */
       .${CONFIG.QUOTE_CLASS}-content {
         font-size: 13px;
-        color: rgba(255, 255, 255, 0.85);
+        color: inherit;
+        opacity: 0.9;
         line-height: 1.4;
         word-break: break-word;
         max-height: 60px;
@@ -305,9 +321,43 @@
 
       .${CONFIG.QUOTE_CLASS}-footer {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.5);
+        color: inherit;
+        opacity: 0.6;
         margin-top: 4px;
         font-style: italic;
+      }
+
+      .${CONFIG.QUOTE_CLASS}-media {
+        display: block;
+        max-width: 220px;
+        max-height: 220px;
+        width: auto;
+        border-radius: 6px;
+        margin: 4px 0;
+        object-fit: cover;
+      }
+
+      .${CONFIG.QUOTE_CLASS}-audio {
+        display: block;
+        width: 240px;
+        max-width: 100%;
+        height: 36px;
+        margin: 4px 0;
+      }
+
+      .${CONFIG.QUOTE_CLASS}-download {
+        display: inline-block;
+        font-size: 12px;
+        margin-top: 4px;
+        color: #53bdeb;
+        text-decoration: none;
+      }
+
+      .${CONFIG.QUOTE_CLASS}-label {
+        font-size: 12px;
+        opacity: 0.85;
+        margin-top: 2px;
+        word-break: break-word;
       }
 
       /* Variação para editadas */
@@ -329,15 +379,6 @@
         position: relative;
       }
 
-      /* Tema claro */
-      @media (prefers-color-scheme: light) {
-        .${CONFIG.QUOTE_CLASS}-content {
-          color: rgba(0, 0, 0, 0.75);
-        }
-        .${CONFIG.QUOTE_CLASS}-footer {
-          color: rgba(0, 0, 0, 0.5);
-        }
-      }
     `;
 
     if (!document.getElementById('whl-recover-visual-styles')) {
@@ -375,6 +416,186 @@
     console.log('[RecoverVisualInjector] 👁️ MutationObserver ativo');
   }
 
+  // ============================================
+  // CONTEÚDO ORIGINAL (mesma fonte usada pelo painel Recover)
+  // ============================================
+
+  const REVOKED_STATES = ['revoked_global', 'deleted_local'];
+
+  // Textos que o próprio Recover grava quando NÃO conseguiu o conteúdo —
+  // não são o conteúdo original e não devem aparecer como se fossem.
+  const PLACEHOLDER_RE = /^\[(Conteúdo não capturado|Mensagem sem texto|[^\]]* apagad[oa] — arquivo não disponível)/i;
+
+  const MEDIA_LABELS = {
+    image: '📷 Imagem',
+    video: '🎥 Vídeo',
+    audio: '🎵 Áudio',
+    sticker: '🏷️ Figurinha',
+    document: '📄 Arquivo'
+  };
+
+  function isRealContent(text) {
+    return typeof text === 'string' && text.trim() !== '' && !PLACEHOLDER_RE.test(text.trim());
+  }
+
+  function mediaKindOf(ev) {
+    if (!ev) return null;
+    const candidates = [ev.type, ev.mediaType].map(v => String(v || '').toLowerCase());
+    for (const t of candidates) {
+      if (t === 'ptt') return 'audio';
+      if (MEDIA_LABELS[t]) return t;
+    }
+    const mime = String(ev.mimetype || (String(ev.mediaType || '').includes('/') ? ev.mediaType : '') || '').toLowerCase();
+    if (mime.startsWith('image/')) return 'image';
+    if (mime.startsWith('video/')) return 'video';
+    if (mime.startsWith('audio/')) return 'audio';
+    if (mime) return 'document';
+    return null;
+  }
+
+  const DEFAULT_MIME = { audio: 'audio/ogg', video: 'video/mp4', document: 'application/octet-stream' };
+
+  function sniffImageSrc(raw) {
+    if (raw.startsWith('/9j/')) return `data:image/jpeg;base64,${raw}`;
+    if (raw.startsWith('iVBOR')) return `data:image/png;base64,${raw}`;
+    if (raw.startsWith('R0lGOD')) return `data:image/gif;base64,${raw}`;
+    if (raw.startsWith('UklGR')) return `data:image/webp;base64,${raw}`;
+    return null;
+  }
+
+  function mediaSrcOf(raw, mime, kind, isThumbnail) {
+    if (typeof raw !== 'string' || raw.length < 50 || raw === '__HAS_MEDIA__') return null;
+    if (raw.startsWith('data:')) return raw;
+    // Imagem/figurinha (ou a miniatura de um vídeo): pelo cabeçalho do arquivo.
+    if (kind === 'image' || kind === 'sticker' || isThumbnail) {
+      const sniffed = sniffImageSrc(raw);
+      if (sniffed) return sniffed;
+    }
+    // Áudio/vídeo/arquivo: pelo tipo real (um WAV começa como um WEBP, "RIFF").
+    // Sem parâmetros ("audio/ogg; codecs=opus" → "audio/ogg") no data URL.
+    const m = mime && String(mime).includes('/') ? String(mime).split(';')[0].trim() : DEFAULT_MIME[kind];
+    return m ? `data:${m};base64,${raw}` : null;
+  }
+
+  /**
+   * Conteúdo original de um evento — o mesmo que o painel mostra.
+   * Edição: o texto ANTERIOR. Exclusão/revogação: o texto (ou a legenda) e,
+   * se era mídia, a própria mídia (imagem/miniatura, áudio) ou o arquivo.
+   * Retorna { text, label, media } ou null.
+   */
+  function contentFromEvent(ev, state) {
+    if (!ev) return null;
+    if (state === 'edited') {
+      const text = ev.previousBody || ev.previousContent || ev.body;
+      return isRealContent(text) ? { text, label: null, media: null } : null;
+    }
+    const text = isRealContent(ev.body) ? ev.body : null;
+    const kind = mediaKindOf(ev);
+    if (!kind) {
+      return text ? { text, label: null, media: null } : null;
+    }
+    const mime = ev.mimetype || (String(ev.mediaType || '').includes('/') ? ev.mediaType : null);
+    const isThumbnail = !!ev.mediaIsThumbnail;
+    const src = mediaSrcOf(ev.mediaDataPreview || ev.mediaData, mime, kind, isThumbnail);
+    if (!text && !src && ev.contentCaptured === false) return null;
+    return {
+      text,
+      label: MEDIA_LABELS[kind],
+      media: { kind, src, mime, filename: ev.filename || null, isThumbnail: !!(src && isThumbnail) }
+    };
+  }
+
+  // Pronto = tem o que mostrar e, se é mídia, o arquivo original já chegou
+  // (só a miniatura, ou nada, continua sendo verificado por um tempo).
+  function isComplete(found) {
+    if (!found || !(found.text || found.label)) return false;
+    if (found.media && (!found.media.src || found.media.isThumbnail)) return false;
+    return true;
+  }
+
+  // Junta o que as duas fontes têm (ex.: registro antigo sem nome do arquivo
+  // no histórico de versões, mas com ele na lista do painel).
+  function mergeFound(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const media = a.media || b.media ? { ...(b.media || {}), ...(a.media || {}) } : null;
+    if (media && a.media && b.media) {
+      if (!a.media.src || (a.media.isThumbnail && b.media.src && !b.media.isThumbnail)) {
+        media.src = b.media.src;
+        media.isThumbnail = b.media.isThumbnail;
+      }
+      media.filename = a.media.filename || b.media.filename || null;
+      media.mime = a.media.mime || b.media.mime || null;
+    }
+    return { ...b, ...a, text: a.text || b.text, label: a.label || b.label, media, timestamp: a.timestamp || b.timestamp };
+  }
+
+  function stateMatches(evState, state) {
+    if (!evState) return false;
+    if (state === 'edited') return evState === 'edited';
+    return REVOKED_STATES.includes(evState);
+  }
+
+  /**
+   * Procura o conteúdo original da mensagem no que o RecoverAdvanced já
+   * registrou: primeiro no histórico de versões (messageVersions), depois na
+   * lista de mensagens do painel. Retorna { text, label, media, timestamp },
+   * ou { notCaptured: true } quando o evento foi registrado mas sem o conteúdo
+   * (a mensagem foi apagada antes de a extensão vê-la), ou null quando ainda
+   * não há registro.
+   */
+  function lookupOriginalContent(msgId, state) {
+    const ra = window.RecoverAdvanced;
+    if (!ra || !msgId) return null;
+    let recordFound = false;
+    let fromVersions = null;
+    let fromList = null;
+
+    try {
+      const entry = ra.messageVersions?.get?.(msgId);
+      const history = entry?.history;
+      if (Array.isArray(history)) {
+        for (let i = history.length - 1; i >= 0; i--) {
+          const ev = history[i];
+          if (!ev || !stateMatches(ev.state, state)) continue;
+          recordFound = true;
+          const found = contentFromEvent({ ...ev, type: ev.type || entry.type }, state);
+          if (found) {
+            const f = { ...found, timestamp: ev.timestamp || null };
+            if (!fromVersions || (isComplete(f) && !isComplete(fromVersions))) fromVersions = f;
+            if (isComplete(f)) break;
+          }
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    if (!fromVersions || !isComplete(fromVersions) || (fromVersions.media && !fromVersions.media.filename)) {
+      try {
+        const list = typeof ra.getMessages === 'function' ? ra.getMessages() : [];
+        for (let i = 0; i < list.length; i++) {
+          const m = list[i];
+          if (!m || String(m.id) !== msgId) continue;
+          const action = m.action === 'edited' ? 'edited' : (m.action === 'deleted' ? 'deleted_local' : 'revoked_global');
+          if (!stateMatches(action, state)) continue;
+          recordFound = true;
+          const found = contentFromEvent(m, state);
+          if (found) {
+            fromList = { ...found, timestamp: m.timestamp || null };
+            break;
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    const merged = mergeFound(fromVersions, fromList);
+    if (merged) return merged;
+    return recordFound ? { notCaptured: true } : null;
+  }
+
+  // Sem registro com o conteúdo depois deste tempo, o banner deixa de dizer
+  // "buscando" e assume que o conteúdo não foi capturado.
+  const PENDING_GIVE_UP_MS = 15000;
+
   /**
    * Processa todas as mensagens existentes no chat
    */
@@ -404,8 +625,10 @@
    * @param {HTMLElement} msgEl - Elemento da mensagem
    */
   function processMessage(msgEl) {
-    // Verificar se já foi processado
-    if (msgEl.getAttribute(CONFIG.INJECTED_ATTR)) {
+    // Já processado com o conteúdo original → nada a fazer. Se ficou
+    // 'pending' (o banner foi criado antes de o registro com o conteúdo
+    // chegar), continua tentando até o conteúdo aparecer.
+    if (msgEl.getAttribute(CONFIG.INJECTED_ATTR) === 'true') {
       return;
     }
 
@@ -425,9 +648,8 @@
       return;
     }
 
-    let lastEvent = null;
     let state = null;
-    let originalContent = null;
+    let stateTimestamp = null;
 
     // Apenas estes 3 estados merecem badge. Estados como "created",
     // "snapshot_initial", "cached_only" são metadados internos do
@@ -444,8 +666,7 @@
     if (persistentMarker && BADGE_STATES.includes(persistentMarker.state)) {
       if (domConfirmsState(msgEl, persistentMarker.state)) {
         state = persistentMarker.state;
-        lastEvent = persistentMarker;
-        originalContent = persistentMarker.originalContent;
+        stateTimestamp = persistentMarker.timestamp || null;
       } else {
         // Marker stale — remove pra não voltar no próximo render.
         try {
@@ -463,18 +684,8 @@
         // Só aceita estado se for um dos 3 que geram badge — antes qualquer
         // 'created'/'cached_only' virava badge nulo mas marcava processado.
         if (candidate && BADGE_STATES.includes(candidate.state)) {
-          lastEvent = candidate;
           state = candidate.state;
-          originalContent = candidate.body || candidate.previousBody;
-
-          // Salvar como marcador persistente para próximos reloads
-          addPersistentMarker(msgId, {
-            state: state,
-            originalContent: originalContent,
-            timestamp: candidate.timestamp,
-            chatId: messageHistory.chatId,
-            from: messageHistory.from
-          });
+          stateTimestamp = candidate.timestamp || null;
         }
       }
     }
@@ -489,12 +700,7 @@
       const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
 
       // Mensagem apagada (revogada globalmente)
-      const isRevoked = hasRecalledIcon || (directText && (
-        directText.includes('Esta mensagem foi apagada') ||
-        directText.includes('This message was deleted') ||
-        directText.includes('Mensagem apagada') ||
-        directText.includes('Message deleted')
-      ));
+      const isRevoked = hasRecalledIcon || textLooksRevoked(directText);
 
       // Mensagem editada — WhatsApp anexa "<Editada>" ou "<Edited>" ou
       // mostra um label "Editada"/"Edited" ao lado do timestamp.
@@ -510,26 +716,6 @@
         state = 'revoked_global';
       } else if (isEdited) {
         state = 'edited';
-      }
-
-      if (state) {
-        // Tentar encontrar conteúdo original no RecoverDOM
-        if (window.RecoverDOM?.getHistory) {
-          const history = window.RecoverDOM.getHistory();
-          const match = history.find(h => h.key === msgId || h.id === msgId);
-          if (match) {
-            originalContent = match.body || match.originalBody;
-          }
-        }
-
-        // Salvar marcador persistente
-        if (!persistentMarker || persistentMarker.state !== state) {
-          addPersistentMarker(msgId, {
-            state: state,
-            originalContent: originalContent || null,
-            timestamp: Date.now()
-          });
-        }
       }
     }
 
@@ -551,11 +737,74 @@
       return;
     }
 
-    // Injetar quote visual
-    injectQuoteVisual(msgEl, badgeConfig, lastEvent || { originalContent, state });
+    // Conteúdo original — SEMPRE do registro do Recover (a mesma fonte do
+    // painel), a cada verificação enquanto não estiver completo. Antes o
+    // conteúdo era lido uma vez só: se o banner nascesse antes de o registro
+    // chegar (o WhatsApp troca o balão por "Mensagem apagada" na hora), o
+    // marcador ficava sem conteúdo e o banner vazio para sempre.
+    let found = lookupOriginalContent(msgId, state);
+    let notCaptured = !!(found && found.notCaptured);
+    if (!found || !(found.text || found.label)) {
+      // Reservas: marcador salvo (após reload) e histórico do RecoverDOM.
+      let text = persistentMarker && isRealContent(persistentMarker.originalContent)
+        ? persistentMarker.originalContent : null;
+      if (!text && window.RecoverDOM?.getHistory) {
+        try {
+          const match = window.RecoverDOM.getHistory().find(h => h.key === msgId || h.id === msgId);
+          if (match && isRealContent(match.body || match.originalBody)) text = match.body || match.originalBody;
+        } catch (_) { /* ignore */ }
+      }
+      if (text) {
+        // fromFallback: o registro do Recover ainda pode chegar (ex.: logo após
+        // o reload) com a mídia — continua verificando por um tempo.
+        found = { text, label: null, media: null, timestamp: stateTimestamp, fromFallback: true };
+        notCaptured = false;
+      }
+    }
 
-    // Marcar como processado
-    msgEl.setAttribute(CONFIG.INJECTED_ATTR, 'true');
+    const hasContent = !!(found && (found.text || found.label));
+    const markerContent = hasContent ? (found.text || found.label) : null;
+    if (!persistentMarker || persistentMarker.state !== state ||
+        (markerContent && persistentMarker.originalContent !== markerContent)) {
+      const entry = window.RecoverAdvanced?.messageVersions?.get?.(msgId);
+      addPersistentMarker(msgId, {
+        state: state,
+        originalContent: markerContent,
+        timestamp: (found && found.timestamp) || stateTimestamp || Date.now(),
+        chatId: entry?.chatId,
+        from: entry?.from
+      });
+    }
+
+    const PENDING_ATTR = 'data-whl-pending-since';
+    let pendingExpired = false;
+    if (!hasContent || found.fromFallback || !isComplete(found)) {
+      let since = Number(msgEl.getAttribute(PENDING_ATTR));
+      if (!since) {
+        since = Date.now();
+        msgEl.setAttribute(PENDING_ATTR, String(since));
+      }
+      pendingExpired = Date.now() - since > PENDING_GIVE_UP_MS;
+      if (!hasContent && pendingExpired) notCaptured = true;
+    }
+
+    // Injetar (ou completar) o quote visual
+    injectQuoteVisual(msgEl, badgeConfig, {
+      state,
+      timestamp: (found && found.timestamp) || stateTimestamp,
+      text: hasContent ? found.text : null,
+      label: hasContent ? found.label : null,
+      media: hasContent ? found.media : null,
+      notCaptured,
+      pendingExpired
+    });
+
+    // 'true' = pronto (ou registrado sem conteúdo, não vai mudar);
+    // 'pending' = ainda falta o conteúdo ou a mídia — será completado quando
+    // o registro (ou o arquivo) chegar, ver o recheck no início.
+    const done = (hasContent && (isComplete(found) || pendingExpired) && (!found.fromFallback || pendingExpired)) ||
+      (!hasContent && found && found.notCaptured);
+    msgEl.setAttribute(CONFIG.INJECTED_ATTR, done ? 'true' : 'pending');
   }
 
   /**
@@ -597,12 +846,7 @@
       const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
       const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
 
-      const looksRevoked = hasRecalledIcon || (directText && (
-        directText.includes('Esta mensagem foi apagada') ||
-        directText.includes('This message was deleted') ||
-        directText.includes('Mensagem apagada') ||
-        directText.includes('Message deleted')
-      ));
+      const looksRevoked = hasRecalledIcon || textLooksRevoked(directText);
 
       const looksEdited = !looksRevoked && (hasEditedLabel || (directText && (
         directText.includes('<Editada>') ||
@@ -618,6 +862,24 @@
       // Se não conseguimos avaliar, fica conservador: rejeita o marker.
       return false;
     }
+  }
+
+  // Textos que o WhatsApp mostra no lugar de uma mensagem apagada — inclui a
+  // versão de quem apagou ("Você apagou esta mensagem").
+  const REVOKED_TEXTS = [
+    'Esta mensagem foi apagada',
+    'Essa mensagem foi apagada',
+    'Você apagou esta mensagem',
+    'Você apagou essa mensagem',
+    'Mensagem apagada',
+    'This message was deleted',
+    'You deleted this message',
+    'Message deleted'
+  ];
+
+  function textLooksRevoked(directText) {
+    if (!directText) return false;
+    return REVOKED_TEXTS.some(t => directText.includes(t));
   }
 
   function extractDirectMessageText(msgEl) {
@@ -650,13 +912,27 @@
    * @param {HTMLElement} msgEl - Elemento da mensagem
    * @returns {string|null} ID da mensagem
    */
+  /**
+   * data-id do WhatsApp: "<fromMe>_<chat>_<id>[_<autor em grupos>]".
+   * O id da mensagem é o 3º segmento — é com ele que o Recover registra.
+   * (A regex antiga pegava o primeiro trecho de 16+ dígitos/hex, que em
+   * grupos/@lid é o número do chat, não o id da mensagem.)
+   */
+  function idFromDataId(dataId) {
+    if (!dataId) return null;
+    const parts = String(dataId).split('_');
+    if (parts.length >= 3 && /^(true|false)$/.test(parts[0]) && parts[2]) {
+      return parts[2];
+    }
+    const match = String(dataId).match(/[A-F0-9]{16,}/);
+    return match ? match[0] : null;
+  }
+
   function extractMessageId(msgEl) {
     // Método 1: data-id
     const dataId = msgEl.getAttribute('data-id');
     if (dataId) {
-      // Extrair apenas o ID sem prefixos
-      const match = dataId.match(/[A-F0-9]{16,}/);
-      return match ? match[0] : dataId;
+      return idFromDataId(dataId) || dataId;
     }
 
     // Método 2: data-testid contém ID
@@ -668,9 +944,7 @@
     // Método 3: Procurar em atributos do elemento pai
     const parent = msgEl.closest('[data-id]');
     if (parent) {
-      const parentId = parent.getAttribute('data-id');
-      const match = parentId.match(/[A-F0-9]{16,}/);
-      return match ? match[0] : null;
+      return idFromDataId(parent.getAttribute('data-id'));
     }
 
     return null;
@@ -682,45 +956,127 @@
    * @param {Object} config - Configuração do badge
    * @param {Object} event - Evento do histórico
    */
+  const EXT_BY_MIME = {
+    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/wav': 'wav',
+    'video/mp4': 'mp4', 'video/webm': 'webm', 'video/3gpp': '3gp',
+    'application/pdf': 'pdf', 'application/zip': 'zip', 'text/plain': 'txt'
+  };
+
+  function extOf(src) {
+    const mime = (String(src).match(/^data:([^;,]+)/) || [])[1] || '';
+    return EXT_BY_MIME[mime] || (mime.split('/')[1] || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'bin';
+  }
+
+  const NOT_CAPTURED_TEXT = 'Conteúdo original não capturado — a mensagem foi apagada antes de a extensão carregá-la.';
+
   function injectQuoteVisual(msgEl, config, event) {
     // Procurar container apropriado para inserir o quote
     const msgContainer = msgEl.closest('[data-testid="msg-container"]') || msgEl;
-    
-    // Verificar se já existe um quote injetado
-    if (msgContainer.querySelector(`.${CONFIG.QUOTE_CLASS}`)) {
-      return;
+    const isEdited = config.id === 'edited';
+
+    // Conteúdo original. Na edição é o texto anterior (body é o novo).
+    const text = event.text || event.originalContent ||
+      (isEdited ? (event.previousBody || event.body) : (event.body || event.previousBody)) ||
+      null;
+    const label = event.label || null;
+    const media = event.media || null;
+    const hasContent = !!(text || label);
+    const sig = [
+      text || '', label || '',
+      media && media.src ? media.src.length : 0,
+      media && media.isThumbnail ? 't' : '',
+      (media && media.filename) || '',
+      media && !media.src && event.pendingExpired ? 'x' : ''
+    ].join('|');
+
+    // Já existe um quote: troca só se agora há conteúdo diferente (o
+    // registro ou o arquivo chegou depois). Nunca troca conteúdo por vazio.
+    const existing = msgContainer.querySelector(`.${CONFIG.QUOTE_CLASS}`);
+    if (existing) {
+      if (!hasContent || existing.getAttribute('data-whl-sig') === sig) {
+        const note = existing.querySelector(`.${CONFIG.QUOTE_CLASS}-pending`);
+        if (note && event.notCaptured) note.textContent = NOT_CAPTURED_TEXT;
+        return;
+      }
+      existing.remove();
     }
 
-    // Obter conteúdo original
-    const originalContent = event.originalContent || event.body || event.previousBody || null;
     const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleString('pt-BR') : '';
 
     // Criar quote visual
     const quote = document.createElement('div');
-    const isEdited = config.id === 'edited';
     quote.className = `${CONFIG.QUOTE_CLASS}${isEdited ? ` ${CONFIG.QUOTE_CLASS}-edited` : ''}`;
-    
-    // Conteúdo do quote
-    let contentHtml = '';
-    if (originalContent) {
-      // Escapar HTML e truncar
-      const escaped = escapeHtml(originalContent);
-      const truncated = escaped.length > 150 ? escaped.substring(0, 150) + '...' : escaped;
-      contentHtml = `<div class="${CONFIG.QUOTE_CLASS}-content">${truncated}</div>`;
-    }
-    
-    quote.innerHTML = `
-      <div class="${CONFIG.QUOTE_CLASS}-header">
-        <span class="${CONFIG.QUOTE_CLASS}-icon">${config.emoji}</span>
-        <span>${config.text}</span>
-      </div>
-      ${contentHtml}
-      ${timestamp ? `<div class="${CONFIG.QUOTE_CLASS}-footer">Capturado em ${timestamp}</div>` : ''}
-    `;
+    quote.setAttribute('data-whl-sig', hasContent ? sig : '');
 
-    // Adicionar tooltip com conteúdo completo
-    if (originalContent && originalContent.length > 150) {
-      quote.title = `Conteúdo completo: ${originalContent}`;
+    const header = document.createElement('div');
+    header.className = `${CONFIG.QUOTE_CLASS}-header`;
+    header.innerHTML = `<span class="${CONFIG.QUOTE_CLASS}-icon">${config.emoji}</span><span>${escapeHtml(config.text)}</span>`;
+    quote.appendChild(header);
+
+    // Mídia apagada: a própria imagem/figurinha (ou a miniatura do vídeo),
+    // o áudio para ouvir, e o tipo + nome do arquivo.
+    if (media) {
+      if (media.src) {
+        let el = null;
+        const isImageSrc = media.src.startsWith('data:image');
+        if (media.kind === 'image' || media.kind === 'sticker' || (media.kind === 'video' && isImageSrc)) {
+          el = document.createElement('img');
+          el.alt = label || 'Mídia';
+        } else if (media.kind === 'audio') {
+          el = document.createElement('audio');
+          el.controls = true;
+          el.preload = 'metadata';
+        } else if (media.kind === 'video') {
+          el = document.createElement('video');
+          el.controls = true;
+          el.preload = 'metadata';
+        }
+        if (el) {
+          el.className = media.kind === 'audio' ? `${CONFIG.QUOTE_CLASS}-audio` : `${CONFIG.QUOTE_CLASS}-media`;
+          el.src = media.src;
+          quote.appendChild(el);
+        }
+      }
+      if (label) {
+        const lbl = document.createElement('div');
+        lbl.className = `${CONFIG.QUOTE_CLASS}-label`;
+        let suffix = '';
+        if (media.src && media.isThumbnail) suffix = ' (miniatura)';
+        else if (!media.src) suffix = event.pendingExpired ? ' — arquivo não disponível' : ' — baixando o arquivo…';
+        lbl.textContent = label + (media.filename ? ` · ${media.filename}` : '') + suffix;
+        quote.appendChild(lbl);
+      }
+      // Arquivo (ou áudio/vídeo original): link para salvar.
+      if (media.src && !media.isThumbnail && !media.src.startsWith('data:image')) {
+        const a = document.createElement('a');
+        a.className = `${CONFIG.QUOTE_CLASS}-download`;
+        a.href = media.src;
+        a.download = media.filename || `recover_${Date.now()}.${extOf(media.src)}`;
+        a.textContent = '⬇️ Baixar';
+        a.addEventListener('click', (e) => e.stopPropagation());
+        quote.appendChild(a);
+      }
+    }
+
+    if (text) {
+      const content = document.createElement('div');
+      content.className = `${CONFIG.QUOTE_CLASS}-content`;
+      content.textContent = text.length > 150 ? text.substring(0, 150) + '...' : text;
+      quote.appendChild(content);
+      // Tooltip com conteúdo completo
+      if (text.length > 150) quote.title = `Conteúdo completo: ${text}`;
+    } else if (!hasContent && !isEdited) {
+      const note = document.createElement('div');
+      note.className = `${CONFIG.QUOTE_CLASS}-footer ${CONFIG.QUOTE_CLASS}-pending`;
+      note.textContent = event.notCaptured ? NOT_CAPTURED_TEXT : 'Buscando o conteúdo original…';
+      quote.appendChild(note);
+    }
+
+    if (timestamp) {
+      const footer = document.createElement('div');
+      footer.className = `${CONFIG.QUOTE_CLASS}-footer`;
+      footer.textContent = `Capturado em ${timestamp}`;
+      quote.appendChild(footer);
     }
 
     // Encontrar onde inserir o quote (antes do texto da mensagem)
