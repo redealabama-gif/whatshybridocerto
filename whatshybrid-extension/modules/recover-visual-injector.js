@@ -592,6 +592,86 @@
     return recordFound ? { notCaptured: true } : null;
   }
 
+  // ============================================
+  // RETRATO DO TEXTO NA TELA (rede de segurança)
+  // ============================================
+  // O texto de cada balão visível fica guardado (por id) enquanto a mensagem
+  // existe. Se ela for apagada e o registro do Recover não tiver o conteúdo
+  // (ex.: a página não conseguiu ler a tempo), o banner usa este retrato — e
+  // o registro do painel é completado com ele.
+  const domSnapshots = new Map(); // msgId → { text, chatId, fromMe, at }
+  const MAX_DOM_SNAPSHOTS = 3000;
+  const postedFromSnapshot = new Set();
+
+  function cleanSnapshotText(text) {
+    const t = String(text || '').trim();
+    // Balão já marcado pela edição: guarda só o texto atual.
+    const m = t.match(/✏️ (?:Esta mensagem foi editada para|Editada para): ([\s\S]*)$/);
+    return (m ? m[1] : t).trim();
+  }
+
+  function rememberSnapshot(msgEl, msgId) {
+    const text = cleanSnapshotText(extractSnapshotText(msgEl));
+    if (!text || textLooksRevoked(text)) return;
+    const dataId = (msgEl.closest && msgEl.closest('[data-id]')?.getAttribute('data-id')) || msgEl.getAttribute('data-id') || '';
+    const parts = dataId.split('_');
+    const prev = domSnapshots.get(msgId);
+    if (prev && prev.text === text) return;
+    domSnapshots.delete(msgId);
+    domSnapshots.set(msgId, { text, chatId: parts[1] || null, fromMe: parts[0] === 'true', at: Date.now() });
+    while (domSnapshots.size > MAX_DOM_SNAPSHOTS) {
+      domSnapshots.delete(domSnapshots.keys().next().value);
+    }
+  }
+
+  // Só o texto da mensagem (o seletor de texto do WhatsApp), nunca o
+  // container inteiro — que inclui horário, citações e nossos banners.
+  function extractSnapshotText(msgEl) {
+    try {
+      const el = msgEl.querySelector('[data-pre-plain-text] span.selectable-text, .copyable-text span.selectable-text, [data-testid="msg-text"]');
+      if (!el) return '';
+      let text = '';
+      const walk = (node) => {
+        for (const c of node.childNodes || []) {
+          if (c.nodeType === 3) text += c.nodeValue;
+          else if (c.nodeName === 'IMG') text += c.getAttribute('alt') || '';
+          else if (c.nodeName === 'BR') text += '\n';
+          else walk(c);
+        }
+      };
+      walk(el);
+      return text;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Completa o registro do painel com o texto do retrato (mesmo id e ação:
+  // o RecoverAdvanced junta com o registro que veio sem conteúdo).
+  function postSnapshotRecord(msgId, state, snap) {
+    const key = `${msgId}_${state}`;
+    if (postedFromSnapshot.has(key)) return;
+    postedFromSnapshot.add(key);
+    try {
+      window.postMessage({
+        type: 'WHL_RECOVER_NEW_MESSAGE',
+        payload: {
+          id: msgId,
+          action: state === 'deleted_local' ? 'deleted' : 'revoked',
+          body: snap.text,
+          type: 'chat',
+          chatId: snap.chatId,
+          from: snap.fromMe ? null : snap.chatId,
+          to: snap.fromMe ? snap.chatId : null,
+          fromMe: snap.fromMe,
+          contentCaptured: true,
+          timestamp: Date.now(),
+          source: 'dom_snapshot'
+        }
+      }, window.location.origin);
+    } catch (_) { /* ignore */ }
+  }
+
   // Sem registro com o conteúdo depois deste tempo, o banner deixa de dizer
   // "buscando" e assume que o conteúdo não foi capturado.
   const PENDING_GIVE_UP_MS = 15000;
@@ -720,6 +800,8 @@
     }
 
     if (!state) {
+      // Mensagem normal: guarda o texto como está na tela.
+      rememberSnapshot(msgEl, msgId);
       return;
     }
 
@@ -744,6 +826,15 @@
     // marcador ficava sem conteúdo e o banner vazio para sempre.
     let found = lookupOriginalContent(msgId, state);
     let notCaptured = !!(found && found.notCaptured);
+    if (state !== 'edited' && (!found || !(found.text || found.label))) {
+      // Retrato do texto na tela antes de a mensagem ser apagada.
+      const snap = domSnapshots.get(msgId);
+      if (snap && snap.text) {
+        found = { text: snap.text, label: null, media: null, timestamp: snap.at };
+        notCaptured = false;
+        postSnapshotRecord(msgId, state, snap);
+      }
+    }
     if (!found || !(found.text || found.label)) {
       // Reservas: marcador salvo (após reload) e histórico do RecoverDOM.
       let text = persistentMarker && isRealContent(persistentMarker.originalContent)

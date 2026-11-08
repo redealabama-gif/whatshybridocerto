@@ -233,8 +233,34 @@
         const shortId = msg.id.id;
         // Já registrada (pelo revoke_handler ou por outro evento do Store)?
         if (historicoRecover.some(h => h && h.id === shortId && h.action === 'revoked')) return false;
-        const cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
-        const hasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
+        let cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
+        let hasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
+        if (!hasContent && !(opts && opts.requireCached)) {
+            // Sem cache: o texto ainda pode estar nos atributos anteriores do
+            // modelo ou no balão na tela (o WhatsApp só redesenha depois).
+            let prev = null;
+            try {
+                const pa = typeof msg.previousAttributes === 'function' ? msg.previousAttributes() : msg._previousAttributes;
+                prev = pa && pa.type && pa.type !== 'revoked' ? (pa.caption || (pareceBase64(pa.body) ? '' : pa.body) || '') : '';
+            } catch (_) { prev = ''; }
+            const text = stripEditMarker(String(prev || '')).trim() || lerTextoDoBalao(msg.id._serialized);
+            if (text) {
+                const entry = {
+                    ...(cached || {}),
+                    body: text,
+                    from: (cached && cached.from) || msg.from?._serialized || msg.author?._serialized || '',
+                    timestamp: Date.now(),
+                    t: (cached && cached.t) || (typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null),
+                    fromMe: !!(msg.id && msg.id.fromMe),
+                    type: (cached && cached.type) || 'chat',
+                    isMedia: !!(cached && cached.isMedia)
+                };
+                messageCache.set(shortId, entry);
+                if (msg.id._serialized) messageCache.set(msg.id._serialized, entry);
+                cached = entry;
+                hasContent = true;
+            }
+        }
         if (opts && opts.requireCached && !hasContent) return false;
         salvarMensagemRecuperada({
             id: msg.id,
@@ -1382,6 +1408,9 @@
     }
 
     // ===== FASE 3.1: HOOK PARA CRIAÇÃO DE MENSAGENS =====
+    // Intervalo da varredura da conversa aberta (ver cachearConversaAberta).
+    const ACTIVE_CHAT_SWEEP_MS = 3000;
+
     class MessageCreatedHook extends Hook {
         register() {
             if (this.is_registered) return;
@@ -1416,6 +1445,40 @@
             } catch (e) {
                 console.warn('[WHL Hooks] Falha na pré-carga do cache:', e);
             }
+
+            // A pré-carga acima roda quando a extensão inicia — em geral ANTES de
+            // o WhatsApp carregar as conversas — e o WhatsApp pode carregar as
+            // mensagens antigas de um chat sem emitir 'add'. Então, a cada
+            // poucos segundos, as mensagens da conversa aberta que ainda não
+            // estão no cache entram nele (só as que faltam: é barato).
+            if (!MessageCreatedHook._sweepTimer) {
+                MessageCreatedHook._sweepTimer = setInterval(() => {
+                    try { MessageCreatedHook.cachearConversaAberta(); } catch (_) { /* ignore */ }
+                }, ACTIVE_CHAT_SWEEP_MS);
+            }
+        }
+
+        static cachearConversaAberta() {
+            const mod = tryRequireModule('WAWebChatCollection');
+            const chats = mod && (mod.ChatCollection || (mod.default && mod.default.ChatCollection));
+            if (!chats) return 0;
+            let active = null;
+            try {
+                active = typeof chats.getActive === 'function' ? chats.getActive() : null;
+                if (!active && typeof chats.getModelsArray === 'function') {
+                    active = chats.getModelsArray().find(c => c && c.active) || null;
+                }
+            } catch (_) { active = null; }
+            const msgs = active && active.msgs && typeof active.msgs.getModelsArray === 'function'
+                ? active.msgs.getModelsArray() : [];
+            let added = 0;
+            for (const m of msgs.slice(-MESSAGE_CACHE_SEED_LIMIT)) {
+                const id = m && m.id && m.id.id;
+                if (!id || m.type === 'revoked' || messageCache.has(id)) continue;
+                cachearMensagem(m, { seed: true });
+                added++;
+            }
+            return added;
         }
 
         static handle_created_message(message) {
@@ -1437,7 +1500,13 @@
             // mensagem o `salvarMensagemEditada` não conseguia recuperar o
             // body anterior do cache pra mostrar "antes/depois". A função
             // correta é `cachearMensagem` (definida em 01-init-debug.js).
-            cachearMensagem(message);
+            //
+            // isNewMsg === false: mensagem ANTIGA carregada ao abrir um chat.
+            // Só entra no cache — sem o aviso de "mensagem recebida" (que aciona
+            // o Copiloto/piloto automático) e sem download antecipado.
+            const isOld = message.isNewMsg === false;
+            cachearMensagem(message, { seed: isOld });
+            if (isOld) return;
 
             // Notify RecoverAdvanced via postMessage
             notifyRecoverUI({

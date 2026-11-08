@@ -90,7 +90,18 @@ function stubElement() {
   };
 }
 
-async function bootHooks({ preloaded = [], downloadManager = null } = {}) {
+// Balão na tela: data-id → texto (o WhatsApp só redesenha depois do evento).
+function makeDomBubble(text) {
+  const span = { childNodes: [{ nodeType: 3, nodeValue: text }], textContent: text };
+  return {
+    querySelector(sel) {
+      if (/recalled/.test(sel)) return null;
+      return span;
+    },
+  };
+}
+
+async function bootHooks({ preloaded = [], downloadManager = null, dom = {}, activeChat = null } = {}) {
   const coll = makeCollection();
   preloaded.forEach((m) => coll.put(m));
   const posted = [];
@@ -100,6 +111,8 @@ async function bootHooks({ preloaded = [], downloadManager = null } = {}) {
     WAWebCollections: { Msg: coll },
   };
   if (downloadManager) modules.WAWebDownloadManager = { downloadManager };
+  if (activeChat) modules.WAWebChatCollection = { ChatCollection: { getActive: () => activeChat, getModelsArray: () => [activeChat] } };
+  const intervals = [];
   const req = (name) => {
     if (Object.prototype.hasOwnProperty.call(modules, name)) return modules[name];
     throw new Error('Cannot find module ' + name);
@@ -112,11 +125,15 @@ async function bootHooks({ preloaded = [], downloadManager = null } = {}) {
     documentElement: stubElement(),
     createElement: () => stubElement(),
     getElementById: () => null,
+    querySelector: (sel) => {
+      const m = /\[data-id="([^"]+)"\]/.exec(sel);
+      return m && Object.prototype.hasOwnProperty.call(dom, m[1]) ? makeDomBubble(dom[m[1]]) : null;
+    },
   });
   const sandbox = {
     console: quiet,
     setTimeout, clearTimeout,
-    setInterval: () => 0, clearInterval() {},
+    setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; }, clearInterval() {},
     Blob, URL, TextEncoder, TextDecoder, Promise, Date, Math, JSON, Map, Set, Error,
     btoa, atob, AbortController,
     require: req,
@@ -149,7 +166,12 @@ async function bootHooks({ preloaded = [], downloadManager = null } = {}) {
   const mediaReady = () => posted
     .filter((p) => p && p.type === 'WHL_RECOVER_MEDIA_READY')
     .map((p) => p.payload);
-  return { coll, modules, records, mediaReady };
+  const received = () => posted.filter((p) => p && p.type === 'WHL_MESSAGE_RECEIVED');
+  // Roda a varredura periódica da conversa aberta (o setInterval é simulado).
+  const sweepActiveChat = () => intervals
+    .filter((i) => String(i.fn).includes('cachearConversaAberta'))
+    .forEach((i) => i.fn());
+  return { coll, modules, records, mediaReady, received, sweepActiveChat };
 }
 
 test('Recover: hooks de coleção se registram com o caminho atual (WAWebCollections.Msg)', async () => {
@@ -432,4 +454,48 @@ test('Recover mídia: falha no download não quebra o registro (fica a mídia id
   assert.strictEqual(r.contentCaptured, true);
   await new Promise((res) => setTimeout(res, 150));
   assert.strictEqual(mediaReady().length, 0);
+});
+
+
+// ─── Mensagem apagada que já estava na tela ─────────────────────────────────
+
+test('Recover: apagada sem cache usa o texto do balão na tela (antes de o WhatsApp redesenhar)', async () => {
+  const msg = makeMsg('');
+  const dom = { [msg.id._serialized]: 'oi, tudo certo?' };
+  const { coll, records } = await bootHooks({ dom });
+  msg.body = 'oi, tudo certo?';
+  coll.put(msg); // carregada sem 'add' e depois da pré-carga: não está no cache
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r, 'exclusão não registrada');
+  assert.strictEqual(r.body, 'oi, tudo certo?', 'deveria usar o texto que estava no balão');
+  assert.strictEqual(r.contentCaptured, true);
+  assert.strictEqual(r.originalTimestamp, T_0717 * 1000);
+});
+
+test('Recover: conversa aberta entra no cache mesmo quando o WhatsApp carrega sem "add"', async () => {
+  const msg = makeMsg('mensagem antiga da conversa');
+  const activeChat = { active: true, msgs: { getModelsArray: () => [msg] } };
+  const { coll, records, sweepActiveChat } = await bootHooks({ activeChat });
+  coll.put(msg); // chegou silenciosamente, depois da pré-carga
+  sweepActiveChat();
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r);
+  assert.strictEqual(r.body, 'mensagem antiga da conversa');
+});
+
+test('Recover: mensagem ANTIGA carregada ao abrir o chat não aciona o piloto automático', async () => {
+  const { coll, records, received } = await bootHooks();
+  const antiga = makeMsg('pergunta de ontem', { fromMe: false });
+  antiga.isNewMsg = false; // histórico carregado
+  coll.add(antiga);
+  assert.strictEqual(received().length, 0, 'mensagem antiga virou "mensagem recebida" (dispara o Copiloto)');
+  coll.revoke(antiga);
+  assert.strictEqual(records()[0].body, 'pergunta de ontem', 'mas o conteúdo precisa ficar no cache');
+
+  const nova = makeMsg('pergunta agora', { fromMe: false });
+  nova.isNewMsg = true;
+  coll.add(nova);
+  assert.strictEqual(received().length, 1, 'mensagem nova deve continuar avisando o Copiloto');
 });
