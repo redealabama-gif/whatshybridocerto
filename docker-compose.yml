@@ -126,6 +126,29 @@ services:
       # Master key opcional pra acesso enterprise sem código (debug/QA).
       # Em prod, deixe vazio.
       - SUBSCRIPTION_MASTER_KEY=${SUBSCRIPTION_MASTER_KEY:-}
+      # ── Login com Google (opcional) ────────────────────────────────────
+      # Sem isso o botão "Continuar com Google" fica escondido no login/signup.
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      # ── Pixel / Analytics server-side (opcionais) ──────────────────────
+      # Meta Conversions API (src/services/MetaCapiService.js) e GA4
+      # Measurement Protocol (src/services/GoogleAnalyticsMpService.js).
+      # Vazios = no-op. GA4_DEBUG só liga com o valor 1.
+      - META_PIXEL_ID=${META_PIXEL_ID:-}
+      - META_CAPI_TOKEN=${META_CAPI_TOKEN:-}
+      - META_TEST_EVENT_CODE=${META_TEST_EVENT_CODE:-}
+      - META_API_VERSION=${META_API_VERSION:-v18.0}
+      - GA4_MEASUREMENT_ID=${GA4_MEASUREMENT_ID:-}
+      - GA4_API_SECRET=${GA4_API_SECRET:-}
+      - GA4_DEBUG=${GA4_DEBUG:-false}
+      # ── Sentry (opcional) ──────────────────────────────────────────────
+      # ⚠️ SENTRY_DSN só liga o Sentry com o pacote @sentry/node instalado, e
+      # hoje ele NÃO está no package.json: o backend loga um aviso e segue sem.
+      # SENTRY_DSN_BROWSER sai no /config.js, mas nenhuma página o usa ainda.
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_DSN_BROWSER=${SENTRY_DSN_BROWSER:-}
+      # ── Frontend público (entregues ao navegador via GET /config.js) ───
+      - CRISP_WEBSITE_ID=${CRISP_WEBSITE_ID:-}
+      - CHROME_WEBSTORE_URL=${CHROME_WEBSTORE_URL:-}
     volumes:
       - db_data:/app/data
       - logs_data:/app/logs
