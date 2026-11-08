@@ -188,23 +188,6 @@ class HybridSearch {
   }
 
   /**
-   * Remove TODOS os documentos e estruturas de índice (BM25 + embeddings).
-   * Usado para reindexação full-replace (ex.: o conhecimento treinado mudou).
-   * Mantém o EmbeddingProvider e seu cache (acelera o re-embed dos mesmos textos).
-   */
-  clear() {
-    this.documents.clear();
-    this.termFrequencies.clear();
-    this.documentFrequencies.clear();
-    this.documentLengths.clear();
-    this.embeddings.clear();
-    this.averageDocumentLength = 0;
-    this.totalDocuments = 0;
-    this.stats.totalDocuments = 0;
-    this._schedulePersistence();
-  }
-
-  /**
    * Add a document to the index
    * @param {Object} doc - Document to add
    * @param {string} doc.id - Unique document ID
@@ -584,7 +567,13 @@ class HybridSearch {
   }
 
   /**
-   * Clear all documents and reset index
+   * Remove TODOS os documentos e estruturas de índice (BM25 + embeddings) e
+   * zera as estatísticas. Usado na reindexação full-replace do conhecimento
+   * treinado (AIOrchestrator). Mantém o EmbeddingProvider e seu cache.
+   *
+   * Havia duas definições de clear() nesta classe; a segunda (esta) sobrescrevia
+   * a primeira, que agendava a persistência. Unificadas: o snapshot em disco
+   * também é atualizado, senão um índice limpo voltava do disco no restart.
    */
   clear() {
     this.documents.clear();
@@ -608,6 +597,7 @@ class HybridSearch {
       totalSemanticScore: 0,
       totalFusionScore: 0
     };
+    this._schedulePersistence();
   }
 
   /**
