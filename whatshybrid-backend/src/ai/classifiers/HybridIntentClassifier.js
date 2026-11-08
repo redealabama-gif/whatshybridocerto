@@ -63,7 +63,8 @@ const REGEX_PATTERNS = {
   complaint: [
     /(problema|erro|bug|não funciona|nao funciona|travou|parou)/i,
     /(péssimo|pessimo|horrível|horrivel|absurdo|inadmissível|inadmissivel)/i,
-    /(reclamação|reclamacao|insatisfeito|decepcionado)/i
+    /(reclamação|reclamacao|insatisfeito|decepcionado)/i,
+    /(não chegou|nao chegou|chatead[oa]|atrasad[oa]|quebrad[oa]|procon)/i // IA-03
   ],
   urgency: [
     /(urgente|urgência|urgencia|emergência|emergencia|imediato)/i,
@@ -89,7 +90,8 @@ const REGEX_PATTERNS = {
   ],
   schedule: [
     /(agendar|marcar|horário|horario|disponível|disponivel|agenda)/i,
-    /(data|dia|semana|mês|mes|próximo|proximo)/i
+    // IA-03: palavra inteira — antes "dia" casava dentro de "diabetes"/"bom dia"
+    /(?<![\p{L}\p{N}])(data|dia|semana|mês|mes|próximo|proximo)(?![\p{L}\p{N}])/iu
   ],
   feedback: [
     /(obrigad[oa]|muito obrigad[oa]|agradeço|agradeco)/i,
@@ -118,7 +120,7 @@ const REGEX_PATTERNS = {
   cancellation: [
     /(cancelar|cancelamento|desistir|desistência|desistencia)/i,
     /(não quero mais|nao quero mais|desfazer)/i,
-    /(estornar|estorno|reembolso|devolver)/i
+    /(estornar|estorno|reembolso|devolver|dinheiro de volta)/i
   ],
   information: [
     /(informação|informacao|saber|conhecer)/i,
@@ -126,6 +128,23 @@ const REGEX_PATTERNS = {
     /(funciona|abre|fecha|atende)/i
   ]
 };
+
+// IA-03 — saudação no começo NÃO decide a intenção ("Oi, quanto custa…" é
+// pergunta de preço). Só é saudação quando a mensagem é (quase) só o cumprimento;
+// senão, classifica o que vem depois dele.
+const GREETING_PREFIX_RE = /^(oi+e?|olá|ola|hey|hi|hello|bom dia|boa tarde|boa noite|e a[ií]|eai|fala|opa)(?=$|[\s,!.?…;:])[\s,!.?…;:]*/i;
+const GREETING_ONLY_REST_RE = /^((tudo bem|tudo bom|td bem|tudo certo|como vai|beleza|blz)[\s,!.?…]*)*$/i;
+
+// IA-03 — desempate por domínio (antes: soma do comprimento do TEXTO das regex,
+// o que fazia a saudação vencer qualquer outra intenção). Intenções de risco
+// primeiro: na dúvida, a guarda escala em vez de auto-enviar.
+const INTENT_PRIORITY = [
+  'cancellation', 'complaint', 'urgency', 'pricing', 'negotiation', 'schedule',
+  'support', 'purchase', 'information', 'feedback', 'thanks', 'confirmation',
+  'negation', 'goodbye', 'question', 'greeting',
+];
+// Genéricas: só vencem quando nada mais específico casou.
+const GENERIC_INTENTS = new Set(['question', 'greeting']);
 
 /**
  * LRU Cache para armazenar classificações LLM
@@ -213,58 +232,58 @@ class HybridIntentClassifier {
    * @returns {{ intent: string, confidence: number, matchedPatterns: number }}
    */
   classifyWithRegex(message) {
-    const lowerMessage = message.toLowerCase().trim();
-    const results = [];
+    let text = message.toLowerCase().trim();
 
+    // IA-03 — cumprimento no começo: se não sobra nada além dele, é saudação;
+    // senão, classifica o resto da mensagem.
+    const g = text.match(GREETING_PREFIX_RE);
+    if (g) {
+      const rest = text.slice(g[0].length).trim();
+      if (!rest || GREETING_ONLY_REST_RE.test(rest)) {
+        return { intent: 'greeting', confidence: 0.95, matchedPatterns: 1 };
+      }
+      text = rest;
+    }
+
+    let results = [];
     for (const [intent, patterns] of Object.entries(REGEX_PATTERNS)) {
       let matches = 0;
-      let totalScore = 0;
-
+      let fullMatch = false;
       for (const pattern of patterns) {
-        if (pattern.test(message)) {
+        if (pattern.test(text)) {
           matches++;
-          // Padrões mais específicos têm maior peso
-          totalScore += pattern.source.length;
+          // regex ancorada nas duas pontas casou a mensagem INTEIRA ("sim")
+          if (pattern.source.startsWith('^') && pattern.source.endsWith('$')) fullMatch = true;
         }
       }
-
-      if (matches > 0) {
-        results.push({
-          intent,
-          matches,
-          score: totalScore
-        });
-      }
+      if (matches > 0) results.push({ intent, matches, fullMatch });
     }
 
     if (results.length === 0) {
       return { intent: 'information', confidence: 0.3, matchedPatterns: 0 };
     }
 
-    // Ordena por score primeiro (especificidade), depois por matches
-    results.sort((a, b) => {
-      // Priorizar score total (especificidade dos patterns)
-      if (b.score !== a.score) return b.score - a.score;
-      // Em caso de empate, número de matches
-      return b.matches - a.matches;
-    });
+    const specific = results.filter((r) => !GENERIC_INTENTS.has(r.intent));
+    if (specific.length > 0) results = specific;
+
+    const priority = (intent) => {
+      const i = INTENT_PRIORITY.indexOf(intent);
+      return i < 0 ? INTENT_PRIORITY.length : i;
+    };
+    // Mais padrões casados primeiro; empate → prioridade de domínio.
+    results.sort((a, b) => (b.matches - a.matches) || (priority(a.intent) - priority(b.intent)));
 
     const best = results[0];
-    
-    // Calcular confiança baseada em:
-    // - Número de matches
-    // - Especificidade dos patterns
-    // - Diferença entre melhor e segundo melhor
-    let confidence = 0.5 + (best.matches * 0.15);
-    
-    if (results.length > 1) {
-      const secondBest = results[1];
-      const gap = best.score - secondBest.score;
-      confidence += Math.min(gap / 100, 0.3);
+    let confidence;
+    if (results.length === 1) {
+      // IA-03 — match único só é decisivo se casou a mensagem inteira; termo
+      // solto ("semana", "dia") fica abaixo do limiar → o LLM decide.
+      confidence = best.fullMatch ? 0.95 : 0.75;
     } else {
-      confidence += 0.3; // Único match tem alta confiança
+      // vantagem sobre o 2º colocado; empate fica abaixo do limiar → LLM.
+      const second = results[1];
+      confidence = 0.5 + best.matches * 0.15 + Math.min((best.matches - second.matches) * 0.1, 0.3);
     }
-
     confidence = Math.min(confidence, 0.95);
 
     return {
