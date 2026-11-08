@@ -101,6 +101,9 @@ services:
       # aceita origens de extensão se o wildcard estiver explícito na lista
       # (IDs de extensão variam por instalação até publicar na Web Store;
       # depois de publicar, dá pra trocar o wildcard pelo ID fixo).
+      # Vale também para o WebSocket: o Socket.IO (src/server.js) usa a mesma
+      # lista. O src/websocket/SocketManager.js, que lia CORS_ORIGINS, não é
+      # carregado por nenhum arquivo.
       - CORS_ORIGIN=${CORS_ORIGIN:-https://${DOMAIN},chrome-extension://*}
       - REDIS_DISABLED=${REDIS_DISABLED:-false}
       # ── Billing (MercadoPago) ──────────────────────────────────────────

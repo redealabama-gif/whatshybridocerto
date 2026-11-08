@@ -164,7 +164,7 @@ if [[ ! -f .env ]]; then
     log_warn "    • DOMAIN (seu domínio com DNS apontando aqui)"
     log_warn "    • LETSENCRYPT_EMAIL"
     log_warn "    • Pelo menos uma OPENAI_API_KEY / ANTHROPIC_API_KEY / GROQ_API_KEY"
-    log_warn "    • CORS_ORIGINS (inclua chrome-extension://ID_DA_SUA_EXTENSAO)"
+    log_warn "    • (opcional) CORS_ORIGIN — o default do compose já libera https://DOMAIN e chrome-extension://*"
     log_warn ""
     log_warn "  Depois rode:"
     log_warn "    cd $PROJECT_DIR && ./deploy/scripts/deploy.sh"

@@ -85,8 +85,18 @@ LETSENCRYPT_EMAIL=voce@seudominio.com.br
 JWT_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
 WEBHOOK_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
 OPENAI_API_KEY=sk-...                  # ← pelo menos uma key
-CORS_ORIGINS=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
 ```
+
+**CORS (opcional):** não precisa mexer para subir. O `docker-compose.yml` já usa
+`CORS_ORIGIN=https://${DOMAIN},chrome-extension://*`, que vale para a API HTTP e
+para o WebSocket. Depois de publicar a extensão na Chrome Web Store, você pode
+fixar o ID dela no `.env`:
+
+```bash
+CORS_ORIGIN=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
+```
+
+O nome é no **singular**: `CORS_ORIGINS` (plural) é ignorado pelo backend.
 
 **Obrigatório para fluxo de compra funcionar** (sem isso o cliente paga e
 não recebe código de ativação por email — o checkout pode até abrir, mas
