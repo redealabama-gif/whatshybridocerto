@@ -69,7 +69,7 @@ Esse script faz tudo:
 - Configura Fail2ban contra força bruta SSH
 - Cria diretórios
 - Configura cron de backup diário
-- Gera JWT_SECRET aleatório forte
+- Gera JWT_SECRET e WEBHOOK_SECRET aleatórios fortes
 
 ### Passo 4 — Editar `.env`
 
@@ -83,6 +83,7 @@ nano /opt/whatshybrid/.env
 DOMAIN=api.seudominio.com.br          # ← seu domínio
 LETSENCRYPT_EMAIL=voce@seudominio.com.br
 JWT_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
+WEBHOOK_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
 OPENAI_API_KEY=sk-...                  # ← pelo menos uma key
 CORS_ORIGINS=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
 ```

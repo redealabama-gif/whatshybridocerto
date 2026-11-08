@@ -151,7 +151,13 @@ if [[ ! -f .env ]]; then
     JWT_SECRET=$(openssl rand -hex 32)
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
 
-    log_ok ".env criado a partir do template com JWT_SECRET aleatório"
+    # Gerar WEBHOOK_SECRET aleatório. O template traz um placeholder público
+    # (está no repositório) e o config/index.js só valida o tamanho mínimo:
+    # sem esta troca, a produção subiria com um segredo conhecido.
+    WEBHOOK_SECRET="WHK_$(openssl rand -hex 32)"
+    sed -i "s|^WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$WEBHOOK_SECRET|" .env
+
+    log_ok ".env criado a partir do template com JWT_SECRET e WEBHOOK_SECRET aleatórios"
     log_warn "═════════════════════════════════════════════════════════════════"
     log_warn " AÇÃO MANUAL NECESSÁRIA:"
     log_warn "  Edite $PROJECT_DIR/.env e preencha:"
