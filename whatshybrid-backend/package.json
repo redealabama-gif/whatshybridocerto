@@ -35,6 +35,7 @@
     "migrate:sqlite-to-postgres:dry": "node scripts/migrate-sqlite-to-postgres.js --dry-run"
   },
   "dependencies": {
+    "@sentry/node": "^7.120.4",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^9.4.3",

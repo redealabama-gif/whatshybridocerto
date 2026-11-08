@@ -153,8 +153,7 @@ services:
       - GA4_API_SECRET=${GA4_API_SECRET:-}
       - GA4_DEBUG=${GA4_DEBUG:-false}
       # ── Sentry (opcional) ──────────────────────────────────────────────
-      # ⚠️ SENTRY_DSN só liga o Sentry com o pacote @sentry/node instalado, e
-      # hoje ele NÃO está no package.json: o backend loga um aviso e segue sem.
+      # SENTRY_DSN: erros 500 do backend (@sentry/node). Vazio = desligado.
       # SENTRY_DSN_BROWSER sai no /config.js, mas nenhuma página o usa ainda.
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_DSN_BROWSER=${SENTRY_DSN_BROWSER:-}
