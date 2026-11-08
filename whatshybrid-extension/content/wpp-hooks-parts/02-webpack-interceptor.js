@@ -234,34 +234,31 @@
         // Já registrada (pelo revoke_handler ou por outro evento do Store)?
         if (historicoRecover.some(h => h && h.id === shortId && h.action === 'revoked')) return false;
         let cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
-        let hasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
-        if (!hasContent && !(opts && opts.requireCached)) {
-            // Sem cache: o texto ainda pode estar nos atributos anteriores do
-            // modelo ou no balão na tela (o WhatsApp só redesenha depois).
-            let prev = null;
-            try {
-                const pa = typeof msg.previousAttributes === 'function' ? msg.previousAttributes() : msg._previousAttributes;
-                prev = pa && pa.type && pa.type !== 'revoked' ? (pa.caption || (pareceBase64(pa.body) ? '' : pa.body) || '') : '';
-            } catch (_) { prev = ''; }
-            const text = stripEditMarker(String(prev || '')).trim() || lerTextoDoBalao(msg.id._serialized);
-            if (text) {
-                const entry = {
-                    ...(cached || {}),
-                    body: text,
-                    from: (cached && cached.from) || msg.from?._serialized || msg.author?._serialized || '',
-                    timestamp: Date.now(),
-                    t: (cached && cached.t) || (typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null),
-                    fromMe: !!(msg.id && msg.id.fromMe),
-                    type: (cached && cached.type) || 'chat',
-                    isMedia: !!(cached && cached.isMedia)
-                };
-                messageCache.set(shortId, entry);
-                if (msg.id._serialized) messageCache.set(msg.id._serialized, entry);
-                cached = entry;
-                hasContent = true;
+        const cacheHasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
+        if (opts && opts.requireCached && !cacheHasContent) return false;
+
+        const fontes = cacheHasContent ? ['cache'] : [];
+        if (!(opts && opts.requireCached)) {
+            // Completa o que o cache não tem (texto, tipo, mídia, dados para
+            // baixar) com o que ainda existe no instante da revogação.
+            const extra = conteudoNaRevogacao(msg, cached);
+            if (extra) {
+                fontes.push(...extra.fontes);
+                cached = extra.entry;
+                messageCache.set(shortId, cached);
+                if (msg.id._serialized) messageCache.set(msg.id._serialized, cached);
             }
         }
-        if (opts && opts.requireCached && !hasContent) return false;
+
+        diagRevoke({
+            id: shortId.slice(-8),
+            tipo: (cached && cached.type) || '?',
+            fontes: fontes.length ? fontes.join('+') : 'nenhuma',
+            texto: !!(cached && cached.body),
+            previa: !!(cached && typeof cached.mediaData === 'string' && cached.mediaData.length > 50),
+            camposDownload: !!(cached && cached.directPath && cached.mediaKey)
+        });
+
         salvarMensagemRecuperada({
             id: msg.id,
             // salvarMensagemRecuperada procura o original no cache por esta chave
@@ -273,8 +270,88 @@
             t: msg.t,
             // tipo real vem do cache; 'revoked' não é um tipo de conteúdo
             type: (cached && cached.type) || undefined
-        });
+        }, msg);
         return true;
+    }
+
+    /**
+     * Conteúdo da mensagem no instante em que ela é revogada, para quando o
+     * cache não tem tudo. Fontes, nesta ordem:
+     *   1. atributos anteriores do modelo (antes da troca para 'revoked');
+     *   2. o próprio modelo — campos de mídia que o WhatsApp mantém;
+     *   3. o balão na tela (texto, tipo, cópia da imagem, nome do arquivo).
+     * Retorna { entry, fontes } — entry no formato do messageCache — ou null.
+     */
+    function conteudoNaRevogacao(msg, cached) {
+        const fontes = [];
+        let pa = null;
+        try {
+            pa = typeof msg.previousAttributes === 'function' ? msg.previousAttributes() : (msg._previousAttributes || null);
+            if (!pa || !pa.type || pa.type === 'revoked') pa = null;
+        } catch (_) { pa = null; }
+        const prevFields = pa ? camposDeMidia(pa) : null;
+        const liveFields = camposDeMidia(msg);
+        const dom = lerBalaoDoDom(msg.id && msg.id._serialized);
+
+        const paType = pa && pa.type;
+        // O modelo revogado já tem type 'revoked'; o tipo vem do mimetype, se ficou.
+        const mimeOf = (m) => String(m || '').toLowerCase();
+        const liveMime = mimeOf(liveFields && liveFields.mimetype);
+        const liveType = !liveMime ? null
+            : liveMime.startsWith('image/webp') ? 'sticker'
+            : liveMime.startsWith('image/') ? 'image'
+            : liveMime.startsWith('video/') ? 'video'
+            : liveMime.startsWith('audio/') ? 'audio'
+            : 'document';
+        const type = (cached && cached.isMedia && cached.type) ||
+            (MEDIA_MSG_TYPES.includes(paType) ? paType : null) ||
+            (dom && dom.kind) || liveType ||
+            (cached && cached.type) || paType || 'chat';
+        const isMedia = MEDIA_MSG_TYPES.includes(type);
+
+        const paBody = pa && typeof pa.body === 'string' ? pa.body : '';
+        const paText = pa ? stripEditMarker(String(pa.caption || (pareceBase64(paBody) ? '' : paBody) || '')).trim() : '';
+        const text = (cached && cached.body) || paText || (dom && dom.text) || '';
+        const thumb = (cached && cached.thumbnail) || (pa && pareceBase64(paBody) ? paBody : null);
+        const cachedMedia = cached && typeof cached.mediaData === 'string' && cached.mediaData.length > 50 && cached.mediaData !== '__HAS_MEDIA__'
+            ? cached.mediaData : null;
+        const preview = cachedMedia || (dom && dom.imageDataUrl) || thumb || null;
+
+        const pick = (k) => (cached && cached[k]) || (prevFields && prevFields[k]) || (liveFields && liveFields[k]) || null;
+        const fields = {
+            mimetype: pick('mimetype'),
+            filename: pick('filename') || (dom && dom.filename) || null,
+            size: pick('size'),
+            directPath: pick('directPath'),
+            mediaKey: pick('mediaKey'),
+            mediaKeyTimestamp: pick('mediaKeyTimestamp'),
+            filehash: pick('filehash'),
+            encFilehash: pick('encFilehash'),
+            mediaUrl: pick('mediaUrl')
+        };
+
+        if (pa && (paText || MEDIA_MSG_TYPES.includes(paType))) fontes.push('anteriores');
+        if (liveFields && (liveFields.directPath || liveFields.mediaKey)) fontes.push('modelo');
+        if (dom && (dom.text || dom.kind)) fontes.push('tela');
+        if (!text && !isMedia) return null;
+        if (!fontes.length && cached && cached.body === text && (!isMedia || cached.isMedia)) return null;
+
+        const entry = {
+            ...(cached || {}),
+            body: text,
+            from: (cached && cached.from) || msg.from?._serialized || msg.author?._serialized || '',
+            timestamp: Date.now(),
+            t: (cached && cached.t) || (typeof msg.t === 'number' && msg.t > 0 ? msg.t * 1000 : null),
+            fromMe: !!(msg.id && msg.id.fromMe),
+            type,
+            isMedia,
+            thumbnail: thumb,
+            mediaData: preview || (isMedia && fields.directPath ? '__HAS_MEDIA__' : (cached && cached.mediaData) || null),
+            // cópia da tela / miniatura: o original ainda é baixado se der
+            mediaIsThumbnail: !!(preview && preview !== cachedMedia) || !!(cached && cached.mediaIsThumbnail),
+            ...fields
+        };
+        return { entry, fontes };
     }
 
     /**
@@ -634,7 +711,7 @@
         console.log(`[WHL Recover] Mensagem editada de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
     }
 
-    function salvarMensagemRecuperada(msg) {
+    function salvarMensagemRecuperada(msg, liveModel) {
         // CORREÇÃO BUG 4: Tentar múltiplas fontes para o body
         let body = msg.body || msg.caption || msg.text || '';
         let from = extractPhoneNumber(msg);
@@ -878,8 +955,9 @@
 
         // Mídia sem o arquivo original (ou só com a miniatura): baixa agora,
         // pelos campos guardados antes da revogação, e completa o registro.
-        if (mediaFieldsFinal && (!mediaData || mediaIsThumbnail)) {
-            completarMidiaDoRegistro([originalId, ...possibleIds], null, mediaFieldsFinal);
+        // (liveModel: o modelo revogado ainda pode ter o arquivo em memória.)
+        if (MEDIA_MSG_TYPES.includes(mediaType) && (!mediaData || mediaIsThumbnail) && (mediaFieldsFinal || liveModel)) {
+            completarMidiaDoRegistro([originalId, ...possibleIds], liveModel || null, mediaFieldsFinal);
         }
         
         console.log(`[WHL Recover] Mensagem recuperada de ${entrada.from}: ${entrada.body.substring(0, 50)}...`);
@@ -1410,6 +1488,8 @@
     // ===== FASE 3.1: HOOK PARA CRIAÇÃO DE MENSAGENS =====
     // Intervalo da varredura da conversa aberta (ver cachearConversaAberta).
     const ACTIVE_CHAT_SWEEP_MS = 3000;
+    // Quantas mensagens da coleção geral entram por varredura (cabe no cache).
+    const GLOBAL_SWEEP_LIMIT = 600;
 
     class MessageCreatedHook extends Hook {
         register() {
@@ -1453,9 +1533,32 @@
             // estão no cache entram nele (só as que faltam: é barato).
             if (!MessageCreatedHook._sweepTimer) {
                 MessageCreatedHook._sweepTimer = setInterval(() => {
-                    try { MessageCreatedHook.cachearConversaAberta(); } catch (_) { /* ignore */ }
+                    let added = 0;
+                    try { added += MessageCreatedHook.cachearConversaAberta(); } catch (_) { /* ignore */ }
+                    try { added += MessageCreatedHook.cachearColecaoGlobal(); } catch (_) { /* ignore */ }
+                    recoverDiag.sweeps++;
+                    recoverDiag.sweepAdded += added;
                 }, ACTIVE_CHAT_SWEEP_MS);
             }
+        }
+
+        // Mensagens carregadas em qualquer conversa (a coleção geral), as mais
+        // recentes primeiro — cobre o que entrou sem 'add' fora do chat aberto.
+        static cachearColecaoGlobal() {
+            const coll = getMsgCollection();
+            if (!coll || typeof coll.getModelsArray !== 'function') return 0;
+            const models = coll.getModelsArray() || [];
+            const recent = models.length > GLOBAL_SWEEP_LIMIT
+                ? [...models].sort((a, b) => (Number(b && b.t) || 0) - (Number(a && a.t) || 0)).slice(0, GLOBAL_SWEEP_LIMIT)
+                : models;
+            let added = 0;
+            for (const m of recent) {
+                const id = m && m.id && m.id.id;
+                if (!id || m.type === 'revoked' || messageCache.has(id)) continue;
+                cachearMensagem(m, { seed: true });
+                added++;
+            }
+            return added;
         }
 
         static cachearConversaAberta() {
@@ -1483,6 +1586,7 @@
 
         static handle_created_message(message) {
             if (!message) return;
+            recoverDiag.adds++;
 
             // Modelo que já chega revogado (alguns fluxos trocam o modelo em
             // vez de mudar o tipo). Registra só se o cache tinha o conteúdo —
@@ -1907,6 +2011,46 @@
             }
         }
     }
+
+    /**
+     * Diagnóstico do Recover — rode no console do WhatsApp Web:
+     *   WHL_RecoverDiag()
+     * Mostra se os ganchos estão ativos, o que está no cache e, para cada
+     * exclusão recente, de onde veio o conteúdo (cache, anteriores, modelo,
+     * tela) ou "nenhuma".
+     */
+    window.WHL_RecoverDiag = function () {
+        const coll = getMsgCollection();
+        let models = 0;
+        try { models = coll && typeof coll.getModelsArray === 'function' ? coll.getModelsArray().length : 0; } catch (_) { models = -1; }
+        const ids = new Set();
+        let midias = 0;
+        messageCache.forEach((v) => {
+            if (!v || ids.has(v)) return;
+            ids.add(v);
+            if (v.isMedia) midias++;
+        });
+        let dm = false;
+        try {
+            const mod = tryRequireModule('WAWebDownloadManager');
+            const d = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
+            dm = !!(d && typeof d.downloadAndMaybeDecrypt === 'function');
+        } catch (_) { dm = false; }
+        const out = {
+            colecaoDeMensagens: !!coll,
+            ouvintes: coll && coll.handlers ? Object.keys(coll.handlers) : undefined,
+            mensagensNaColecao: models,
+            eventosAdd: recoverDiag.adds,
+            mensagensNoCache: ids.size,
+            midiasNoCache: midias,
+            varreduras: recoverDiag.sweeps,
+            adicionadasPelaVarredura: recoverDiag.sweepAdded,
+            downloadDeMidia: dm,
+            ultimasExclusoes: recoverDiag.revokes.slice(-10)
+        };
+        try { console.log('[WHL Recover] Diagnóstico:', JSON.stringify(out, null, 2)); } catch (_) { /* ignore */ }
+        return out;
+    };
 
     const hooks = {
         keep_revoked_messages: new RenderableMessageHook(),

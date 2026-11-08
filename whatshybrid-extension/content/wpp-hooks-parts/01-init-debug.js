@@ -1667,45 +1667,107 @@ window.whl_hooks_main = () => {
      * sem o arquivo ou só com a miniatura.
      */
     function completarMidiaDoRegistro(ids, msgModel, fields) {
-        if (!fields || !(fields.directPath && fields.mediaKey) && !(msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob)) return;
+        // Pelos campos (directPath/mediaKey) ou pelo arquivo que o modelo ainda
+        // tem em memória (mediaBlob — sobrevive à revogação em alguns casos).
+        const canFields = !!(fields && fields.directPath && fields.mediaKey);
+        let canBlob = false;
+        try { canBlob = !!(msgModel && msgModel.mediaData && msgModel.mediaData.mediaBlob); } catch (_) { canBlob = false; }
+        if (!canFields && !canBlob) return;
         setTimeout(() => {
-            baixarMidiaWA(msgModel, fields)
+            baixarMidiaWA(msgModel, fields || {})
                 .then(dataUrl => { if (dataUrl) aplicarMidiaBaixada(ids, dataUrl, fields); })
                 .catch(e => console.warn('[WHL Media] Falha ao completar mídia apagada:', e && e.message));
         }, 0);
     }
 
     /**
-     * Texto do balão da mensagem como está NA TELA (data-id = id serializado).
+     * O balão da mensagem como está NA TELA (data-id = id serializado): texto,
+     * tipo de mídia, cópia da imagem (foto/vídeo/figurinha) e nome do arquivo.
      * Usado no instante da revogação: o evento do modelo chega antes de o
-     * WhatsApp redesenhar o balão como "Mensagem apagada", então o texto
-     * original ainda está no DOM. Emojis viram o texto alternativo da imagem.
+     * WhatsApp redesenhar o balão como "Mensagem apagada", então o conteúdo
+     * ainda está no DOM. Emojis viram o texto alternativo da imagem.
      */
-    function lerTextoDoBalao(serializedId) {
+    function lerBalaoDoDom(serializedId) {
         try {
             if (!serializedId || typeof document === 'undefined' || !document.querySelector) return null;
             const id = String(serializedId).replace(/["\\]/g, '');
             const el = document.querySelector(`[data-id="${id}"]`);
             if (!el) return null;
             if (el.querySelector('[data-icon="recalled"], [data-icon="recalled-in"], [data-icon="recalled-out"]')) return null;
-            const t = el.querySelector('[data-pre-plain-text] span.selectable-text, .copyable-text span.selectable-text, [data-testid="msg-text"], span.selectable-text');
-            if (!t) return null;
+
             let text = '';
-            const walk = (node) => {
-                for (const c of node.childNodes || []) {
-                    if (c.nodeType === 3) text += c.nodeValue;
-                    else if (c.nodeName === 'IMG') text += c.getAttribute('alt') || '';
-                    else if (c.nodeName === 'BR') text += '\n';
-                    else walk(c);
+            const t = el.querySelector('[data-pre-plain-text] span.selectable-text, .copyable-text span.selectable-text, [data-testid="msg-text"]');
+            if (t) {
+                const walk = (node) => {
+                    for (const c of node.childNodes || []) {
+                        if (c.nodeType === 3) text += c.nodeValue;
+                        else if (c.nodeName === 'IMG') text += c.getAttribute('alt') || '';
+                        else if (c.nodeName === 'BR') text += '\n';
+                        else walk(c);
+                    }
+                };
+                if (t.childNodes && t.childNodes.length) walk(t);
+                else text = t.textContent || '';
+                text = stripEditMarker(text.trim());
+            }
+
+            // Mídia: a maior imagem do próprio balão (blob:/data: — mesmo domínio)
+            let img = null;
+            let area = 0;
+            for (const im of el.querySelectorAll('img')) {
+                const src = im.currentSrc || im.src || '';
+                if (!(src.startsWith('blob:') || src.startsWith('data:image'))) continue;
+                if (/emoji/i.test(im.className || '')) continue;
+                const w = im.naturalWidth || 0;
+                const h = im.naturalHeight || 0;
+                if (w < 48 || h < 48) continue;
+                if (w * h > area) { img = im; area = w * h; }
+            }
+            let kind = null;
+            if (el.querySelector('video, [data-icon*="video" i], [data-icon="media-play"], [data-icon*="gif" i]')) kind = 'video';
+            else if (el.querySelector('[data-icon*="ptt" i], [data-icon*="audio" i], [data-icon*="mic" i]')) kind = 'audio';
+            else if (el.querySelector('[data-icon*="document" i], [data-icon*="doc-" i], [data-icon*="pdf" i], [data-icon*="xls" i], [data-icon*="ppt" i]')) kind = 'document';
+            else if (img) kind = 'image';
+
+            let imageDataUrl = null;
+            if (img && (kind === 'image' || kind === 'video') && img.complete && img.naturalWidth) {
+                try {
+                    const max = 960;
+                    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+                    const c = document.createElement('canvas');
+                    c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                    c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    imageDataUrl = c.toDataURL('image/jpeg', 0.85);
+                } catch (_) { imageDataUrl = null; }
+            }
+
+            let filename = null;
+            const looksLikeFile = (v) => typeof v === 'string' && /\.[A-Za-z0-9]{2,5}$/.test(v.trim()) && v.trim().length <= 200;
+            if (kind === 'document') {
+                for (const n of el.querySelectorAll('[title]')) {
+                    const v = n.getAttribute('title');
+                    if (looksLikeFile(v)) { filename = v.trim(); break; }
                 }
-            };
-            if (t.childNodes && t.childNodes.length) walk(t);
-            else text = t.textContent || '';
-            text = stripEditMarker(text.trim());
-            return text || null;
+            }
+
+            if (!text && !kind) return null;
+            return { text: text || '', kind, imageDataUrl, filename };
         } catch (_) {
             return null;
         }
+    }
+
+    function lerTextoDoBalao(serializedId) {
+        const b = lerBalaoDoDom(serializedId);
+        return b && b.text ? b.text : null;
+    }
+
+    // Diagnóstico (no console do WhatsApp Web: WHL_RecoverDiag()).
+    const recoverDiag = { adds: 0, revokes: [], sweeps: 0, sweepAdded: 0 };
+    function diagRevoke(info) {
+        recoverDiag.revokes.push({ em: new Date().toLocaleTimeString('pt-BR'), ...info });
+        if (recoverDiag.revokes.length > 20) recoverDiag.revokes.shift();
     }
 
     /**
