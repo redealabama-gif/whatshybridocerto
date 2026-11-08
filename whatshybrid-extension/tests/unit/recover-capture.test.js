@@ -90,13 +90,27 @@ function stubElement() {
   };
 }
 
-// Balão na tela: data-id → texto (o WhatsApp só redesenha depois do evento).
-function makeDomBubble(text) {
-  const span = { childNodes: [{ nodeType: 3, nodeValue: text }], textContent: text };
+// Balão na tela (o WhatsApp só redesenha depois do evento): texto, ícone
+// (data-icon) e títulos — o suficiente para os seletores usados pelo hook.
+function makeDomBubble(spec) {
+  const { text = '', icon = null, titles = [] } = typeof spec === 'string' ? { text: spec } : spec;
+  const span = { childNodes: text ? [{ nodeType: 3, nodeValue: text }] : [], textContent: text };
+  const iconMatches = (sel) => !!icon && sel.split(',').some((part) => {
+    const m = /\[data-icon(\*|\^)?="([^"]+)"( i)?\]/.exec(part.trim());
+    if (!m) return false;
+    const val = m[3] ? icon.toLowerCase() : icon;
+    const pat = m[3] ? m[2].toLowerCase() : m[2];
+    return m[1] === '*' ? val.includes(pat) : m[1] === '^' ? val.startsWith(pat) : val === pat;
+  });
   return {
     querySelector(sel) {
-      if (/recalled/.test(sel)) return null;
-      return span;
+      if (/recalled/.test(sel)) return icon && /recalled/.test(icon) ? {} : null;
+      if (/selectable-text|msg-text|data-pre-plain-text/.test(sel)) return text ? span : null;
+      return iconMatches(sel) ? {} : null;
+    },
+    querySelectorAll(sel) {
+      if (sel === '[title]') return titles.map((t) => ({ getAttribute: () => t }));
+      return [];
     },
   };
 }
@@ -171,7 +185,7 @@ async function bootHooks({ preloaded = [], downloadManager = null, dom = {}, act
   const sweepActiveChat = () => intervals
     .filter((i) => String(i.fn).includes('cachearConversaAberta'))
     .forEach((i) => i.fn());
-  return { coll, modules, records, mediaReady, received, sweepActiveChat };
+  return { coll, modules, records, mediaReady, received, sweepActiveChat, sandbox };
 }
 
 test('Recover: hooks de coleção se registram com o caminho atual (WAWebCollections.Msg)', async () => {
@@ -498,4 +512,78 @@ test('Recover: mensagem ANTIGA carregada ao abrir o chat não aciona o piloto au
   nova.isNewMsg = true;
   coll.add(nova);
   assert.strictEqual(received().length, 1, 'mensagem nova deve continuar avisando o Copiloto');
+});
+
+
+// ─── Mídia apagada sem cache: tela, modelo e atributos anteriores ───────────
+
+test('Recover mídia: sem cache, o balão na tela diz que era documento (nome) e o modelo ainda baixa', async () => {
+  const dm = fakeDownloadManager();
+  const doc = makeMediaMsg('document', '/v/t62/doc.enc', { filename: 'proposta.pdf' });
+  const dom = { [doc.id._serialized]: { icon: 'document-PDF-icon', titles: ['proposta.pdf'] } };
+  const { coll, records, mediaReady } = await bootHooks({ downloadManager: dm, dom });
+  coll.put(doc); // nunca passou pelo cache
+  // revogação que troca só type/body: os campos de mídia continuam no modelo
+  doc.type = 'revoked'; doc.body = '';
+  coll.emit('change:type', doc, 'revoked');
+  const r = records()[0];
+  assert.ok(r, 'exclusão não registrada');
+  assert.strictEqual(r.mediaType, 'document', 'o tipo deveria vir da tela/modelo');
+  assert.strictEqual(r.filename, 'proposta.pdf');
+  assert.strictEqual(r.contentCaptured, true);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'o modelo ainda tinha directPath/mediaKey: deveria baixar o PDF');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/doc.enc'));
+});
+
+test('Recover mídia: sem cache, o arquivo que o modelo tem em memória (mediaBlob) é recuperado', async () => {
+  const audioBytes = FILES['/v/t62/audio.enc'].bytes;
+  const ptt = makeMsg('', { fromMe: false, type: 'ptt' });
+  ptt.mimetype = 'audio/ogg; codecs=opus';
+  ptt.mediaData = { mediaBlob: { forceToBlob: () => new Blob([audioBytes], { type: 'audio/ogg' }) } };
+  const dom = { [ptt.id._serialized]: { icon: 'audio-play' } };
+  const { coll, records, mediaReady } = await bootHooks({ dom });
+  coll.put(ptt);
+  ptt.type = 'revoked'; ptt.body = '';
+  coll.emit('change:type', ptt, 'revoked');
+  const r = records()[0];
+  assert.ok(r);
+  assert.strictEqual(r.mediaType, 'audio');
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'áudio em memória não foi recuperado');
+  assert.strictEqual(ready.mediaData, 'data:audio/ogg;base64,' + audioBytes.toString('base64'));
+});
+
+test('Recover mídia: sem cache, atributos anteriores do modelo trazem legenda e dados para baixar', async () => {
+  const dm = fakeDownloadManager();
+  const { coll, records, mediaReady } = await bootHooks({ downloadManager: dm });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc', { caption: 'nota fiscal' });
+  const before = { ...img }; // atributos de antes da troca para 'revoked'
+  coll.put(img); // nunca passou pelo cache
+  // A revogação limpa o modelo, que ainda expõe os atributos anteriores (Backbone).
+  img.type = 'revoked'; img.body = ''; img.caption = undefined;
+  img.directPath = undefined; img.mediaKey = undefined; img.mimetype = undefined;
+  img.previousAttributes = () => before;
+  coll.emit('change:type', img, 'revoked');
+  const r = records()[0];
+  assert.ok(r, 'exclusão não registrada');
+  assert.strictEqual(r.body, 'nota fiscal');
+  assert.strictEqual(r.mediaType, 'image');
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'deveria baixar a foto com os dados de antes da revogação');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/foto.enc'));
+});
+
+test('Recover: diagnóstico WHL_RecoverDiag mostra de onde veio o conteúdo de cada exclusão', async () => {
+  const msg = makeMsg('');
+  const dom = { [msg.id._serialized]: 'texto da tela' };
+  const { coll, sandbox } = await bootHooks({ dom });
+  coll.put(msg);
+  coll.revoke(msg);
+  const d = sandbox.WHL_RecoverDiag();
+  assert.strictEqual(d.colecaoDeMensagens, true);
+  const last = d.ultimasExclusoes[d.ultimasExclusoes.length - 1];
+  assert.ok(last, 'exclusão não apareceu no diagnóstico');
+  assert.match(last.fontes, /tela/);
+  assert.strictEqual(last.texto, true);
 });

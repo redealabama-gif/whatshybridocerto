@@ -303,6 +303,7 @@
     console.log('[RecoverAdvanced] 🚀 Inicializando...');
     
     await loadFromStorage();
+    purgeInvalidRecords();
     setupEventListeners();
     
     // PHASE 1: Migrar mensagens antigas para novo sistema
@@ -313,6 +314,33 @@
     state.initialized = true;
     console.log('[RecoverAdvanced] ✅ Inicializado -', state.messages.length, 'mensagens carregadas');
     console.log('[RecoverAdvanced] ✅ messageVersions:', messageVersions.size, 'entradas');
+  }
+
+  // Registros gravados com o id "container" (bug do banner na 9.6.2: o id
+  // vinha de data-testid="msg-container") não são de mensagem nenhuma — e
+  // faziam "Essa mensagem foi apagada" aparecer em TODAS as mensagens.
+  function idFromDataKey(key) {
+    const parts = String(key || '').split('_');
+    return parts.length >= 3 && /^(true|false)$/.test(parts[0]) && /^[0-9A-Za-z]{10,64}$/.test(parts[2]) ? parts[2] : null;
+  }
+
+  function isBogusMessageId(id) {
+    const s = String(id || '').trim().toLowerCase();
+    return s === 'container' || s === 'msg-container';
+  }
+
+  function purgeInvalidRecords() {
+    const before = state.messages.length;
+    state.messages = state.messages.filter(m => !isBogusMessageId(m?.id));
+    let removed = before - state.messages.length;
+    for (const key of [...messageVersions.keys()]) {
+      if (isBogusMessageId(key)) { messageVersions.delete(key); removed++; }
+    }
+    if (removed) {
+      console.warn('[RecoverAdvanced] 🧹 Removidos', removed, 'registros com id inválido');
+      saveToStorage().catch(() => {});
+    }
+    return removed;
   }
 
   // ============================================
@@ -833,9 +861,13 @@
   // ============================================
   async function handleNewMessage(data) {
     if (!data) return;
+    if (isBogusMessageId(data.id || data.msgId)) return;
     
     const msg = {
-      id: data.id || data.msgId || Date.now().toString(),
+      // RecoverDOM manda só "key" (o data-id "true_<chat>_<id>"): o id da
+      // mensagem é o 3º pedaço — assim junta com o registro da página em vez
+      // de virar um registro duplicado com id de horário.
+      id: data.id || data.msgId || idFromDataKey(data.key) || Date.now().toString(),
       // ✅ Manter o chatId original (necessário para abrir o chat e localizar a mensagem no WhatsApp)
       // (sem o sufixo @c.us / @g.us, algumas rotinas de navegação/download falham)
       chatId: data.chatId || data.chat || data.to || null,
@@ -1027,18 +1059,23 @@
       mediaData = compressed;
     }
 
+    // isThumbnail: cópia do que estava na tela (o original, se chegar depois,
+    // ainda substitui); sem a flag é o arquivo original.
+    const incomingThumb = payload.isThumbnail === true;
     let updated = 0;
     state.messages.forEach((m, i) => {
       if (!m || !(ids.has(messageIdCore(m.id)) || ids.has(messageIdCore(m.protocolId)))) return;
       if (payload.action && m.action && payload.action !== m.action && m.action === 'edited') return;
-      const hasFull = typeof m.mediaData === 'string' && m.mediaData.length > 50 &&
-        m.mediaData !== '__HAS_MEDIA__' && !m.mediaIsThumbnail;
+      const hasStored = typeof m.mediaData === 'string' && m.mediaData.length > 50 && m.mediaData !== '__HAS_MEDIA__';
+      const hasFull = hasStored && !m.mediaIsThumbnail;
       if (hasFull) return;
+      // Miniatura nova só troca a atual se for maior (a do WhatsApp é minúscula).
+      if (incomingThumb && hasStored && m.mediaData.length >= mediaData.length) return;
       state.messages[i] = {
         ...m,
         body: typeof m.body === 'string' && MEDIA_PENDING_BODY_RE.test(m.body) ? '' : m.body,
         mediaData,
-        mediaIsThumbnail: false,
+        mediaIsThumbnail: incomingThumb,
         mimetype: m.mimetype || mimetype,
         filename: m.filename || payload.filename || null,
         contentCaptured: true
@@ -1050,8 +1087,11 @@
       if (!entry || !(ids.has(messageIdCore(key)) || ids.has(messageIdCore(entry.id)))) return;
       (entry.history || []).forEach(ev => {
         if (ev && ev.state !== MESSAGE_STATES.EDITED && REVOKED_UNIVERSE_STATES.includes(ev.state)) {
+          const evStored = typeof ev.mediaDataPreview === 'string' && ev.mediaDataPreview.length > 50;
+          if (evStored && !ev.mediaIsThumbnail) return;
+          if (incomingThumb && evStored && ev.mediaDataPreview.length >= mediaData.length) return;
           ev.mediaDataPreview = mediaData;
-          ev.mediaIsThumbnail = false;
+          ev.mediaIsThumbnail = incomingThumb;
           ev.contentCaptured = true;
           if (!ev.mediaType && mimetype) ev.mediaType = mimetype;
           if (!ev.mimetype && mimetype) ev.mimetype = mimetype;
