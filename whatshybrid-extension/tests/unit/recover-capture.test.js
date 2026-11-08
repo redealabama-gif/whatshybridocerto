@@ -613,3 +613,22 @@ test('Recover: mensagem que entrou VAZIA no cache é atualizada pela varredura a
   assert.ok(r);
   assert.strictEqual(r.body, 'texto preenchido depois', 'cache vazio não foi atualizado');
 });
+
+test('Recover: SUA edição segue para o WhatsApp gravar (com "Antes/Editada para"), como a do contato', async () => {
+  const { coll, modules, records } = await bootHooks();
+  const msg = makeMsg('oi');
+  coll.add(msg);
+  const edit = {
+    id: { id: 'PROTO' + msg.id.id, remote: CHAT, fromMe: true, _serialized: `true_${CHAT}_PROTO${msg.id.id}` },
+    from: msg.from, to: msg.to, protocolMessageKey: msg.id, body: 'oie', type: 'chat', subtype: 'message_edit',
+  };
+  // o módulo simulado devolve o que o WhatsApp de fato processaria (e gravaria)
+  const applied = modules.WAWebDBProcessEditProtocolMsgs.processEditProtocolMsgs([edit]);
+  assert.strictEqual(applied.length, 1, 'a edição foi descartada — o WhatsApp não gravaria o texto novo');
+  assert.strictEqual(applied[0].subtype, 'message_edit', 'deixou de ser uma edição');
+  assert.ok(applied[0].protocolMessageKey, 'a ligação com a mensagem original foi removida');
+  assert.match(applied[0].body, /Antes: oi[\s\S]*Editada para: oie/);
+  const r = records().find((x) => x.action === 'edited');
+  assert.strictEqual(r.previousContent, 'oi');
+  assert.strictEqual(r.body, 'oie', 'o histórico guarda o texto novo sem o marcador');
+});
