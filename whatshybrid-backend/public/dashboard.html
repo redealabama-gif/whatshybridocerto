@@ -660,13 +660,16 @@
 <script src="js/datetime.js" defer></script>
 <script src="js/onboarding.js" defer></script>
 
-<!-- v9.0.0: Crisp chat (ativa automaticamente se window.CRISP_WEBSITE_ID definido) -->
+<!-- Config pública do backend (window.WHL_CONFIG), servida por GET /config.js -->
+<script src="/config.js"></script>
+<!-- v9.0.0: Crisp chat (ativa automaticamente se CRISP_WEBSITE_ID estiver definido no backend) -->
 <script>
-  // Define em deploy/.env: CRISP_WEBSITE_ID=xxx-xxx-xxx
-  // E injete via template no signup.html / dashboard.html
+  // Define no .env do deploy: CRISP_WEBSITE_ID=xxx-xxx-xxx
+  // O backend entrega o valor em window.WHL_CONFIG (GET /config.js, acima).
   window.$crisp=[];
-  if (window.CRISP_WEBSITE_ID) {
-    window.CRISP_WEBSITE_ID = window.CRISP_WEBSITE_ID;
+  if (window.WHL_CONFIG?.CRISP_WEBSITE_ID) {
+    // O loader do Crisp (l.js) lê o ID desta global.
+    window.CRISP_WEBSITE_ID = window.WHL_CONFIG.CRISP_WEBSITE_ID;
     (function(){
       var d = document;
       var s = d.createElement("script");
