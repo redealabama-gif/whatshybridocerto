@@ -257,6 +257,35 @@
     return { id: getActiveChatId() };
   }
 
+  // IA-06 — últimas mensagens do chat ativo para a sugestão de resposta. No DOM
+  // atual não há mais .message-in/.message-out; aqui a direção vem de id.fromMe.
+  // Mídia vai sem body (que nela é a miniatura em base64) — só a legenda.
+  async function cmdGetActiveChatMessages({ limit } = {}) {
+    const Chat = window.WHL_Store?.Chat;
+    const arr = Chat?.getModelsArray?.() || Chat?._models || [];
+    const active = arr.find(c => c.active === true || c.__x_active === true);
+    if (!active) return { id: null, messages: [] };
+    const coll = active.msgs;
+    const msgs = coll?.getModelsArray?.() || coll?._models || [];
+    const n = Math.max(1, Math.min(Number(limit) || 20, 100));
+    return {
+      id: active.id?._serialized || null,
+      messages: msgs.slice(-n).map((m) => {
+        const type = m.type || m.__x_type || 'chat';
+        const body = m.body ?? m.__x_body;
+        const caption = m.caption ?? m.__x_caption;
+        return {
+          fromMe: !!(m.id?.fromMe ?? m.__x_id?.fromMe),
+          type,
+          body: type === 'chat' && typeof body === 'string' ? body : '',
+          caption: typeof caption === 'string' ? caption : '',
+          t: m.t ?? m.__x_t ?? 0,
+          isNotification: !!(m.isNotification || m.__x_isNotification),
+        };
+      }),
+    };
+  }
+
   async function cmdOpenChat({ chatId }) {
     const Chat = window.WHL_Store?.Chat;
     const Cmd = window.WHL_Store?.Cmd;
@@ -300,6 +329,7 @@
   const HANDLERS = {
     health: cmdHealth,
     getActiveChat: cmdGetActiveChat,
+    getActiveChatMessages: cmdGetActiveChatMessages,
     getChats: cmdGetChats,
     getContacts: cmdGetContacts,
     getBlocked: cmdGetBlocked,

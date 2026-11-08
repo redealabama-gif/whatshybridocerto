@@ -1,0 +1,9 @@
+• suggestion-context-dom.test.js
+  ✓ IA-06: DOM atual (msg-container no 1º balão) → as 6 mensagens, a última é a pergunta
+  ✓ IA-06: DOM atual (msg-container no último balão) → as 6 mensagens
+  ✓ IA-06: DOM atual → direção pelos ícones de entrega (✓✓ = você)
+  ✓ IA-06 (controle): DOM antigo continua com as 6 mensagens e a direção certa
+  ✓ IA-06: Store via ponte da página → direção exata (fromMe) e mídia sem base64
+  ✓ IA-06: ponte da página responde getActiveChatMessages com a Store
+
+  6 passou, 0 falhou (6 no total)
