@@ -114,7 +114,6 @@
     "modules/features/customer-feedback.js",
     "modules/features/multi-persona.js",
     "modules/features/auto-learning.js",
-    "modules/features/proactive-suggestions.js",
     "modules/features/behavioral-analysis.js",
     "modules/features/smart-templates.js",
     "modules/init.js",
