@@ -460,6 +460,7 @@ app.get('/config.js', (_req, res) => {
   const safeConfig = {
     APP_VERSION: require('../package.json').version,
     CRISP_WEBSITE_ID: process.env.CRISP_WEBSITE_ID || null,
+    CHROME_WEBSTORE_URL: process.env.CHROME_WEBSTORE_URL || null, // botão "Instalar extensão" do dashboard
     SENTRY_DSN_BROWSER: process.env.SENTRY_DSN_BROWSER || null,
     UMAMI_WEBSITE_ID: process.env.UMAMI_WEBSITE_ID || null,
     UMAMI_HOST: process.env.UMAMI_HOST || null,

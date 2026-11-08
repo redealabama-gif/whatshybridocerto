@@ -772,8 +772,13 @@
   // ── Extension actions ────────────────────────────────────
   document.getElementById('install-extension-btn').addEventListener('click', (e) => {
     e.preventDefault();
-    // Quando publicada na Chrome Web Store, troque por o link real:
-    // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
+    // O link vem do backend: CHROME_WEBSTORE_URL no .env → GET /config.js →
+    // window.WHL_CONFIG. Sem a variável, mantém o aviso de "em breve".
+    const storeUrl = window.WHL_CONFIG?.CHROME_WEBSTORE_URL;
+    if (storeUrl) {
+      window.open(storeUrl, '_blank', 'noopener');
+      return;
+    }
     toast('Em breve disponível na Chrome Web Store.', 'info', 4000);
   });
 
