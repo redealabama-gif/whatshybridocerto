@@ -177,10 +177,10 @@
   }
   </script>
 
-  <!-- Sentry Browser SDK (no-op se DSN não fornecido inline) -->
-  <script>
-    window.SENTRY_DSN_BROWSER = ''; // será injetado pelo backend se configurado
-  </script>
+  <!-- Sentry no navegador (opcional): liga só com SENTRY_DSN_BROWSER no backend.
+       /config.js entrega window.WHL_CONFIG; sem DSN, nada é baixado. -->
+  <script src="/config.js" defer></script>
+  <script src="js/sentry-browser.js" defer></script>
 
   <!-- Defer não-crítico -->
   <script src="https://unpkg.com/lucide@latest" defer></script>

@@ -321,6 +321,10 @@ crontab -e
 
 Erros em produção viram tickets organizados.
 
+Opcional — erros JavaScript do navegador (landing e dashboard): crie um
+segundo projeto do tipo "Browser JavaScript" e cole o DSN dele em
+`SENTRY_DSN_BROWSER` (esse DSN é público: vai para o navegador via `/config.js`).
+
 ### Uptime externo (Better Stack / UptimeRobot)
 
 UptimeRobot tem free tier para 50 monitors. Configure:
