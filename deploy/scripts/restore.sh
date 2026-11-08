@@ -3,6 +3,7 @@
 # Vórtex Pro — Restore de backup
 # ═══════════════════════════════════════════════════════════════════════════
 # Uso:
+#   ./deploy/scripts/restore.sh                                     # lista os backups
 #   ./deploy/scripts/restore.sh /path/to/backup.tar.gz             # dry-run
 #   ./deploy/scripts/restore.sh /path/to/backup.tar.gz --apply     # aplica
 
@@ -11,12 +12,25 @@ set -euo pipefail
 BACKUP_FILE="${1:-}"
 APPLY="${2:-}"
 
+PROJECT_DIR="${PROJECT_DIR:-/opt/whatshybrid}"
+BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups}"
+
 if [[ -z "$BACKUP_FILE" ]] || [[ ! -f "$BACKUP_FILE" ]]; then
     echo "Uso: $0 <backup.tar.gz> [--apply]"
+    echo "  sem --apply: só verifica o backup (dry-run); com --apply: restaura"
+    if ls "$BACKUP_DIR"/*.tar.gz > /dev/null 2>&1; then
+        echo "Backups disponíveis em $BACKUP_DIR (mais recentes primeiro):"
+        ls -t "$BACKUP_DIR"/*.tar.gz | head -10 | sed 's/^/  /'
+    fi
     exit 1
 fi
 
-PROJECT_DIR="${PROJECT_DIR:-/opt/whatshybrid}"
+if ! command -v sqlite3 > /dev/null 2>&1; then
+    echo "❌ sqlite3 não está instalado no host (usado para conferir o backup)."
+    echo "   Instale com: apt-get install -y sqlite3"
+    exit 1
+fi
+
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
@@ -48,22 +62,53 @@ if [[ "$APPLY" != "--apply" ]]; then
     exit 0
 fi
 
-log "2. Parando backend..."
+# O banco fica no volume Docker `db_data` (montado em /app/data no backend e
+# no ai-worker), NÃO em $PROJECT_DIR/data no host. A troca é feita por um
+# container descartável com o mesmo volume (`docker compose run`), com os dois
+# serviços parados para ninguém estar com o banco aberto.
 cd "$PROJECT_DIR"
-docker compose stop backend
 
-log "3. Backup do DB atual..."
-mkdir -p "$PROJECT_DIR/backups"
-SAFETY="$PROJECT_DIR/backups/before_restore_$(date +%Y%m%d_%H%M%S).db"
-cp "$PROJECT_DIR/data/whatshybrid.db" "$SAFETY" 2>/dev/null || log "  (sem DB atual)"
+log "2. Parando backend e ai-worker..."
+docker compose stop backend ai-worker
 
-log "4. Restaurando..."
-gunzip -k "$DB_GZ" -c > "$PROJECT_DIR/data/whatshybrid.db"
+log "3. Backup de segurança do banco atual..."
+mkdir -p "$BACKUP_DIR"
+SAFETY="$BACKUP_DIR/before_restore_$(date +%Y%m%d_%H%M%S).db"
+# `.backup` do sqlite inclui o que ainda estiver no WAL (cópia consistente).
+if docker compose run --rm --no-deps -T --entrypoint sh backend -c '
+    [ -f /app/data/whatshybrid.db ] || exit 1
+    sqlite3 /app/data/whatshybrid.db ".backup /tmp/safety.db"
+    cat /tmp/safety.db' > "$SAFETY"; then
+    log "  Salvo em $SAFETY"
+else
+    rm -f "$SAFETY"
+    SAFETY="(não havia banco no volume)"
+    log "  $SAFETY"
+fi
 
-log "5. Reiniciando..."
-docker compose start backend
-sleep 5
-curl -sf http://localhost:3000/health > /dev/null && log "  ✅ Up" || log "  ⚠️ Health check failed"
+log "4. Restaurando no volume..."
+gunzip -c "$DB_GZ" | docker compose run --rm --no-deps -T --entrypoint sh backend -c '
+    set -e
+    cd /app/data
+    cat > whatshybrid.db.restore
+    rm -f whatshybrid.db-wal whatshybrid.db-shm
+    mv whatshybrid.db.restore whatshybrid.db'
+
+log "5. Reiniciando backend e ai-worker..."
+docker compose start backend ai-worker
+HEALTH_OK=false
+for _ in $(seq 1 12); do
+    if docker compose exec -T backend wget -qO- http://localhost:3000/health > /dev/null 2>&1; then
+        HEALTH_OK=true
+        break
+    fi
+    sleep 5
+done
+if [[ "$HEALTH_OK" == "true" ]]; then
+    log "  ✅ Backend respondendo no /health"
+else
+    log "  ⚠️ Backend não respondeu ao /health em 60s — veja: docker compose logs backend"
+fi
 
 log "═══ Restore aplicado ✅ ═══"
 log "Safety backup: $SAFETY"

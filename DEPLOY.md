@@ -178,7 +178,7 @@ curl https://api.seudominio.com.br/health
 | Rodar health check | `./deploy/scripts/health.sh` |
 | Backup manual | `./deploy/scripts/backup.sh` |
 | Listar backups | `ls -lh /opt/whatshybrid/backups/` |
-| Restaurar backup | `./deploy/scripts/restore.sh` |
+| Restaurar backup | `./deploy/scripts/restore.sh <arquivo> --apply` (sem argumento, lista os backups) |
 | Ver uso de recursos | `docker stats` |
 | Atualizar para nova versão | `./deploy/scripts/deploy.sh` |
 | Banir IP de força bruta SSH | `fail2ban-client set sshd banip IP` |
@@ -198,8 +198,9 @@ curl https://api.seudominio.com.br/health
 ### Restore (em caso de pane)
 
 ```bash
-./deploy/scripts/restore.sh
-# vai listar backups disponíveis e perguntar qual usar
+./deploy/scripts/restore.sh                                            # lista os backups disponíveis
+./deploy/scripts/restore.sh backups/backup_AAAAMMDD_HHMMSS_auto.tar.gz          # só verifica (dry-run)
+./deploy/scripts/restore.sh backups/backup_AAAAMMDD_HHMMSS_auto.tar.gz --apply  # restaura
 ```
 
 ### Backups off-site (FORTEMENTE recomendado)
@@ -396,7 +397,7 @@ dpkg-reconfigure --priority=low unattended-upgrades
 1. **Restart do serviço problemático**: `docker compose restart backend`
 2. **Redeploy**: `./deploy/scripts/deploy.sh`
 3. **Restart de tudo**: `docker compose down && docker compose up -d`
-4. **Restore de backup recente**: `./deploy/scripts/restore.sh`
+4. **Restore de backup recente**: `./deploy/scripts/restore.sh <arquivo> --apply`
 5. **Reboot do VPS**: `reboot` (containers sobem automaticamente, restart=unless-stopped)
 
 Se nada disso funcionar, leia os logs: `docker compose logs --tail=200 > /tmp/diagnose.log`
