@@ -791,25 +791,24 @@
    * Processa todas as mensagens existentes no chat
    */
   function processExistingMessages() {
-    // Apenas seletores seguros — fallback '[data-id]' foi removido porque
-    // casa com elementos que NÃO são mensagens (chat-list, headers, popups)
-    // e isso era a fonte principal do "todas as mensagens viraram apagadas".
-    const messageSelectors = [
-      '[data-testid="msg-container"]',
-      '.message-in, .message-out'
-    ];
-
-    for (const selector of messageSelectors) {
-      const messages = document.querySelectorAll(selector);
-
-      if (messages.length > 0) {
-        for (const msgEl of messages) {
-          processMessage(msgEl);
-        }
-        break; // Usar apenas o primeiro seletor que encontrar mensagens
-      }
-    }
+    // Raiz de cada mensagem = elemento com data-id dentro da conversa aberta.
+    // O WhatsApp atual não usa mais .message-in/.message-out e quase não tem
+    // [data-testid="msg-container"] — antes só esses eram procurados (e o
+    // primeiro que existisse), então a maioria das mensagens era ignorada.
+    const roots = new Set();
+    const add = (el) => {
+      if (!el) return;
+      const root = el.closest ? (el.closest('[data-id]') || el) : el;
+      if (isMessageContainer(root)) roots.add(root);
+    };
+    document.querySelectorAll(MESSAGE_AREA_SELECTORS.map(a => `${a} [data-id]`).join(', ')).forEach(add);
+    document.querySelectorAll('[data-testid="msg-container"], .message-in, .message-out').forEach(add);
+    roots.forEach(processMessage);
   }
+
+  // Onde ficam as mensagens da conversa aberta (fora daqui: lista de chats,
+  // cabeçalho, pop-ups — nunca recebem banner).
+  const MESSAGE_AREA_SELECTORS = ['#main', '[data-testid="conversation-panel-messages"]'];
 
   /**
    * Processa uma mensagem individual
@@ -1032,18 +1031,16 @@
    */
   function isMessageContainer(el) {
     if (!el || el.nodeType !== 1) return false;
-    // Sinais positivos diretos: data-testid="msg-container"
-    if (el.matches && el.matches('[data-testid="msg-container"]')) return true;
-    // Classes do WhatsApp para bubbles
-    if (el.classList && (el.classList.contains('message-in') || el.classList.contains('message-out'))) return true;
-    // É filho direto de um msg-container?
-    if (el.closest && el.closest('[data-testid="msg-container"]') === el) return true;
-    // Tem data-id formato de mensagem (true_/false_) e está dentro do área de mensagens?
     const dataId = el.getAttribute && el.getAttribute('data-id');
-    if (dataId && /^(true|false)_/.test(dataId)) {
-      const inMessageArea = !!el.closest('[data-testid="conversation-panel-messages"], #main [role="application"]');
-      if (inMessageArea) return true;
+    if (dataId) {
+      // Só a raiz da mensagem (um data-id dentro de outro é citação/prévia).
+      if (el.parentElement && el.parentElement.closest('[data-id]')) return false;
+      if (!el.closest(MESSAGE_AREA_SELECTORS.join(', '))) return false;
+      return isValidMsgId(idFromDataId(dataId));
     }
+    // Sem data-id: só os marcadores clássicos de balão.
+    if (el.matches && el.matches('[data-testid="msg-container"]')) return true;
+    if (el.classList && (el.classList.contains('message-in') || el.classList.contains('message-out'))) return true;
     return false;
   }
 
@@ -1161,6 +1158,8 @@
    */
   function idFromDataId(dataId) {
     if (!dataId) return null;
+    // WhatsApp atual: data-id é só o id da mensagem ("3EB0B584D3AEA026CD34F9").
+    if (/^[0-9A-Za-z]{10,64}$/.test(String(dataId))) return String(dataId);
     const parts = String(dataId).split('_');
     if (parts.length >= 3 && /^(true|false)$/.test(parts[0]) && parts[2]) {
       return parts[2];

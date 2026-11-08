@@ -70,3 +70,9 @@ test('Banner: ids diferentes para mensagens diferentes', () => {
     extractMessageId(el({ 'data-testid': 'msg-container' }, el({ 'data-id': `true_5521995800771@c.us_${id}` }))));
   assert.deepStrictEqual(ids, ['3EB0AAAA00000001', '3EB0AAAA00000002', '3A1B2C3D4E5F6A7B8C9D']);
 });
+
+test('Banner: data-id só com o id (formato do WhatsApp atual)', () => {
+  const row = el({ 'data-id': '3EB0B584D3AEA026CD34F9' });
+  assert.strictEqual(extractMessageId(el({}, row)), '3EB0B584D3AEA026CD34F9');
+  assert.strictEqual(extractMessageId(row), '3EB0B584D3AEA026CD34F9');
+});
