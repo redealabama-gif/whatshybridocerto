@@ -1,0 +1,6 @@
+    ✕ telefone e e-mail da loja (estão na base) → resposta mantida (30 ms)
+    ✕ nº de pedido que o próprio cliente mandou → resposta mantida (3 ms)
+    ✓ CPF e cartão que não estão na base nem na conversa → bloqueia (3 ms)
+    ✓ telefone que NÃO é o da loja → bloqueia (1 ms)
+    ✓ sem contexto (chamada antiga) → comportamento antigo: bloqueia (1 ms)
+Tests:       2 failed, 3 passed, 5 total

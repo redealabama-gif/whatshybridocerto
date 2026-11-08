@@ -542,7 +542,15 @@ class AIOrchestrator {
         safetyResult = this.safetyFilter.validate(response, {
           intent: intentResult.intent,
           emotionalContext: context.emotionalContext,
-          knownEntities: context.knownEntities
+          knownEntities: context.knownEntities,
+          // IA-07 — base da empresa (inclui telefone/e-mail do negócio) e a
+          // conversa deste cliente. NÃO o prompt inteiro: exemplos de outras
+          // conversas podem ter dados de outros clientes.
+          allowedText: [
+            message,
+            ...(knowledgeResults || []).map((k) => (k && k.content ? String(k.content) : '')),
+            ...(conversationContext.recentMessages || []).map((m) => (m && m.content ? String(m.content) : '')),
+          ].join('\n'),
         });
         if (!safetyResult.safe) {
           logger.warn(`Unsafe response blocked for chat ${chatId}`);
@@ -682,6 +690,8 @@ class AIOrchestrator {
           // FASE 3b — veredito de auto-envio (o cliente honra no modo autônomo)
           autopilot: autopilotGuard,
           safetyIssues: safetyResult?.issues || [],
+          // IA-07 — a resposta foi trocada pela frase de segurança
+          safetyReplaced: !!(safetyResult && !safetyResult.safe),
           knowledgeResultsCount: knowledgeResults.length,
           fewShotExamplesUsed: fewShotExamples.length,
           dynamicPromptUsed: !!dynamicPrompt,
