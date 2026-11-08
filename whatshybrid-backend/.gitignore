@@ -47,6 +47,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Lock do JobsRunner (src/jobs/JobsRunner.js), criado na pasta em que o backend roda
+.jobs_runner.lock
+
 # Temporary files
 tmp/
 temp/
