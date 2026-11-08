@@ -25,6 +25,20 @@ if (String(webhookSecret).length < 16) {
   throw new Error('WEBHOOK_SECRET deve ter pelo menos 16 caracteres');
 }
 
+// Em produção, recusar os valores de exemplo do .env.example (REPLACE_WITH_...):
+// eles são públicos (estão no repositório) e passavam nas checagens acima. Em
+// dev continuam aceitos, para o backend subir na primeira execução.
+if (env === 'production') {
+  for (const [name, value] of [['JWT_SECRET', jwtSecret], ['WEBHOOK_SECRET', webhookSecret]]) {
+    if (/REPLACE_WITH/i.test(String(value))) {
+      throw new Error(
+        `${name} ainda é o valor de exemplo do .env.example — gere um valor aleatório ` +
+        '(o deploy/scripts/install.sh faz isso)'
+      );
+    }
+  }
+}
+
 module.exports = {
   env,
   port: parseInt(process.env.PORT, 10) || 3000,

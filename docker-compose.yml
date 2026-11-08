@@ -13,9 +13,11 @@
 #   - caddy_config: configurações persistentes do Caddy
 #   - redis_data:  AOF do Redis
 #
-# Deploy:
-#   1. cp .env.example .env   (e preencha valores)
-#   2. docker compose up -d --build
+# Deploy (passo a passo completo no DEPLOY.md):
+#   1. ./deploy/scripts/install.sh  (cria o .env a partir do .env.example e gera
+#      JWT_SECRET, WEBHOOK_SECRET e POSTGRES_PASSWORD aleatórios; depois
+#      preencha DOMAIN, LETSENCRYPT_EMAIL e uma chave de IA)
+#   2. ./deploy/scripts/deploy.sh   (ou: docker compose up -d --build)
 #   3. Logs: docker compose logs -f
 #   4. Backup: ./deploy/scripts/backup.sh
 #   5. Update: ./deploy/scripts/deploy.sh
