@@ -1270,6 +1270,11 @@
           state.backendReady = false;
           applyReadinessClass('offline');
           log('Backend orchestrator falhou (cairá pra fallback):', e?.message || e);
+          // IA-04: kill switch do backend → para aqui, sem cair na IA local.
+          if (e?.code === 'KILL_SWITCH' || e?.body?.error === 'kill_switch') {
+            showError('A IA foi desativada temporariamente pelo administrador.');
+            return;
+          }
           // Se foi 402 (sem créditos), interrompe — não chame OpenAI direto sem cobrar
           if (e?.status === 402 || /payment.required|insufficient.*token/i.test(String(e?.message))) {
             _renderAccessBlocked({ reason: 'no_credits', canBuyCredits: true });

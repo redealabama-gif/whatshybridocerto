@@ -1,0 +1,7 @@
+    ✓ controle: desligado → /process responde e chama o orquestrador (42 ms)
+    ✓ ligado (global) → /process responde 503 e NÃO chama o orquestrador (11 ms)
+    ✓ ligado só para um usuário → os outros seguem funcionando (13 ms)
+    ✓ ligado → a sugestão continua, mas a guarda nega o auto-envio (7 ms)
+    ✓ produção sem ADMIN_KILL_SWITCH_KEY → a chave padrão é recusada (5 ms)
+    ✓ o estado sobrevive a um restart (nova instância do módulo) (31 ms)
+Tests:       6 passed, 6 total

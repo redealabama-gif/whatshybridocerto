@@ -561,6 +561,9 @@
       } catch (error) {
         lastError = error;
 
+        // IA-04: kill switch do backend não é transitório — sem retry.
+        if (error.code === 'KILL_SWITCH') throw error;
+
         // v9.3.3: 4xx (exceto 401 já tratado, 408 timeout, 429 rate limit) são
         // erros de cliente — não fazem sentido retry. Antes: 400 (validação),
         // 403 (forbidden), 404 (not found) eram retried 3x com backoff

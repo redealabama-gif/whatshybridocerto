@@ -1,0 +1,18 @@
+• autopilot-kill-switch.test.js
+  ✗ IA-04: 503 KILL_SWITCH do backend → sem fallback local, autopilot para
+      usou a IA local 1x com o kill switch ligado
+
+1 !== 0
+
+  ✗ IA-04: KillSwitch com "autopilot" desligado → start() recusa
+      não deveria iniciar
+
+true !== false
+
+  ✗ IA-04: kill switch ligado com o autopilot rodando → para sem responder
+      enviou com o kill switch ligado: [{"chat":"5511900000022@c.us","text":"Resposta padrão do backend."}]
+
+1 !== 0
+
+
+  0 passou, 3 falhou (3 no total)

@@ -1,0 +1,7 @@
+• autopilot-kill-switch.test.js
+  ✓ IA-04: 503 KILL_SWITCH do backend → sem fallback local, autopilot para
+  ✓ IA-04: KillSwitch com "autopilot" desligado → start() recusa
+  ✓ IA-04: kill switch ligado com o autopilot rodando → para sem responder
+  ✓ IA-04: módulo kill-switch.js real lê o status do backend e para o autopilot
+
+  4 passou, 0 falhou (4 no total)

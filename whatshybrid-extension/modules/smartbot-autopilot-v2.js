@@ -579,6 +579,20 @@
     return LOW_STAKES_MSG_RE.test(norm);
   }
 
+  // IA-04 — kill switch: módulo KillSwitch (status do backend, cacheado) ou
+  // resposta 503 KILL_SWITCH do backend → o autopilot para e não usa IA local.
+  function isKillSwitchActive() {
+    try {
+      const ks = window.KillSwitch;
+      return !!(ks && typeof ks.isFeatureDisabled === 'function' &&
+        (ks.isFeatureDisabled('autopilot') || ks.isFeatureDisabled('ai')));
+    } catch (_) { return false; }
+  }
+
+  function isKillSwitchError(e) {
+    return !!(e && (e.code === 'KILL_SWITCH' || (e.body && e.body.error === 'kill_switch')));
+  }
+
   async function checkConfidenceSystem(item) {
     // Se desabilitado, permitir sempre
     if (!CONFIG.useConfidenceSystem) {
@@ -833,6 +847,13 @@
     // Apenas o leader processa; followers ficam idle e são acordados se virarem leader.
     if (window.TabCoordinator?.isLeader && !window.TabCoordinator.isLeader()) {
       // Não é leader — pula processamento desta tab
+      return;
+    }
+
+    if (isKillSwitchActive()) {
+      console.warn('[Autopilot] ✋ Kill switch ligado — parando sem responder');
+      emitRuntimeEvent('stopped', { reason: 'kill_switch' });
+      stopAutopilot().catch(() => {});
       return;
     }
 
@@ -1443,6 +1464,13 @@
         tier0Failed = true;
         console.error('[Autopilot] ❌ ai.process falhou:', e.message);
 
+        if (isKillSwitchError(e)) {
+          console.warn('[Autopilot] ✋ Kill switch do backend — parando (sem fallback local)');
+          emitRuntimeEvent('stopped', { reason: 'kill_switch' });
+          stopAutopilot().catch(() => {});
+          throw e;
+        }
+
         // FORCE_BACKEND + DISABLE_LOCAL_FALLBACK → propaga erro (cliente NÃO recebe template)
         if (FORCE_BACKEND && DISABLE_LOCAL_FALLBACK) {
           if (SHOW_BACKEND_ERRORS && window.EventBus) {
@@ -1611,6 +1639,11 @@
     await stateMutex.acquire();
     try {
       if (state.running && CONFIG.enabled) return { success: false, reason: 'already_running' };
+      if (isKillSwitchActive()) {
+        console.warn('[Autopilot] ✋ Kill switch ligado — não inicia');
+        emitRuntimeEvent('blocked', { reason: 'kill_switch' });
+        return { success: false, reason: 'kill_switch' };
+      }
 
       // PEND-MED-009: Criar novo AbortController para esta sessão
       state.abortController = new AbortController();
