@@ -1,6 +1,6 @@
 {
   "name": "whatshybrid-monorepo",
-  "version": "8.0.1",
+  "version": "9.6.0",
   "description": "Vórtex Pro - WhatsApp Automation Platform",
   "private": true,
   "workspaces": [
