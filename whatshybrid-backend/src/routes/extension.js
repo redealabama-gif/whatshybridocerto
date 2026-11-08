@@ -1,6 +1,6 @@
 /**
  * Extension Download Routes - v8.3.0
- * 
+ *
  * Serve o zip da extensão Chrome para o cliente baixar.
  * Em produção, recomenda-se publicar na Chrome Web Store e este endpoint
  * fica como fallback para "instalação manual" durante beta.
