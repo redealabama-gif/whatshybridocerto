@@ -1,0 +1,5 @@
+• autopilot-faq-guard.test.js
+  ✓ IA-02: FAQ + pedido de humano → consulta a guarda e NÃO envia
+  ✓ IA-02: FAQ + mensagem comum + guarda libera → envia a resposta da FAQ
+
+  2 passou, 0 falhou (2 no total)

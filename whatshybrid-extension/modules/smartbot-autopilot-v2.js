@@ -961,7 +961,18 @@
       }
 
       // Gerar resposta (backend soberano via CopilotEngine)
-      const response = confidenceCheck.answer || await generateResponse(item);
+      // IA-02 — resposta pronta do ConfidenceSystem (FAQ / resposta rápida)
+      // também passa pela guarda do backend: o orquestrador avalia a MENSAGEM do
+      // cliente (pedido de humano, reclamação, tema sensível...). A chamada
+      // preenche item.__aiGuard / __responseTier; se a guarda liberar, envia a
+      // resposta pronta (texto exato cadastrado), senão vai para revisão.
+      let response;
+      if (confidenceCheck.answer) {
+        await generateResponse(item);
+        response = confidenceCheck.answer;
+      } else {
+        response = await generateResponse(item);
+      }
       if (!response) throw new Error('Falha ao gerar resposta');
 
       // SEGURANÇA — fallback local NÃO é auto-enviado. Quando o Tier 0
