@@ -20,13 +20,25 @@ function snapshotDocs(hs) {
 
 describe('HybridSearch: snapshot em disco', () => {
   let dir;
-  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hs-persist-')); });
-  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hs-persist-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 
   async function indexed() {
     const hs = new HybridSearch({ tenantId: 'spec', persistenceDir: dir });
-    await hs.addDocument({ id: 'faq:1', content: 'entregamos em todo o Brasil pelos Correios', metadata: {} });
-    await hs.addDocument({ id: 'faq:2', content: 'aceitamos pagamento via PIX e cartão', metadata: {} });
+    await hs.addDocument({
+      id: 'faq:1',
+      content: 'entregamos em todo o Brasil pelos Correios',
+      metadata: {},
+    });
+    await hs.addDocument({
+      id: 'faq:2',
+      content: 'aceitamos pagamento via PIX e cartão',
+      metadata: {},
+    });
     await hs.flush();
     return hs;
   }

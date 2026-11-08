@@ -26,22 +26,38 @@ function loadConfig(env) {
 
 describe('config: valores de exemplo do .env.example', () => {
   test('produção recusa JWT_SECRET de exemplo', () => {
-    const r = loadConfig({ NODE_ENV: 'production', JWT_SECRET: JWT_PLACEHOLDER, WEBHOOK_SECRET: WEBHOOK_REAL });
+    const r = loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: JWT_PLACEHOLDER,
+      WEBHOOK_SECRET: WEBHOOK_REAL,
+    });
     expect(r.ok).toBe(false);
     expect(r.stderr).toMatch(/JWT_SECRET ainda é o valor de exemplo/);
   });
 
   test('produção recusa WEBHOOK_SECRET de exemplo', () => {
-    const r = loadConfig({ NODE_ENV: 'production', JWT_SECRET: JWT_REAL, WEBHOOK_SECRET: WEBHOOK_PLACEHOLDER });
+    const r = loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: JWT_REAL,
+      WEBHOOK_SECRET: WEBHOOK_PLACEHOLDER,
+    });
     expect(r.ok).toBe(false);
     expect(r.stderr).toMatch(/WEBHOOK_SECRET ainda é o valor de exemplo/);
   });
 
   test('produção aceita segredos reais', () => {
-    expect(loadConfig({ NODE_ENV: 'production', JWT_SECRET: JWT_REAL, WEBHOOK_SECRET: WEBHOOK_REAL }).ok).toBe(true);
+    expect(
+      loadConfig({ NODE_ENV: 'production', JWT_SECRET: JWT_REAL, WEBHOOK_SECRET: WEBHOOK_REAL }).ok
+    ).toBe(true);
   });
 
   test('development aceita os valores de exemplo (primeira execução)', () => {
-    expect(loadConfig({ NODE_ENV: 'development', JWT_SECRET: JWT_PLACEHOLDER, WEBHOOK_SECRET: WEBHOOK_PLACEHOLDER }).ok).toBe(true);
+    expect(
+      loadConfig({
+        NODE_ENV: 'development',
+        JWT_SECRET: JWT_PLACEHOLDER,
+        WEBHOOK_SECRET: WEBHOOK_PLACEHOLDER,
+      }).ok
+    ).toBe(true);
   });
 });
