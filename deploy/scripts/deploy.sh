@@ -54,8 +54,13 @@ log_info "═══════════════════════�
 
 # ── 1. Backup pré-deploy ─────────────────────────────────────────────────
 log_info "[1/5] Backup pré-deploy..."
-if [[ -x ./deploy/scripts/backup.sh ]]; then
-    ./deploy/scripts/backup.sh "pre-deploy-$(date +%Y%m%d_%H%M%S)"
+# No primeiro deploy ainda não há container nem banco: o backup.sh abortaria
+# ("container backend não está rodando") e, com set -e, derrubava o deploy
+# inteiro. Sem backend rodando, não há o que salvar.
+if [[ -z "$(docker compose ps -q backend 2>/dev/null)" ]]; then
+    log_info "Backend ainda não está rodando (primeiro deploy?) — nada para salvar, pulando backup"
+elif [[ -x ./deploy/scripts/backup.sh ]]; then
+    PROJECT_DIR="$(pwd)" ./deploy/scripts/backup.sh "pre-deploy-$(date +%Y%m%d_%H%M%S)"
     log_ok "Backup feito"
 else
     log_warn "backup.sh não disponível ou não executável — pulando backup"
@@ -120,7 +125,9 @@ if [[ "$HEALTH_OK" == "true" ]]; then
     log_ok "Deploy concluído com sucesso!"
     log_info ""
     log_info "Versão atual:"
-    docker compose images backend --format "table {{.Repository}}\t{{.Tag}}\t{{.ImageID}}\t{{.Size}}"
+    # `docker compose images --format` só aceita "table" ou "json" (template Go
+    # dava erro e, com set -e, um deploy que funcionou terminava como falha).
+    docker compose images backend
     log_info ""
     log_info "Status dos containers:"
     docker compose ps

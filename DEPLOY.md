@@ -138,7 +138,7 @@ cd /opt/whatshybrid
 ```
 
 Vai:
-1. Fazer backup (vazio na primeira vez)
+1. Fazer backup (pulado no primeiro deploy, quando ainda não há banco)
 2. Build das imagens Docker (~3-5 min)
 3. Subir Caddy + Backend + Worker + Redis
 4. Esperar Let's Encrypt provisionar TLS (~30-60s)
