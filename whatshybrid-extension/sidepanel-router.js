@@ -49,6 +49,9 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
 
   const MAX_QUEUE_RENDER = 500;   // evita travar o side panel em filas gigantes
   const MAX_RECOVER_RENDER = 200;
+  // Rótulo antigo de "conteúdo não capturado" (afirmava ser mídia sem saber).
+  // Registros antigos ainda o trazem no body; os novos usam contentCaptured.
+  const RECOVER_LEGACY_PLACEHOLDER = '[Mensagem sem texto - mídia ou sticker]';
 
   let currentView = null;
   let viewSyncInterval = null;
@@ -2608,7 +2611,12 @@ function showView(viewName) {
     const root = $('sp_recover_timeline');
     if (!root) return;
 
-    const slice = (history || []).slice(-MAX_RECOVER_RENDER).reverse();
+    // Mais recente primeiro, ordenado pelo horário do evento. Antes dependia da
+    // ordem de chegada (slice + reverse): o storage guarda do mais novo para o
+    // mais antigo e a inversão deixava os registros antigos no topo.
+    const slice = [...(history || [])]
+      .sort((a, b) => (Number(b?.timestamp) || 0) - (Number(a?.timestamp) || 0))
+      .slice(0, MAX_RECOVER_RENDER);
     
     // BUG FIX #7: ANTI-DUPLICAÇÃO - Usar Set para rastrear mensagens já renderizadas
     // CODE REVIEW FIX: Use named constants for magic numbers
@@ -2704,6 +2712,18 @@ function showView(viewName) {
       }
       
       if (mediaType === 'video') {
+        // Vídeo baixado: player. Só a miniatura (o original ainda não chegou
+        // ou passou do limite): a imagem, com o ícone por cima.
+        const isThumb = h?.mediaIsThumbnail || isBase64Image(mediaData);
+        const videoUrl = mediaData && mediaData !== '__HAS_MEDIA__'
+          ? toDataUrl(mediaData, isThumb ? null : (h?.mimetype || 'video/mp4'))
+          : null;
+        if (videoUrl && !isThumb) {
+          return `<video controls preload="metadata" src="${videoUrl}" style="width:120px;max-height:90px;border-radius:6px;background:#000;"></video>`;
+        }
+        if (videoUrl) {
+          return `<div style="position:relative;width:60px;height:60px;"><img src="${videoUrl}" alt="Vídeo" style="width:60px;height:60px;object-fit:cover;border-radius:6px;"/><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</span></div>`;
+        }
         return `<div style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,0.2);border-radius:6px;">🎬</div>`;
       }
       
@@ -2748,6 +2768,44 @@ function showView(viewName) {
       const mm = String(ts.getMinutes()).padStart(2,'0');
       const dateStr = ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       return `${dateStr} ${hh}:${mm}`;
+    };
+
+    // Registro cujo conteúdo original não foi capturado (o evento foi visto,
+    // mas a mensagem não estava no cache). Inclui o rótulo antigo, que dizia
+    // "mídia ou sticker" sem saber o que era.
+    const isContentMissing = (h) => h?.contentCaptured === false || String(h?.body || '') === RECOVER_LEGACY_PLACEHOLDER;
+
+    // Corpo do card: edição mostra antes/depois; apagada mostra o original.
+    const renderRecoverBody = (h, action, raw, mediaType) => {
+      const block = (label, text, color) => `
+        <div style="margin-top: 2px;">
+          <div style="font-size: 9px; font-weight: 600; color: ${color}; text-transform: uppercase; letter-spacing: .3px;">${label}</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.85); word-break: break-word; white-space: pre-wrap; max-height: 80px; overflow: hidden;">${escapeHtml(text)}</div>
+        </div>`;
+      const note = (text) => `<div style="font-size: 10px; color: rgba(255,255,255,0.5); font-style: italic; margin-top: 2px;">${text}</div>`;
+
+      if (action === 'edited') {
+        const before = String(h?.previousContent || h?.previousBody || '').trim();
+        if (before) return block('Antes', before, '#93c5fd') + block('Depois', raw, '#60a5fa');
+        return block('Editada para', raw, '#60a5fa') + note('Texto anterior não capturado.');
+      }
+      if (isContentMissing(h)) {
+        return note('Conteúdo original não capturado — a mensagem foi apagada antes de a extensão carregá-la.');
+      }
+      const text = raw || (mediaType !== 'text' ? `[${mediaType}]` : '');
+      if (action === 'revoked') return block('Mensagem original', text, '#fca5a5');
+      if (action === 'deleted') return block('Mensagem original', text, '#fcd34d');
+      return text ? block('Mensagem', text, 'rgba(255,255,255,0.6)') : '';
+    };
+
+    // Rodapé: quando a mensagem foi enviada e quando foi apagada/editada.
+    const renderRecoverTimes = (h, action) => {
+      const verbs = { revoked: 'Apagada p/ todos', deleted: 'Apagada p/ mim', edited: 'Editada' };
+      const eventTime = formatTime(h?.timestamp);
+      const sentTime = h?.originalTimestamp ? formatTime(h.originalTimestamp) : '';
+      const verb = verbs[action];
+      if (!verb) return eventTime;
+      return sentTime ? `Enviada ${sentTime} · ${verb} ${eventTime}` : `${verb} ${eventTime}`;
     };
     
     // Render action buttons helper
@@ -2822,14 +2880,14 @@ function showView(viewName) {
             <!-- BUG 3: Deletion Type Badge -->
             ${renderDeletionTypeBadge(h?.deletionType, h?.deletionInfo)}
             
-            <!-- Body: texto da mensagem (truncado se longo) -->
-            <div style="font-size: 11px; color: rgba(255,255,255,0.8); word-break: break-word; max-height: ${mediaType === 'text' ? '80px' : '60px'}; overflow: hidden; text-overflow: ellipsis;">
-              ${raw ? escapeHtml(raw) : (mediaType !== 'text' ? `[${mediaType}]` : '')}
+            <!-- Body: antes/depois (editada) ou mensagem original (apagada) -->
+            <div style="overflow: hidden;">
+              ${renderRecoverBody(h, action, raw, mediaType)}
             </div>
-            
-            <!-- Footer: timestamp + ações -->
+
+            <!-- Footer: horários (enviada · apagada/editada) + ações -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 4px;">
-              <span style="font-size: 9px; color: rgba(255,255,255,0.5);">${formatTime(h?.timestamp)}</span>
+              <span style="font-size: 9px; color: rgba(255,255,255,0.5);">${escapeHtml(renderRecoverTimes(h, action))}</span>
               <div class="recover-actions" style="display: flex; gap: 4px;">
                 ${renderActionButtons(h, msgId)}
               </div>
@@ -2874,9 +2932,9 @@ function showView(viewName) {
               typeof d === 'string' &&
               d !== '__HAS_MEDIA__' &&
               d.length > 100 &&
-              (d.startsWith('data:') || d.startsWith('/9j/') || d.startsWith('iVBOR') ||
-               d.startsWith('UklGR') || d.startsWith('R0lGOD') || d.startsWith('AAAA') ||
-               d.startsWith('T2dn') || d.startsWith('JVBER') || d.startsWith('PK'));
+              // data URL ou base64 de qualquer arquivo (imagem, áudio, vídeo,
+              // PDF, docx/xlsx/zip — estes começam com "UEsDB", não "PK").
+              (d.startsWith('data:') || /^[A-Za-z0-9+/]{100}/.test(d));
 
             // P0: Download direto do cache base64 (sem precisar navegar)
             if (isValidMediaData(msg?.mediaData)) {
@@ -2927,7 +2985,11 @@ function showView(viewName) {
                   directPath: msg?.directPath || null,
                   mediaKey: msg?.mediaKey || null,
                   mimetype: msg?.mimetype || null,
-                  filename: msg?.filename || null
+                  filename: msg?.filename || null,
+                  mediaType: msg?.mediaType || msg?.type || null,
+                  mediaKeyTimestamp: msg?.mediaKeyTimestamp || null,
+                  filehash: msg?.filehash || null,
+                  encFilehash: msg?.encFilehash || null
                 });
 
                 if (reResult?.success && reResult?.base64) {
@@ -2945,7 +3007,8 @@ function showView(viewName) {
 
               // P3: Fallback texto
               if (msg?.body && typeof msg.body === 'string' && msg.body.trim() &&
-                  msg.body !== '[Mensagem sem texto - mídia ou sticker]') {
+                  msg.contentCaptured !== false &&
+                  msg.body !== RECOVER_LEGACY_PLACEHOLDER) {
                 const blob = new Blob([msg.body], { type: 'text/plain;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
