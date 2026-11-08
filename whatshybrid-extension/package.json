@@ -1,6 +1,6 @@
 {
   "name": "whatshybrid-extension",
-  "version": "9.6.5",
+  "version": "9.6.6",
   "description": "Vórtex Pro - Extensão Chrome para WhatsApp Web",
   "private": true,
   "main": "background.js",
