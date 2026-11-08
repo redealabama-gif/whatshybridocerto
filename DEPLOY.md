@@ -69,7 +69,7 @@ Esse script faz tudo:
 - Configura Fail2ban contra força bruta SSH
 - Cria diretórios
 - Configura cron de backup diário
-- Gera JWT_SECRET e WEBHOOK_SECRET aleatórios fortes
+- Gera JWT_SECRET e WEBHOOK_SECRET aleatórios fortes (e a senha do Postgres opcional)
 
 ### Passo 4 — Editar `.env`
 
