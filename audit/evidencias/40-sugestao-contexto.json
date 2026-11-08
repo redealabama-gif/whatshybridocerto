@@ -1,0 +1,76 @@
+{
+  "old": {
+    "label": "DOM antigo (.message-in/.message-out)",
+    "calls": [
+      {
+        "chatId": "Clínica Sorriso",
+        "message": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+        "history": [
+          {
+            "role": "user",
+            "content": "Boa tarde! Vi o anúncio de vocês no Instagram"
+          },
+          {
+            "role": "assistant",
+            "content": "Boa tarde! Que bom que chamou 😊 Como posso ajudar?"
+          },
+          {
+            "role": "user",
+            "content": "Queria saber do plano para clínica odontológica"
+          },
+          {
+            "role": "assistant",
+            "content": "Temos o plano Pro, ideal para clínicas. Quantos dentistas atendem aí?"
+          },
+          {
+            "role": "user",
+            "content": "Somos 3 dentistas e 2 recepcionistas"
+          },
+          {
+            "role": "user",
+            "content": "Quanto fica por mês para esse tamanho? E tem fidelidade?"
+          }
+        ],
+        "language": "pt-BR"
+      }
+    ],
+    "panel": "🤖\nSugestão de IA\n✕\nRESPOSTA DO BACKEND\n✏️ Editar\n❌ Reprovar\n✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+    "errors": []
+  },
+  "cur": {
+    "label": "DOM atual — msg-container no 1º balão",
+    "calls": [
+      {
+        "chatId": "Clínica Sorriso",
+        "message": "Boa tarde! Vi o anúncio de vocês no Instagram",
+        "history": [
+          {
+            "role": "user",
+            "content": "Boa tarde! Vi o anúncio de vocês no Instagram"
+          }
+        ],
+        "language": "pt-BR"
+      }
+    ],
+    "panel": "🤖\nSugestão de IA\n✕\nRESPOSTA DO BACKEND\n✏️ Editar\n❌ Reprovar\n✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+    "errors": []
+  },
+  "curLast": {
+    "label": "DOM atual — msg-container no último balão",
+    "calls": [
+      {
+        "chatId": "Clínica Sorriso",
+        "message": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+        "history": [
+          {
+            "role": "user",
+            "content": "Quanto fica por mês para esse tamanho? E tem fidelidade?"
+          }
+        ],
+        "language": "pt-BR"
+      }
+    ],
+    "panel": "🤖\nSugestão de IA\n✕\nRESPOSTA DO BACKEND\n✏️ Editar\n❌ Reprovar\n✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+    "errors": []
+  }
+}

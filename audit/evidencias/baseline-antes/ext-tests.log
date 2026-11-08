@@ -1,0 +1,181 @@
+
+🧪 Extensão — 10 arquivo(s) de teste unitário
+
+• anti-ban.test.js
+• anti-break.test.js
+• autopilot-multi-chat.test.js
+• build-sources-hash.test.js
+• copilot-persona.test.js
+• message-capture.test.js
+• phone-validator.test.js
+• recover-capture.test.js
+• recover-visual-injector.test.js
+• wa-selector-canary.test.js
+
+[AntiBan] Inicializado - Enviadas hoje: 0 / 200
+  ✓ calculateSmartDelay: NUNCA abaixo do mínimo nem acima de max*1.5 (invariante anti-ban)
+  ✓ canSendNow: permite abaixo do limite e bloqueia ao atingir o limite diário
+  ✓ incrementSentCount: ok abaixo do aviso, warning em 80%, blocked no limite
+  ✓ setDailyLimit: rejeita fora de 1..1000 e aceita valor válido
+  ✓ getTodayDate: formato YYYY-MM-DD
+  ✓ SELECTORS: cada entrada tem primary (string) + fallbacks (array)
+  ✓ findElement: acha pelo seletor PRIMÁRIO quando ele casa
+[AntiBreak] MAIN_CHAT: usando fallback "#main"
+  ✓ findElement: cai pro FALLBACK quando o primário some (resiliência anti-quebra)
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'selector_broken',
+  key: 'MAIN_CHAT',
+  description: 'Container principal do chat',
+  tried: [
+    'div[data-tab="1"]',
+    '#main',
+    'div[role="main"]',
+    'div._1hI5g',
+    'div.two._1jJ70'
+  ],
+  timestamp: 1794164570516,
+  id: 'issue_1794164570516_f0fspp'
+}
+  ✓ findElement: retorna null quando nada casa
+[AntiBreak] Seletor desconhecido: NAO_EXISTE_XYZ
+  ✓ findElement: seletor desconhecido retorna null (não estoura)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000001@c.us
+[Autopilot] 📩 Nova mensagem na fila: 5511000000002@c.us
+[Autopilot] 📩 Nova mensagem na fila: 5511000000003@c.us
+[Autopilot] 🔄 Processando: 5511000000001@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000001@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[MessageCapture] 🚀 Inicializando sistema de captura...
+[MessageCapture] ✅ Sistema inicializado
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 🔄 Processando: 5511000000002@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000002@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 🔄 Processando: 5511000000003@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000003@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ autopilot responde 3 pessoas em sequência, cada uma no seu chat (sem cruzar)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000009@c.us
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'api_method_missing',
+  module: 'SendMessage',
+  description: 'Módulo de envio não localizado',
+  timestamp: 1794164575484,
+  id: 'issue_1794164575484_cbu1ca'
+}
+[AntiBreak] 🔍 Executando health check completo...
+[AntiBreak] SEND_BUTTON: usando fallback "span[data-icon="send"]"
+[AntiBreak] ✅ Sistema anti-quebra inicializado
+[Autopilot] 🔄 Processando: 5511000000009@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] ✅ Chat aberto via Store.Cmd
+  ✓ autopilot NÃO envia no chat errado quando a abertura falha (escala p/ humano)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000777@c.us
+[Autopilot] 🔄 Processando: 5511000000777@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000777@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 📩 Nova mensagem na fila: 5511000000777@c.us
+[Autopilot] 🔄 Processando: 5511000000777@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000777@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ autopilot responde de novo quando a mesma pessoa manda outra mensagem
+  ✓ sourceFiles(): lista ordenada, com wpp-hooks-parts e SEM o wpp-hooks.js gerado
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+  ✓ compute(): sha256 (64 hex) + fileCount > 0 e determinístico
+[CopilotEngine] 👥 Usando persona 'professional' baseado na role 'admin' do usuário Usuário Principal
+  ✓ escolha explícita vence a persona-padrão da role (o bug central)
+[CopilotEngine] 👥 Usando persona 'sales' baseado na role 'sales' do usuário Usuário Principal
+  ✓ sem escolha explícita, a persona-padrão da role é preservada (feature de equipe)
+[CopilotEngine] 👥 Usando persona 'professional' baseado na role 'admin' do usuário Usuário Principal
+  ✓ aplicação automática (explicit:false) NÃO trava; escolha explícita posterior vence
+  ✓ sem TeamSystem, a escolha do usuário é respeitada normalmente
+  ✓ _internals expõe as guardas de segurança
+  ✓ validateBackendUrl: aceita https público e localhost; remove a barra final
+[MessageCapture Security] Blocking private IP address: 192.168.0.10
+[MessageCapture Security] Blocking private IP address: 10.0.0.5
+[MessageCapture Security] Blocking private IP address: 172.16.0.1
+[MessageCapture Security] Blocking private IP address: 169.254.169.254
+  ✓ validateBackendUrl: bloqueia IP privado, metadata de cloud, protocolo não-http e vazio (SSRF)
+[MessageCapture Security] Blocked prototype pollution attempt: __proto__
+[MessageCapture Security] Blocked prototype pollution attempt: constructor
+  ✓ sanitizeObject: remove __proto__/constructor (inclusive aninhado), preserva o resto e não polui o protótipo
+  ✓ sanitizeMessageData: whitelist de type/action, clamp de tamanho e null seguro
+  ✓ exposição: WHL_PhoneValidator com a API esperada
+  ✓ sanitizePhone: remove tudo que não é dígito
+  ✓ normalizePhone: celular BR de 11 dígitos ganha DDI 55
+  ✓ normalizePhone: número já com DDI 55 fica intacto
+  ✓ normalizePhone: fixo de 10 dígitos ganha DDI 55
+  ✓ normalizePhone: sem DDD (8-9 díg) e entradas inválidas viram null
+  ✓ isValidPhone: true p/ celular BR, false p/ curto
+  ✓ parseWhatsAppId: extrai número de @c.us; lixo vira null
+  ✓ formatForWhatsApp: normaliza ou devolve string vazia
+  ✓ batchValidatePhones: separa válidos/inválidos e deduplica os válidos
+  ✓ parsePhoneList: quebra por linha, ignora vazias e valida
+  ✓ Recover: hooks de coleção se registram com o caminho atual (WAWebCollections.Msg)
+  ✓ Recover: mensagem SUA apagada para todos guarda o conteúdo original e os horários
+  ✓ Recover: mensagem já aberta antes de a extensão iniciar também é recuperável
+  ✓ Recover: edição da SUA mensagem guarda o texto anterior ("ei" → "eij")
+  ✓ Recover: edição busca o texto anterior no Store quando o cache não tem
+  ✓ Recover: sem o conteúdo, registra o evento sem fingir que era mídia
+  ✓ Recover: sem duplicatas e sem registros falsos de revogações antigas
+  ✓ Recover: "apagar para mim" registra só mensagens novas (não a limpeza de memória)
+  ✓ Recover: content/wpp-hooks.js está em sincronia com wpp-hooks-parts (rode o build)
+  ✓ Recover mídia: imagem apagada guarda a legenda (não a miniatura) e o arquivo ORIGINAL
+  ✓ Recover mídia: áudio já aberto (pré-carga) é baixado na hora em que é apagado
+  ✓ Recover mídia: vídeo grande não é baixado antes; ao apagar, miniatura na hora e original depois
+  ✓ Recover mídia: documento e figurinha "apagados para mim" trazem o arquivo e o nome
+  ✓ Recover mídia: falha no download não quebra o registro (fica a mídia identificada)
+  ✓ Recover: apagada sem cache usa o texto do balão na tela (antes de o WhatsApp redesenhar)
+  ✓ Recover: conversa aberta entra no cache mesmo quando o WhatsApp carrega sem "add"
+  ✓ Recover: mensagem ANTIGA carregada ao abrir o chat não aciona o piloto automático
+  ✓ Recover mídia: sem cache, o balão na tela diz que era documento (nome) e o modelo ainda baixa
+  ✓ Recover mídia: sem cache, o arquivo que o modelo tem em memória (mediaBlob) é recuperado
+  ✓ Recover mídia: sem cache, atributos anteriores do modelo trazem legenda e dados para baixar
+  ✓ Recover: diagnóstico WHL_RecoverDiag mostra de onde veio o conteúdo de cada exclusão
+  ✓ Recover: balão com data-id só com o id da mensagem (WhatsApp atual) é lido na exclusão
+  ✓ Recover: mensagem que entrou VAZIA no cache é atualizada pela varredura antes de ser apagada
+  ✓ Recover: SUA edição segue para o WhatsApp gravar (com "Antes/Editada para"), como a do contato
+  ✓ Banner: balão msg-container sem data-id usa o data-id do ancestral
+  ✓ Banner: nunca devolve "container" (o bug que pôs "apagada" em todas)
+  ✓ Banner: em grupo/@lid pega o id da mensagem, não o número do grupo
+  ✓ Banner: ids diferentes para mensagens diferentes
+  ✓ Banner: data-id só com o id (formato do WhatsApp atual)
+  ✓ SELECTORS: 10 chaves bem-formadas (primary string + fallbacks array + description)
+  ✓ _extractSelectorsFromSource: parseia chaves/primary/fallbacks (robusto a [ ] e " internos)
+  ✓ _extractSelectorsFromSource: retorna {} sem bloco SELECTORS
+  ✓ _diffSelectors: idênticos → []
+  ✓ _diffSelectors: pega primary divergente, fallback divergente e chave faltando
+  ✓ checkOne: DEGRADED quando só um fallback casa; BROKEN quando nada casa
+
+  70 passou, 0 falhou (70 no total)

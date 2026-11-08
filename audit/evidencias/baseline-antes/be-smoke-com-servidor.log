@@ -1,0 +1,82 @@
+
+> whatshybrid-backend@9.5.8 test
+> node tests/smoke/run-all.js
+
+╔══════════════════════════════════════════════════╗
+║  Vórtex Pro — Smoke Test Suite              ║
+║  Target: http://127.0.0.1:3000                   ║
+╚══════════════════════════════════════════════════╝
+
+✅ Server is up
+
+
+🧪 SMOKE TEST: Auth Flow @ http://127.0.0.1:3000
+
+  ✅ GET /health responds 200
+  ✅ GET /health/deep responds with checks
+  ✅ POST /auth/signup creates user
+  ✅ POST /auth/signup duplicate email rejected
+  ✅ POST /auth/login with correct password works
+  ✅ POST /auth/login with wrong password fails
+  ✅ GET /auth/me with token returns user
+  ✅ GET /auth/me without token fails
+  ✅ POST /auth/refresh rotates token
+  ✅ REUSE detection: old refresh token now invalid
+  ✅ POST /auth/forgot-password always returns 200
+  ✅ POST /auth/forgot-password unknown email also returns 200
+
+📊 RESULT: 12 passed, 0 failed
+
+✅ All smoke tests passed
+
+🧪 SMOKE TEST: Tokens Flow @ http://127.0.0.1:3000
+
+  ✅ GET /tokens/balance returns balance
+  ✅ GET /tokens/history returns array
+  ✅ GET /tokens/packages returns packages list
+  ✅ GET /tokens/usage returns aggregated usage
+
+📊 RESULT: 4 passed, 0 failed
+
+
+🧪 SMOKE TEST: Tenant Isolation @ http://127.0.0.1:3000
+
+  → User A: tenant_a_1794166258538@example.com
+  → User B: tenant_b_1794166258538@example.com
+  ✅ User A creates contact
+  ✅ User B cannot see User A contact via list
+  ✅ User B cannot fetch User A contact directly
+  ✅ User B cannot DELETE User A contact
+  ✅ User B cannot UPDATE User A contact
+  ✅ User A still has access to own contact
+
+📊 RESULT: 6 passed, 0 failed
+
+
+🧪 SMOKE v9.0.0 @ http://127.0.0.1:3000
+
+  ✅ GET /health/deep returns checks
+  ✅ GET /openapi.json returns spec
+  ✅ POST /funnel/track records event
+  ✅ POST /funnel/track rejects invalid step
+  ✅ GET /referrals/code returns code + URL
+  ✅ GET /referrals returns empty list initially
+  ✅ GET /referrals/stats returns zero counts
+  ✅ POST /me/nps registers score
+  ✅ POST /me/nps rejects out-of-range
+  ✅ GET /me/onboarding-status
+  ✅ POST /me/onboarding-complete
+  ✅ GET /settings/workspace returns workspace
+  ✅ PUT /settings/workspace persiste settings
+  ✅ POST /auth/2fa/setup generates secret
+  ✅ GET /auth/2fa/status returns enabled=false
+  ✅ POST /auth/2fa/verify rejects invalid code
+  ✅ GET /me/export returns data archive
+  ✅ POST /me/delete-account requires confirmation
+  ✅ Header Accept-Language: en-US gets English errors
+
+📊 RESULT: 19 passed, 0 failed
+
+
+✅ ALL TESTS PASSED
+

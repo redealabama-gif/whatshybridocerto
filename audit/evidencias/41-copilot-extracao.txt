@@ -1,0 +1,16 @@
+<anonymous_script>:3
+#!/usr/bin/env node
+^
+
+SyntaxError: Invalid or unexpected token
+    at new Function (<anonymous>)
+    at Object.<anonymous> (/tmp/claude-0/-home-user-whatshybridocerto/72e47177-f704-5d90-8fe5-3d76c9cff9c7/scratchpad/copilot-extract.js:6:17)
+    at Module._compile (node:internal/modules/cjs/loader:1781:14)
+    at Object..js (node:internal/modules/cjs/loader:1913:10)
+    at Module.load (node:internal/modules/cjs/loader:1505:32)
+    at Function._load (node:internal/modules/cjs/loader:1309:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.23.4

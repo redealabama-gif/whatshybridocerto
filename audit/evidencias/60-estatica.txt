@@ -1,0 +1,159 @@
+### H8 CustomerServiceAgent/LearningPipelinePrismaAdapter requeridos?
+whatshybrid-backend/src/ai/AIOrchestrator.js:75:      const ConversationMemorySQLiteAdapter = require('./memory/ConversationMemoryPrismaAdapter');
+
+### H7 consumidores de /autopilot/sessions, /smartbot*
+
+### H9 socket.io
+xlsx.mini.min.js
+whatshybrid-extension/build-manifest.json:21:    "lib/socket.io.min.js"
+whatshybrid-extension/manifest.json:89:        "lib/socket.io.min.js",
+
+### H10 endpoints
+17:  // BACKEND_FALLBACKS: contém SÓ a URL canônica. Antes incluía
+18:  // 'http://localhost:3001' como fallback — porta fantasma que ninguém
+22:  // WHL_ENDPOINTS.BACKEND_FALLBACKS antes deste módulo carregar.
+25:    BACKEND_DEFAULT: 'http://localhost:3000',
+26:    BACKEND_FALLBACKS: ['http://localhost:3000'],
+27:    OLLAMA_CHAT: 'http://localhost:11434/api/chat'
+
+### H11 PDF.js no importador
+3: * Processa CSV, TXT, JSON, XLSX, ODS e extrai conhecimento automaticamente
+65:  // v9.5.8: XLSX / XLS / ODS via SheetJS
+73:    if (typeof XLSX === 'undefined' || typeof XLSX.read !== 'function') {
+74:      throw new Error('Biblioteca SheetJS (XLSX) não carregada. Recarregue a página de treinamento.');
+80:      workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+94:    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, blankrows: false });
+xlsx.mini.min.js
+
+### H12 e2e/
+ls: cannot access 'e2e': No such file or directory
+whatshybrid-backend/tests:
+e2e
+integration
+load
+smoke
+unit
+
+whatshybrid-extension/tests:
+_harness.js
+run-all.js
+unit
+
+### H13 português forçado
+whatshybrid-extension/modules/ai-service.js:5: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/smart-replies.js:5: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/suggestion-injector.js:714:- Responda em português brasileiro
+whatshybrid-extension/modules/features/multi-persona.js:4: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/ai-suggestion-fixed.js:4: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/ai-suggestion-fixed.js:1335:            { role: 'system', content: 'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.' },
+whatshybrid-extension/modules/ai-suggestion-fixed.js:1465:- Responda em português brasileiro
+whatshybrid-extension/modules/few-shot-learning.js:5: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/copilot-engine.js:5: * TODO: AUDIT-NEW-018 (P3) - i18n AI Prompts
+whatshybrid-extension/modules/copilot-engine.js:152:- Responda em português brasileiro`
+
+### H14 chaves de cache
+whatshybrid-extension/modules/ai-response-cache.js:152:    generateKey(intent, entities = [], sentiment = 0, category = '') {
+whatshybrid-extension/modules/ai-response-cache.js:162:    generateKeyFromContext(context) {
+whatshybrid-extension/modules/ai-response-cache.js:163:      return this.generateKey(
+whatshybrid-extension/modules/ai-response-cache.js:180:      const key = this.generateKeyFromContext(context);
+whatshybrid-extension/modules/ai-response-cache.js:218:        cacheKey: key,
+whatshybrid-extension/modules/ai-response-cache.js:227:      const key = this.generateKeyFromContext(context);
+whatshybrid-extension/modules/optimizations/smart-cache.js:161:    generateKey(query, context = {}) {
+whatshybrid-extension/modules/optimizations/smart-cache.js:192:      const key = this.generateKey(query, context);
+whatshybrid-extension/modules/optimizations/smart-cache.js:333:      const key = this.generateKey(query, context);
+whatshybrid-extension/modules/optimizations/smart-cache.js:417:      const key = this.generateKey(query, {});
+whatshybrid-extension/modules/optimizations/smart-cache.js:465:      const key = this.generateKey(query, {});
+whatshybrid-extension/modules/optimizations/smart-cache.js:556:      const key = this.generateKey(query, context);
+
+### FETCH_PROXY allowlist
+5:358- * Agora valida contra allowlist de hosts/protocolos. Bloqueia file://, data:,
+6:359- * IPs internos não-localhost, e hosts não autorizados.
+9:362:// Allowlist de hosts permitidos para FETCH_PROXY.
+10:363-// Mantém compatibilidade com host_permissions do manifest + backends comuns.
+11:364-// v9.4.4 BUG #119: hosts removidos (api.openai.com, api.anthropic.com,
+14:367-// host_permissions desses domínios — defesa em profundidade dupla.
+17:370:const FETCH_PROXY_ALLOWED_HOSTS = [
+18:371-  'localhost',
+24:377:const FETCH_PROXY_ALLOWED_SUFFIXES = [
+38:391-  if (!['http:', 'https:'].includes(u.protocol)) {
+42:395-  const host = u.hostname.toLowerCase();
+44:397-  // Bloqueia IPs de rede privada (exceto localhost explícito)
+46:399-  if (/^(169\.254|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(host)) {
+47:400-    return { ok: false, reason: `private_ip_blocked:${host}` };
+51:404:  if (FETCH_PROXY_ALLOWED_HOSTS.includes(host)) return { ok: true };
+52:405:  if (FETCH_PROXY_ALLOWED_SUFFIXES.some(suf => host.endsWith(suf))) return { ok: true };
+56:409-  return { ok: false, reason: `host_not_allowed:${host}` };
+71:424-    // FIX SSRF: validar URL contra allowlist antes de qualquer fetch
+83:436-          // Só permite se o host bate com o backend configurado pelo usuário
+84:437-          if (customUrl.hostname === targetUrl.hostname && customUrl.port === targetUrl.port) {
+
+### Chaves de provedor no cliente
+273:    const key = state.configs[provider]?.apiKey;
+315:    configs: {}, // { providerId: { apiKey, model, enabled, priority } }
+514:      apiKey: config.apiKey,
+662:    if (!config || !config.apiKey) {
+861:      ? provider.getEndpoint(model, config.apiKey)
+866:      ...provider.headerAuth(config.apiKey)
+923:      ? provider.getEndpoint(model, config.apiKey)
+930:        ...provider.headerAuth(config.apiKey)
+372:      await chrome.storage.local.set({
+492:      await chrome.storage.local.set({
+
+### SQL module_key
+whatshybrid-backend/src/utils/database-legacy.js:372:-- bloco usava module_key/version e, como roda antes do sync.js, o
+whatshybrid-backend/src/utils/database-legacy.js:621:CREATE INDEX IF NOT EXISTS idx_sync_data_key ON sync_data(module_key);
+whatshybrid-backend/migrations/011_fix_sync_data.sql
+
+### Maturidade usada no envio do autopilot?
+
+### Rotas /learn duplicadas
+whatshybrid-backend/src/routes/ai.js:586:router.post('/learn/feedback', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
+whatshybrid-backend/src/routes/ai-ingest.js:410:router.post('/feedback', authenticate, asyncHandler(async (req, res) => {
+
+### Implementações de sugestão no runtime
+ai-suggestion-fixed: advanced
+suggestion-injector: content
+smart-suggestions: content
+smart-replies: content
+copilot-engine: content
+<script src="modules/copilot-engine.js"
+<script src="modules/smart-replies.js"
+<script src="tests/ai-copilot-tests.js"
+
+### CI executa
+33:        run: |
+51:        run: |
+60:        run: node scripts/wa-selector-canary.js
+64:        run: node scripts/build-sources-hash.js --check
+68:        run: node tests/run-all.js
+74:        run: node tests/unit/run-zerodep.js
+81:        run: node tests/unit/coverage-gate.js
+85:        run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+104:        run: npm ci
+108:        run: npm run lint
+133:        run: npm ci
+137:        run: npm run typecheck
+158:        run: npm ci
+164:        run: npm run test:unit
+185:        run: |
+198:        run: npm ci
+205:        run: node scripts/audit-gate.js
+236:        run: npm ci
+249:        run: |
+265:        run: npm run test:smoke
+269:        run: |
+283:        run: docker build -t whatshybrid-backend:ci ./whatshybrid-backend
+286:        run: |
+317:        run: |
+323:        run: |
+341:        run: npm install --save-dev esbuild
+345:        run: npm run build
+349:        run: |
+360:        run: ls -lh dist/
+376:        run: npm install --no-audit --no-fund
+380:        run: |
+392:        run: |
+437:        run: |
+446:        run: |
+466:        run: |
+

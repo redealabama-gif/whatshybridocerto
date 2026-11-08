@@ -1,0 +1,4 @@
+
+> whatshybrid-backend@9.5.8 typecheck
+> tsc --noEmit
+
