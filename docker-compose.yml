@@ -47,7 +47,12 @@ services:
     networks:
       - wh_network
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      # API admin do Caddy (só escuta dentro do container). O teste antigo,
+      # http://localhost:80, levava um redirect 308 para https://localhost/ — sem
+      # certificado para "localhost" — e falhava sempre: o caddy ficava
+      # "unhealthy" mesmo servindo normal. O caminho HTTPS público é conferido
+      # pelo health.sh (https://$DOMAIN/health).
+      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
       interval: 30s
       timeout: 10s
       retries: 3
