@@ -37,7 +37,9 @@ services:
       - caddy_data:/data            # certs Let's Encrypt + state
       - caddy_config:/config        # config persistida
     environment:
-      - DOMAIN=${DOMAIN:?DOMAIN is required (ex: api.seudominio.com)}
+      # Entre aspas: sem elas, o ": " dentro da mensagem "(ex: ...)" faz o YAML
+      # ler o item como um mapa, e o compose recusa o arquivo inteiro.
+      - "DOMAIN=${DOMAIN:?DOMAIN is required (ex: api.seudominio.com)}"
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
     depends_on:
       backend:
@@ -209,17 +211,23 @@ services:
           memory: 512M
           cpus: '0.5'
 
-  # ── PostgreSQL (v9.0.0): produção ────────────────────────────────────────
-  # Habilitar quando migrar de SQLite. Definir DB_DRIVER=postgres no backend.
-  # Para usar: descomente as 2 sections postgres + adicione DATABASE_URL no .env
+  # ── PostgreSQL (opcional, profile "postgres") ────────────────────────────
+  # ⚠️ AINDA NÃO SUPORTADO EM PRODUÇÃO: o backend roda em SQLite. O driver pg é
+  # assíncrono e parte do código ainda usa a API síncrona (o job smoke-postgres
+  # do CI documenta esse gap). Este serviço só sobe com `--profile postgres`, e
+  # o backend não recebe DB_DRIVER nem DATABASE_URL — ligado, ele não é usado.
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    profiles: ["postgres"]   # só sobe se PROFILE=postgres
+    profiles: ["postgres"]   # só sobe com --profile postgres (ou COMPOSE_PROFILES=postgres)
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-whatshybrid}
       POSTGRES_USER: ${POSTGRES_USER:-whatshybrid}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      # Sem `:?` de propósito: o compose interpola o arquivo inteiro, inclusive
+      # serviços de profiles desligados, e o `:?` travava `up`/`build` de quem
+      # não usa Postgres. A imagem do postgres já se recusa a iniciar sem
+      # senha. O install.sh gera uma senha aleatória no .env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
