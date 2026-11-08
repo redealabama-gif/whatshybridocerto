@@ -1063,6 +1063,7 @@
     // ainda substitui); sem a flag é o arquivo original.
     const incomingThumb = payload.isThumbnail === true;
     let updated = 0;
+    let versionsUpdated = 0;
     state.messages.forEach((m, i) => {
       if (!m || !(ids.has(messageIdCore(m.id)) || ids.has(messageIdCore(m.protocolId)))) return;
       if (payload.action && m.action && payload.action !== m.action && m.action === 'edited') return;
@@ -1092,6 +1093,7 @@
           if (incomingThumb && evStored && ev.mediaDataPreview.length >= mediaData.length) return;
           ev.mediaDataPreview = mediaData;
           ev.mediaIsThumbnail = incomingThumb;
+          versionsUpdated++;
           ev.contentCaptured = true;
           if (!ev.mediaType && mimetype) ev.mediaType = mimetype;
           if (!ev.mimetype && mimetype) ev.mimetype = mimetype;
@@ -1101,7 +1103,9 @@
       });
     });
 
-    if (updated) {
+    // Salva também quando só o histórico de versões mudou (antes ficava só
+    // na memória e se perdia ao recarregar).
+    if (updated || versionsUpdated) {
       await saveToStorage();
       if (window.EventBus) {
         window.EventBus.emit('recover:message_updated', { id: payload.id, mediaReady: true });
