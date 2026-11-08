@@ -32,6 +32,13 @@ log_err()   { echo -e "  ${RED}✗${NC} $*"; ((ERR_COUNT++)) || true; }
 WARN_COUNT=0
 ERR_COUNT=0
 
+# ── Ir para a raiz do projeto ────────────────────────────────────────────
+# O `docker compose` e o .env dependem da pasta atual. Sem este cd, rodar o
+# script pelo cron (como o DEPLOY.md sugere) ou de outra pasta fazia todas as
+# checagens falharem — falso alarme a cada execução.
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+cd "$PROJECT_DIR" || { echo "Não consegui entrar em $PROJECT_DIR"; exit 2; }
+
 # ── Carregar .env ────────────────────────────────────────────────────────
 if [[ -f .env ]]; then
     set -a
@@ -51,9 +58,13 @@ echo
 echo "[1] Containers Docker:"
 EXPECTED_SERVICES=("caddy" "backend" "ai-worker" "redis")
 for svc in "${EXPECTED_SERVICES[@]}"; do
-    STATUS=$(docker compose ps "$svc" --format json 2>/dev/null | jq -r '.[0].State // "missing"')
+    # Template Go em vez de `--format json | jq '.[0]'`: o compose atual imprime
+    # um objeto JSON por linha (não uma lista) e o jq antigo quebrava.
+    STATUS=$(docker compose ps "$svc" --format '{{.State}}' 2>/dev/null | head -1)
+    STATUS="${STATUS:-missing}"
     if [[ "$STATUS" == "running" ]]; then
-        HEALTH=$(docker compose ps "$svc" --format json 2>/dev/null | jq -r '.[0].Health // "no-healthcheck"')
+        HEALTH=$(docker compose ps "$svc" --format '{{.Health}}' 2>/dev/null | head -1)
+        HEALTH="${HEALTH:-no-healthcheck}"
         if [[ "$HEALTH" == "healthy" || "$HEALTH" == "no-healthcheck" ]]; then
             log_ok "$svc: $STATUS"
         else
@@ -81,23 +92,22 @@ echo
 
 # ── 3. Banco SQLite ──────────────────────────────────────────────────────
 echo "[3] Banco SQLite:"
-DB_INFO=$(docker compose exec -T backend sh -c '
-    if [ -f /app/data/whatshybrid.db ]; then
-        SIZE=$(stat -c%s /app/data/whatshybrid.db)
-        TABLES=$(sqlite3 /app/data/whatshybrid.db "SELECT count(*) FROM sqlite_master WHERE type=\"table\"")
-        echo "$SIZE|$TABLES"
-    else
-        echo "missing"
-    fi
-' 2>/dev/null || echo "error")
+DB_SIZE=$(docker compose exec -T backend sh -c \
+    '[ -f /app/data/whatshybrid.db ] && stat -c%s /app/data/whatshybrid.db || echo missing' \
+    2>/dev/null | tr -d '\r\n')
+# SQL com aspas simples (string literal). Antes era type="table" (aspas
+# duplas = identificador), que o CLI do sqlite pode recusar.
+TABLES=""
+if [[ -n "$DB_SIZE" && "$DB_SIZE" != "missing" ]]; then
+    TABLES=$(docker compose exec -T backend sqlite3 /app/data/whatshybrid.db \
+        "SELECT count(*) FROM sqlite_master WHERE type='table'" 2>/dev/null | tr -d '\r\n')
+fi
 
-if [[ "$DB_INFO" == "missing" ]]; then
+if [[ "$DB_SIZE" == "missing" ]]; then
     log_err "Banco não encontrado em /app/data/whatshybrid.db"
-elif [[ "$DB_INFO" == "error" ]]; then
+elif [[ -z "$DB_SIZE" || -z "$TABLES" ]]; then
     log_err "Erro ao consultar banco"
 else
-    DB_SIZE=$(echo "$DB_INFO" | cut -d'|' -f1)
-    TABLES=$(echo "$DB_INFO" | cut -d'|' -f2)
     log_ok "Banco: $(numfmt --to=iec --suffix=B "$DB_SIZE"), $TABLES tabelas"
 
     # Verificar tabelas críticas
@@ -169,7 +179,10 @@ else
 fi
 
 # Volume Docker
-DOCKER_USED=$(docker system df --format json 2>/dev/null | jq -r '.[]? | select(.Type=="Volumes") | .Size' | head -1)
+# O `docker system df --format json` imprime um objeto por linha e o tipo é
+# "Local Volumes" — o filtro antigo (lista + "Volumes") nunca casava.
+DOCKER_USED=$(docker system df --format json 2>/dev/null \
+    | jq -r '(if type == "array" then .[] else . end) | select(.Type | test("Volumes")) | .Size' 2>/dev/null | head -1)
 [[ -n "$DOCKER_USED" ]] && log_ok "Volumes Docker: $DOCKER_USED"
 echo
 
