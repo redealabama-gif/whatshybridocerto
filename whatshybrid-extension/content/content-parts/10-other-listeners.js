@@ -689,7 +689,8 @@
 
       (async () => {
         try {
-          const { messageId, chatId, directPath, mediaKey, mimetype, filename } = msg;
+          const { messageId, chatId, directPath, mediaKey, mimetype, filename,
+            mediaType, mediaKeyTimestamp, filehash, encFilehash } = msg;
 
           window.postMessage({
             type: 'WHL_RECOVER_REDOWNLOAD',
@@ -698,7 +699,12 @@
             directPath,
             mediaKey,
             mimetype,
-            filename
+            filename,
+            // campos para decriptar o original (mídia já apagada)
+            mediaType,
+            mediaKeyTimestamp,
+            filehash,
+            encFilehash
           }, window.location.origin);
 
           const listener = (event) => {
