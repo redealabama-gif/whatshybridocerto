@@ -21,6 +21,7 @@
   // numa URL morta. Pra setup com hosts redundantes em produção, sobrescreva
   // WHL_ENDPOINTS.BACKEND_FALLBACKS antes deste módulo carregar.
   const DEFAULTS = {
+    // TODO: trocar antes de publicar a extensão pra clientes
     BACKEND_DEFAULT: 'http://localhost:3000',
     BACKEND_FALLBACKS: ['http://localhost:3000'],
     OLLAMA_CHAT: 'http://localhost:11434/api/chat'
