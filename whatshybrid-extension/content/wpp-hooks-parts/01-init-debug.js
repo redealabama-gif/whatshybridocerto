@@ -1454,7 +1454,9 @@ window.whl_hooks_main = () => {
     // CORREÇÃO BUG 4: Cache mais robusto de mensagens para recuperar conteúdo quando forem apagadas
     // Mantém as últimas 1000 mensagens em memória
     const messageCache = new Map(); // Map<messageId, {body, from, timestamp, type}>
-    const MAX_CACHE_SIZE = 1000; // Aumentar para 1000
+    // Cada mensagem ocupa até 3 chaves (id, _serialized, remote_id): 3000
+    // chaves ≈ 1000 mensagens — cabe a conversa aberta + as recentes.
+    const MAX_CACHE_SIZE = 3000;
     // Pré-carga: quantas mensagens já abertas entram no cache ao iniciar
     // (cada uma ocupa até 3 chaves — cabe folgado nas 1000).
     const MESSAGE_CACHE_SEED_LIMIT = 300;
@@ -1674,6 +1676,39 @@ window.whl_hooks_main = () => {
     }
 
     /**
+     * Texto do balão da mensagem como está NA TELA (data-id = id serializado).
+     * Usado no instante da revogação: o evento do modelo chega antes de o
+     * WhatsApp redesenhar o balão como "Mensagem apagada", então o texto
+     * original ainda está no DOM. Emojis viram o texto alternativo da imagem.
+     */
+    function lerTextoDoBalao(serializedId) {
+        try {
+            if (!serializedId || typeof document === 'undefined' || !document.querySelector) return null;
+            const id = String(serializedId).replace(/["\\]/g, '');
+            const el = document.querySelector(`[data-id="${id}"]`);
+            if (!el) return null;
+            if (el.querySelector('[data-icon="recalled"], [data-icon="recalled-in"], [data-icon="recalled-out"]')) return null;
+            const t = el.querySelector('[data-pre-plain-text] span.selectable-text, .copyable-text span.selectable-text, [data-testid="msg-text"], span.selectable-text');
+            if (!t) return null;
+            let text = '';
+            const walk = (node) => {
+                for (const c of node.childNodes || []) {
+                    if (c.nodeType === 3) text += c.nodeValue;
+                    else if (c.nodeName === 'IMG') text += c.getAttribute('alt') || '';
+                    else if (c.nodeName === 'BR') text += '\n';
+                    else walk(c);
+                }
+            };
+            if (t.childNodes && t.childNodes.length) walk(t);
+            else text = t.textContent || '';
+            text = stripEditMarker(text.trim());
+            return text || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
      * CORREÇÃO BUG 4: Cachear mensagem recebida para poder recuperá-la se for apagada
      * ATUALIZADO: Agora também captura dados de mídia (stickers, imagens, etc)
      */
@@ -1821,8 +1856,9 @@ window.whl_hooks_main = () => {
             }, 100); // Small delay to not block message rendering
         }
         
-        // Limitar tamanho do cache (reduzido para comportar mídia)
-        if (messageCache.size > MAX_CACHE_SIZE) {
+        // Limitar tamanho do cache: remove as mais antigas até caber (antes
+        // tirava UMA chave por mensagem nova, que entra com até três).
+        while (messageCache.size > MAX_CACHE_SIZE) {
             const firstKey = messageCache.keys().next().value;
             messageCache.delete(firstKey);
         }
