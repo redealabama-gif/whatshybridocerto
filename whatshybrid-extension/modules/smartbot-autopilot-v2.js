@@ -593,6 +593,35 @@
     return !!(e && (e.code === 'KILL_SWITCH' || (e.body && e.body.error === 'kill_switch')));
   }
 
+  // IA-05 — reserva da mensagem no service worker: com duas abas abertas, só
+  // a que reservar primeiro responde. Sem resposta do service worker (contexto
+  // da extensão inválido, SW mudo) → não responde (fail-closed).
+  function claimMessage(id) {
+    return new Promise((resolve) => {
+      let done = false;
+      let timer = null;
+      const finish = (r) => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        resolve(r && typeof r.granted === 'boolean' ? r : { granted: false, reason: 'no_response' });
+      };
+      timer = setTimeout(() => finish({ granted: false, reason: 'timeout' }), 3000);
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+          finish({ granted: false, reason: 'no_runtime' });
+          return;
+        }
+        chrome.runtime.sendMessage({ type: 'WHL_AUTOPILOT_CLAIM', key: `autopilot:${id}` }, (resp) => {
+          const err = chrome.runtime?.lastError;
+          finish(err ? { granted: false, reason: 'runtime_error' } : resp);
+        });
+      } catch (_) {
+        finish({ granted: false, reason: 'runtime_error' });
+      }
+    });
+  }
+
   async function checkConfidenceSystem(item) {
     // Se desabilitado, permitir sempre
     if (!CONFIG.useConfidenceSystem) {
@@ -913,6 +942,26 @@
       }
 
       console.log('[Autopilot] 🔄 Processando:', item.chatId || item.phone);
+
+      // IA-05 — só a aba que reservar a mensagem responde (antes de gerar, para
+      // não pagar a IA duas vezes).
+      const claim = await claimMessage(item.id);
+      if (!claim.granted) {
+        if (claim.reason === 'claimed_by_other_tab') {
+          console.log('[Autopilot] 👥 Outra aba já está respondendo:', item.chatId || item.phone);
+          state.processed.add(item.id);
+          saveProcessed();
+          emitRuntimeEvent('skipped', { reason: 'claimed_by_other_tab', chatId: item.chatId });
+          return;
+        }
+        console.warn(`[Autopilot] 🧑‍💼 Sem a trava entre abas (${claim.reason}) → revisão humana`);
+        state.stats.skippedEscalated++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', { item, reason: 'claim_unavailable' });
+        }
+        emitRuntimeEvent('suggestion-only', { chatId: item.chatId, phone: item.phone, reason: 'claim_unavailable' });
+        return;
+      }
 
       // Confiança
       const confidenceCheck = await checkConfidenceSystem(item);

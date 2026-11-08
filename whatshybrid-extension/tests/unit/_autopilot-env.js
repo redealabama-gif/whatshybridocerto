@@ -120,6 +120,8 @@ function makeEnv(opts = {}) {
         stateRef.runtimeMessages.push(m);
         if (m && m.type === 'WHL_AUTOPILOT_EVENT') stateRef.runtimeEvents.push({ event: m.event, detail: m.detail });
         if (typeof opts.onRuntimeMessage === 'function') return opts.onRuntimeMessage(m, cb);
+        // service worker de uma aba só: a reserva da mensagem (IA-05) é concedida
+        if (m && m.type === 'WHL_AUTOPILOT_CLAIM' && typeof cb === 'function') return cb({ granted: true });
         if (typeof cb === 'function') cb(undefined);
         return undefined;
       },

@@ -1,0 +1,6 @@
+• autopilot-multi-tab.test.js
+  ✓ IA-05: duas abas, a mesma mensagem → UMA resposta ao cliente
+  ✓ IA-05 (controle): mensagens diferentes nas duas abas → cada uma responde a sua
+  ✓ IA-05: service worker não responde a reserva → NÃO envia (revisão)
+
+  3 passou, 0 falhou (3 no total)

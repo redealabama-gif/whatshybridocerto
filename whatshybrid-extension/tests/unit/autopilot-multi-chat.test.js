@@ -135,7 +135,11 @@ function makeEnv() {
     },
     runtime: {
       onMessage: { addListener: () => {} },
-      sendMessage: (m) => { if (m && m.type === 'WHL_AUTOPILOT_EVENT') stateRef.runtimeEvents.push({ event: m.event, detail: m.detail }); },
+      sendMessage: (m, cb) => {
+        if (m && m.type === 'WHL_AUTOPILOT_EVENT') stateRef.runtimeEvents.push({ event: m.event, detail: m.detail });
+        // service worker de uma aba só: a reserva da mensagem (IA-05) é concedida
+        if (m && m.type === 'WHL_AUTOPILOT_CLAIM' && typeof cb === 'function') cb({ granted: true });
+      },
       lastError: null,
     },
   };

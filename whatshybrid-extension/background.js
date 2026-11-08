@@ -11,6 +11,7 @@ const _modulesToLoad = [
   'background/message-handler.js',
   'background/campaign-handler.js',
   'background/ai-handlers.js',
+  'background/autopilot-claim.js', // IA-05: trava do autopilot entre abas
 ];
 const _failedModules = [];
 
@@ -135,6 +136,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       // Sync training data
       SYNC_TRAINING_DATA: handleSyncTrainingData,
+
+      // IA-05: autopilot reserva a mensagem (só uma aba responde)
+      WHL_AUTOPILOT_CLAIM: typeof handleAutopilotClaim === 'function' ? handleAutopilotClaim : undefined,
       
       // ═══════════════════════════════════════════════════════════════════
       // 🔥 FETCH_PROXY: Permite que content scripts façam chamadas de API

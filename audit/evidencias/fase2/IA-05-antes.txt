@@ -1,0 +1,9 @@
+• autopilot-multi-tab.test.js
+  ✗ IA-05: duas abas, a mesma mensagem → UMA resposta ao cliente
+      respostas enviadas ao mesmo cliente: 2
+
+2 !== 1
+
+  ✓ IA-05 (controle): mensagens diferentes nas duas abas → cada uma responde a sua
+
+  1 passou, 1 falhou (2 no total)
