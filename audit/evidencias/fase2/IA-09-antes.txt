@@ -1,0 +1,9 @@
+    ✕ nenhuma das 12 mensagens claras do S1 (base vazia) força "faça UMA pergunta" (6 ms)
+    ✕ mensagem curta e vaga sem base → pede esclarecimento
+    ✕ com base, mesmo curta → responde (sem esclarecimento)
+    ✕ o aviso de "sem base" não manda mais responder "de forma breve" (1 ms)
+    Expected: "function"
+    Received: "undefined"
+    Expected pattern: not /de forma breve/
+    Received string:      "# ⚠️ Sem informação específica na base
+Tests:       4 failed, 4 total

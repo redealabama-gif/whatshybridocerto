@@ -28,7 +28,7 @@ const LocalKnowledgeRanker = require('./search/LocalKnowledgeRanker');
 // 'DynamicPromptBuilder is not a constructor' → orchestrator falhava no
 // construtor → ai-v2.js engolia o erro e respondia 503 'AIOrchestrator not
 // available' pra TODA chamada de IA. Bug fatal pra produto.
-const { DynamicPromptBuilder, KNOWLEDGE_SEEKING_INTENTS } = require('./prompts/DynamicPromptBuilder');
+const { DynamicPromptBuilder, KNOWLEDGE_SEEKING_INTENTS, shouldClarify: shouldClarifyRequest } = require('./prompts/DynamicPromptBuilder');
 // FIX: importa proxy do singleton + classe nomeada para casos de instância dedicada
 const AIRouterModule = require('./services/AIRouterService');
 const { AIRouterService } = AIRouterModule;
@@ -451,9 +451,12 @@ class AIOrchestrator {
         } catch (err) { logger.debug?.(`[Orchestrator] persistDossier: ${err.message}`); }
       }
 
-      const shouldClarify =
-        (typeof intentResult.confidence === 'number' && intentResult.confidence < this.config.confidenceThreshold) ||
-        (knowledgeResults.length === 0 && KNOWLEDGE_SEEKING_INTENTS.has(intentResult.intent));
+      // IA-09 — só para mensagem curta/vaga (ver shouldClarify no DynamicPromptBuilder).
+      const shouldClarify = shouldClarifyRequest({
+        intent: intentResult.intent,
+        knowledgeCount: knowledgeResults.length,
+        message,
+      });
 
       // v11: dica ESPECÍFICA do que perguntar quando falta base (Camada 4 — evolução).
       let clarifyHint = null;
