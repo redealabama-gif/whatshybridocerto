@@ -941,8 +941,23 @@
         console.log('[RecoverAdvanced] 🔄 Substituindo duplicata com números válidos');
         state.messages[existingIdx] = msg;
       } else if (isContentMissing(existing) && !isContentMissing(msg)) {
+        // Mantém o que o registro já tinha (números, horários, ids) e traz só
+        // o conteúdo — o complemento pode vir do retrato da tela, com menos dados.
         console.log('[RecoverAdvanced] 🔄 Completando registro com o conteúdo original');
-        state.messages[existingIdx] = { ...msg, timestamp: existing.timestamp || msg.timestamp };
+        const keep = (a, b) => (a !== undefined && a !== null && a !== '' && a !== 'Desconhecido' ? a : b);
+        state.messages[existingIdx] = {
+          ...msg,
+          ...existing,
+          body: msg.body,
+          contentCaptured: true,
+          type: keep(existing.type !== 'chat' ? existing.type : null, msg.type),
+          mediaData: keep(existing.mediaData, msg.mediaData),
+          from: keep(existing.from, msg.from),
+          to: keep(existing.to, msg.to),
+          chatId: keep(existing.chatId, msg.chatId),
+          originalTimestamp: keep(existing.originalTimestamp, msg.originalTimestamp),
+          timestamp: existing.timestamp || msg.timestamp
+        };
       } else {
         console.log('[RecoverAdvanced] ⚠️ Duplicata ignorada:', dedupKey);
       }
