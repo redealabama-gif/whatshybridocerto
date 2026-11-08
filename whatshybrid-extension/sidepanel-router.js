@@ -2792,7 +2792,14 @@ function showView(viewName) {
       if (isContentMissing(h)) {
         return note('Conteúdo original não capturado — a mensagem foi apagada antes de a extensão carregá-la.');
       }
-      const text = raw || (mediaType !== 'text' ? `[${mediaType}]` : '');
+      // Mídia sem legenda: o texto interno "[… apagado — arquivo não
+      // disponível]" não é a mensagem. A prévia/ícone fica à esquerda.
+      const isMediaPlaceholder = /^\[[^\]]* apagad[oa] — arquivo não disponível\]$/.test(raw);
+      if (mediaType !== 'text' && (!raw || isMediaPlaceholder)) {
+        const hasFile = typeof h?.mediaData === 'string' && h.mediaData.length > 50 && h.mediaData !== '__HAS_MEDIA__';
+        return hasFile ? '' : note('Arquivo original não disponível — foi registrado o tipo da mídia.');
+      }
+      const text = raw;
       if (action === 'revoked') return block('Mensagem original', text, '#fca5a5');
       if (action === 'deleted') return block('Mensagem original', text, '#fcd34d');
       return text ? block('Mensagem', text, 'rgba(255,255,255,0.6)') : '';
