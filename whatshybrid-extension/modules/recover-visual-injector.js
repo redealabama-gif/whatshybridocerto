@@ -29,6 +29,9 @@
     MAX_MARKERS: 500
   };
 
+  // Estado com que o elemento foi marcado como pronto (ver processMessage).
+  const STATE_ATTR = 'data-whl-recover-state';
+
   // Storage para marcadores persistentes
   let persistentMarkers = new Map();
 
@@ -76,9 +79,16 @@
       if (result[CONFIG.STORAGE_KEY]) {
         const data = result[CONFIG.STORAGE_KEY];
         if (typeof data === 'object') {
+          let dropped = 0;
           Object.entries(data).forEach(([id, marker]) => {
+            // Id inválido = gravado com o bug do id "container": descarta.
+            if (!isValidMsgId(id)) { dropped++; return; }
             persistentMarkers.set(id, marker);
           });
+          if (dropped) {
+            console.warn('[RecoverVisualInjector] 🧹 Removidos', dropped, 'marcadores com id inválido');
+            savePersistentMarkers();
+          }
           console.log('[RecoverVisualInjector] ✅ Carregados', persistentMarkers.size, 'marcadores persistentes');
         }
       }
@@ -612,16 +622,103 @@
 
   function rememberSnapshot(msgEl, msgId) {
     const text = cleanSnapshotText(extractSnapshotText(msgEl));
-    if (!text || textLooksRevoked(text)) return;
-    const dataId = (msgEl.closest && msgEl.closest('[data-id]')?.getAttribute('data-id')) || msgEl.getAttribute('data-id') || '';
-    const parts = dataId.split('_');
+    if (text && textLooksRevoked(text)) return;
     const prev = domSnapshots.get(msgId);
-    if (prev && prev.text === text) return;
+    const media = snapshotMedia(msgEl, prev && prev.media);
+    if (!text && !media) return;
+    if (prev && prev.text === text && prev.media === media) return;
+    const dataId = (msgEl.closest && msgEl.closest('[data-id]')?.getAttribute('data-id')) || '';
+    const parts = dataId.split('_');
     domSnapshots.delete(msgId);
-    domSnapshots.set(msgId, { text, chatId: parts[1] || null, fromMe: parts[0] === 'true', at: Date.now() });
+    domSnapshots.set(msgId, { text, media, chatId: parts[1] || null, fromMe: parts[0] === 'true', at: Date.now() });
     while (domSnapshots.size > MAX_DOM_SNAPSHOTS) {
       domSnapshots.delete(domSnapshots.keys().next().value);
     }
+  }
+
+  // ---- Mídia na tela (imagem/vídeo/figurinha: cópia da imagem; áudio e
+  // documento: tipo e nome do arquivo) ----
+  const SNAPSHOT_MAX_DIM = 960;
+
+  function largestMediaImg(msgEl) {
+    let best = null;
+    let bestArea = 0;
+    for (const img of msgEl.querySelectorAll('img')) {
+      if (img.closest(`.${CONFIG.QUOTE_CLASS}`)) continue;
+      const src = img.currentSrc || img.src || '';
+      if (!(src.startsWith('blob:') || src.startsWith('data:image'))) continue; // nunca de outro domínio
+      if (/emoji/i.test(img.className || '')) continue;
+      const w = img.naturalWidth || 0;
+      const h = img.naturalHeight || 0;
+      if (w < 48 || h < 48) continue; // emoji/ícone
+      if (w * h > bestArea) { best = img; bestArea = w * h; }
+    }
+    return best;
+  }
+
+  function imgToDataUrl(img) {
+    try {
+      if (!img || !img.complete || !img.naturalWidth) return null;
+      const scale = Math.min(1, SNAPSHOT_MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.85);
+    } catch (_) {
+      return null; // canvas "contaminado" ou imagem indisponível
+    }
+  }
+
+  function detectMediaKind(msgEl) {
+    if (msgEl.querySelector('video, [data-icon*="video" i], [data-icon="media-play"], [data-icon*="gif" i]')) return 'video';
+    if (msgEl.querySelector('[data-icon*="ptt" i], [data-icon*="audio" i], [data-icon*="mic" i]')) return 'audio';
+    if (msgEl.querySelector('[data-icon*="document" i], [data-icon*="doc-" i], [data-icon*="pdf" i], [data-icon*="xls" i], [data-icon*="ppt" i]')) return 'document';
+    if (largestMediaImg(msgEl)) return 'image';
+    return null;
+  }
+
+  function findFilename(msgEl) {
+    const looksLikeFile = (t) => typeof t === 'string' && /\.[A-Za-z0-9]{2,5}$/.test(t.trim()) && t.trim().length <= 200;
+    for (const el of msgEl.querySelectorAll('[title]')) {
+      if (el.closest(`.${CONFIG.QUOTE_CLASS}`)) continue;
+      const t = el.getAttribute('title');
+      if (looksLikeFile(t)) return t.trim();
+    }
+    for (const el of msgEl.querySelectorAll('span')) {
+      if (el.closest(`.${CONFIG.QUOTE_CLASS}`) || el.children.length) continue;
+      const t = (el.textContent || '').trim();
+      if (looksLikeFile(t)) return t;
+    }
+    return null;
+  }
+
+  // Reaproveita a cópia anterior se a imagem não mudou (evita recodificar a
+  // cada varredura); recodifica quando a miniatura vira a imagem completa.
+  function snapshotMedia(msgEl, prevMedia) {
+    const kind = detectMediaKind(msgEl);
+    if (!kind) return null;
+    const img = (kind === 'image' || kind === 'video') ? largestMediaImg(msgEl) : null;
+    const src = img ? (img.currentSrc || img.src) : null;
+    if (prevMedia && prevMedia.kind === kind && prevMedia.src === src) return prevMedia;
+    const dataUrl = img ? imgToDataUrl(img) : null;
+    return {
+      kind,
+      src,
+      dataUrl: dataUrl || (prevMedia && prevMedia.dataUrl) || null,
+      filename: findFilename(msgEl) || (prevMedia && prevMedia.filename) || null
+    };
+  }
+
+  function foundFromSnapshot(snap) {
+    if (!snap) return null;
+    const m = snap.media;
+    return {
+      text: snap.text || null,
+      label: m ? MEDIA_LABELS[m.kind] : null,
+      media: m ? { kind: m.kind, src: m.dataUrl || null, mime: m.dataUrl ? 'image/jpeg' : null, filename: m.filename, isThumbnail: !!m.dataUrl } : null,
+      timestamp: snap.at
+    };
   }
 
   // Só o texto da mensagem (o seletor de texto do WhatsApp), nunca o
@@ -649,6 +746,7 @@
   // Completa o registro do painel com o texto do retrato (mesmo id e ação:
   // o RecoverAdvanced junta com o registro que veio sem conteúdo).
   function postSnapshotRecord(msgId, state, snap) {
+    if (!isValidMsgId(msgId)) return;
     const key = `${msgId}_${state}`;
     if (postedFromSnapshot.has(key)) return;
     postedFromSnapshot.add(key);
@@ -658,8 +756,14 @@
         payload: {
           id: msgId,
           action: state === 'deleted_local' ? 'deleted' : 'revoked',
-          body: snap.text,
-          type: 'chat',
+          body: snap.text || '',
+          type: snap.media ? snap.media.kind : 'chat',
+          mediaType: snap.media ? snap.media.kind : null,
+          mimetype: snap.media && snap.media.dataUrl ? 'image/jpeg' : null,
+          mediaData: snap.media ? snap.media.dataUrl : null,
+          // cópia da tela: o original (se a página conseguir baixar) substitui
+          mediaIsThumbnail: !!(snap.media && snap.media.dataUrl),
+          filename: snap.media ? snap.media.filename : null,
           chatId: snap.chatId,
           from: snap.fromMe ? null : snap.chatId,
           to: snap.fromMe ? snap.chatId : null,
@@ -669,6 +773,13 @@
           source: 'dom_snapshot'
         }
       }, window.location.origin);
+      // Registro que já existia sem a mídia: anexa a cópia da tela.
+      if (snap.media && snap.media.dataUrl) {
+        window.postMessage({
+          type: 'WHL_RECOVER_MEDIA_READY',
+          payload: { id: msgId, action: state === 'deleted_local' ? 'deleted' : 'revoked', mediaData: snap.media.dataUrl, mimetype: 'image/jpeg', filename: snap.media.filename || null, isThumbnail: true }
+        }, window.location.origin);
+      }
     } catch (_) { /* ignore */ }
   }
 
@@ -709,7 +820,13 @@
     // 'pending' (o banner foi criado antes de o registro com o conteúdo
     // chegar), continua tentando até o conteúdo aparecer.
     if (msgEl.getAttribute(CONFIG.INJECTED_ATTR) === 'true') {
-      return;
+      // Pronto como apagada: final. Pronto como edição: só volta a processar
+      // se o balão agora estiver apagado (editada e depois apagada).
+      const doneState = msgEl.getAttribute(STATE_ATTR);
+      if (doneState !== 'edited' || detectDomState(msgEl) !== 'revoked') return;
+      msgEl.removeAttribute(CONFIG.INJECTED_ATTR);
+      const box = msgEl.closest('[data-testid="msg-container"]') || msgEl;
+      box.querySelectorAll(`.${CONFIG.QUOTE_CLASS}`).forEach(q => q.remove());
     }
 
     // GUARD: só processa elementos que são MESMO containers de mensagem
@@ -763,7 +880,15 @@
         const candidate = messageHistory.history[messageHistory.history.length - 1];
         // Só aceita estado se for um dos 3 que geram badge — antes qualquer
         // 'created'/'cached_only' virava badge nulo mas marcava processado.
-        if (candidate && BADGE_STATES.includes(candidate.state)) {
+        // Apagada/revogada: só se o balão estiver MESMO apagado na tela. Sem
+        // esta conferência, um registro com id errado punha "apagada" em
+        // mensagens normais (foi o que aconteceu com o id "container").
+        // Edição: vale enquanto o balão não estiver apagado (editada e depois
+        // apagada vira apagada).
+        const confirmed = candidate && (candidate.state === 'edited'
+          ? detectDomState(msgEl) !== 'revoked'
+          : domConfirmsState(msgEl, candidate.state));
+        if (candidate && BADGE_STATES.includes(candidate.state) && confirmed) {
           state = candidate.state;
           stateTimestamp = candidate.timestamp || null;
         }
@@ -776,27 +901,9 @@
     // referenciam mensagens apagadas e causavam falso-positivo em TODAS as
     // mensagens da conversa).
     if (!state) {
-      const directText = extractDirectMessageText(msgEl);
-      const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
-
-      // Mensagem apagada (revogada globalmente)
-      const isRevoked = hasRecalledIcon || textLooksRevoked(directText);
-
-      // Mensagem editada — WhatsApp anexa "<Editada>" ou "<Edited>" ou
-      // mostra um label "Editada"/"Edited" ao lado do timestamp.
-      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
-      const isEdited = !isRevoked && (hasEditedLabel || (directText && (
-        directText.includes('<Editada>') ||
-        directText.includes('<Edited>') ||
-        /\b\(Editada\)\s*$/.test(directText) ||
-        /\b\(Edited\)\s*$/.test(directText)
-      )));
-
-      if (isRevoked) {
-        state = 'revoked_global';
-      } else if (isEdited) {
-        state = 'edited';
-      }
+      const looks = detectDomState(msgEl);
+      if (looks === 'revoked') state = 'revoked_global';
+      else if (looks === 'edited') state = 'edited';
     }
 
     if (!state) {
@@ -819,6 +926,17 @@
       return;
     }
 
+    // Editada: guarda o texto atual também (se for apagada depois).
+    if (state === 'edited') rememberSnapshot(msgEl, msgId);
+
+    if (state === 'edited' && hasHookEditMarker(msgEl)) {
+      // Durante a sessão o balão já mostra "Antes: … / Editada para: …".
+      // Depois de recarregar a página esse texto some — aí o banner aparece.
+      msgEl.setAttribute(CONFIG.INJECTED_ATTR, 'true');
+      msgEl.setAttribute(STATE_ATTR, 'edited');
+      return;
+    }
+
     // Conteúdo original — SEMPRE do registro do Recover (a mesma fonte do
     // painel), a cada verificação enquanto não estiver completo. Antes o
     // conteúdo era lido uma vez só: se o banner nascesse antes de o registro
@@ -826,13 +944,20 @@
     // marcador ficava sem conteúdo e o banner vazio para sempre.
     let found = lookupOriginalContent(msgId, state);
     let notCaptured = !!(found && found.notCaptured);
-    if (state !== 'edited' && (!found || !(found.text || found.label))) {
-      // Retrato do texto na tela antes de a mensagem ser apagada.
+    if (state !== 'edited') {
+      // Retrato da tela antes de a mensagem ser apagada: completa o que o
+      // registro não tem (texto, mídia ou os dois) e manda para o painel.
       const snap = domSnapshots.get(msgId);
-      if (snap && snap.text) {
-        found = { text: snap.text, label: null, media: null, timestamp: snap.at };
-        notCaptured = false;
-        postSnapshotRecord(msgId, state, snap);
+      const fromSnap = foundFromSnapshot(snap);
+      if (fromSnap && (fromSnap.text || fromSnap.label)) {
+        if (!found || !(found.text || found.label)) {
+          found = fromSnap;
+          notCaptured = false;
+          postSnapshotRecord(msgId, state, snap);
+        } else if (fromSnap.media && fromSnap.media.src && (!found.media || !found.media.src)) {
+          found = { ...found, label: found.label || fromSnap.label, media: { ...(found.media || {}), ...fromSnap.media, filename: (found.media && found.media.filename) || fromSnap.media.filename } };
+          postSnapshotRecord(msgId, state, snap);
+        }
       }
     }
     if (!found || !(found.text || found.label)) {
@@ -896,6 +1021,7 @@
     const done = (hasContent && (isComplete(found) || pendingExpired) && (!found.fromFallback || pendingExpired)) ||
       (!hasContent && found && found.notCaptured);
     msgEl.setAttribute(CONFIG.INJECTED_ATTR, done ? 'true' : 'pending');
+    msgEl.setAttribute(STATE_ATTR, state);
   }
 
   /**
@@ -933,21 +1059,9 @@
    */
   function domConfirmsState(msgEl, state) {
     try {
-      const directText = extractDirectMessageText(msgEl);
-      const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
-      const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
-
-      const looksRevoked = hasRecalledIcon || textLooksRevoked(directText);
-
-      const looksEdited = !looksRevoked && (hasEditedLabel || (directText && (
-        directText.includes('<Editada>') ||
-        directText.includes('<Edited>') ||
-        /\b\(Editada\)\s*$/.test(directText) ||
-        /\b\(Edited\)\s*$/.test(directText)
-      )));
-
-      if (state === 'revoked_global' || state === 'deleted_local') return looksRevoked;
-      if (state === 'edited') return looksEdited;
+      const looks = detectDomState(msgEl);
+      if (state === 'revoked_global' || state === 'deleted_local') return looks === 'revoked';
+      if (state === 'edited') return looks === 'edited';
       return false;
     } catch (_) {
       // Se não conseguimos avaliar, fica conservador: rejeita o marker.
@@ -955,11 +1069,47 @@
     }
   }
 
+  /**
+   * O que o PRÓPRIO balão mostra hoje: 'revoked' (balão de mensagem apagada),
+   * 'edited' (rótulo "Editada" do WhatsApp) ou null.
+   */
+  function detectDomState(msgEl) {
+    const directText = extractDirectMessageText(msgEl);
+    const hasRecalledIcon = !!msgEl.querySelector(':scope > [data-testid="recalled-msg"], :scope [data-icon="recalled"], :scope [data-icon="recalled-in"], :scope [data-icon="recalled-out"]');
+    if (hasRecalledIcon || textLooksRevoked(directText)) return 'revoked';
+    const hasEditedLabel = !!msgEl.querySelector(':scope [data-testid="msg-edited"], :scope [data-icon="edited"], :scope [data-icon="edited-in"], :scope [data-icon="edited-out"], :scope [aria-label*="ditad" i], :scope [aria-label*="dited" i], :scope [title*="ditad" i], :scope [title*="dited" i]');
+    if (hasEditedLabel || hasEditedWord(msgEl) || (directText && (
+      directText.includes('<Editada>') ||
+      directText.includes('<Edited>') ||
+      /\b\(Editada\)\s*$/.test(directText) ||
+      /\b\(Edited\)\s*$/.test(directText)
+    ))) return 'edited';
+    return null;
+  }
+
+  // Rótulo "Editada" do WhatsApp ao lado do horário: um span só com a palavra
+  // (fora do texto da mensagem e dos nossos banners).
+  function hasEditedWord(msgEl) {
+    try {
+      for (const sp of msgEl.querySelectorAll('span')) {
+        if (sp.closest(`.${CONFIG.QUOTE_CLASS}`) || sp.closest('.selectable-text')) continue;
+        if (/^(Editada|Editado|Edited)$/i.test((sp.textContent || '').trim())) return true;
+      }
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
+  // O hook da página já escreveu "Antes/Editada para" DENTRO do balão
+  // (durante a sessão). Aí o banner de edição seria repetido.
+  function hasHookEditMarker(msgEl) {
+    const t = extractDirectMessageText(msgEl) || '';
+    return /✏️ (?:Esta mensagem foi editada para|Editada para):/.test(t);
+  }
+
   // Textos que o WhatsApp mostra no lugar de uma mensagem apagada — inclui a
   // versão de quem apagou ("Você apagou esta mensagem").
   const REVOKED_TEXTS = [
     'Esta mensagem foi apagada',
-    'Essa mensagem foi apagada',
     'Você apagou esta mensagem',
     'Você apagou essa mensagem',
     'Mensagem apagada',
@@ -991,7 +1141,7 @@
     // Remove temporariamente quotes do clone pra extrair só texto do corpo.
     try {
       const clone = msgEl.cloneNode(true);
-      clone.querySelectorAll('[data-testid="quoted-mention"], .quoted-mention, [aria-label*="esposta" i], [aria-label*="eply" i]').forEach(n => n.remove());
+      clone.querySelectorAll(`[data-testid="quoted-mention"], .quoted-mention, [aria-label*="esposta" i], [aria-label*="eply" i], .${CONFIG.QUOTE_CLASS}`).forEach(n => n.remove());
       return (clone.textContent || '').trim();
     } catch (_) {
       return '';
@@ -1019,24 +1169,26 @@
     return match ? match[0] : null;
   }
 
+  // Id de mensagem do WhatsApp: letras/dígitos (ex.: "3EB0…", "3A…", "A5F3…").
+  // Rejeita palavras como "container" — vinha de data-testid="msg-container"
+  // e fazia TODAS as mensagens terem o mesmo id.
+  function isValidMsgId(id) {
+    return typeof id === 'string' && /^[0-9A-Za-z]{10,64}$/.test(id) && /\d/.test(id);
+  }
+
   function extractMessageId(msgEl) {
-    // Método 1: data-id
-    const dataId = msgEl.getAttribute('data-id');
-    if (dataId) {
-      return idFromDataId(dataId) || dataId;
-    }
+    // data-id do próprio elemento ou do ancestral (no WhatsApp atual o
+    // data-id fica num div acima do balão [data-testid="msg-container"]).
+    const holder = (msgEl.hasAttribute && msgEl.hasAttribute('data-id'))
+      ? msgEl
+      : (msgEl.closest && msgEl.closest('[data-id]'));
+    const fromDataId = holder ? idFromDataId(holder.getAttribute('data-id')) : null;
+    if (isValidMsgId(fromDataId)) return fromDataId;
 
-    // Método 2: data-testid contém ID
-    const testId = msgEl.getAttribute('data-testid');
-    if (testId && testId.includes('msg-')) {
-      return testId.replace('msg-', '');
-    }
-
-    // Método 3: Procurar em atributos do elemento pai
-    const parent = msgEl.closest('[data-id]');
-    if (parent) {
-      return idFromDataId(parent.getAttribute('data-id'));
-    }
+    // data-testid no formato "msg-<id>" (nunca "msg-container").
+    const testId = msgEl.getAttribute && msgEl.getAttribute('data-testid');
+    const m = testId && /^msg-([0-9A-Za-z]{10,64})$/.exec(testId);
+    if (m && isValidMsgId(m[1])) return m[1];
 
     return null;
   }
@@ -1152,7 +1304,8 @@
     if (text) {
       const content = document.createElement('div');
       content.className = `${CONFIG.QUOTE_CLASS}-content`;
-      content.textContent = text.length > 150 ? text.substring(0, 150) + '...' : text;
+      const shown = text.length > 150 ? text.substring(0, 150) + '...' : text;
+      content.textContent = isEdited ? `Antes: ${shown}` : shown;
       quote.appendChild(content);
       // Tooltip com conteúdo completo
       if (text.length > 150) quote.title = `Conteúdo completo: ${text}`;
@@ -1217,6 +1370,8 @@
     init,
     processExistingMessages,
     MESSAGE_STATES,
+    // Para os testes (tests/unit/recover-visual-injector.test.js)
+    _internals: { extractMessageId, isValidMsgId, idFromDataId },
     
     // Persistência
     loadPersistentMarkers,
