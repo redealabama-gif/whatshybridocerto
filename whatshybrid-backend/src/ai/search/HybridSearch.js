@@ -112,10 +112,16 @@ class HybridSearch {
       if (snapshot.documents) {
         this.documents = new Map(snapshot.documents);
       }
-      // Restore BM25 index
+      // Restore BM25 index. Em memória cada doc é um objeto { termo: freq } —
+      // é assim que addDocument grava e que o BM25 lê (tf[termo],
+      // Object.keys(tf)). Antes restaurava um Map, que o BM25 não lê: os docs
+      // restaurados pontuavam 0. Aceita também lista de pares [termo, freq].
       if (snapshot.termFrequencies) {
         this.termFrequencies = new Map(
-          snapshot.termFrequencies.map(([id, tf]) => [id, new Map(Object.entries(tf))])
+          snapshot.termFrequencies.map(([id, tf]) => [
+            id,
+            Array.isArray(tf) ? Object.fromEntries(tf) : { ...(tf || {}) },
+          ])
         );
       }
       if (snapshot.documentFrequencies) {
@@ -162,8 +168,11 @@ class HybridSearch {
         tenantId: this.tenantId,
         savedAt: new Date().toISOString(),
         documents: Array.from(this.documents.entries()),
+        // tf já é um objeto simples { termo: freq }. Object.fromEntries(tf)
+        // lançava "object is not iterable" e NENHUM snapshot era gravado — só
+        // um erro no log a cada indexação.
         termFrequencies: Array.from(this.termFrequencies.entries()).map(
-          ([id, tf]) => [id, Object.fromEntries(tf)]
+          ([id, tf]) => [id, tf instanceof Map ? Object.fromEntries(tf) : tf]
         ),
         documentFrequencies: Object.fromEntries(this.documentFrequencies),
         documentLengths: Object.fromEntries(this.documentLengths),
