@@ -3,7 +3,7 @@
 > **CRM SaaS B2B com IA neural para WhatsApp Web**
 > Atendimento automatizado, aprendizado contínuo, integração nativa via extensão Chrome.
 
-![Version](https://img.shields.io/badge/version-9.4.7-blueviolet.svg)
+![Version](https://img.shields.io/badge/version-9.6.0-blueviolet.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Tests](https://img.shields.io/badge/smoke%20tests-3%20suites-success.svg)
@@ -90,17 +90,21 @@ Acesse:
 ## Deploy em produção (Docker)
 
 ```bash
-# Em um VPS Ubuntu 22.04+ (Hostinger, DigitalOcean, etc):
+# Em um VPS Ubuntu 22.04+ (Hostinger, DigitalOcean, etc), como root:
 git clone <seu-repo> /opt/whatshybrid
 cd /opt/whatshybrid
-cp whatshybrid-backend/.env.example whatshybrid-backend/.env
-# Configure: JWT_SECRET, MERCADOPAGO_*, SENDGRID_API_KEY, PUBLIC_BASE_URL, etc
 
-# Bootstrap completo (instala Docker, UFW, fail2ban, cron de backup):
-bash deploy/scripts/install.sh
+# Bootstrap (Docker, UFW, fail2ban, cron de backup) + cria o .env da raiz a
+# partir do .env.example, já com JWT_SECRET, WEBHOOK_SECRET e POSTGRES_PASSWORD
+# aleatórios:
+./deploy/scripts/install.sh
 
-# Sobe a stack (caddy + backend + redis + worker):
-docker compose up -d
+# Preencha no .env: DOMAIN, LETSENCRYPT_EMAIL, uma chave de IA, MERCADOPAGO_*,
+# SENDGRID_API_KEY (ver DEPLOY.md, Passo 4). É o .env da RAIZ que o compose lê.
+nano .env
+
+# Build + sobe a stack (caddy + backend + redis + worker) + health check:
+./deploy/scripts/deploy.sh
 
 # Caddy faz TLS automático via Let's Encrypt - só apontar DNS para o IP do VPS
 ```
@@ -135,11 +139,19 @@ Ver `DEPLOY.md` para detalhes.
 
 ## Configuração mínima
 
-**Obrigatório no `.env`:**
+**Desenvolvimento (`whatshybrid-backend/.env`):** o template sobe como está;
+para a IA responder, preencha pelo menos uma chave (`OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY` ou `GROQ_API_KEY`).
+
+**Produção (`.env` da raiz, criado pelo `install.sh`) — obrigatório:**
 ```bash
-JWT_SECRET=$(openssl rand -hex 32)
-OPENAI_API_KEY=sk-...           # ou ANTHROPIC_API_KEY=sk-ant-...
-PUBLIC_BASE_URL=https://api.seudominio.com.br
+DOMAIN=api.seudominio.com.br
+LETSENCRYPT_EMAIL=voce@seudominio.com.br
+OPENAI_API_KEY=sk-...           # ou ANTHROPIC_API_KEY=sk-ant-... / GROQ_API_KEY=gsk_...
+# JWT_SECRET e WEBHOOK_SECRET já vêm gerados pelo install.sh. Para gerar à mão,
+# rode `openssl rand -hex 32` no terminal e cole o valor (o .env não executa
+# comandos). Em produção, o backend recusa os valores de exemplo do template.
+# PUBLIC_BASE_URL é derivado de DOMAIN pelo docker-compose.yml.
 ```
 
 **Para receber pagamentos (opcional em dev):**

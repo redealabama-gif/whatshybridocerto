@@ -67,7 +67,9 @@ log_info "[1/7] Atualizando pacotes do sistema..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get upgrade -yqq
-apt-get install -yqq curl wget git ufw fail2ban htop jq unzip
+# rsync: cópia do código (passo 5). sqlite3: o backup.sh e o restore.sh
+# conferem a integridade do banco restaurado no host.
+apt-get install -yqq curl wget git ufw fail2ban htop jq unzip rsync sqlite3
 
 # ── 2. Docker ────────────────────────────────────────────────────────────
 log_info "[2/7] Instalando Docker..."
@@ -151,14 +153,26 @@ if [[ ! -f .env ]]; then
     JWT_SECRET=$(openssl rand -hex 32)
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
 
-    log_ok ".env criado a partir do template com JWT_SECRET aleatório"
+    # Gerar WEBHOOK_SECRET aleatório. O template traz um placeholder público
+    # (está no repositório) e o config/index.js só valida o tamanho mínimo:
+    # sem esta troca, a produção subiria com um segredo conhecido.
+    WEBHOOK_SECRET="WHK_$(openssl rand -hex 32)"
+    sed -i "s|^WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$WEBHOOK_SECRET|" .env
+
+    # Gerar POSTGRES_PASSWORD aleatório. Só é usado se o profile "postgres"
+    # for habilitado (ver docker-compose.yml); assim ninguém liga o Postgres
+    # com senha fraca ou vazia.
+    POSTGRES_PASSWORD=$(openssl rand -hex 24)
+    sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" .env
+
+    log_ok ".env criado a partir do template com JWT_SECRET, WEBHOOK_SECRET e POSTGRES_PASSWORD aleatórios"
     log_warn "═════════════════════════════════════════════════════════════════"
     log_warn " AÇÃO MANUAL NECESSÁRIA:"
     log_warn "  Edite $PROJECT_DIR/.env e preencha:"
     log_warn "    • DOMAIN (seu domínio com DNS apontando aqui)"
     log_warn "    • LETSENCRYPT_EMAIL"
     log_warn "    • Pelo menos uma OPENAI_API_KEY / ANTHROPIC_API_KEY / GROQ_API_KEY"
-    log_warn "    • CORS_ORIGINS (inclua chrome-extension://ID_DA_SUA_EXTENSAO)"
+    log_warn "    • (opcional) CORS_ORIGIN — o default do compose já libera https://DOMAIN e chrome-extension://*"
     log_warn ""
     log_warn "  Depois rode:"
     log_warn "    cd $PROJECT_DIR && ./deploy/scripts/deploy.sh"

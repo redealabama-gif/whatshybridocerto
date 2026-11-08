@@ -177,6 +177,13 @@ const helmetForAdmin = helmet({
 // partir de blob: URLs para descompactar a cena. Sem isso, o web component
 // <spline-viewer> carrega mas nunca termina de inicializar — a landing
 // ficava travada em "Carregando núcleo 3D…" eternamente.
+// Chat do Crisp (dashboard, ativado por CRISP_WEBSITE_ID): o loader
+// client.crisp.chat/l.js baixa scripts, CSS, fontes, sons, workers e iframes de
+// subdomínios de crisp.chat. Liberamos https://*.crisp.chat nessas diretivas,
+// como na política de exemplo da doc do Crisp ("Crisp Domain Names"). Imagens
+// e conexões (inclusive wss:// do relay) já passam por https:/wss: abaixo, e o
+// CSS inline do chat por 'unsafe-inline'. Sem isso, a CSP bloqueava o l.js.
+const CRISP_SRC = 'https://*.crisp.chat';
 const helmetForPortal = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -191,13 +198,15 @@ const helmetForPortal = helmet({
         "https://esm.sh", // cobe (globo) — CDN de fallback
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
+        CRISP_SRC, // chat do dashboard (l.js + settings)
       ],
-      workerSrc: ["'self'", "blob:", "data:"], // Spline cria workers de blob:/data:
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      workerSrc: ["'self'", "blob:", "data:", CRISP_SRC], // Spline cria workers de blob:/data:
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:", CRISP_SRC],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
+      mediaSrc: ["'self'", CRISP_SRC], // sons de notificação do chat
       connectSrc: ["'self'", "https:", "wss:", "blob:"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", CRISP_SRC],
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -451,6 +460,7 @@ app.get('/config.js', (_req, res) => {
   const safeConfig = {
     APP_VERSION: require('../package.json').version,
     CRISP_WEBSITE_ID: process.env.CRISP_WEBSITE_ID || null,
+    CHROME_WEBSTORE_URL: process.env.CHROME_WEBSTORE_URL || null, // botão "Instalar extensão" do dashboard
     SENTRY_DSN_BROWSER: process.env.SENTRY_DSN_BROWSER || null,
     UMAMI_WEBSITE_ID: process.env.UMAMI_WEBSITE_ID || null,
     UMAMI_HOST: process.env.UMAMI_HOST || null,

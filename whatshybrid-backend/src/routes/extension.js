@@ -1,6 +1,6 @@
 /**
  * Extension Download Routes - v8.3.0
- * 
+ *
  * Serve o zip da extensão Chrome para o cliente baixar.
  * Em produção, recomenda-se publicar na Chrome Web Store e este endpoint
  * fica como fallback para "instalação manual" durante beta.
@@ -31,9 +31,14 @@ router.get('/download', authenticate, (req, res) => {
 
   if (!fs.existsSync(zipPath)) {
     logger.warn(`[Extension] Download requested but zip not found at ${zipPath}`);
+    // Com a extensão publicada (CHROME_WEBSTORE_URL), aponta para a loja.
+    const storeUrl = process.env.CHROME_WEBSTORE_URL || null;
     return res.status(503).json({
       error: 'Extensão temporariamente indisponível para download direto',
-      message: 'Em breve disponível na Chrome Web Store. Entre em contato com o suporte.',
+      message: storeUrl
+        ? 'Instale pela Chrome Web Store.'
+        : 'Em breve disponível na Chrome Web Store. Entre em contato com o suporte.',
+      store_url: storeUrl,
       hint: 'Admin: gere o zip em public/downloads/whatshybrid-extension-latest.zip',
     });
   }

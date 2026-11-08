@@ -660,13 +660,18 @@
 <script src="js/datetime.js" defer></script>
 <script src="js/onboarding.js" defer></script>
 
-<!-- v9.0.0: Crisp chat (ativa automaticamente se window.CRISP_WEBSITE_ID definido) -->
+<!-- Config pública do backend (window.WHL_CONFIG), servida por GET /config.js -->
+<script src="/config.js"></script>
+<!-- Sentry no navegador (opcional): liga só com SENTRY_DSN_BROWSER no backend -->
+<script src="js/sentry-browser.js"></script>
+<!-- v9.0.0: Crisp chat (ativa automaticamente se CRISP_WEBSITE_ID estiver definido no backend) -->
 <script>
-  // Define em deploy/.env: CRISP_WEBSITE_ID=xxx-xxx-xxx
-  // E injete via template no signup.html / dashboard.html
+  // Define no .env do deploy: CRISP_WEBSITE_ID=xxx-xxx-xxx
+  // O backend entrega o valor em window.WHL_CONFIG (GET /config.js, acima).
   window.$crisp=[];
-  if (window.CRISP_WEBSITE_ID) {
-    window.CRISP_WEBSITE_ID = window.CRISP_WEBSITE_ID;
+  if (window.WHL_CONFIG?.CRISP_WEBSITE_ID) {
+    // O loader do Crisp (l.js) lê o ID desta global.
+    window.CRISP_WEBSITE_ID = window.WHL_CONFIG.CRISP_WEBSITE_ID;
     (function(){
       var d = document;
       var s = d.createElement("script");
@@ -769,8 +774,13 @@
   // ── Extension actions ────────────────────────────────────
   document.getElementById('install-extension-btn').addEventListener('click', (e) => {
     e.preventDefault();
-    // Quando publicada na Chrome Web Store, troque por o link real:
-    // window.open('https://chrome.google.com/webstore/detail/SEU_EXT_ID', '_blank');
+    // O link vem do backend: CHROME_WEBSTORE_URL no .env → GET /config.js →
+    // window.WHL_CONFIG. Sem a variável, mantém o aviso de "em breve".
+    const storeUrl = window.WHL_CONFIG?.CHROME_WEBSTORE_URL;
+    if (storeUrl) {
+      window.open(storeUrl, '_blank', 'noopener');
+      return;
+    }
     toast('Em breve disponível na Chrome Web Store.', 'info', 4000);
   });
 

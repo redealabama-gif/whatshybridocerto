@@ -32,11 +32,20 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 log "═══ Backup iniciado: $BACKUP_NAME ═══"
 
+# A verificação de integridade (passo 5b) roda o sqlite3 no host.
+if ! command -v sqlite3 > /dev/null 2>&1; then
+    log "ERRO: sqlite3 não está instalado no host. Instale com: apt-get install -y sqlite3"
+    exit 1
+fi
+
 # ── Preparação ───────────────────────────────────────────────────────────
 mkdir -p "$BACKUP_DIR"
 cd "$PROJECT_DIR"
 
-if ! docker compose ps backend --format json | jq -e '.[0]' > /dev/null 2>&1; then
+# `ps -q` lista só os IDs e funciona em qualquer versão do compose. O teste
+# antigo (`--format json | jq '.[0]'`) nunca casava no compose atual, que
+# imprime um objeto JSON por linha em vez de uma lista: todo backup abortava.
+if [[ -z "$(docker compose ps -q backend 2>/dev/null)" ]]; then
     log "ERRO: container 'backend' não está rodando. Backup abortado."
     exit 1
 fi

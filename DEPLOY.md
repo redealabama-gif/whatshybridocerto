@@ -69,7 +69,7 @@ Esse script faz tudo:
 - Configura Fail2ban contra força bruta SSH
 - Cria diretórios
 - Configura cron de backup diário
-- Gera JWT_SECRET aleatório forte
+- Gera JWT_SECRET e WEBHOOK_SECRET aleatórios fortes (e a senha do Postgres opcional)
 
 ### Passo 4 — Editar `.env`
 
@@ -83,9 +83,20 @@ nano /opt/whatshybrid/.env
 DOMAIN=api.seudominio.com.br          # ← seu domínio
 LETSENCRYPT_EMAIL=voce@seudominio.com.br
 JWT_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
+WEBHOOK_SECRET=<<JÁ_PREENCHIDO_AUTOMATICO>>
 OPENAI_API_KEY=sk-...                  # ← pelo menos uma key
-CORS_ORIGINS=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
 ```
+
+**CORS (opcional):** não precisa mexer para subir. O `docker-compose.yml` já usa
+`CORS_ORIGIN=https://${DOMAIN},chrome-extension://*`, que vale para a API HTTP e
+para o WebSocket. Depois de publicar a extensão na Chrome Web Store, você pode
+fixar o ID dela no `.env`:
+
+```bash
+CORS_ORIGIN=https://api.seudominio.com.br,chrome-extension://ID_DA_SUA_EXTENSAO
+```
+
+O nome é no **singular**: `CORS_ORIGINS` (plural) é ignorado pelo backend.
 
 **Obrigatório para fluxo de compra funcionar** (sem isso o cliente paga e
 não recebe código de ativação por email — o checkout pode até abrir, mas
@@ -127,7 +138,7 @@ cd /opt/whatshybrid
 ```
 
 Vai:
-1. Fazer backup (vazio na primeira vez)
+1. Fazer backup (pulado no primeiro deploy, quando ainda não há banco)
 2. Build das imagens Docker (~3-5 min)
 3. Subir Caddy + Backend + Worker + Redis
 4. Esperar Let's Encrypt provisionar TLS (~30-60s)
@@ -167,7 +178,7 @@ curl https://api.seudominio.com.br/health
 | Rodar health check | `./deploy/scripts/health.sh` |
 | Backup manual | `./deploy/scripts/backup.sh` |
 | Listar backups | `ls -lh /opt/whatshybrid/backups/` |
-| Restaurar backup | `./deploy/scripts/restore.sh` |
+| Restaurar backup | `./deploy/scripts/restore.sh <arquivo> --apply` (sem argumento, lista os backups) |
 | Ver uso de recursos | `docker stats` |
 | Atualizar para nova versão | `./deploy/scripts/deploy.sh` |
 | Banir IP de força bruta SSH | `fail2ban-client set sshd banip IP` |
@@ -187,8 +198,9 @@ curl https://api.seudominio.com.br/health
 ### Restore (em caso de pane)
 
 ```bash
-./deploy/scripts/restore.sh
-# vai listar backups disponíveis e perguntar qual usar
+./deploy/scripts/restore.sh                                            # lista os backups disponíveis
+./deploy/scripts/restore.sh backups/backup_AAAAMMDD_HHMMSS_auto.tar.gz          # só verifica (dry-run)
+./deploy/scripts/restore.sh backups/backup_AAAAMMDD_HHMMSS_auto.tar.gz --apply  # restaura
 ```
 
 ### Backups off-site (FORTEMENTE recomendado)
@@ -309,6 +321,10 @@ crontab -e
 
 Erros em produção viram tickets organizados.
 
+Opcional — erros JavaScript do navegador (landing e dashboard): crie um
+segundo projeto do tipo "Browser JavaScript" e cole o DSN dele em
+`SENTRY_DSN_BROWSER` (esse DSN é público: vai para o navegador via `/config.js`).
+
 ### Uptime externo (Better Stack / UptimeRobot)
 
 UptimeRobot tem free tier para 50 monitors. Configure:
@@ -385,7 +401,7 @@ dpkg-reconfigure --priority=low unattended-upgrades
 1. **Restart do serviço problemático**: `docker compose restart backend`
 2. **Redeploy**: `./deploy/scripts/deploy.sh`
 3. **Restart de tudo**: `docker compose down && docker compose up -d`
-4. **Restore de backup recente**: `./deploy/scripts/restore.sh`
+4. **Restore de backup recente**: `./deploy/scripts/restore.sh <arquivo> --apply`
 5. **Reboot do VPS**: `reboot` (containers sobem automaticamente, restart=unless-stopped)
 
 Se nada disso funcionar, leia os logs: `docker compose logs --tail=200 > /tmp/diagnose.log`

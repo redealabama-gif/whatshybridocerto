@@ -30,7 +30,10 @@ const DEPRECATED_BELOW = process.env.EXT_DEPRECATED_BELOW || '9.0.0';
 function compareVersions(a, b) {
   const parse = (v) => {
     if (!v || typeof v !== 'string') return [0, 0, 0];
-    return v.split('.').slice(0, 3).map(n => parseInt(n, 10) || 0);
+    return v
+      .split('.')
+      .slice(0, 3)
+      .map((n) => parseInt(n, 10) || 0);
   };
   const [aM, am, ap] = parse(a);
   const [bM, bm, bp] = parse(b);
@@ -44,12 +47,24 @@ class VersionWrapper {
   constructor(version) {
     this.raw = version || '0.0.0';
   }
-  gte(other) { return compareVersions(this.raw, other) >= 0; }
-  gt(other)  { return compareVersions(this.raw, other) > 0; }
-  lte(other) { return compareVersions(this.raw, other) <= 0; }
-  lt(other)  { return compareVersions(this.raw, other) < 0; }
-  eq(other)  { return compareVersions(this.raw, other) === 0; }
-  toString() { return this.raw; }
+  gte(other) {
+    return compareVersions(this.raw, other) >= 0;
+  }
+  gt(other) {
+    return compareVersions(this.raw, other) > 0;
+  }
+  lte(other) {
+    return compareVersions(this.raw, other) <= 0;
+  }
+  lt(other) {
+    return compareVersions(this.raw, other) < 0;
+  }
+  eq(other) {
+    return compareVersions(this.raw, other) === 0;
+  }
+  toString() {
+    return this.raw;
+  }
 }
 
 /**
@@ -99,14 +114,18 @@ function middleware(opts = {}) {
         code: 'EXTENSION_TOO_OLD',
         current_version: version,
         min_supported: MIN_SUPPORTED,
-        update_url: 'https://chrome.google.com/webstore/detail/whatshybrid-pro/your-extension-id',
+        // Link real da Chrome Web Store (CHROME_WEBSTORE_URL); antes era um
+        // placeholder ".../your-extension-id". null até a extensão ser publicada.
+        update_url: process.env.CHROME_WEBSTORE_URL || null,
       });
     }
 
     // Deprecation warning header
     if (req.extVersion.lt(DEPRECATED_BELOW)) {
-      res.setHeader('X-Extension-Deprecation-Warning',
-        `Your extension version ${version} is deprecated. Please update to >= ${DEPRECATED_BELOW}.`);
+      res.setHeader(
+        'X-Extension-Deprecation-Warning',
+        `Your extension version ${version} is deprecated. Please update to >= ${DEPRECATED_BELOW}.`
+      );
     }
 
     // Atualiza last seen no workspace (best-effort, async)
@@ -114,10 +133,10 @@ function middleware(opts = {}) {
       setImmediate(() => {
         try {
           const db = require('../utils/database');
-          db.run(
-            `UPDATE workspaces SET current_extension_version = ? WHERE id = ?`,
-            [version.substring(0, 20), req.workspaceId]
-          );
+          db.run(`UPDATE workspaces SET current_extension_version = ? WHERE id = ?`, [
+            version.substring(0, 20),
+            req.workspaceId,
+          ]);
         } catch (_) {}
       });
     }

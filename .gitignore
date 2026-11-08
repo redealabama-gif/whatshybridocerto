@@ -9,3 +9,7 @@
 whatshybrid-extension/dist/build-report.json
 
 node_modules/
+
+# Segredos do deploy: o install.sh cria o .env na raiz a partir do .env.example
+# (JWT_SECRET, WEBHOOK_SECRET, chaves de IA, MercadoPago...). Nunca commitar.
+.env

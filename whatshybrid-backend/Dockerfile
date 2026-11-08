@@ -17,8 +17,11 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Ferramentas mínimas para better-sqlite3 em runtime
-RUN apk add --no-cache sqlite-libs tini
+# Ferramentas mínimas para better-sqlite3 em runtime.
+# `sqlite` é o CLI sqlite3: o backup.sh, o health.sh e os comandos do RUNBOOK
+# rodam `docker compose exec backend sqlite3 ...` (o sqlite-libs só traz a
+# biblioteca, sem o executável — os backups falhavam).
+RUN apk add --no-cache sqlite-libs sqlite tini
 
 # Copiar dependências compiladas
 COPY --from=deps /app/node_modules ./node_modules

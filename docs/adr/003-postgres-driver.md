@@ -45,7 +45,9 @@ API uniforme nos drivers (`run`, `get`, `all`, `transaction`, `exec`, `close`). 
 
 1. Provisiona Postgres no docker-compose (já incluído)
 2. Roda migrations versionadas no Postgres vazio
-3. Script `scripts/migrate-sqlite-to-postgres.js` (ainda não escrito) copia dados
+3. Script `whatshybrid-backend/scripts/migrate-sqlite-to-postgres.js` copia dados
+   (`npm run migrate:sqlite-to-postgres`, ou `:dry` para só contar). Antes do
+   switch, o código síncrono precisa estar migrado (ver job smoke-postgres do CI)
 4. Verifica counts batem antes/depois
 5. Switch `DB_DRIVER=postgres` em produção
 6. SQLite fica como backup / rollback option por 30 dias

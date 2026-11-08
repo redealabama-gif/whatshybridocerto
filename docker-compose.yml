@@ -13,9 +13,11 @@
 #   - caddy_config: configurações persistentes do Caddy
 #   - redis_data:  AOF do Redis
 #
-# Deploy:
-#   1. cp .env.example .env   (e preencha valores)
-#   2. docker compose up -d --build
+# Deploy (passo a passo completo no DEPLOY.md):
+#   1. ./deploy/scripts/install.sh  (cria o .env a partir do .env.example e gera
+#      JWT_SECRET, WEBHOOK_SECRET e POSTGRES_PASSWORD aleatórios; depois
+#      preencha DOMAIN, LETSENCRYPT_EMAIL e uma chave de IA)
+#   2. ./deploy/scripts/deploy.sh   (ou: docker compose up -d --build)
 #   3. Logs: docker compose logs -f
 #   4. Backup: ./deploy/scripts/backup.sh
 #   5. Update: ./deploy/scripts/deploy.sh
@@ -37,7 +39,9 @@ services:
       - caddy_data:/data            # certs Let's Encrypt + state
       - caddy_config:/config        # config persistida
     environment:
-      - DOMAIN=${DOMAIN:?DOMAIN is required (ex: api.seudominio.com)}
+      # Entre aspas: sem elas, o ": " dentro da mensagem "(ex: ...)" faz o YAML
+      # ler o item como um mapa, e o compose recusa o arquivo inteiro.
+      - "DOMAIN=${DOMAIN:?DOMAIN is required (ex: api.seudominio.com)}"
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
     depends_on:
       backend:
@@ -45,7 +49,12 @@ services:
     networks:
       - wh_network
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      # API admin do Caddy (só escuta dentro do container). O teste antigo,
+      # http://localhost:80, levava um redirect 308 para https://localhost/ — sem
+      # certificado para "localhost" — e falhava sempre: o caddy ficava
+      # "unhealthy" mesmo servindo normal. O caminho HTTPS público é conferido
+      # pelo health.sh (https://$DOMAIN/health).
+      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -101,6 +110,9 @@ services:
       # aceita origens de extensão se o wildcard estiver explícito na lista
       # (IDs de extensão variam por instalação até publicar na Web Store;
       # depois de publicar, dá pra trocar o wildcard pelo ID fixo).
+      # Vale também para o WebSocket: o Socket.IO (src/server.js) usa a mesma
+      # lista. (O antigo src/websocket/SocketManager.js, que lia CORS_ORIGINS,
+      # era código morto — nada o carregava — e foi removido.)
       - CORS_ORIGIN=${CORS_ORIGIN:-https://${DOMAIN},chrome-extension://*}
       - REDIS_DISABLED=${REDIS_DISABLED:-false}
       # ── Billing (MercadoPago) ──────────────────────────────────────────
@@ -126,6 +138,28 @@ services:
       # Master key opcional pra acesso enterprise sem código (debug/QA).
       # Em prod, deixe vazio.
       - SUBSCRIPTION_MASTER_KEY=${SUBSCRIPTION_MASTER_KEY:-}
+      # ── Login com Google (opcional) ────────────────────────────────────
+      # Sem isso o botão "Continuar com Google" fica escondido no login/signup.
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      # ── Pixel / Analytics server-side (opcionais) ──────────────────────
+      # Meta Conversions API (src/services/MetaCapiService.js) e GA4
+      # Measurement Protocol (src/services/GoogleAnalyticsMpService.js).
+      # Vazios = no-op. GA4_DEBUG só liga com o valor 1.
+      - META_PIXEL_ID=${META_PIXEL_ID:-}
+      - META_CAPI_TOKEN=${META_CAPI_TOKEN:-}
+      - META_TEST_EVENT_CODE=${META_TEST_EVENT_CODE:-}
+      - META_API_VERSION=${META_API_VERSION:-v18.0}
+      - GA4_MEASUREMENT_ID=${GA4_MEASUREMENT_ID:-}
+      - GA4_API_SECRET=${GA4_API_SECRET:-}
+      - GA4_DEBUG=${GA4_DEBUG:-false}
+      # ── Sentry (opcional) ──────────────────────────────────────────────
+      # SENTRY_DSN: erros 500 do backend (@sentry/node). Vazio = desligado.
+      # SENTRY_DSN_BROWSER: erros JS da landing e do dashboard (via /config.js).
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_DSN_BROWSER=${SENTRY_DSN_BROWSER:-}
+      # ── Frontend público (entregues ao navegador via GET /config.js) ───
+      - CRISP_WEBSITE_ID=${CRISP_WEBSITE_ID:-}
+      - CHROME_WEBSTORE_URL=${CHROME_WEBSTORE_URL:-}
     volumes:
       - db_data:/app/data
       - logs_data:/app/logs
@@ -183,17 +217,23 @@ services:
           memory: 512M
           cpus: '0.5'
 
-  # ── PostgreSQL (v9.0.0): produção ────────────────────────────────────────
-  # Habilitar quando migrar de SQLite. Definir DB_DRIVER=postgres no backend.
-  # Para usar: descomente as 2 sections postgres + adicione DATABASE_URL no .env
+  # ── PostgreSQL (opcional, profile "postgres") ────────────────────────────
+  # ⚠️ AINDA NÃO SUPORTADO EM PRODUÇÃO: o backend roda em SQLite. O driver pg é
+  # assíncrono e parte do código ainda usa a API síncrona (o job smoke-postgres
+  # do CI documenta esse gap). Este serviço só sobe com `--profile postgres`, e
+  # o backend não recebe DB_DRIVER nem DATABASE_URL — ligado, ele não é usado.
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    profiles: ["postgres"]   # só sobe se PROFILE=postgres
+    profiles: ["postgres"]   # só sobe com --profile postgres (ou COMPOSE_PROFILES=postgres)
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-whatshybrid}
       POSTGRES_USER: ${POSTGRES_USER:-whatshybrid}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      # Sem `:?` de propósito: o compose interpola o arquivo inteiro, inclusive
+      # serviços de profiles desligados, e o `:?` travava `up`/`build` de quem
+      # não usa Postgres. A imagem do postgres já se recusa a iniciar sem
+      # senha. O install.sh gera uma senha aleatória no .env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:

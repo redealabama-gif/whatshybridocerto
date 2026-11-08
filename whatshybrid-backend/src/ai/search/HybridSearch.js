@@ -112,10 +112,16 @@ class HybridSearch {
       if (snapshot.documents) {
         this.documents = new Map(snapshot.documents);
       }
-      // Restore BM25 index
+      // Restore BM25 index. Em memória cada doc é um objeto { termo: freq } —
+      // é assim que addDocument grava e que o BM25 lê (tf[termo],
+      // Object.keys(tf)). Antes restaurava um Map, que o BM25 não lê: os docs
+      // restaurados pontuavam 0. Aceita também lista de pares [termo, freq].
       if (snapshot.termFrequencies) {
         this.termFrequencies = new Map(
-          snapshot.termFrequencies.map(([id, tf]) => [id, new Map(Object.entries(tf))])
+          snapshot.termFrequencies.map(([id, tf]) => [
+            id,
+            Array.isArray(tf) ? Object.fromEntries(tf) : { ...(tf || {}) },
+          ])
         );
       }
       if (snapshot.documentFrequencies) {
@@ -162,8 +168,11 @@ class HybridSearch {
         tenantId: this.tenantId,
         savedAt: new Date().toISOString(),
         documents: Array.from(this.documents.entries()),
+        // tf já é um objeto simples { termo: freq }. Object.fromEntries(tf)
+        // lançava "object is not iterable" e NENHUM snapshot era gravado — só
+        // um erro no log a cada indexação.
         termFrequencies: Array.from(this.termFrequencies.entries()).map(
-          ([id, tf]) => [id, Object.fromEntries(tf)]
+          ([id, tf]) => [id, tf instanceof Map ? Object.fromEntries(tf) : tf]
         ),
         documentFrequencies: Object.fromEntries(this.documentFrequencies),
         documentLengths: Object.fromEntries(this.documentLengths),
@@ -185,23 +194,6 @@ class HybridSearch {
   async flush() {
     if (this._persistenceTimer) clearTimeout(this._persistenceTimer);
     await this._flushToDisk();
-  }
-
-  /**
-   * Remove TODOS os documentos e estruturas de índice (BM25 + embeddings).
-   * Usado para reindexação full-replace (ex.: o conhecimento treinado mudou).
-   * Mantém o EmbeddingProvider e seu cache (acelera o re-embed dos mesmos textos).
-   */
-  clear() {
-    this.documents.clear();
-    this.termFrequencies.clear();
-    this.documentFrequencies.clear();
-    this.documentLengths.clear();
-    this.embeddings.clear();
-    this.averageDocumentLength = 0;
-    this.totalDocuments = 0;
-    this.stats.totalDocuments = 0;
-    this._schedulePersistence();
   }
 
   /**
@@ -584,7 +576,13 @@ class HybridSearch {
   }
 
   /**
-   * Clear all documents and reset index
+   * Remove TODOS os documentos e estruturas de índice (BM25 + embeddings) e
+   * zera as estatísticas. Usado na reindexação full-replace do conhecimento
+   * treinado (AIOrchestrator). Mantém o EmbeddingProvider e seu cache.
+   *
+   * Havia duas definições de clear() nesta classe; a segunda (esta) sobrescrevia
+   * a primeira, que agendava a persistência. Unificadas: o snapshot em disco
+   * também é atualizado, senão um índice limpo voltava do disco no restart.
    */
   clear() {
     this.documents.clear();
@@ -608,6 +606,7 @@ class HybridSearch {
       totalSemanticScore: 0,
       totalFusionScore: 0
     };
+    this._schedulePersistence();
   }
 
   /**
