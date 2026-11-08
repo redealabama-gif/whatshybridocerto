@@ -1,0 +1,12 @@
+    ✕ pergunta de preço/desconto NÃO é momento de fechamento (22 ms)
+    ✕ pergunta de prazo de entrega NÃO é momento de fechamento (3 ms)
+    ✓ controle: decisão explícita continua sendo fechamento (2 ms)
+    ✕ nenhuma das 12 mensagens comuns do S1 é lida como confusão (6 ms)
+    ✓ controle: "não entendi" / "??" continuam sendo confusão
+    Expected: false
+    Received: true
+    Expected: false
+    Received: true
+    - Expected  - 1
+    + Received  + 7
+Tests:       3 failed, 2 passed, 5 total

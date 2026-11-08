@@ -132,7 +132,9 @@ class EmotionToneEngine {
       const hasIntensifier = INTENSIFIERS.some((w) => text.includes(w));
       if (POSITIVE_EMOJI.test(raw)) scores.excitement += 1;
       if (NEGATIVE_EMOJI.test(raw)) scores.anger += 1;
-      if (text.includes('?') || /\?\?+/.test(raw)) scores.confusion += 1;
+      // IA-08: só "??" conta como confusão — um "?" é uma pergunta normal (antes,
+      // toda pergunta recebia "o cliente está confuso… em passos curtos").
+      if (/\?\?+/.test(raw)) scores.confusion += 1;
 
       // Emoção dominante da mensagem atual
       let emotion = 'neutral';
