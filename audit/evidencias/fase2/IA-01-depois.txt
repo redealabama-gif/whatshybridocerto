@@ -1,0 +1,7 @@
+• autopilot-guard-failclosed.test.js
+  ✓ IA-01: backend sem metadata.autopilot → NÃO envia, vai para revisão
+  ✓ IA-01: confiança abaixo do limiar do tier (campo `confidence`) → NÃO envia
+  ✓ IA-01: confiança desconhecida → NÃO envia
+  ✓ IA-01 (controle): guarda libera e confiança ≥ limiar → envia 1x
+
+  4 passou, 0 falhou (4 no total)

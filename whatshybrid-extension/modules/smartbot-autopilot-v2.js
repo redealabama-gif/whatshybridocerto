@@ -994,10 +994,30 @@
       // alta no cliente, NÃO auto-enviar quando o backend recomenda humano
       // (tema sensível, PII, cliente irritado/reclamação, pedido explícito de
       // atendente, transação de alto valor, ou resposta sem base). Roteia pra
-      // sugestão — o humano revisa a resposta já gerada. Fail-safe: guard ausente
-      // (backend antigo / kill-switch) → segue o fluxo normal de envio.
+      // sugestão — o humano revisa a resposta já gerada.
+      // IA-01 — fail-closed: guarda ausente (backend antigo, resposta que não
+      // passou pelo orquestrador, erro de serialização) → revisão humana. O
+      // autopilot só envia sozinho o que a guarda do backend liberou.
       const guard = item.__aiGuard;
-      if (guard && guard.allowAutoSend === false) {
+      if (!guard || typeof guard.allowAutoSend !== 'boolean') {
+        console.warn(`[Autopilot] 🧑‍💼 Sem guarda do backend → revisão humana: ${item.chatId || item.phone}`);
+        state.stats.skippedEscalated++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', {
+            item,
+            reason: 'no_backend_guard',
+            suggestion: response,
+          });
+        }
+        emitRuntimeEvent('suggestion-only', {
+          chatId: item.chatId,
+          phone: item.phone,
+          reason: 'no_backend_guard',
+        });
+        nextDelayOverride = Math.random() * 1000 + 500;
+        return;
+      }
+      if (guard.allowAutoSend === false) {
         console.log(`[Autopilot] 🧑‍💼 Escalando p/ humano (backend): ${(guard.reasons || []).join(', ') || guard.primaryReason || 'escalation'}`);
         state.stats.skippedEscalated++;
 
@@ -1026,18 +1046,22 @@
       // Mesmo liberado pela guarda, exige a confiança mínima do tier: baixo risco
       // passa com menos, normal exige mais. Pega o caso em que o detector local
       // achou "baixo risco" mas o backend classificou como normal → prevalece o
-      // limiar do backend e vai pra revisão. Fail-safe: minConfidence ausente
-      // (backend antigo / kill-switch) ou score desconhecido → não bloqueia.
-      const apScore = confidenceCheck.score;
-      if (guard && Number.isFinite(guard.minConfidence) && Number.isFinite(apScore) && apScore < guard.minConfidence) {
-        console.log(`[Autopilot] 🧑‍💼 Confiança ${apScore}% < limiar do tier ${guard.minConfidence}% (${guard.riskTier || 'tier'}) → revisão`);
+      // limiar do backend e vai pra revisão.
+      // IA-01 — fail-closed: a confiança vem em `score` (caminhos internos) ou em
+      // `confidence` (formato do ConfidenceSystem.canAutoSendSmart); desconhecida
+      // → revisão. Guarda sem minConfidence (WHL_AUTOPILOT_GUARD=0 no backend) →
+      // vale o limiar global do cliente (CONFIG.minConfidence).
+      const apScore = Number.isFinite(confidenceCheck.score) ? confidenceCheck.score : confidenceCheck.confidence;
+      const tierMin = Number.isFinite(guard.minConfidence) ? guard.minConfidence : CONFIG.minConfidence;
+      if (!Number.isFinite(apScore) || apScore < tierMin) {
+        console.log(`[Autopilot] 🧑‍💼 Confiança ${apScore}% < limiar do tier ${tierMin}% (${guard.riskTier || 'tier'}) → revisão`);
         state.stats.skippedLowConfidence++;
         if (window.EventBus) {
           window.EventBus.emit('autopilot:suggestion-only', {
             item,
             reason: 'tier_confidence',
             riskTier: guard.riskTier || null,
-            minConfidence: guard.minConfidence,
+            minConfidence: tierMin,
             score: apScore,
             suggestion: response,
           });

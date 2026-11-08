@@ -1,0 +1,19 @@
+• autopilot-guard-failclosed.test.js
+  ✗ IA-01: backend sem metadata.autopilot → NÃO envia, vai para revisão
+      enviou sem guarda: [{"chat":"5511900000001@c.us","text":"Claro! Vamos devolver seu dinheiro hoje mesmo."}]
+
+1 !== 0
+
+  ✗ IA-01: confiança abaixo do limiar do tier (campo `confidence`) → NÃO envia
+      enviou com confiança 78 < 85: [{"chat":"5511900000002@c.us","text":"O plano Pro custa R$ 189/mês."}]
+
+1 !== 0
+
+  ✗ IA-01: confiança desconhecida → NÃO envia
+      enviou sem confiança conhecida: [{"chat":"5511900000003@c.us","text":"Resposta qualquer."}]
+
+1 !== 0
+
+  ✓ IA-01 (controle): guarda libera e confiança ≥ limiar → envia 1x
+
+  1 passou, 3 falhou (4 no total)
