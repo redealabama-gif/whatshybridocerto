@@ -1383,50 +1383,18 @@
                 // anterior já lido — cache ou Store, antes da edição aplicar).
                 salvarMensagemEditada(message, previousBody);
 
-                const messageContent = stripEditMarker(message?.body || message?.caption || '');
-                message.type = 'chat';
-                const composed = composeEditMarker(previousBody, messageContent || '[sem conteúdo]');
-                if (composed) message.body = composed;
-
-                if (!message.protocolMessageKey) return true;
-
-                message.quotedStanzaID = message.protocolMessageKey.id;
-                message.quotedParticipant = message.protocolMessageKey?.participant || message.from;
-                message.quotedMsg = { type: 'chat' };
-                delete message.latestEditMsgKey;
-                delete message.protocolMessageKey;
-                delete message.subtype;
-                delete message.editMsgType;
-                delete message.latestEditSenderTimestampMs;
-
-                // Re-renderiza como mensagem nova. Para incoming pode faltar
-                // id.id/id.remote em alguns shapes — validamos antes de chamar
-                // pra não derrubar o pipeline inteiro com TypeError.
-                const hasIds = !!(message.id?.id && message.id?.remote);
-                if (MODULES.PROCESS_RENDERABLE_MESSAGES && hasIds) {
-                    try {
-                        MODULES.PROCESS_RENDERABLE_MESSAGES.processRenderableMessages(
-                            [message],
-                            {
-                                author: message.from,
-                                type: 'chat',
-                                externalId: message.id.id,
-                                edit: -1,
-                                isHsm: false,
-                                chat: message.id.remote
-                            },
-                            null,
-                            { verifiedLevel: 'unknown' },
-                            null,
-                            0,
-                            arg2 === undefined ? arg1 : arg2
-                        );
-                    } catch (renderErr) {
-                        console.warn('[WHL Hooks] processRenderableMessages failed:', renderErr);
-                    }
-                }
-
-                return true; // filtra a msg original — já reinjetamos a versão modificada
+                // Igual às edições do contato (updateMessageEditsLocally): o texto
+                // novo vai com o marcador "Antes/Editada para" e a edição segue
+                // o caminho normal — o WhatsApp aplica e GRAVA. Antes ela era
+                // descartada e trocada por uma mensagem desenhada pelo hook: o
+                // texto novo nunca era gravado e, ao recarregar, voltava o antigo
+                // (só nas suas edições; as do contato já funcionavam).
+                const target = typeof message.body === 'string' && message.body.length > 0 ? 'body'
+                    : (typeof message.caption === 'string' && message.caption.length > 0 ? 'caption' : 'body');
+                const messageContent = stripEditMarker(message[target] || '');
+                const composed = composeEditMarker(previousBody, messageContent);
+                if (composed) message[target] = composed;
+                return false; // não filtra: o WhatsApp processa a edição
             } catch (e) {
                 console.error('[WHL Hooks] handle_edited_message fatal:', e);
                 return false; // não filtra em caso de erro
