@@ -236,6 +236,7 @@
         let cached = messageCache.get(shortId) || messageCache.get(msg.id._serialized);
         const cacheHasContent = !!(cached && (cached.body || (cached.mediaData && cached.mediaData !== '__HAS_MEDIA__') || cached.isMedia));
         if (opts && opts.requireCached && !cacheHasContent) return false;
+        const cacheEstado = !cached ? 'ausente' : (cacheHasContent ? 'com conteúdo' : 'vazio');
 
         const fontes = cacheHasContent ? ['cache'] : [];
         if (!(opts && opts.requireCached)) {
@@ -252,6 +253,7 @@
 
         diagRevoke({
             id: shortId.slice(-8),
+            cache: cacheEstado,
             tipo: (cached && cached.type) || '?',
             fontes: fontes.length ? fontes.join('+') : 'nenhuma',
             texto: !!(cached && cached.body),
@@ -291,7 +293,7 @@
         } catch (_) { pa = null; }
         const prevFields = pa ? camposDeMidia(pa) : null;
         const liveFields = camposDeMidia(msg);
-        const dom = lerBalaoDoDom(msg.id && msg.id._serialized);
+        const dom = lerBalaoDoDom(msg.id && msg.id._serialized, msg.id && msg.id.id);
 
         const paType = pa && pa.type;
         // O modelo revogado já tem type 'revoked'; o tipo vem do mimetype, se ficou.
@@ -1486,6 +1488,23 @@
     }
 
     // ===== FASE 3.1: HOOK PARA CRIAÇÃO DE MENSAGENS =====
+    // Fora do cache — ou no cache SEM conteúdo, mas o modelo agora tem: a
+    // mensagem que você envia entra na coleção antes de o texto ser preenchido
+    // e o cache guardava a versão vazia para sempre (a varredura via o id e
+    // pulava). Sem isso, ao apagar, não havia o que recuperar.
+    function precisaRecachear(m, id) {
+        const c = messageCache.get(id);
+        if (!c) return true;
+        if (c.body || c.isMedia) return false;
+        const temTexto = typeof m.body === 'string' && m.body.trim() !== '' && !pareceBase64(m.body);
+        const temMidia = MEDIA_MSG_TYPES.includes(m.type);
+        if (temTexto || temMidia || (typeof m.caption === 'string' && m.caption.trim())) {
+            recoverDiag.sweepRefreshed++;
+            return true;
+        }
+        return false;
+    }
+
     // Intervalo da varredura da conversa aberta (ver cachearConversaAberta).
     const ACTIVE_CHAT_SWEEP_MS = 3000;
     // Quantas mensagens da coleção geral entram por varredura (cabe no cache).
@@ -1554,7 +1573,7 @@
             let added = 0;
             for (const m of recent) {
                 const id = m && m.id && m.id.id;
-                if (!id || m.type === 'revoked' || messageCache.has(id)) continue;
+                if (!id || m.type === 'revoked' || !precisaRecachear(m, id)) continue;
                 cachearMensagem(m, { seed: true });
                 added++;
             }
@@ -1577,7 +1596,7 @@
             let added = 0;
             for (const m of msgs.slice(-MESSAGE_CACHE_SEED_LIMIT)) {
                 const id = m && m.id && m.id.id;
-                if (!id || m.type === 'revoked' || messageCache.has(id)) continue;
+                if (!id || m.type === 'revoked' || !precisaRecachear(m, id)) continue;
                 cachearMensagem(m, { seed: true });
                 added++;
             }
@@ -2045,8 +2064,10 @@
             midiasNoCache: midias,
             varreduras: recoverDiag.sweeps,
             adicionadasPelaVarredura: recoverDiag.sweepAdded,
+            atualizadasPelaVarredura: recoverDiag.sweepRefreshed,
             downloadDeMidia: dm,
-            ultimasExclusoes: recoverDiag.revokes.slice(-10)
+            ultimasExclusoes: recoverDiag.revokes.slice(-10),
+            ultimosDownloads: recoverDiag.downloads.slice(-10)
         };
         try { console.log('[WHL Recover] Diagnóstico:', JSON.stringify(out, null, 2)); } catch (_) { /* ignore */ }
         return out;
