@@ -221,6 +221,12 @@ function evaluateAutoSend(signals = {}, options = {}) {
     reasons.push('ungrounded');
   }
 
+  // ── 7. IA-12: IA indisponível — a resposta é o texto cru da base (fallback do
+  // orquestrador), não uma resposta à mensagem. Nunca auto-enviar.
+  if (signals.llmFallback === true) {
+    reasons.push('llm_unavailable');
+  }
+
   // Dedup preservando a ordem de prioridade (primaryReason = mais prioritário).
   const uniqueReasons = [...new Set(reasons)];
   const escalate = uniqueReasons.length > 0;

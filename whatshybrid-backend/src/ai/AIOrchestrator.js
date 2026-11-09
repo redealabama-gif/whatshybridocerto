@@ -527,10 +527,12 @@ class AIOrchestrator {
       }
 
       // ── 8. Geração de resposta com ciclo de qualidade (v10) ─────────────────
+      // IA-12 — genTrace.llmFallback: a resposta final veio do fallback da base
+      const genTrace = {};
       let response = await this._generateResponse(
         message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt, context.language,
         true, // cacheEligible: só a geração inicial pode usar o cache semântico
-        llmDeadline
+        llmDeadline, genTrace
       );
 
       let qualityResult = null;
@@ -539,7 +541,7 @@ class AIOrchestrator {
           response, message, responseGoal, knowledgeResults,
           intentResult, conversationContext, responseVariant, dynamicPrompt, context.language,
           emotionProfile, // v11: autocrítica de tom (tone_mismatch)
-          llmDeadline
+          llmDeadline, genTrace
         );
         response = qualityResult.finalResponse;
       }
@@ -588,6 +590,7 @@ class AIOrchestrator {
           // cada vez mais irritado; escala pra humano (handoffSuggested embute
           // intensidade forte ou irritação recorrente na conversa).
           emotionEscalating: !!(emotionProfile && (emotionProfile.handoffSuggested || emotionProfile.trajectory === 'escalating')),
+          llmFallback: genTrace.llmFallback === true, // IA-12
         }, { knowledgeSeekingIntents: KNOWLEDGE_SEEKING_INTENTS });
       } catch (err) { logger.warn(`AutopilotGuard error: ${err.message}`); }
 
@@ -700,6 +703,8 @@ class AIOrchestrator {
           safetyIssues: safetyResult?.issues || [],
           // IA-07 — a resposta foi trocada pela frase de segurança
           safetyReplaced: !!(safetyResult && !safetyResult.safe),
+          // IA-12 — IA indisponível: a resposta é o texto da base, não do modelo
+          llmFallback: genTrace.llmFallback === true,
           knowledgeResultsCount: knowledgeResults.length,
           fewShotExamplesUsed: fewShotExamples.length,
           dynamicPromptUsed: !!dynamicPrompt,
@@ -745,7 +750,7 @@ class AIOrchestrator {
   async _runQualityCycle(
     initialResponse, message, responseGoal, knowledgeResults,
     intentResult, conversationContext, responseVariant, dynamicPrompt, language = 'pt-BR',
-    emotionProfile = null, deadline = null
+    emotionProfile = null, deadline = null, trace = null
   ) {
     let response = initialResponse;
     let retries = 0;
@@ -800,7 +805,7 @@ class AIOrchestrator {
       try {
         response = await this._generateResponse(
           message, intentResult, conversationContext, responseVariant,
-          knowledgeResults, reinforcedPrompt, language, false, deadline
+          knowledgeResults, reinforcedPrompt, language, false, deadline, trace
         );
       } catch (regenErr) {
         // IA-11 — regeneração falhou (prazo/provedor): mantém a resposta anterior.
@@ -936,7 +941,7 @@ class AIOrchestrator {
     return normalized.slice(-cap);
   }
 
-  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false, deadline = null) {
+  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false, deadline = null, trace = null) {
     const systemContent = dynamicPrompt || this._fallbackSystemPrompt(language);
 
     const historyMessages = (conversationContext.recentMessages || [])
@@ -980,9 +985,11 @@ class AIOrchestrator {
     //    uma frase genérica ("Desculpe, não consegui processar…") como se a
     //    "inteligência avançada" tivesse respondido. Esta era a causa-raiz de
     //    respostas incoerentes entregues com success:true.
+    let usedKnowledgeFallback = false;
     if (!content) {
       if (knowledgeResults.length > 0 && knowledgeResults[0]?.content) {
         content = String(knowledgeResults[0].content).replace(/<[^>]*>/g, '').trim();
+        usedKnowledgeFallback = !!content;
       }
       if (!content) {
         const err = new Error('LLM indisponível e sem conhecimento ancorado para fallback');
@@ -990,6 +997,8 @@ class AIOrchestrator {
         throw err;
       }
     }
+
+    if (trace) trace.llmFallback = usedKnowledgeFallback; // IA-12
 
     // CORREÇÃO P2: A/B testing real — estratégias diferentes, não emojis decorativos
     // variant_a: resposta mais concisa e direta (estilo assertivo)
