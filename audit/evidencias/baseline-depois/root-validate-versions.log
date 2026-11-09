@@ -1,0 +1,8 @@
+
+> whatshybrid-monorepo@9.6.0 validate:versions
+> node -e "const m=require('./whatshybrid-extension/manifest.json').version,r=require('./package.json').version,b=require('./whatshybrid-backend/package.json').version,e=require('./whatshybrid-extension/package.json').version;console.log('manifest:',m);console.log('root    :',r,m===r?'✔':'✖ DESSINCRONIZADO');console.log('backend :',b);console.log('ext pkg :',e,m===e?'✔':'✖ DESSINCRONIZADO');process.exit(m===r&&m===e?0:1)"
+
+manifest: 9.6.6
+root    : 9.6.0 ✖ DESSINCRONIZADO
+backend : 9.5.8
+ext pkg : 9.6.6 ✔

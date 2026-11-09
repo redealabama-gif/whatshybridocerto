@@ -3,6 +3,7 @@
 - **Data:** 2026-11-08 · **Branch:** `audit/ia-funcional` (base `origin/main` 01a603b, extensão 9.6.6)
 - **Fase 1 — somente diagnóstico.** Nenhum arquivo de código-fonte foi alterado; só foram criados arquivos em `audit/`.
 - **Runtime auditado:** `whatshybrid-extension/dist/{core,content,advanced}-bundle.js` + `sidepanel.html` + `training/training.html`; backend `whatshybrid-backend/src` com SQLite descartável, sem Redis, chaves falsas e **provedor de IA falso** local (`audit/harness/fake-provider.js`). Nenhuma chamada a provedor real, nenhuma mensagem enviada pelo WhatsApp.
+- **Fase 2 (correções) concluída:** resultado e antes × depois na **seção 11**.
 - **Marcação da evidência:** **[EXEC]** = executado nos harnesses (saída gravada em `audit/evidencias/`) · **[EST]** = leitura de código · **NÃO VERIFICADO** = não foi possível executar.
 
 ---
@@ -380,3 +381,157 @@ Se `msgContainer` for 1 e `messageIn`/`messageOut` forem 0, o IA-06 está confir
 | `50-extensao-e2e-{antigo,atual}.json` | IA-06 com a **extensão real** carregada no Chromium |
 | `60-estatica.txt`, `61-mensagens-sw.md` | Análise estática (H7–H14, mensagens) |
 | `../inventario-ia.md` | H1: grafo de carregamento dos 69 arquivos de IA |
+
+---
+
+## 11. Fase 2 — correções e antes × depois
+
+Todas as saídas estão em `audit/evidencias/fase2/`:
+- `IA-xx-antes*.txt` e `IA-xx-depois*.txt` guardam o teste de regressão de cada correção, antes e depois dela;
+- `matriz/*-antes*` e `matriz/*-depois*` guardam os mesmos harnesses rodados contra o código original (commit 15d6325) e contra o corrigido.
+
+### 11.1 Resumo
+
+- **20 commits `fix(ia)`**, um por achado (o IA-11 ganhou um complemento). Cada um traz um teste que falhava antes e passa depois.
+- **Corrigidos:**
+  - P0: IA-01 a IA-05;
+  - P1: IA-06 a IA-13;
+  - P2: IA-15, IA-19, IA-21, IA-24 e IA-25, mais o IA-23 (cobertura de teste);
+  - o IA-20 foi resolvido pelo IA-11: o backend agora responde em até 25 s, antes dos 30 s da extensão.
+- **Causa raiz do "curta e genérica":** corrigida dos dois lados.
+  - sugestão (IA-06) e histórico do Autopilot (IA-21): a IA recebe a pergunta certa e a conversa inteira;
+  - classificação de intenção (IA-03), diretivas (IA-08/09) e filtro de PII (IA-07) também corrigidos;
+  - resta o A/B (IA-14), que depende da sua decisão.
+- **Critério de pronto:**
+
+  | Critério | Resultado |
+  |---|---|
+  | Nenhum envio automático sem guarda | ✅ 4 envios indevidos → 0 (matriz/30) |
+  | Kill switch funcional | ✅ HTTP 200 com 1 chamada ao provedor → 503 com 0 chamadas (matriz/20, S6) |
+  | Duas abas | ✅ 2 respostas → 1 |
+  | Baseline não piora | ✅ tabela 11.4 |
+  | Teste por correção | ✅ tabela 11.2 |
+
+### 11.2 Achado × commit × teste
+
+| ID | Status | Commit | Teste de regressão | Antes → depois |
+|---|---|---|---|---|
+| IA-01 | ✅ corrigido | 10e0dbf | `ext/tests/unit/autopilot-guard-failclosed.test.js` | 1/4 (3 envios indevidos) → 4/4 |
+| IA-02 | ✅ | 00ddf06 | `ext/tests/unit/autopilot-faq-guard.test.js` | 0/2 → 2/2 |
+| IA-03 | ✅ | f38d2e0 | `be/tests/unit/intent-classifier-regex.spec.js` + `autopilot-guard-factual.spec.js`; `ext/tests/unit/confidence-greeting.test.js` | 3/15 → 15/15; 1/2 → 2/2 |
+| IA-04 | ✅ | b196b34 | `be/tests/integration/kill-switch.routes.spec.js`; `ext/tests/unit/autopilot-kill-switch.test.js` | 1/6 → 6/6; 0/3 → 4/4 |
+| IA-05 | ✅ | 918aee0 | `ext/tests/unit/autopilot-multi-tab.test.js` | 2 envios (1/2) → 1 envio (3/3) |
+| IA-06 | ✅ | 943611d | `ext/tests/unit/suggestion-context-dom.test.js` | 1 mensagem (1/6) → 6/6 |
+| IA-07 | ✅ | 60f2ac7 | `be/tests/unit/safety-filter-business-pii.spec.js` | 3/5 → 5/5 |
+| IA-08 | ✅ | 6a61abc | `be/tests/unit/prompt-directives.spec.js` | 2/5 → 5/5 |
+| IA-09 | ✅ | 49c60b4 | `be/tests/unit/clarify-policy.spec.js` | 0/4 → 4/4 |
+| IA-10 | ✅ | 7292358 | `be/tests/integration/training-sync.routes.spec.js`; `ext/tests/unit/training-sync-sw.test.js` | 0/3 → 3/3; 1/2 → 2/2 |
+| IA-11 | ✅ | a05944f + 167705b | `be/tests/unit/airouter-deadline.spec.js`; `airouter-attempt-cap.spec.js` | 26 s/8 chamadas → 2,6 s/≤2; 500: 8 → ≤3 |
+| IA-12 | ✅ | 5d1f3c9 | `be/tests/unit/airouter-breaker-tenant.spec.js` | 1/3 → 3/3 |
+| IA-13 | ✅ | 17088ec | `ext/tests/unit/backend-client-url.test.js` | 1/3 → 3/3 |
+| IA-14 | ⏸️ decisão sua | — | — | A/B segue alterando 8/12 respostas |
+| IA-15 | ✅ | f83f736 | `ext/tests/unit/ai-response-cache-chat.test.js` | 1/3 (vazamento provado) → 3/3 |
+| IA-16 | ⏸️ decisão (reavaliado) | — | — | sem consumidor no runtime: código morto, não 404 em produção |
+| IA-17 | ⏸️ decisão (reavaliado) | — | — | ver 11.5 |
+| IA-18 | ⏸️ decisão sua | — | — | — |
+| IA-19 | ✅ | 8e3f03f | `ext/tests/unit/autopilot-confirm-sent.test.js` | 0/1 → 1/1 |
+| IA-20 | ✅ via IA-11 | a05944f | `matriz/22-provedor-lento-depois.txt` | 501 s → 25 s (< 30 s da extensão) |
+| IA-21 | ✅ | 678a793 | `ext/tests/unit/copilot-context-dom.test.js` | 1 mensagem (0/3) → 3/3 |
+| IA-22 | ⏸️ decisão (remoção) | — | — | — |
+| IA-23 | ✅ cobertura | dde0643 | `be/tests/integration/ai-tenant-isolation.routes.spec.js` | 3/3; o bug antigo simulado (mutação) é pego |
+| IA-24 | ✅ | c2afda7 | `ext/tests/unit/copilot-background-ai.test.js` | 2 chamadas de IA por mensagem → 0 |
+| IA-25 | ✅ | 92cef77 | `ext/tests/unit/suggestion-injector-backend.test.js` | 0 mensagens, sem backend (0/3) → 3/3 |
+| IA-26 a IA-38 | ⏸️ P3, decisão sua | — | — | — |
+
+### 11.3 Matriz antes × depois
+
+Mesmos harnesses, contra o código original e o corrigido:
+
+| Funcionalidade | Antes | Depois | Evidência (`fase2/matriz/`) |
+|---|:-:|:-:|---|
+| Botão 🤖: contexto no DOM atual | 🔴 mensagem errada, 1 de histórico | ✅ pergunta certa, 6 mensagens | `50-extensao-e2e-atual-*.json` (extensão real), `40-sugestao-contexto-*` |
+| Histórico do Autopilot no DOM atual | 🔴 1 mensagem | ✅ 6 | `41-copilot-extracao-*` |
+| Atalho Ctrl+Shift+S | 🔴 0 mensagens, sem backend | ✅ backend + histórico | teste IA-25 |
+| Classificação de intenção (S1) | 🔴 5 de 12 erradas | ✅ corrigidas | `23-classificador-intencao-*`, `20-…` S1 |
+| Diretivas: fechamento / "faça UMA pergunta" / "confuso" | 🔴 1/12 · 10/12 · 5/12 | ✅ 0/12 · 0/12 · 0/12 | `20-…` S1 |
+| A/B alterando o texto | 🔴 | 🔴 (pendente IA-14) | `20-…` S1 |
+| PII da loja / nº do pedido | 🔴 trocados | ✅ mantidos | `20-…` S10 |
+| PII de terceiros (CPF/cartão) | ✅ bloqueado | ✅ bloqueado | `20-…` S3 malicious |
+| Treinamento com id de outro workspace | 🔴 FAQs de B 1 → 0, "sucesso" | ✅ mantidas, sucesso real | `24-…` |
+| Autopilot: envios indevidos (B, B_real, D, E) | 🔴 4 | ✅ 0 | `30-autopilot-*` |
+| Autopilot: 2 abas | 🔴 2 respostas | ✅ 1 | `30-autopilot-*` |
+| Kill switch | 🔴 200, provedor chamado | ✅ 503, 0 chamadas | `20-…` S6 |
+| Provedor lento | 🔴 501 s, 12 chamadas | ✅ 25 s, 2 chamadas | `22-provedor-lento-depois.txt` × `../22-provedor-lento.txt` |
+| Provedor com 500 | 🔴 21 s, 12 chamadas | ✅ 1 s, 4 chamadas | `20-…` S3 |
+| Cliente A depois das falhas de B | 🔴 0 chamadas | ✅ resposta real (1 chamada) | `20-…` S3 |
+| Cache local entre chats | 🔴 vazamento | ✅ separado | teste IA-15 |
+| URL do backend configurada | 🔴 vira localhost | ✅ mantida | teste IA-13 (e reproduzido por acaso no E2E "antes", 11.5) |
+| IA em segundo plano sem uso | 🔴 2 chamadas/mensagem | ✅ 0 | teste IA-24 |
+| Isolamento, créditos, persona, idioma, feedback, RAG | ✅ | ✅ | `20-…` S2, S4, S5, S7, S9 |
+
+### 11.4 Etapa 0: antes × depois
+
+| Comando | Antes | Depois |
+|---|---|---|
+| extensão `verify:bundles` | ✅ 133 arquivos | ✅ 134 (entrou `modules/kill-switch.js`) |
+| extensão `tests/run-all.js` | ✅ 70/70 | ✅ 108/108 |
+| extensão `canary` | ✅ | ✅ |
+| extensão `eslint .` | 🔴 sem configuração | 🔴 igual (IA-32, P3) |
+| backend `jest --ci` | ✅ 136 | ✅ 184 |
+| backend `test:integration` | ✅ 54 | ✅ 66 |
+| backend smoke com servidor | ✅ 12+4+6+19 | ✅ 12+4+6+19 |
+| backend `lint` | ✅ 0 erros / 87 avisos | ✅ 0 erros / 86 avisos |
+| backend `typecheck` / `audit:gate` | ✅ / ✅ | ✅ / ✅ |
+| raiz `validate:versions` | 🔴 9.6.6 / 9.6.0 / 9.5.8 | 🔴 igual (você pediu para não mudar versões) |
+
+Logs em `audit/evidencias/baseline-depois/`. Os bundles foram gerados com `npm run build` numa cópia fora do repositório, com o mesmo minificador do `dist/` versionado (IA-30). Script: `audit/scripts/build-isolado.sh`.
+
+### 11.5 O que a Fase 2 corrigiu na análise da Fase 1
+
+**Problemas maiores do que o relatado:**
+- **IA-13:** eram 3 caminhos que gravavam localhost (boot, failover normal e "recuperação"), não 1.
+  - O E2E "antes" reproduziu o bug por acaso: com o backend na porta 3100, a URL virou `localhost:3000`.
+  - A sugestão caiu num texto genérico de modelo pronto: "Oi! Estou à disposição. O que você precisa?".
+- **IA-21:** é a mesma causa raiz do IA-06, do lado do Autopilot (o histórico mandado ao backend tinha 1 mensagem).
+- **IA-25:** no DOM atual o atalho extraía 0 mensagens, não 1.
+- **IA-24:** eram 2 chamadas de IA por mensagem recebida (análise profunda e sugestão).
+- **IA-03, parte na extensão:** o `isSimpleGreeting` tratava "Oi, <qualquer pedido>" como saudação simples (confiança 95). Por isso os cenários de risco do Autopilot eram realistas.
+- **IA-11:** o prazo global não bastava para erro 500 rápido (11 chamadas). Veio o complemento com teto de tentativas (4 chamadas).
+
+**Problemas menores do que o relatado:**
+- **IA-17:** a rota que a extensão usa (`ai.js /learn/feedback`) alimenta sim o pipeline de aprendizado (`recordFeedback`) e grava as correções. O que não roda é a rota antiga e sombreada do `ai-ingest`, que criaria um exemplo de treino a cada 👍. Ligar isso é decisão de produto.
+- **IA-16:** o request-batcher não tem consumidor; as rotas 404 nunca são chamadas na prática.
+- **IA-19:** o id do chat lido pelo DOM já tinha alternativa pela ponte da página (funciona). O defeito real era a confirmação de envio, que esperava 6 s em cada mensagem.
+
+### 11.6 Pendências que dependem de você
+
+1. **IA-14 (A/B):**
+   - Hoje 8 de 12 respostas são alteradas depois do modelo: corta a saudação ou acrescenta "Posso te ajudar com mais alguma informação?".
+   - É o último contribuinte conhecido para a resposta "genérica".
+   - Recomendação: tirar o pós-processamento do texto e levar as variantes para o prompt, ou desligar o A/B até haver métrica.
+2. **IA-18:** aplicar a maturidade do Autopilot antes de ele enviar sozinho?
+3. **IA-17:** criar um exemplo de treino a cada 👍 (rota antiga) ou manter só o que já funciona?
+4. **Remoções** (só com o seu ok):
+   - a lista da seção 5;
+   - o request-batcher (IA-16);
+   - as tags quebradas do sidepanel (IA-22);
+   - o `tab-coordinator.js`, que ficou desnecessário com a trava no service worker.
+5. **P3:**
+   - alinhar versões (IA-31);
+   - configuração de lint da extensão (IA-32);
+   - minificador do build (IA-30);
+   - `module_key` (IA-33);
+   - URL base do provedor por env (IA-34);
+   - `/ext/providers` sem autenticação (IA-35);
+   - chaves de provedor no navegador (IA-36);
+   - idioma nos caminhos locais (IA-37);
+   - e2e (IA-38).
+
+### 11.7 Riscos e limites que continuam
+
+- **Breaker interno dos provedores:** o de cada provedor (`BaseProvider`: 5 falhas → 30 s) continua global. O do AIRouter passou a ser por cliente.
+- **Custo do classificador:** ele agora consulta o LLM em mensagens ambíguas (1 chamada curta, até 5 s, sem nova tentativa). Com o provedor falso, que não devolve JSON, a classificação cai no regex; por isso as confianças do S1 "depois" são baixas. A classificação pelo LLM real: NÃO VERIFICADO.
+- **Transação do `training/sync`:** segue o padrão síncrono do SQLite usado no resto do backend. No Postgres vale a ressalva já documentada em `src/utils/db/index.js`.
+- **Commits do backend:** feitos sem o hook do repositório (`--no-verify`), por decisão sua, para o diff ficar mínimo. O `eslint` foi rodado à mão: 0 erros e os mesmos avisos de antes, arquivo por arquivo.
+- **DOM real:** as correções de contexto usam `[data-id]` e ícones de entrega, validados no harness com o formato do seu diagnóstico. A sugestão tenta primeiro a Store do WhatsApp pela ponte da página. Confirmar no seu WhatsApp com o comando da seção 9 continua recomendado.
+- **Modelo real:** o GPT/Groq real não foi chamado. Está provado o que chega ao modelo; a qualidade do texto gerado pelo modelo real é NÃO VERIFICADA.

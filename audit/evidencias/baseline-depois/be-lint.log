@@ -1,0 +1,190 @@
+
+> whatshybrid-backend@9.5.8 lint
+> eslint .
+
+
+/home/user/whatshybridocerto/whatshybrid-backend/scripts/migrate-sqlite-to-postgres.js
+  170:15  warning  'v' is never reassigned. Use 'const' instead  prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/agents/CustomerServiceAgent.js
+  302:11  warning  'lowerMsg' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  370:46  warning  'context' is defined but never used. Allowed unused args must match /^_/u            no-unused-vars
+  387:48  warning  'context' is defined but never used. Allowed unused args must match /^_/u            no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/classifiers/HybridIntentClassifier.js
+  354:11  warning  'jsonMatch' is never reassigned. Use 'const' instead  prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/engines/CopilotEngine.js
+  142:26  warning  'context' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  197:11  warning  'lowerMsg' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  238:37  warning  Unnecessary escape character: \/                                                     no-useless-escape
+  238:39  warning  Unnecessary escape character: \-                                                     no-useless-escape
+  238:53  warning  Unnecessary escape character: \/                                                     no-useless-escape
+  238:55  warning  Unnecessary escape character: \-                                                     no-useless-escape
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/learning/outcome/AutoLearningLoop.js
+  121:80  warning  'qualityScore' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/learning/outcome/StrategySelector.js
+   59:7   warning  'AGGRESSION_THRESHOLDS' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  163:56  warning  'intent' is defined but never used. Allowed unused args must match /^_/u                          no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/memory/ConversationMemory.js
+   40:60  warning  Unnecessary escape character: \-  no-useless-escape
+  553:26  warning  Unnecessary escape character: \-  no-useless-escape
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/providers/BaseProvider.js
+  130:17  warning  'promptTokens' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  130:31  warning  'completionTokens' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  130:49  warning  'model' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+  138:28  warning  'options' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  145:21  warning  'options' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  154:27  warning  'options' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  199:17  warning  'response' is defined but never used. Allowed unused args must match /^_/u          no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/quality/ResponseQualityChecker.js
+   19:7  warning  'logger' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  111:7  warning  'message' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/search/HybridSearch.js
+  46:60  warning  Unnecessary escape character: \-  no-useless-escape
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/services/AIRouterService.js
+  442:9  warning  'trackingResult' is never reassigned. Use 'const' instead  prefer-const
+  463:9  warning  'provider' is never reassigned. Use 'const' instead        prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/services/AutoPilotService.js
+  200:17  warning  'id' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/services/SmartBotAIPlusService.js
+  172:36  warning  'maxTokens' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  225:17  warning  'chatId' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  574:9   warning  'totalTokens' is never reassigned. Use 'const' instead                                prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/services/smartbot-extended/IntentManager.js
+  100:11  warning  'matchedPatterns' is never reassigned. Use 'const' instead  prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/ai/services/smartbot-ia/ContinuousLearningSystem.js
+  178:32  warning  'context' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/jobs/JobsRunner.js
+  255:26  warning  'source' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  554:16  warning  'sub' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/jobs/billingCron.js
+  716:9  warning  'dripResult' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/middleware/extensionVersion.js
+  83:21  warning  'opts' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/middleware/rateLimiter.js
+  30:5  warning  'redisStore' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  30:5  warning  'redisStore' is never reassigned. Use 'const' instead                                  prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/observability/health.js
+  9:7  warning  'logger' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/observability/sentry.js
+  42:23  warning  'hint' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/observability/tracing.js
+  245:11  warning  'traceState' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/ai-ingest.js
+   21:23  warning  'optionalAuth' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   33:9   warning  'userId' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  514:20  warning  'chatId' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  618:7   warning  'positiveCount' is never reassigned. Use 'const' instead                                 prefer-const
+  619:7   warning  'negativeCount' is never reassigned. Use 'const' instead                                 prefer-const
+  775:37  warning  'memories' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/ai-v2.js
+  9:23  warning  'checkWorkspace' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/ai.js
+  218:9  warning  'attemptedChain' is never reassigned. Use 'const' instead  prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/autopilot.js
+  15:7  warning  'logger' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/contacts.js
+   8:15  warning  'query' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  23:21  warning  'tags' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  23:27  warning  'labels' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/crm.js
+  165:38  warning  'pipeline' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  165:48  warning  'lastSync' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  167:9   warning  'userId' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/embeddings.js
+  120:9  warning  'responses' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/examples.js
+  31:22  warning  'type' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+  31:28  warning  'timestamp' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/intelligence.js
+  17:23  warning  'checkWorkspace' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/knowledge.js
+  7:23  warning  'apiKeyAuth' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/memory.js
+  7:23  warning  'apiKeyAuth' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/referrals.js
+  24:23  warning  'AppError' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/settings.js
+  7:13  warning  'uuidv4' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/smartbot-ai-plus.js
+  14:7  warning  'logger' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/sync.js
+  279:27  warning  'timestamp' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/tasks.js
+  55:9  warning  'userId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/tokens.js
+  15:7  warning  'logger' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/training.js
+  53:50  warning  Unnecessary escape character: \-  no-useless-escape
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/users.js
+  7:13  warning  'uuidv4' is assigned a value but never used. Allowed unused vars must match /^_/u            no-unused-vars
+  8:9   warning  'body' is assigned a value but never used. Allowed unused vars must match /^_/u              no-unused-vars
+  8:15  warning  'validationResult' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/webhooks-payment.js
+  133:51  warning  'planId' is defined but never used. Allowed unused args must match /^_/u          no-unused-vars
+  133:59  warning  'expiresAt' is defined but never used. Allowed unused args must match /^_/u       no-unused-vars
+  259:9   warning  'sig' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  435:25  warning  'valor' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/routes/webhooks-stripe.js
+  212:42  warning  'sub' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/services/AuthService.js
+  372:13  warning  'password' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/services/DripCampaignService.js
+   21:13  warning  'uuidv4' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  259:11  warning  'ctx' is never reassigned. Use 'const' instead                                     prefer-const
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/services/EmailService.js
+  398:58  warning  'daysOverdue' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/src/services/LicenseService.js
+  203:11  warning  'limits' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  370:21  warning  'reason' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/user/whatshybridocerto/whatshybrid-backend/tests/e2e/server-smoke.test.js
+  55:3  warning  'port' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 86 problems (0 errors, 86 warnings)
+  0 errors and 11 warnings potentially fixable with the `--fix` option.
+

@@ -1,0 +1,383 @@
+{
+  "ext": "/home/user/whatshybridocerto/whatshybrid-extension",
+  "results": [
+    {
+      "id": "A_guard_bloqueia",
+      "desc": "Backend OK com guarda allowAutoSend=false (controle)",
+      "msg": "Quero cancelar e falar com um humano",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "greeting",
+          "confidence": 95,
+          "answer": null
+        },
+        "backend": {
+          "success": true,
+          "response": "Claro, vou te ajudar com o cancelamento.",
+          "metadata": {
+            "autopilot": {
+              "allowAutoSend": false,
+              "escalate": true,
+              "reasons": [
+                "human_requested"
+              ],
+              "riskTier": "high",
+              "minConfidence": 101
+            }
+          }
+        }
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "backend_escalation"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: greeting, confidence: 95, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] 🧑‍💼 Escalando p/ humano (backend): human_requested"
+      ]
+    },
+    {
+      "id": "B_sem_guarda",
+      "desc": "Backend SEM metadata.autopilot; sistema de confiança libera (95)",
+      "msg": "Quero meu dinheiro de volta, vou no Procon",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "greeting",
+          "confidence": 95,
+          "answer": null
+        },
+        "backend": {
+          "success": true,
+          "response": "Claro! Vamos devolver seu dinheiro hoje mesmo.",
+          "metadata": {}
+        }
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "no_backend_guard"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: greeting, confidence: 95, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] 🧑‍💼 Sem guarda do backend → revisão humana: 5511999990001@c.us"
+      ]
+    },
+    {
+      "id": "B_real",
+      "desc": "Mesmo backend sem guarda, mensagem com \"Oi,\" e o ConfidenceSystem REAL da versão",
+      "msg": "Oi, quero meu dinheiro de volta, vou no Procon",
+      "sc": {
+        "score": 95,
+        "confidence": "real",
+        "backend": {
+          "success": true,
+          "response": "Claro! Vamos devolver seu dinheiro hoje mesmo.",
+          "metadata": {}
+        }
+      },
+      "sent": [],
+      "backendCalls": 0,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "complex_conversation"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "id": "C_backend_offline",
+      "desc": "Backend fora do ar → fallback local (controle)",
+      "msg": "Qual o horário de vocês?",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "greeting",
+          "confidence": 95,
+          "answer": null
+        },
+        "backend": "offline"
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:tier:degraded",
+          null
+        ],
+        [
+          "autopilot:suggestion-only",
+          "fallback_no_guard"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: greeting, confidence: 95, answer: null}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ❌ ai.process falhou: Failed to fetch",
+        "[Autopilot] ⚠️ [MOTOR: FALLBACK/CopilotEngine] usando caminho v1",
+        "[Autopilot] tier degradado (Tier 1 local) chatId=5511999990001@c.us — UI silenciada",
+        "[Autopilot] 🧑‍💼 Fallback local sem guarda do backend → revisão humana: 5511999990001@c.us"
+      ]
+    },
+    {
+      "id": "D_faq_sem_backend",
+      "desc": "Sistema de confiança devolve resposta de FAQ (faq_match) — reclamação/pedido de humano",
+      "msg": "Péssimo atendimento! Qual o prazo de entrega? Quero falar com um humano agora",
+      "sc": {
+        "score": 95,
+        "confidence": {
+          "canSend": true,
+          "reason": "faq_match",
+          "confidence": 90,
+          "answer": "Nosso prazo de entrega é de 5 a 7 dias úteis."
+        },
+        "backend": {
+          "success": true,
+          "response": "x",
+          "metadata": {
+            "autopilot": {
+              "allowAutoSend": false,
+              "escalate": true,
+              "reasons": [
+                "human_requested"
+              ],
+              "primaryReason": "human_requested",
+              "riskTier": "high",
+              "minConfidence": 101
+            }
+          }
+        }
+      },
+      "sent": [],
+      "backendCalls": 1,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "backend_escalation"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: faq_match, confidence: 90, answer: Nosso prazo de entrega é de 5 a 7 dias úteis.}",
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511999990001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada",
+        "[Autopilot] 🧑‍💼 Escalando p/ humano (backend): human_requested"
+      ]
+    },
+    {
+      "id": "E_preco_real",
+      "desc": "Pergunta de PREÇO sem base; backend ANTIGO libera (greeting, allowAutoSend:true); ConfidenceSystem REAL da versão",
+      "msg": "Oi, quanto custa o plano mensal de vocês? Tem desconto no anual?",
+      "sc": {
+        "score": 95,
+        "confidence": "real",
+        "backend": {
+          "success": true,
+          "response": "O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!",
+          "metadata": {
+            "intent": "greeting",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "riskTier": "low",
+              "minConfidence": 70
+            }
+          }
+        }
+      },
+      "sent": [],
+      "backendCalls": 0,
+      "bus": [
+        [
+          "autopilot:suggestion-only",
+          "complex_conversation"
+        ]
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 5511999990001@c.us",
+        "[Autopilot] 🔄 Processando: 5511999990001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    }
+  ],
+  "tabs": [
+    {
+      "sent": [],
+      "tabCoordinator": "undefined",
+      "killSwitch": "undefined"
+    },
+    {
+      "sent": [
+        "Abrimos sim, das 9h às 13h!"
+      ],
+      "tabCoordinator": "undefined",
+      "killSwitch": "undefined"
+    }
+  ]
+}

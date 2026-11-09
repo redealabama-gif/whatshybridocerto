@@ -9,7 +9,9 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { CONV, bubbleOld, bubbleNew, page, CHROME_STUB } = require('./wa-dom');
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../whatshybrid-extension/modules/copilot-engine.js'), 'utf8');
+const EXT = process.env.EXT_DIR || path.resolve(__dirname, '../../whatshybrid-extension');
+const TAG = process.env.TAG || '';
+const SRC = fs.readFileSync(path.join(EXT, 'modules/copilot-engine.js'), 'utf8');
 const lines = [];
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium' });
@@ -37,6 +39,8 @@ const lines = [];
   }
   await b.close();
   const md = ['# CopilotEngine.extractMessagesFromDOM — DOM antigo × atual', '', `Conversa com ${CONV.length} mensagens.`, '', ...lines];
-  fs.writeFileSync(path.resolve(__dirname, '../evidencias/41-copilot-extracao.md'), md.join('\n') + '\n');
+  const outFile = TAG ? path.resolve(__dirname, `../evidencias/fase2/matriz/41-copilot-extracao-${TAG}.md`) : path.resolve(__dirname, '../evidencias/41-copilot-extracao.md');
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, md.join('\n') + '\n');
   console.log(md.join('\n'));
 })().catch((e) => { console.error(e); process.exit(1); });

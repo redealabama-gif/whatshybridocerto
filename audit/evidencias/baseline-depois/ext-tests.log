@@ -1,0 +1,395 @@
+
+🧪 Extensão — 23 arquivo(s) de teste unitário
+
+• ai-response-cache-chat.test.js
+• anti-ban.test.js
+• anti-break.test.js
+• autopilot-confirm-sent.test.js
+• autopilot-faq-guard.test.js
+• autopilot-guard-failclosed.test.js
+• autopilot-kill-switch.test.js
+• autopilot-multi-chat.test.js
+• autopilot-multi-tab.test.js
+• backend-client-url.test.js
+• build-sources-hash.test.js
+• confidence-greeting.test.js
+• copilot-background-ai.test.js
+• copilot-context-dom.test.js
+• copilot-persona.test.js
+• message-capture.test.js
+• phone-validator.test.js
+• recover-capture.test.js
+• recover-visual-injector.test.js
+• suggestion-context-dom.test.js
+• suggestion-injector-backend.test.js
+• training-sync-sw.test.js
+• wa-selector-canary.test.js
+
+  ✓ IA-15: resposta cacheada para o cliente A NÃO é servida ao cliente B
+  ✓ IA-15 (controle): no mesmo chat o cache continua funcionando
+  ✓ IA-15: o CopilotEngine passa o chat para o cache (get e set)
+[AntiBan] Inicializado - Enviadas hoje: 0 / 200
+  ✓ calculateSmartDelay: NUNCA abaixo do mínimo nem acima de max*1.5 (invariante anti-ban)
+  ✓ canSendNow: permite abaixo do limite e bloqueia ao atingir o limite diário
+  ✓ incrementSentCount: ok abaixo do aviso, warning em 80%, blocked no limite
+  ✓ setDailyLimit: rejeita fora de 1..1000 e aceita valor válido
+  ✓ getTodayDate: formato YYYY-MM-DD
+  ✓ SELECTORS: cada entrada tem primary (string) + fallbacks (array)
+  ✓ findElement: acha pelo seletor PRIMÁRIO quando ele casa
+[AntiBreak] MAIN_CHAT: usando fallback "#main"
+  ✓ findElement: cai pro FALLBACK quando o primário some (resiliência anti-quebra)
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'selector_broken',
+  key: 'MAIN_CHAT',
+  description: 'Container principal do chat',
+  tried: [
+    'div[data-tab="1"]',
+    '#main',
+    'div[role="main"]',
+    'div._1hI5g',
+    'div.two._1jJ70'
+  ],
+  timestamp: 1794185508566,
+  id: 'issue_1794185508566_0lx7gg'
+}
+  ✓ findElement: retorna null quando nada casa
+[AntiBreak] Seletor desconhecido: NAO_EXISTE_XYZ
+  ✓ findElement: seletor desconhecido retorna null (não estoura)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000061@c.us
+[Autopilot] 🔄 Processando: 5511900000061@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'greeting', confidence: 95, answer: null }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000061@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[MessageCapture] 🚀 Inicializando sistema de captura...
+[MessageCapture] ✅ Sistema inicializado
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ IA-19: DOM atual (sem .message-out) → envio confirmado pelo ícone, sem esperar 6 s
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000011@c.us
+[Autopilot] 🔄 Processando: 5511900000011@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: {
+  canSend: true,
+  reason: 'faq_match',
+  confidence: 90,
+  answer: 'Nosso prazo de entrega é de 5 a 7 dias úteis.'
+}
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000011@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] 🧑‍💼 Escalando p/ humano (backend): human_requested, negative_sentiment
+  ✓ IA-02: FAQ + pedido de humano → consulta a guarda e NÃO envia
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000012@c.us
+[Autopilot] 🔄 Processando: 5511900000012@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: {
+  canSend: true,
+  reason: 'faq_match',
+  confidence: 90,
+  answer: 'Nosso prazo de entrega é de 5 a 7 dias úteis.'
+}
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000012@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'api_method_missing',
+  module: 'SendMessage',
+  description: 'Módulo de envio não localizado',
+  timestamp: 1794185513533,
+  id: 'issue_1794185513533_x2kfb0'
+}
+[AntiBreak] 🔍 Executando health check completo...
+[AntiBreak] SEND_BUTTON: usando fallback "span[data-icon="send"]"
+[AntiBreak] ✅ Sistema anti-quebra inicializado
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ IA-02: FAQ + mensagem comum + guarda libera → envia a resposta da FAQ
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000001@c.us
+[Autopilot] 🔄 Processando: 5511900000001@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'greeting', confidence: 95, answer: null }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000001@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] 🧑‍💼 Sem guarda do backend → revisão humana: 5511900000001@c.us
+  ✓ IA-01: backend sem metadata.autopilot → NÃO envia, vai para revisão
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000002@c.us
+[Autopilot] 🔄 Processando: 5511900000002@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: {
+  canSend: true,
+  reason: 'product_match',
+  confidence: 78,
+  answer: null
+}
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000002@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] 🧑‍💼 Confiança 78% < limiar do tier 85% (normal) → revisão
+  ✓ IA-01: confiança abaixo do limiar do tier (campo `confidence`) → NÃO envia
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000003@c.us
+[Autopilot] 🔄 Processando: 5511900000003@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok' }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000003@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] 🧑‍💼 Confiança undefined% < limiar do tier 70% (low) → revisão
+  ✓ IA-01: confiança desconhecida → NÃO envia
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000004@c.us
+[Autopilot] 🔄 Processando: 5511900000004@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'greeting', confidence: 95, answer: null }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000004@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ IA-01 (controle): guarda libera e confiança ≥ limiar → envia 1x
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000021@c.us
+[Autopilot] 🔄 Processando: 5511900000021@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'greeting', confidence: 95, answer: null }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511900000021@c.us
+[Autopilot] ❌ ai.process falhou: Recurso desativado temporariamente pelo administrador.
+[Autopilot] ✋ Kill switch do backend — parando (sem fallback local)
+[Autopilot] ❌ Erro: Error: Recurso desativado temporariamente pelo administrador.
+    at killSwitchError (/home/user/whatshybridocerto/whatshybrid-extension/tests/unit/autopilot-kill-switch.test.js:14:13)
+    at process (/home/user/whatshybridocerto/whatshybrid-extension/tests/unit/autopilot-kill-switch.test.js:22:54)
+    at Object.process (/home/user/whatshybridocerto/whatshybrid-extension/tests/unit/_autopilot-env.js:106:16)
+    at generateResponse (/home/user/whatshybridocerto/whatshybrid-extension/modules/smartbot-autopilot-v2.js:1488:35)
+    at processQueue (/home/user/whatshybridocerto/whatshybrid-extension/modules/smartbot-autopilot-v2.js:1044:26) {
+  status: 503,
+  code: 'KILL_SWITCH',
+  body: {
+    success: false,
+    error: 'kill_switch',
+    code: 'KILL_SWITCH',
+    feature: 'ai'
+  }
+}
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+  ✓ IA-04: 503 KILL_SWITCH do backend → sem fallback local, autopilot para
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ligado — não inicia
+  ✓ IA-04: KillSwitch com "autopilot" desligado → start() recusa
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000022@c.us
+[Autopilot] ✋ Kill switch ligado — parando sem responder
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+  ✓ IA-04: kill switch ligado com o autopilot rodando → para sem responder
+[KillSwitch] Module loaded
+[KillSwitch] ⚠️ Status changed: { autopilot: true, ai: false }
+[KillSwitch] ⚠️ Autopilot killed - Stopping immediately
+[KillSwitch] Status updated: { autopilot: true, ai: false }
+[KillSwitch] ✅ Initialized. Check interval: 300 seconds
+  ✓ IA-04: módulo kill-switch.js real lê o status do backend e para o autopilot
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000001@c.us
+[Autopilot] 📩 Nova mensagem na fila: 5511000000002@c.us
+[Autopilot] 📩 Nova mensagem na fila: 5511000000003@c.us
+[Autopilot] 🔄 Processando: 5511000000001@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000001@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 🔄 Processando: 5511000000002@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000002@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 🔄 Processando: 5511000000003@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000003@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ autopilot responde 3 pessoas em sequência, cada uma no seu chat (sem cruzar)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000009@c.us
+[Autopilot] 🔄 Processando: 5511000000009@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] ✅ Chat aberto via Store.Cmd
+  ✓ autopilot NÃO envia no chat errado quando a abertura falha (escala p/ humano)
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511000000777@c.us
+[Autopilot] 🔄 Processando: 5511000000777@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] ✅ Chat aberto via Store.Cmd
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000777@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+[Autopilot] 📩 Nova mensagem na fila: 5511000000777@c.us
+[Autopilot] 🔄 Processando: 5511000000777@c.us
+[Autopilot] 🎯 Decisão do ConfidenceSystem: { canSend: true, reason: 'ok', score: 95 }
+[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 5511000000777@c.us
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ⌨️ Digitando com HumanTyping...
+[Autopilot] ✅ Mensagem enviada
+  ✓ autopilot responde de novo quando a mesma pessoa manda outra mensagem
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+  ✓ IA-05: duas abas, a mesma mensagem → UMA resposta ao cliente
+  ✓ IA-05 (controle): mensagens diferentes nas duas abas → cada uma responde a sua
+[Autopilot v7.5.0] ✅ Módulo carregado com blacklist
+[Autopilot] ▶️ Iniciado
+[Autopilot] 📩 Nova mensagem na fila: 5511900000051@c.us
+[Autopilot] 🔄 Processando: 5511900000051@c.us
+[Autopilot] 🧑‍💼 Sem a trava entre abas (timeout) → revisão humana
+  ✓ IA-05: service worker não responde a reserva → NÃO envia (revisão)
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+  ✓ IA-13: /health falhando no boot NÃO troca a URL do usuário por localhost
+  ✓ IA-13: falhas seguidas (failover) NÃO trocam a URL do usuário por localhost
+  ✓ IA-13 (controle): URL local morta de versão antiga (localhost:3001) continua sendo corrigida no boot
+  ✓ sourceFiles(): lista ordenada, com wpp-hooks-parts e SEM o wpp-hooks.js gerado
+  ✓ compute(): sha256 (64 hex) + fileCount > 0 e determinístico
+  ✓ IA-03: "Oi, <pedido>" não é saudação simples
+  ✓ IA-03 (controle): cumprimento puro continua saudação simples
+  ✓ IA-24: mensagem recebida em segundo plano NÃO chama a IA
+  ✓ IA-24 (controle): pedido explícito de sugestão continua usando a IA
+  ✓ IA-21: DOM atual → histórico com as 6 mensagens e a direção certa
+  ✓ IA-21: sem argumento (0 = todo o histórico) → não fica só com a última
+  ✓ IA-21 (controle): janela menor continua respeitada
+[CopilotEngine] 👥 Usando persona 'professional' baseado na role 'admin' do usuário Usuário Principal
+  ✓ escolha explícita vence a persona-padrão da role (o bug central)
+[CopilotEngine] 👥 Usando persona 'sales' baseado na role 'sales' do usuário Usuário Principal
+  ✓ sem escolha explícita, a persona-padrão da role é preservada (feature de equipe)
+[CopilotEngine] 👥 Usando persona 'professional' baseado na role 'admin' do usuário Usuário Principal
+  ✓ aplicação automática (explicit:false) NÃO trava; escolha explícita posterior vence
+  ✓ sem TeamSystem, a escolha do usuário é respeitada normalmente
+  ✓ _internals expõe as guardas de segurança
+  ✓ validateBackendUrl: aceita https público e localhost; remove a barra final
+[MessageCapture Security] Blocking private IP address: 192.168.0.10
+[MessageCapture Security] Blocking private IP address: 10.0.0.5
+[MessageCapture Security] Blocking private IP address: 172.16.0.1
+[MessageCapture Security] Blocking private IP address: 169.254.169.254
+  ✓ validateBackendUrl: bloqueia IP privado, metadata de cloud, protocolo não-http e vazio (SSRF)
+[MessageCapture Security] Blocked prototype pollution attempt: __proto__
+[MessageCapture Security] Blocked prototype pollution attempt: constructor
+  ✓ sanitizeObject: remove __proto__/constructor (inclusive aninhado), preserva o resto e não polui o protótipo
+  ✓ sanitizeMessageData: whitelist de type/action, clamp de tamanho e null seguro
+  ✓ exposição: WHL_PhoneValidator com a API esperada
+  ✓ sanitizePhone: remove tudo que não é dígito
+  ✓ normalizePhone: celular BR de 11 dígitos ganha DDI 55
+  ✓ normalizePhone: número já com DDI 55 fica intacto
+  ✓ normalizePhone: fixo de 10 dígitos ganha DDI 55
+  ✓ normalizePhone: sem DDD (8-9 díg) e entradas inválidas viram null
+  ✓ isValidPhone: true p/ celular BR, false p/ curto
+  ✓ parseWhatsAppId: extrai número de @c.us; lixo vira null
+  ✓ formatForWhatsApp: normaliza ou devolve string vazia
+  ✓ batchValidatePhones: separa válidos/inválidos e deduplica os válidos
+  ✓ parsePhoneList: quebra por linha, ignora vazias e valida
+  ✓ Recover: hooks de coleção se registram com o caminho atual (WAWebCollections.Msg)
+  ✓ Recover: mensagem SUA apagada para todos guarda o conteúdo original e os horários
+  ✓ Recover: mensagem já aberta antes de a extensão iniciar também é recuperável
+  ✓ Recover: edição da SUA mensagem guarda o texto anterior ("ei" → "eij")
+  ✓ Recover: edição busca o texto anterior no Store quando o cache não tem
+  ✓ Recover: sem o conteúdo, registra o evento sem fingir que era mídia
+  ✓ Recover: sem duplicatas e sem registros falsos de revogações antigas
+  ✓ Recover: "apagar para mim" registra só mensagens novas (não a limpeza de memória)
+  ✓ Recover: content/wpp-hooks.js está em sincronia com wpp-hooks-parts (rode o build)
+  ✓ Recover mídia: imagem apagada guarda a legenda (não a miniatura) e o arquivo ORIGINAL
+  ✓ Recover mídia: áudio já aberto (pré-carga) é baixado na hora em que é apagado
+  ✓ Recover mídia: vídeo grande não é baixado antes; ao apagar, miniatura na hora e original depois
+  ✓ Recover mídia: documento e figurinha "apagados para mim" trazem o arquivo e o nome
+  ✓ Recover mídia: falha no download não quebra o registro (fica a mídia identificada)
+  ✓ Recover: apagada sem cache usa o texto do balão na tela (antes de o WhatsApp redesenhar)
+  ✓ Recover: conversa aberta entra no cache mesmo quando o WhatsApp carrega sem "add"
+  ✓ Recover: mensagem ANTIGA carregada ao abrir o chat não aciona o piloto automático
+  ✓ Recover mídia: sem cache, o balão na tela diz que era documento (nome) e o modelo ainda baixa
+[AntiBreak] 🔍 Executando health check completo...
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'selector_broken',
+  key: 'MAIN_CHAT',
+  description: 'Container principal do chat',
+  tried: [
+    'div[data-tab="1"]',
+    '#main',
+    'div[role="main"]',
+    'div._1hI5g',
+    'div.two._1jJ70'
+  ],
+  timestamp: 1794185573535,
+  id: 'issue_1794185573535_q6esa3'
+}
+[AntiBreak] 🚨 Problema detectado: {
+  type: 'api_unavailable',
+  module: 'Store',
+  description: 'API interna do WhatsApp não disponível (bridge ainda não pronto)',
+  timestamp: 1794185573535,
+  id: 'issue_1794185573535_e1n2gm'
+}
+  ✓ Recover mídia: sem cache, o arquivo que o modelo tem em memória (mediaBlob) é recuperado
+  ✓ Recover mídia: sem cache, atributos anteriores do modelo trazem legenda e dados para baixar
+  ✓ Recover: diagnóstico WHL_RecoverDiag mostra de onde veio o conteúdo de cada exclusão
+  ✓ Recover: balão com data-id só com o id da mensagem (WhatsApp atual) é lido na exclusão
+  ✓ Recover: mensagem que entrou VAZIA no cache é atualizada pela varredura antes de ser apagada
+  ✓ Recover: SUA edição segue para o WhatsApp gravar (com "Antes/Editada para"), como a do contato
+  ✓ Banner: balão msg-container sem data-id usa o data-id do ancestral
+  ✓ Banner: nunca devolve "container" (o bug que pôs "apagada" em todas)
+  ✓ Banner: em grupo/@lid pega o id da mensagem, não o número do grupo
+  ✓ Banner: ids diferentes para mensagens diferentes
+  ✓ Banner: data-id só com o id (formato do WhatsApp atual)
+  ✓ IA-06: DOM atual (msg-container no 1º balão) → as 6 mensagens, a última é a pergunta
+  ✓ IA-06: DOM atual (msg-container no último balão) → as 6 mensagens
+  ✓ IA-06: DOM atual → direção pelos ícones de entrega (✓✓ = você)
+  ✓ IA-06 (controle): DOM antigo continua com as 6 mensagens e a direção certa
+  ✓ IA-06: Store via ponte da página → direção exata (fromMe) e mídia sem base64
+  ✓ IA-06: ponte da página responde getActiveChatMessages com a Store
+  ✓ IA-25: DOM atual → o atalho extrai as 6 mensagens
+  ✓ IA-25: o atalho usa o orquestrador do backend com a pergunta certa e o histórico
+  ✓ IA-25: kill switch do backend → o atalho não cai na IA local
+  ✓ IA-10: backend responde 200 com success:false → NÃO diz "sincronizado"
+  ✓ IA-10 (controle): backend confirma (success:true) → "sincronizado"
+  ✓ SELECTORS: 10 chaves bem-formadas (primary string + fallbacks array + description)
+  ✓ _extractSelectorsFromSource: parseia chaves/primary/fallbacks (robusto a [ ] e " internos)
+  ✓ _extractSelectorsFromSource: retorna {} sem bloco SELECTORS
+  ✓ _diffSelectors: idênticos → []
+  ✓ _diffSelectors: pega primary divergente, fallback divergente e chave faltando
+  ✓ checkOne: DEGRADED quando só um fallback casa; BROKEN quando nada casa
+
+  108 passou, 0 falhou (108 no total)

@@ -14,9 +14,23 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
-const EXT = path.resolve(__dirname, '../../whatshybrid-extension');
-const OUT = path.resolve(__dirname, '../evidencias');
+// EXT_DIR: roda o mesmo harness contra outra cópia do código (ex.: o original,
+// para o antes × depois). TAG: grava em audit/evidencias/fase2/matriz/.
+const EXT = process.env.EXT_DIR || path.resolve(__dirname, '../../whatshybrid-extension');
+const TAG = process.env.TAG || '';
+const OUT = TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias');
 const SRC = fs.readFileSync(path.join(EXT, 'modules/smartbot-autopilot-v2.js'), 'utf8');
+const CONFIDENCE_SRC = fs.readFileSync(path.join(EXT, 'modules/confidence-system.js'), 'utf8');
+
+// Service worker simulado (um só para todas as abas): a reserva de mensagem do
+// IA-05. O código original não pede reserva — então isto não muda o "antes".
+const swClaims = new Map();
+const swClaim = (key, tabId) => {
+  const prev = swClaims.get(key);
+  if (prev !== undefined && prev !== tabId) return { granted: false, reason: 'claimed_by_other_tab' };
+  swClaims.set(key, tabId);
+  return { granted: true };
+};
 const CHAT = '5511999990001@c.us';
 
 const PAGE = `<!doctype html><html><body>
@@ -40,7 +54,9 @@ document.getElementById('send').addEventListener('click', () => {
 const STUBS = (sc) => `
 (function(){
   const store = {};
-  window.chrome = { runtime: { id: 'x', sendMessage(m){ (window.__rt = window.__rt || []).push(m); }, onMessage: { addListener(){} }, getURL: (p) => p },
+  window.chrome = { runtime: { id: 'x', lastError: null, sendMessage(m, cb){ (window.__rt = window.__rt || []).push(m);
+      if (m && m.type === 'WHL_AUTOPILOT_CLAIM') { window.__swClaim(m.key).then((r) => { if (typeof cb === 'function') cb(r); }); return; }
+      if (typeof cb === 'function') cb(undefined); }, onMessage: { addListener(){} }, getURL: (p) => p },
     storage: { onChanged: { addListener(){} }, local: {
       get(k, cb){ const r = {}; if (cb) { cb(r); return; } return Promise.resolve(r); },
       set(o, cb){ Object.assign(store, o); if (cb) { cb(); return; } return Promise.resolve(); },
@@ -49,8 +65,17 @@ const STUBS = (sc) => `
   window.EventBus = { on(e, f){ (h[e] = h[e] || []).push(f); }, emit(e, d){ (window.__bus = window.__bus || []).push([e, d && d.reason]); (h[e] || []).forEach((f) => { try { f(d); } catch(_){} }); }, off(){} };
   window.__backendCalls = 0;
   const SC = ${JSON.stringify(sc)};
-  window.confidenceSystem = { initialized: true, copilotEnabled: true, score: SC.score, getScore: () => SC.score,
-    canAutoSendSmart: async () => SC.confidence, recordAutoSend(){} };
+  if (SC.confidence === 'real') {
+    // ConfidenceSystem REAL da versão testada (sem FAQ/respostas prontas na base)
+    const cs = new window.ConfidenceSystem();
+    cs.initialized = true; cs.copilotEnabled = true; cs.score = SC.score; cs.threshold = 50;
+    cs.recordAutoSend = () => {};
+    window.knowledgeBase = { getKnowledge: async () => ({ faq: [], cannedReplies: [], products: [] }) };
+    window.confidenceSystem = cs;
+  } else {
+    window.confidenceSystem = { initialized: true, copilotEnabled: true, score: SC.score, getScore: () => SC.score,
+      canAutoSendSmart: async () => SC.confidence, recordAutoSend(){} };
+  }
   window.BackendClient = { isConnected: () => SC.backend !== 'offline', ai: { process: async () => {
     window.__backendCalls++;
     if (SC.backend === 'offline') throw Object.assign(new Error('Failed to fetch'), { status: 0 });
@@ -61,18 +86,21 @@ const STUBS = (sc) => `
 
 const SCENARIOS = [
   { id: 'A_guard_bloqueia', desc: 'Backend OK com guarda allowAutoSend=false (controle)', msg: 'Quero cancelar e falar com um humano',
-    sc: { score: 95, confidence: { canSend: true, reason: 'ai_will_generate', answer: null },
+    sc: { score: 95, confidence: { canSend: true, reason: 'greeting', confidence: 95, answer: null },
       backend: { success: true, response: 'Claro, vou te ajudar com o cancelamento.', metadata: { autopilot: { allowAutoSend: false, escalate: true, reasons: ['human_requested'], riskTier: 'high', minConfidence: 101 } } } } },
-  { id: 'B_sem_guarda', desc: 'Backend OK mas SEM metadata.autopilot (backend antigo / WHL_AUTOPILOT_GUARD=0)', msg: 'Quero meu dinheiro de volta, vou no Procon',
-    sc: { score: 95, confidence: { canSend: true, reason: 'ai_will_generate', answer: null },
+  { id: 'B_sem_guarda', desc: 'Backend SEM metadata.autopilot; sistema de confiança libera (95)', msg: 'Quero meu dinheiro de volta, vou no Procon',
+    sc: { score: 95, confidence: { canSend: true, reason: 'greeting', confidence: 95, answer: null },
+      backend: { success: true, response: 'Claro! Vamos devolver seu dinheiro hoje mesmo.', metadata: {} } } },
+  { id: 'B_real', desc: 'Mesmo backend sem guarda, mensagem com "Oi," e o ConfidenceSystem REAL da versão', msg: 'Oi, quero meu dinheiro de volta, vou no Procon',
+    sc: { score: 95, confidence: 'real',
       backend: { success: true, response: 'Claro! Vamos devolver seu dinheiro hoje mesmo.', metadata: {} } } },
   { id: 'C_backend_offline', desc: 'Backend fora do ar → fallback local (controle)', msg: 'Qual o horário de vocês?',
-    sc: { score: 95, confidence: { canSend: true, reason: 'ai_will_generate', answer: null }, backend: 'offline' } },
+    sc: { score: 95, confidence: { canSend: true, reason: 'greeting', confidence: 95, answer: null }, backend: 'offline' } },
   { id: 'D_faq_sem_backend', desc: 'Sistema de confiança devolve resposta de FAQ (faq_match) — reclamação/pedido de humano', msg: 'Péssimo atendimento! Qual o prazo de entrega? Quero falar com um humano agora',
     sc: { score: 95, confidence: { canSend: true, reason: 'faq_match', confidence: 90, answer: 'Nosso prazo de entrega é de 5 a 7 dias úteis.' },
-      backend: { success: true, response: 'x', metadata: { autopilot: { allowAutoSend: false, reasons: ['human_requested'] } } } } },
-  { id: 'E_preco_inventado', desc: 'Pergunta de PREÇO sem base; backend classifica como saudação e libera (como no cenário S1 do backend)', msg: 'Oi, quanto custa o plano mensal de vocês? Tem desconto no anual?',
-    sc: { score: 90, confidence: { canSend: true, reason: 'ai_will_generate', answer: null },
+      backend: { success: true, response: 'x', metadata: { autopilot: { allowAutoSend: false, escalate: true, reasons: ['human_requested'], primaryReason: 'human_requested', riskTier: 'high', minConfidence: 101 } } } } },
+  { id: 'E_preco_real', desc: 'Pergunta de PREÇO sem base; backend ANTIGO libera (greeting, allowAutoSend:true); ConfidenceSystem REAL da versão', msg: 'Oi, quanto custa o plano mensal de vocês? Tem desconto no anual?',
+    sc: { score: 95, confidence: 'real',
       backend: { success: true, response: 'O plano mensal custa R$ 97 e no anual você ganha 2 meses grátis!', metadata: { intent: 'greeting', autopilot: { allowAutoSend: true, escalate: false, reasons: [], riskTier: 'low', minConfidence: 70 } } } } },
 ];
 
@@ -83,6 +111,8 @@ async function runScenario(browser, s) {
   page.on('pageerror', (e) => logs.push('PAGEERROR ' + e.message));
   await page.route('https://web.whatsapp.com/**', (r) => r.fulfill({ contentType: 'text/html', body: PAGE }));
   await page.goto('https://web.whatsapp.com/');
+  await page.exposeFunction('__swClaim', (key) => swClaim(key, `single-${s.id}`));
+  await page.addScriptTag({ content: 'window.confidenceSystem = {}; ' + CONFIDENCE_SRC });
   await page.addScriptTag({ content: STUBS(s.sc) });
   await page.addScriptTag({ content: SRC });
   await page.evaluate(() => {
@@ -97,12 +127,16 @@ async function runScenario(browser, s) {
 }
 
 async function twoTabs(browser) {
-  const sc = SCENARIOS[4].sc; // backend libera
+  // backend libera e confiança 95: o que varia é só a trava entre abas
+  const sc = { score: 95, confidence: { canSend: true, reason: 'greeting', confidence: 95, answer: null },
+    backend: { success: true, response: 'Abrimos sim, das 9h às 13h!', metadata: { autopilot: { allowAutoSend: true, escalate: false, reasons: [], riskTier: 'low', minConfidence: 70 } } } };
   const pages = [];
   for (let i = 0; i < 2; i++) {
     const page = await browser.newPage();
     await page.route('https://web.whatsapp.com/**', (r) => r.fulfill({ contentType: 'text/html', body: PAGE }));
     await page.goto('https://web.whatsapp.com/');
+    await page.exposeFunction('__swClaim', (key) => swClaim(key, `tab-${i + 1}`));
+    await page.addScriptTag({ content: 'window.confidenceSystem = {}; ' + CONFIDENCE_SRC });
     await page.addScriptTag({ content: STUBS(sc) });
     await page.addScriptTag({ content: SRC });
     await page.evaluate(() => { window.AutopilotV2.setConfig({ delay: { min: 50, max: 100 }, typingDelay: { min: 0, max: 1 }, DELAY_BETWEEN_CHATS: 0 }); return window.AutopilotV2.start(); });
@@ -131,7 +165,9 @@ async function twoTabs(browser) {
   md.push('', '## Duas abas do WhatsApp Web abertas, mesma mensagem recebida', '');
   tabs.forEach((t, i) => md.push(`- aba ${i + 1}: enviou ${t.sent.length}x ${JSON.stringify(t.sent)} · window.TabCoordinator=${t.tabCoordinator} · window.KillSwitch=${t.killSwitch}`));
   md.push(`- **total de respostas enviadas ao MESMO cliente: ${tabs.reduce((a, t) => a + t.sent.length, 0)}**`);
-  fs.writeFileSync(path.join(OUT, '30-autopilot.json'), JSON.stringify({ results, tabs }, null, 2));
-  fs.writeFileSync(path.join(OUT, '30-autopilot.md'), md.join('\n') + '\n');
+  fs.mkdirSync(OUT, { recursive: true });
+  const base = TAG ? `30-autopilot-${TAG}` : '30-autopilot';
+  fs.writeFileSync(path.join(OUT, `${base}.json`), JSON.stringify({ ext: EXT, results, tabs }, null, 2));
+  fs.writeFileSync(path.join(OUT, `${base}.md`), md.join('\n') + '\n');
   console.log(md.join('\n'));
 })().catch((e) => { console.error(e); process.exit(1); });
