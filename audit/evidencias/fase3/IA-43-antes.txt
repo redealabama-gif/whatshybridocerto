@@ -1,0 +1,122 @@
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ OpenAI provider configured","timestamp":"2026-11-09T17:11:57.261Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ Groq provider configured","timestamp":"2026-11-09T17:11:57.296Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] Total providers: 2","timestamp":"2026-11-09T17:11:57.298Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ Initialized with strategy:","detail":"balanced","timestamp":"2026-11-09T17:11:57.299Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.warn
+    {"level":"warn","message":"[AIRouter] openai failed: The operation was aborted due to timeout","timestamp":"2026-11-09T17:12:03.306Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at AIRouterService.warn [as complete] (src/ai/services/AIRouterService.js:490:14)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.warn
+    {"level":"warn","message":"[AIRouter] Prazo da requisição esgotado — fallback groq não tentado","timestamp":"2026-11-09T17:12:03.308Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at AIRouterService.warn [as complete] (src/ai/services/AIRouterService.js:500:18)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.log
+    {"level":"info","message":"[DB] Driver: SQLite (better-sqlite3)","timestamp":"2026-11-09T17:12:03.312Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[DB:SQLite] Initialized at /home/user/whatshybridocerto/whatshybrid-backend/data/whatshybrid.db (WAL mode)","timestamp":"2026-11-09T17:12:03.321Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.error
+    {"level":"error","message":"[DB:SQLite] run error:","error":{"detail":"no such table: ai_requests"},"detail":"| SQL:","timestamp":"2026-11-09T17:12:03.323Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as run] (src/utils/db/sqlite-driver.js:43:12)
+      at AIRouterService.run [as _trackRequest] (src/ai/services/AIRouterService.js:560:10)
+      at AIRouterService._trackRequest [as complete] (src/ai/services/AIRouterService.js:534:12)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.log
+    {"level":"debug","message":"[AIRouter] _trackRequest skipped: no such table: ai_requests","timestamp":"2026-11-09T17:12:03.324Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+  console.error
+    {"level":"error","message":"[Alert:critical] AIRouter: todos os providers falharam","error":{"tenant":"t-reserva","last_error":"The operation was aborted due to timeout","attempted_providers":["openai","groq"]},"timestamp":"2026-11-09T17:12:03.327Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at AlertManager.send (src/observability/alertManager.js:74:18)
+      at AIRouterService.send [as complete] (src/ai/services/AIRouterService.js:540:22)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+FAIL tests/unit/airouter-fallback-reserve.spec.js (6.378 s)
+  ✕ principal travado → sobra tempo para o reserva responder dentro do prazo (6070 ms)
+
+  ● principal travado → sobra tempo para o reserva responder dentro do prazo
+
+    All AI providers failed. Last error: The operation was aborted due to timeout
+
+      545 |       } catch (_) {}
+      546 |       
+    > 547 |       throw new Error(`All AI providers failed. Last error: ${error.message}`);
+          |             ^
+      548 |     }
+      549 |   }
+      550 |
+
+      at AIRouterService.complete (src/ai/services/AIRouterService.js:547:13)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        6.422 s
+Ran all test suites matching /tests\/unit\/airouter-fallback-reserve.spec.js/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

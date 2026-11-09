@@ -470,12 +470,22 @@ class AIRouterService {
       throw new Error('No AI provider available');
     }
 
+    // IA-43 — com um reserva disponível, o principal não pode gastar o prazo
+    // inteiro: sobra AI_FALLBACK_RESERVE_MS (8 s) para o reserva responder.
+    // Antes, uma geração travada na OpenAI levou os 25 s e a Groq nem foi tentada.
+    const reserveMs = parseInt(process.env.AI_FALLBACK_RESERVE_MS, 10) || 8000;
+    const remainingMs = deadline - Date.now();
+    const primaryDeadline = remainingMs > reserveMs * 2 && this.getFallbackProviders(provider.name, tenantId).length > 0
+      ? deadline - reserveMs
+      : deadline;
+
     // Try primary provider
     try {
       // IA-11 — teto de tentativas: 1 nova tentativa no principal e 1 tentativa em
       // cada reserva (eram até 4 em cada um: 500 rápido = custo ×8 só na geração).
       const result = await provider.complete(messages, {
         ...callOptions,
+        deadline: primaryDeadline, // IA-43
         maxRetries: Number.isInteger(options.maxRetries) ? options.maxRetries : 1,
       });
       this._recordProviderSuccess(provider.name, tenantId); // v9.2.0
