@@ -1,0 +1,13 @@
+• autopilot-open-chat.test.js
+  ✗ IA-44: mensagem em outra conversa, sem window.Store (mundo isolado real) → nunca recarrega o WhatsApp por link /send?phone
+      navegou para https://web.whatsapp.com/send?phone=5511988887777 (recarrega o WhatsApp Web e desliga o Autopilot)
++ actual - expected
+
++ [
++   'https://web.whatsapp.com/send?phone=5511988887777'
++ ]
+- []
+
+  ✓ IA-44 (controle): com o abridor do content.js exportado → abre o chat por ele e responde no chat certo
+
+  1 passou, 1 falhou (2 no total)

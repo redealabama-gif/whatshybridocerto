@@ -1203,6 +1203,11 @@
     });
   }
 
+  // IA-44: o Autopilot (mesmo mundo isolado, outro módulo) procura
+  // window.openChatByPhone; sem esta exportação ele recarregava o WhatsApp Web
+  // por link /send?phone= e perdia a fila. A declaração abaixo é içada.
+  window.openChatByPhone = openChatByPhone;
+
   async function openChatByPhone(phone) {
     const cleanPhone = String(phone).replace(/\D/g, '');
     const chatId = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@c.us`;

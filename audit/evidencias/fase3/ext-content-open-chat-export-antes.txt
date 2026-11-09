@@ -1,0 +1,17 @@
+• content-open-chat-export.test.js
+  ✗ IA-44: o content.js exporta window.openChatByPhone (o abridor que o Autopilot procura)
+      window.openChatByPhone não existe — o Autopilot cai no link que recarrega o WhatsApp
++ actual - expected
+
++ 'undefined'
+- 'function'
+
+  ✗ IA-44: window.openChatByPhone abre pelo mundo da página (mesmo caminho do Disparo), sem navegar
+      Expected values to be strictly equal:
++ actual - expected
+
++ 'undefined'
+- 'function'
+
+
+  0 passou, 2 falhou (2 no total)

@@ -422,15 +422,10 @@
       } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
     }
     
-    // Método 3: Via URL (fallback)
-    try {
-      const link = document.createElement('a');
-      link.href = `https://web.whatsapp.com/send?phone=${cleanPhone}`;
-      link.click();
-      await sleep(2000);
-      return true;
-    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
-    
+    // IA-44: sem "Método 3" por URL. Clicar em https://web.whatsapp.com/send?phone=…
+    // recarrega o WhatsApp Web inteiro: a fila em memória se perde e o Autopilot
+    // volta desligado. Sem conseguir abrir, ensureChatActive tenta de novo e,
+    // por fim, manda para revisão humana (open_failed).
     return false;
   }
 
