@@ -50,31 +50,40 @@ const PROVIDERS = {
 //
 // Decisões:
 //   simple  — saudação, "ok", "obrigado", classificação binária. Modelo
-//             menor é suficiente. Groq 8b-instant é praticamente free.
-//   normal  — atendimento padrão. Groq 70b é grátis e tem qualidade próxima
-//             do gpt-4o-mini. Fallback OpenAI mini se Groq ficar fora.
+//             menor é suficiente (Groq GROQ_FAST_MODEL).
+//   normal  — atendimento padrão. Groq (GROQ_MODEL) primeiro, com fallback
+//             OpenAI mini se a Groq falhar.
 //   complex — análise profunda, ticket técnico longo, raciocínio multi-step.
 //             Vai direto pro gpt-4o-mini (qualidade > custo aqui).
 //
-// SaaS economy: ~95% dos atendimentos cabe em 'normal' (free via Groq).
+// IA-41: a Groq desativou os Llama/Mixtral que estavam fixos aqui (404). Os
+// modelos de chat atuais da Groq são de raciocínio; ver callProviderOnce.
+//
+// SaaS economy: ~95% dos atendimentos cabe em 'normal' (barato via Groq).
 // O cliente NÃO paga você toda vez que a IA responder — só quando consumir
 // o que custou ao backend de verdade (TokenService.consume com tokens reais).
+const GROQ_MODEL = config.ai.groq?.defaultModel || 'openai/gpt-oss-120b';
+const GROQ_FAST_MODEL = process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b';
 const TASK_CHAINS = {
   simple: [
-    { provider: 'groq',   model: 'llama-3.1-8b-instant' },
-    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+    { provider: 'groq',   model: GROQ_FAST_MODEL },
+    { provider: 'groq',   model: GROQ_MODEL },
     { provider: 'openai', model: 'gpt-4o-mini' },
   ],
   normal: [
-    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+    { provider: 'groq',   model: GROQ_MODEL },
     { provider: 'openai', model: 'gpt-4o-mini' },
   ],
   complex: [
     { provider: 'openai', model: 'gpt-4o-mini' },
     { provider: 'openai', model: 'gpt-4o' },
-    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
+    { provider: 'groq',   model: GROQ_MODEL },
   ],
 };
+
+// IA-41: modelos de raciocínio (Groq) — o limite de tokens inclui o
+// raciocínio; abaixo de ~512 o texto volta vazio (finish_reason=length).
+const REASONING_MODEL_RE = /^(openai\/gpt-oss|qwen\/)/;
 
 /**
  * Monta a chain de candidates para tentativa em ordem.
@@ -95,7 +104,7 @@ function resolveProviderChain(task, explicitProvider, explicitModel) {
     candidates.push({
       provider: opposite,
       model: config.ai[opposite]?.defaultModel
-        || (opposite === 'openai' ? 'gpt-4o-mini' : 'llama-3.3-70b-versatile')
+        || (opposite === 'openai' ? 'gpt-4o-mini' : GROQ_MODEL)
     });
   } else {
     const key = (task || 'normal').toLowerCase();
@@ -130,11 +139,13 @@ async function callProviderOnce(provider, model, messages, temperature, max_toke
       ...(temperature !== undefined && { temperature })
     };
   } else {
+    const reasoning = provider === 'groq' && REASONING_MODEL_RE.test(model); // IA-41
     requestBody = {
       model,
       messages,
       temperature: temperature ?? 0.7,
-      max_tokens: max_tokens || 1000
+      max_tokens: reasoning ? Math.max(max_tokens || 1000, 512) : (max_tokens || 1000),
+      ...(reasoning && { reasoning_effort: 'low' })
     };
   }
 
@@ -155,21 +166,37 @@ async function callProviderOnce(provider, model, messages, temperature, max_toke
     usage = response.data.usage;
   }
 
+  // IA-41: texto vazio (ex.: raciocínio consumiu o limite) não é resposta —
+  // o próximo candidate da cadeia é tentado.
+  if (!String(content).trim()) {
+    const e = new Error(`${provider}/${model} devolveu texto vazio`);
+    e.code = 'EMPTY_COMPLETION';
+    throw e;
+  }
+
   return { content, usage, latency, model, provider };
 }
 
 /**
  * Decide se vale tentar o próximo candidate na chain.
  * - 429 (rate limit), 5xx, timeout, network error → vale.
- * - 400/401/403 → não vale (problema de auth/payload, não transient).
+ * - IA-41: chave deste provedor revogada (401/403), modelo que o provedor
+ *   desativou (404, ou 400 citando o modelo) e texto vazio → vale: são falhas
+ *   DESTE provedor, e o próximo (outra chave, outro modelo) pode responder.
+ *   Antes abortavam a cadeia e a OpenAI nunca era tentada.
+ * - Outros 400 → não vale (payload inválido falharia em qualquer provedor).
  */
 function isRetryableError(err) {
   if (err.code === 'PROVIDER_NOT_CONFIGURED') return true; // só pula esse provider
+  if (err.code === 'EMPTY_COMPLETION') return true; // IA-41
   if (err.code === 'ECONNABORTED') return true; // axios timeout
   if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') return true;
   const status = err.response?.status;
   if (status === 429) return true;
   if (status >= 500 && status < 600) return true;
+  if (status === 401 || status === 403 || status === 404) return true; // IA-41
+  const detail = `${err.response?.data?.error?.code || ''} ${err.response?.data?.error?.message || ''}`;
+  if (status === 400 && /model/i.test(detail)) return true; // IA-41
   return false;
 }
 

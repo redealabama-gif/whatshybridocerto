@@ -1,0 +1,23 @@
+{
+  "variant": "atual",
+  "extensionId": "bmlhhobkakghjcoohchdkpgfanlimihe",
+  "buttonInjected": true,
+  "panel": "🤖\nSugestão de IA\n✕\nO plano Pro para clínicas custa R$ 189/mês para até 5 usuários, sem fidelidade. Se fizer o pagamento anual, ainda tem 15% de desconto. Você gostaria de saber mais sobre os benefícios do plano?\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+  "providerCalls": 1,
+  "model": {
+    "name": "gpt-4o-mini",
+    "status": 200,
+    "reply": "O plano Pro para clínicas custa R$ 189/mês para até 5 usuários, sem fidelidade. Se fizer o pagamento anual, ainda tem 15% de desconto. Você gostaria de saber mais sobre os benefícios do plano?"
+  },
+  "modelSaw": {
+    "lastUserMessage": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+    "historyCount": 6,
+    "knowledgeInPrompt": true,
+    "intent": "pricing"
+  },
+  "logs": [
+    "[BackendClient] Health check failed: Failed to fetch",
+    "[BackendClient] Persisted URL http://127.0.0.1:3000 failed /health on boot — resetting to DEFAULT_BASE_URL",
+    "[BackendClient] Health check failed: Failed to fetch"
+  ]
+}

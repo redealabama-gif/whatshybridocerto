@@ -21,6 +21,9 @@
 const OpenAIProvider = require('../providers/OpenAIProvider');
 const logger = require('../../utils/logger');
 
+// IA-41: modelo Groq para classificar (só quando não há chave da OpenAI).
+const GROQ_CLASSIFIER_MODEL = process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b';
+
 /**
  * Intenções suportadas com descrições
  */
@@ -220,7 +223,7 @@ class HybridIntentClassifier {
     this._hasLLM       = !!(openaiKey || anthropicKey || groqKey);
 
     this.llmConfig = {
-      model:       config.llmModel || (openaiKey ? 'gpt-4o-mini' : groqKey ? 'llama3-8b-8192' : 'claude-haiku-4-5-20251001'),
+      model:       config.llmModel || (openaiKey ? 'gpt-4o-mini' : groqKey ? GROQ_CLASSIFIER_MODEL : 'claude-haiku-4-5-20251001'),
       temperature: 0.1,
       maxTokens:   150,
     };
@@ -531,7 +534,9 @@ Mensagem: "${message.slice(0, 300)}"`;
       const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${this._groqKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }], max_tokens: 80, temperature: 0.1 }),
+        // IA-41: llama3-8b-8192 foi desativado; o modelo atual é de raciocínio —
+        // com 80 tokens o texto voltava vazio.
+        body: JSON.stringify({ model: GROQ_CLASSIFIER_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 512, reasoning_effort: 'low', temperature: 0.1 }),
         signal: AbortSignal.timeout(5000),
       });
       if (r.ok) {

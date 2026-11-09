@@ -1,0 +1,15 @@
+PASS tests/unit/prompt-papel-conversa.spec.js
+  IA-42 — papel do dono da conta na conversa
+    ✓ sem persona: escreve a próxima mensagem do dono da conta, não um atendente (3 ms)
+    ✓ o prompt termina com o lembrete do papel, mesmo com orçamento apertado (2 ms)
+    ✓ com persona: mantém a persona e as mesmas regras de papel (1 ms)
+  IA-42 — verificador de qualidade
+    ✓ resposta natural e específica, sem chamada para ação, é aprovada (7 ms)
+    ✓ frases de atendimento genéricas são reprovadas como genéricas (2 ms)
+    ✓ a regeneração não pede mais chamada para ação (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        0.257 s, estimated 1 s
+Ran all test suites matching /tests\/unit\/prompt-papel-conversa.spec.js/i.

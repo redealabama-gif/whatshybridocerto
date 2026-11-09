@@ -1,0 +1,558 @@
+PASS tests/integration/ai-complete-fallback.routes.spec.js
+  ● Console
+
+    console.log
+      {"level":"info","message":"[DB] Driver: SQLite (better-sqlite3)","timestamp":"2026-11-09T17:04:22.523Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB:SQLite] Initialized at /tmp/wh-itest-1587-1794243862448.db (WAL mode)","timestamp":"2026-11-09T17:04:22.684Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"no such column: module_key"},"timestamp":"2026-11-09T17:04:22.690Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at Object.exec [as runMigrations] (src/utils/database.js:38:18)
+      at runMigrations (tests/integration/helpers/app.js:46:18)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.warn
+      {"level":"warn","message":"[DB] Schema exec issue: no such column: module_key","timestamp":"2026-11-09T17:04:22.690Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at Object.warn [as runMigrations] (src/utils/database.js:42:16)
+      at runMigrations (tests/integration/helpers/app.js:46:18)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.prompt_tokens","timestamp":"2026-11-09T17:04:22.692Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.completion_tokens","timestamp":"2026-11-09T17:04:22.704Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.latency_ms","timestamp":"2026-11-09T17:04:22.705Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.error_message","timestamp":"2026-11-09T17:04:22.706Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.tenant_user_id","timestamp":"2026-11-09T17:04:22.707Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column ai_requests.request_id","timestamp":"2026-11-09T17:04:22.708Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.trial_end_at","timestamp":"2026-11-09T17:04:22.708Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.subscription_status","timestamp":"2026-11-09T17:04:22.709Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.next_billing_at","timestamp":"2026-11-09T17:04:22.710Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.payment_provider","timestamp":"2026-11-09T17:04:22.711Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.payment_customer_id","timestamp":"2026-11-09T17:04:22.712Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.mp_preapproval_id","timestamp":"2026-11-09T17:04:22.713Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column workspaces.auto_renew_enabled","timestamp":"2026-11-09T17:04:22.714Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column users.totp_secret","timestamp":"2026-11-09T17:04:22.716Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column users.totp_enabled","timestamp":"2026-11-09T17:04:22.717Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column users.preferred_language","timestamp":"2026-11-09T17:04:22.718Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added column users.onboarding_completed","timestamp":"2026-11-09T17:04:22.719Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added contacts.stage column + index","timestamp":"2026-11-09T17:04:22.720Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.warn
+      {"level":"warn","message":"[DB] Migration warning (credits consolidation): no such table: token_transactions","timestamp":"2026-11-09T17:04:22.722Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at Object.warn [as runMigrations] (src/utils/database-legacy.js:1113:12)
+      at Object.runMigrations (src/utils/database.js:48:16)
+      at runMigrations (tests/integration/helpers/app.js:46:18)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"info","message":"[DB] Migration: added token_hash to refresh_tokens","timestamp":"2026-11-09T17:04:22.724Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[DB] Legacy migrations applied","timestamp":"2026-11-09T17:04:22.725Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 002_v9_additions...","timestamp":"2026-11-09T17:04:22.728Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"duplicate column name: totp_secret"},"timestamp":"2026-11-09T17:04:22.730Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at exec (src/utils/migration-runner.js:75:14)
+      at sqliteTransaction (../node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+      at Object.wrapped [as transaction] (src/utils/db/sqlite-driver.js:79:10)
+      at transaction (src/utils/migration-runner.js:72:8)
+      at applyMigration (src/utils/migration-runner.js:134:13)
+      at Object.runMigrations (src/utils/database.js:58:7)
+      at ensureDb (tests/integration/helpers/app.js:46:3)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"debug","message":"[Migration] 002_v9_additions: idempotent skip — duplicate column name: totp_secret","timestamp":"2026-11-09T17:04:22.731Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"duplicate column name: totp_enabled"},"timestamp":"2026-11-09T17:04:22.731Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at exec (src/utils/migration-runner.js:75:14)
+      at sqliteTransaction (../node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+      at Object.wrapped [as transaction] (src/utils/db/sqlite-driver.js:79:10)
+      at transaction (src/utils/migration-runner.js:72:8)
+      at applyMigration (src/utils/migration-runner.js:134:13)
+      at Object.runMigrations (src/utils/database.js:58:7)
+      at ensureDb (tests/integration/helpers/app.js:46:3)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"debug","message":"[Migration] 002_v9_additions: idempotent skip — duplicate column name: totp_enabled","timestamp":"2026-11-09T17:04:22.731Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"duplicate column name: preferred_language"},"timestamp":"2026-11-09T17:04:22.731Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at exec (src/utils/migration-runner.js:75:14)
+      at sqliteTransaction (../node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+      at Object.wrapped [as transaction] (src/utils/db/sqlite-driver.js:79:10)
+      at transaction (src/utils/migration-runner.js:72:8)
+      at applyMigration (src/utils/migration-runner.js:134:13)
+      at Object.runMigrations (src/utils/database.js:58:7)
+      at ensureDb (tests/integration/helpers/app.js:46:3)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"debug","message":"[Migration] 002_v9_additions: idempotent skip — duplicate column name: preferred_language","timestamp":"2026-11-09T17:04:22.732Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"duplicate column name: onboarding_completed"},"timestamp":"2026-11-09T17:04:22.732Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at exec (src/utils/migration-runner.js:75:14)
+      at sqliteTransaction (../node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+      at Object.wrapped [as transaction] (src/utils/db/sqlite-driver.js:79:10)
+      at transaction (src/utils/migration-runner.js:72:8)
+      at applyMigration (src/utils/migration-runner.js:134:13)
+      at Object.runMigrations (src/utils/database.js:58:7)
+      at ensureDb (tests/integration/helpers/app.js:46:3)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"debug","message":"[Migration] 002_v9_additions: idempotent skip — duplicate column name: onboarding_completed","timestamp":"2026-11-09T17:04:22.732Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 002_v9_additions ✅","timestamp":"2026-11-09T17:04:22.736Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 003_stripe...","timestamp":"2026-11-09T17:04:22.736Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 003_stripe ✅","timestamp":"2026-11-09T17:04:22.739Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 004_audit_and_flags...","timestamp":"2026-11-09T17:04:22.739Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 004_audit_and_flags ✅","timestamp":"2026-11-09T17:04:22.741Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 005_ai_metadata...","timestamp":"2026-11-09T17:04:22.741Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 005_ai_metadata ✅","timestamp":"2026-11-09T17:04:22.742Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 006_crm_stage...","timestamp":"2026-11-09T17:04:22.742Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.error
+      {"level":"error","message":"[DB:SQLite] exec error:","error":{"detail":"duplicate column name: stage"},"timestamp":"2026-11-09T17:04:22.742Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as exec] (src/utils/db/sqlite-driver.js:72:12)
+      at exec (src/utils/migration-runner.js:75:14)
+      at sqliteTransaction (../node_modules/better-sqlite3/lib/methods/transaction.js:65:24)
+      at Object.wrapped [as transaction] (src/utils/db/sqlite-driver.js:79:10)
+      at transaction (src/utils/migration-runner.js:72:8)
+      at applyMigration (src/utils/migration-runner.js:134:13)
+      at Object.runMigrations (src/utils/database.js:58:7)
+      at ensureDb (tests/integration/helpers/app.js:46:3)
+      at Object.<anonymous> (tests/integration/ai-complete-fallback.routes.spec.js:51:3)
+
+    console.log
+      {"level":"debug","message":"[Migration] 006_crm_stage: idempotent skip — duplicate column name: stage","timestamp":"2026-11-09T17:04:22.743Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 006_crm_stage ✅","timestamp":"2026-11-09T17:04:22.743Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 007_analytics_tables...","timestamp":"2026-11-09T17:04:22.743Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 007_analytics_tables ✅","timestamp":"2026-11-09T17:04:22.744Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 008_llm_cost_log...","timestamp":"2026-11-09T17:04:22.744Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 008_llm_cost_log ✅","timestamp":"2026-11-09T17:04:22.746Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 009_memory_events...","timestamp":"2026-11-09T17:04:22.746Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 009_memory_events ✅","timestamp":"2026-11-09T17:04:22.747Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 010_subscription_codes...","timestamp":"2026-11-09T17:04:22.747Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 010_subscription_codes ✅","timestamp":"2026-11-09T17:04:22.748Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 011_fix_sync_data...","timestamp":"2026-11-09T17:04:22.749Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 011_fix_sync_data ✅","timestamp":"2026-11-09T17:04:22.749Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 012_dunning_tracking...","timestamp":"2026-11-09T17:04:22.749Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 012_dunning_tracking ✅","timestamp":"2026-11-09T17:04:22.752Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 013_dunning_charge_attempts...","timestamp":"2026-11-09T17:04:22.752Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 013_dunning_charge_attempts ✅","timestamp":"2026-11-09T17:04:22.753Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 014_users_google_sub...","timestamp":"2026-11-09T17:04:22.753Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 014_users_google_sub ✅","timestamp":"2026-11-09T17:04:22.755Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 015_coupons...","timestamp":"2026-11-09T17:04:22.755Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 015_coupons ✅","timestamp":"2026-11-09T17:04:22.758Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 016_signup_attribution...","timestamp":"2026-11-09T17:04:22.758Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 016_signup_attribution ✅","timestamp":"2026-11-09T17:04:22.760Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 017_integration_credentials...","timestamp":"2026-11-09T17:04:22.760Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 017_integration_credentials ✅","timestamp":"2026-11-09T17:04:22.760Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 018_coupon_leads...","timestamp":"2026-11-09T17:04:22.761Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 018_coupon_leads ✅","timestamp":"2026-11-09T17:04:22.761Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 019_drop_leads...","timestamp":"2026-11-09T17:04:22.761Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 019_drop_leads ✅","timestamp":"2026-11-09T17:04:22.761Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 020_canary_runs...","timestamp":"2026-11-09T17:04:22.762Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 020_canary_runs ✅","timestamp":"2026-11-09T17:04:22.762Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applying 021_response_outcomes_pending...","timestamp":"2026-11-09T17:04:22.762Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Applied 021_response_outcomes_pending ✅","timestamp":"2026-11-09T17:04:22.763Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.log
+      {"level":"info","message":"[Migration] Done: 20 applied, 0 skipped","timestamp":"2026-11-09T17:04:22.763Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+    console.warn
+      {"level":"warn","message":"[ai/complete] groq/openai/gpt-oss-120b falhou (404) — tentando próximo candidate","timestamp":"2026-11-09T17:04:22.963Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at warn (src/routes/ai.js:261:18)
+
+    console.warn
+      {"level":"warn","message":"[ai/complete] groq/openai/gpt-oss-120b falhou (401) — tentando próximo candidate","timestamp":"2026-11-09T17:04:22.992Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at warn (src/routes/ai.js:261:18)
+
+    console.warn
+      {"level":"warn","message":"[ai/complete] groq/openai/gpt-oss-120b falhou (EMPTY_COMPLETION) — tentando próximo candidate","timestamp":"2026-11-09T17:04:22.998Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at warn (src/routes/ai.js:261:18)
+
+    console.log
+      {"level":"info","message":"[DB:SQLite] Connection closed","timestamp":"2026-11-09T17:04:23.022Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+PASS tests/unit/groq-models.spec.js
+
+Test Suites: 2 passed, 2 total
+Tests:       7 passed, 7 total
+Snapshots:   0 total
+Time:        1.071 s
+Ran all test suites matching /tests\/unit\/groq-models.spec.js|tests\/integration\/ai-complete-fallback.routes.spec.js/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

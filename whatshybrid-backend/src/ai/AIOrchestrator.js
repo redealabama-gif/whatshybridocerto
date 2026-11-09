@@ -858,9 +858,10 @@ class AIOrchestrator {
    */
   _fallbackSystemPrompt(language = 'pt-BR') {
     const prompts = {
-      'pt-BR': 'Você é um assistente de atendimento profissional. Responda de forma clara, útil e educada, em português do Brasil.',
-      en: 'You are a professional customer service assistant. Reply clearly, helpfully and politely, in English.',
-      es: 'Eres un asistente de atención al cliente profesional. Responde de forma clara, útil y educada, en español.',
+      // IA-42: mesmo papel do DynamicPromptBuilder — a próxima mensagem do dono da conta.
+      'pt-BR': 'Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele. Responda ao que o contato acabou de dizer, no mesmo tom da conversa e sem frases de atendimento genéricas, em português do Brasil.',
+      en: 'You write the next message the owner of this WhatsApp account will send in this conversation, on his behalf. Reply to what the contact just said, in the same tone as the conversation and without generic customer-service phrases, in English.',
+      es: 'Escribes el próximo mensaje que el dueño de este WhatsApp enviará en esta conversación, en su nombre. Responde a lo que el contacto acaba de decir, con el mismo tono de la conversación y sin frases genéricas de atención al cliente, en español.',
     };
     return prompts[language] || prompts['pt-BR'];
   }
@@ -1000,20 +1001,10 @@ class AIOrchestrator {
 
     if (trace) trace.llmFallback = usedKnowledgeFallback; // IA-12
 
-    // CORREÇÃO P2: A/B testing real — estratégias diferentes, não emojis decorativos
-    // variant_a: resposta mais concisa e direta (estilo assertivo)
-    // variant_b: resposta mais consultiva com pergunta de qualificação no final
-    // O PerformanceScoreEngine fecha o loop estatístico medindo outcomes reais
-    if (variant === 'variant_a') {
-      // Estratégia A: direto ao ponto — remove introduções prolixas
-      content = content.replace(/^(Olá!?\s*|Oi!?\s*|Claro[,!]?\s*|Com prazer[,!]?\s*)/i, '').trim();
-    } else if (variant === 'variant_b') {
-      // Estratégia B: consultiva — adiciona pergunta de qualificação se não houver uma
-      if (!content.includes('?')) {
-        content = content + ' Posso te ajudar com mais alguma informação?';
-      }
-    }
-
+    // IA-14: o A/B não mexe mais no texto do modelo. Antes, variant_a cortava
+    // "Olá!/Oi!/Claro," do começo e variant_b colava " Posso te ajudar com mais
+    // alguma informação?" no fim — a sugestão saía genérica até em conversa
+    // pessoal. A variante segue registrada (métricas e PerformanceScoreEngine).
     return content;
   }
 

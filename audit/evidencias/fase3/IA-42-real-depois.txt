@@ -1,0 +1,12 @@
+[depois-final] compra_rastreio #1 3670ms ok :: Show, obrigado pela confirmação! Vou ficar de olho no rastreio e no prazo de 7 dias. Alguma dica sobre como funciona a entrega com a Jet?
+[depois-final] compra_rastreio #2 1114ms ok :: Show, obrigado pela confirmação! A transportadora Jet costuma ser bem eficiente. Alguma dica de como acompanhar o rastreio depois que eu receber o código?
+[depois-final] compra_rastreio #3 1801ms GENÉRICA :: Show, valeu pela confirmação! Vou ficar de olho no rastreio então. Se precisar de mais alguma coisa, é só avisar!
+[depois-final] colega_trabalho #1 2266ms ok :: Entendi... é sobre alguma questão específica que precisa ser resolvida? Se for algo mais direcionado, talvez eu consiga ajudar de outra forma.
+[depois-final] colega_trabalho #2 807ms ok :: Entendi, mas é que preciso de algumas informações específicas pra um projeto aqui. Se tiver um contato que possa me ajudar, seria ótimo!
+[depois-final] colega_trabalho #3 1036ms ok :: Entendi. Era pra saber sobre uma demanda específica que surgiu, mas se eles não vão ajudar, acho que vou precisar de outro caminho. Você tem alguma sugestão de quem mais poderia me ajudar?
+[depois-final] pessoal_tensa #1 2073ms ok :: Entendo que você está chateado e peço desculpas por isso. Quero resolver essa situação e garantir que isso não aconteça novamente. Vamos conversar sobre como podemos melhorar isso?
+[depois-final] pessoal_tensa #2 1064ms ok :: Eu entendo sua frustração e peço desculpas por isso. Quero muito resolver essa situação e garantir que não aconteça novamente. Vamos conversar sobre como podemos melhorar isso?
+[depois-final] pessoal_tensa #3 951ms ok :: Entendo que você esteja frustrado, e sinto muito por isso. Quero muito resolver essa situação e garantir que não aconteça novamente. Vamos conversar sobre como podemos melhorar isso juntos?
+[depois-final] loja_controle #1 895ms ok :: Preciso verificar essa informação sobre o valor e a fidelidade do plano Pro. Vou dar uma olhada e já te informo. Um momento!
+[depois-final] loja_controle #2 1207ms ok :: Para 3 dentistas e 2 recepcionistas, o plano Pro seria bem adequado. Preciso confirmar o preço exato e se tem fidelidade. Posso verificar isso pra você e já te retorno. Quer que eu faça isso?
+[depois-final] loja_controle #3 1282ms ok :: Preciso verificar essa informação sobre o preço e a fidelidade do plano Pro. Mas, para 3 dentistas e 2 recepcionistas, ele oferece benefícios como suporte dedicado e acesso a ferramentas de gestão que ajudam bastante na rotina da 

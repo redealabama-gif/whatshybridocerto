@@ -1,0 +1,105 @@
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ OpenAI provider configured","timestamp":"2026-11-09T17:12:16.574Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ Groq provider configured","timestamp":"2026-11-09T17:12:16.608Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] Total providers: 2","timestamp":"2026-11-09T17:12:16.609Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[AIRouter] ✅ Initialized with strategy:","detail":"balanced","timestamp":"2026-11-09T17:12:16.610Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.warn
+    {"level":"warn","message":"[AIRouter] openai failed: The operation was aborted due to timeout","timestamp":"2026-11-09T17:12:20.618Z"}
+
+      136 |
+      137 |   warn(message, context = {}) {
+    > 138 |     console.warn(JSON.stringify({
+          |             ^
+      139 |       level: 'warn',
+      140 |       message,
+      141 |       ...sanitize(this._normalizeContext(context)),
+
+      at Logger.warn (src/utils/logger.js:138:13)
+      at AIRouterService.warn [as complete] (src/ai/services/AIRouterService.js:500:14)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.log
+    {"level":"info","message":"[AIRouter] Trying fallback: groq","timestamp":"2026-11-09T17:12:20.620Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[DB] Driver: SQLite (better-sqlite3)","timestamp":"2026-11-09T17:12:20.635Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.log
+    {"level":"info","message":"[DB:SQLite] Initialized at /home/user/whatshybridocerto/whatshybrid-backend/data/whatshybrid.db (WAL mode)","timestamp":"2026-11-09T17:12:20.645Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+  console.error
+    {"level":"error","message":"[DB:SQLite] run error:","error":{"detail":"no such table: ai_requests"},"detail":"| SQL:","timestamp":"2026-11-09T17:12:20.646Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as run] (src/utils/db/sqlite-driver.js:43:12)
+      at AIRouterService.run [as _trackRequest] (src/ai/services/AIRouterService.js:570:10)
+      at AIRouterService._trackRequest [as complete] (src/ai/services/AIRouterService.js:530:16)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.log
+    {"level":"debug","message":"[AIRouter] _trackRequest skipped: no such table: ai_requests","timestamp":"2026-11-09T17:12:20.647Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+  console.error
+    {"level":"error","message":"[DB:SQLite] get error:","error":{"detail":"no such table: workspace_credits"},"detail":"| SQL:","timestamp":"2026-11-09T17:12:20.651Z"}
+
+      127 |       ? this.formatError(error, this._normalizeContext(context))
+      128 |       : { error: sanitize(this._normalizeContext(error)), ...sanitize(this._normalizeContext(context)) };
+    > 129 |     console.error(JSON.stringify({
+          |             ^
+      130 |       level: 'error',
+      131 |       message,
+      132 |       ...formatted,
+
+      at Logger.error (src/utils/logger.js:129:13)
+      at Object.error [as get] (src/utils/db/sqlite-driver.js:53:12)
+      at TokenService.get [as ensureRow] (src/services/TokenService.js:53:18)
+      at TokenService.ensureRow [as consume] (src/services/TokenService.js:254:10)
+      at AIRouterService.consume [as _trackRequest] (src/ai/services/AIRouterService.js:598:24)
+      at AIRouterService._trackRequest [as complete] (src/ai/services/AIRouterService.js:530:16)
+      at Object.<anonymous> (tests/unit/airouter-fallback-reserve.spec.js:57:18)
+
+  console.log
+    {"level":"debug","message":"[AIRouter] token debit skipped: no such table: workspace_credits","timestamp":"2026-11-09T17:12:20.654Z"}
+
+      at Logger.log [as debug] (src/utils/logger.js:157:15)
+
+PASS tests/unit/airouter-fallback-reserve.spec.js
+  ✓ principal travado → sobra tempo para o reserva responder dentro do prazo (4082 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        4.508 s, estimated 7 s
+Ran all test suites matching /tests\/unit\/airouter-fallback-reserve.spec.js/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

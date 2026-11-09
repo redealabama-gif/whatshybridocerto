@@ -1,0 +1,150 @@
+FAIL tests/unit/prompt-papel-conversa.spec.js
+  IA-42 — papel do dono da conta na conversa
+    ✕ sem persona: escreve a próxima mensagem do dono da conta, não um atendente (5 ms)
+    ✕ o prompt termina com o lembrete do papel, mesmo com orçamento apertado (1 ms)
+    ✕ com persona: mantém a persona e as mesmas regras de papel (1 ms)
+  IA-42 — verificador de qualidade
+    ✕ resposta natural e específica, sem chamada para ação, é aprovada (4 ms)
+    ✕ frases de atendimento genéricas são reprovadas como genéricas (5 ms)
+    ✕ a regeneração não pede mais chamada para ação (1 ms)
+
+  ● IA-42 — papel do dono da conta na conversa › sem persona: escreve a próxima mensagem do dono da conta, não um atendente
+
+    expect(received).not.toMatch(expected)
+
+    Expected pattern: not /customer service assistant/i
+    Received string:      "You are a professional customer service assistant.
+    Language: pt-BR
+
+    ---
+
+    # Critical Guardrails (NEVER VIOLATE)
+    1. NEVER invent information or make up data that was not provided
+    2. NEVER share data or information from other clients
+    3. NEVER promise prices, deadlines, or deliveries without explicit confirmation
+    4. If you don't know something, say \"I need to verify this information\"
+    5. Always respect client privacy and data protection laws
+    "
+
+      22 |   test('sem persona: escreve a próxima mensagem do dono da conta, não um atendente', () => {
+      23 |     const prompt = buildPrompt();
+    > 24 |     expect(prompt).not.toMatch(/customer service assistant/i);
+         |                        ^
+      25 |     expect(prompt).toMatch(/próxima mensagem que o dono deste WhatsApp/i);
+      26 |     expect(prompt).toMatch(/não presuma que ele é o vendedor/i);
+      27 |     expect(prompt).toMatch(/Em que posso ser útil/); // citada como frase a evitar
+
+      at Object.toMatch (tests/unit/prompt-papel-conversa.spec.js:24:24)
+
+  ● IA-42 — papel do dono da conta na conversa › o prompt termina com o lembrete do papel, mesmo com orçamento apertado
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   -1
+
+      32 |     const { prompt } = new DynamicPromptBuilder().build({ persona: null, language: 'pt-BR', totalBudget: 300 });
+      33 |     const tail = prompt.slice(prompt.lastIndexOf('# Antes de responder'));
+    > 34 |     expect(prompt.lastIndexOf('# Antes de responder')).toBeGreaterThan(0);
+         |                                                        ^
+      35 |     expect(tail).toMatch(/ignore as diretrizes comerciais/i);
+      36 |     expect(tail).toMatch(/só afirme o que estiver na conversa ou na base/i);
+      37 |     expect(tail).toMatch(/não tem fidelidade/);
+
+      at Object.toBeGreaterThan (tests/unit/prompt-papel-conversa.spec.js:34:56)
+
+  ● IA-42 — papel do dono da conta na conversa › com persona: mantém a persona e as mesmas regras de papel
+
+    expect(received).toMatch(expected)
+
+    Expected pattern: /próxima mensagem que o dono deste WhatsApp/i
+    Received string:  "# Identity
+    Persona: Vendedor consultivo·
+    Seja consultivo e objetivo.·
+    Response Language: pt-BR·
+    ---·
+    # Critical Guardrails (NEVER VIOLATE)
+    1. NEVER invent information or make up data that was not provided
+    2. NEVER share data or information from other clients
+    3. NEVER promise prices, deadlines, or deliveries without explicit confirmation
+    4. If you don't know something, say \"I need to verify this information\"
+    5. Always respect client privacy and data protection laws
+    "
+
+      43 |     expect(prompt).toMatch(/Vendedor consultivo/);
+      44 |     expect(prompt).toMatch(/Seja consultivo e objetivo\./);
+    > 45 |     expect(prompt).toMatch(/próxima mensagem que o dono deste WhatsApp/i);
+         |                    ^
+      46 |   });
+      47 | });
+      48 |
+
+      at Object.toMatch (tests/unit/prompt-papel-conversa.spec.js:45:20)
+
+  ● IA-42 — verificador de qualidade › resposta natural e específica, sem chamada para ação, é aprovada
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      52 |   test('resposta natural e específica, sem chamada para ação, é aprovada', () => {
+      53 |     const r = new ResponseQualityChecker().evaluate('Beleza, vou acompanhar pela Jet. Valeu pelo código!', ctx);
+    > 54 |     expect(r.passed).toBe(true);
+         |                      ^
+      55 |   });
+      56 |
+      57 |   test('frases de atendimento genéricas são reprovadas como genéricas', () => {
+
+      at Object.toBe (tests/unit/prompt-papel-conversa.spec.js:54:22)
+
+  ● IA-42 — verificador de qualidade › frases de atendimento genéricas são reprovadas como genéricas
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 1
+
+      Object {
+    -   "issues": ArrayContaining [
+    -     "generic",
+    -   ],
+    +   "issues": Array [],
+        "t": "Ok! Em que posso ser útil?",
+      }
+
+      63 |       'Entendo. Estou aqui para ajudar. Se houver algo específico, me avise.',
+      64 |     ]) {
+    > 65 |       expect({ t, issues: checker.evaluate(t, { ...ctx, goal: 'responder_duvida' }).issues }).toEqual({ t, issues: expect.arrayContaining(['generic']) });
+         |                                                                                               ^
+      66 |     }
+      67 |   });
+      68 |
+
+      at Object.toEqual (tests/unit/prompt-papel-conversa.spec.js:65:95)
+
+  ● IA-42 — verificador de qualidade › a regeneração não pede mais chamada para ação
+
+    expect(received).not.toMatch(expected)
+
+    Expected pattern: not /CALL-TO-ACTION|próximo passo/i
+    Received string:      "⚠️ ATENÇÃO: A resposta anterior não atendeu os critérios de qualidade. Corrija os seguintes pontos:
+    - Faltou CALL-TO-ACTION. Para o goal \"fechar_venda\", sempre conduza o cliente para o próximo passo.
+
+    REGENERE agora com todas as correções aplicadas:"
+
+      70 |     const r = new ResponseQualityChecker().evaluate('Entendo. Estou aqui para ajudar.', { ...ctx, goal: 'fechar_venda' });
+      71 |     expect(r.passed).toBe(false);
+    > 72 |     expect(r.reinforcement).not.toMatch(/CALL-TO-ACTION|próximo passo/i);
+         |                                 ^
+      73 |   });
+      74 | });
+      75 |
+
+      at Object.toMatch (tests/unit/prompt-papel-conversa.spec.js:72:33)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 6 total
+Snapshots:   0 total
+Time:        0.297 s, estimated 1 s
+Ran all test suites matching /tests\/unit\/prompt-papel-conversa.spec.js/i.

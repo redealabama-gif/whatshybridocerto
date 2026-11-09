@@ -1,0 +1,204 @@
+{
+  "tag": "antes",
+  "generatedAt": "2026-11-09T16:58:58.952Z",
+  "backend": "http://127.0.0.1:3000",
+  "extTimeoutMs": 30000,
+  "scenarios": {
+    "compra_rastreio": {
+      "lastUserMsg": "Esse rastreio é da transportadora Jet",
+      "metodo0": {
+        "status": 200,
+        "ms": 5497,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Ótimo saber que o rastreio é da Jet! Eles costumam ser bem eficientes. Com o seu pedido a caminho e um prazo de 7 dias, você deve estar ansioso para recebê-lo. Se precisar de mais informações ou tiver alguma dúvida sobre o produto, estou aqui para ajudar! Você já conhece mais sobre os benefícios que ele pode trazer?",
+        "intent": "information",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 2031,
+            "reply": "{ \"intent\": \"information\", \"confidence\": 0.3, \"reasoning\": \"A mensagem fornece uma informação sobre o rastreio, mas não é uma solicitação de informação, apenas uma afirmação.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1152,
+            "reply": "Ótimo saber que o rastreio é da transportadora Jet! Eles costumam ser bastante eficientes. Assim que você tiver o código, ele pode te ajudar a acompanhar o andamento da entrega em tempo real. Você tem alguma dúvida sobre o que esperar desse processo ou sobre o produto em si? Estou aqui para ajudar!",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia moderada Responda com ENERGIA MODERADA: - Tom equilibrado entre informativo e engajante - Complete a resposta com uma abertura natural para continuar - Não arraste, mas não corte a conversa ## 🎙️ Communication Style: Perfil neutro Tom profissional padrão — adapte à conversa conforme ela se desenvolve. ## 🔄 Style Variation Continue variando o estilo naturalmente — está funcionando bem. --- # Client Context Recent Conversation: Agent: Beleza, fico no aguardo Agent: O que eu comprei é aquele da foto, de 90mg? Client: Sim Client: PX123456789BR Client: O prazo é de uns 7 dias Metadata: { \"chatId\": \"5521900000000@c.us\", \"messageCount\": 0, \"summaryCount\": 0, \"createdAt\": 1794243538967, \"updatedAt\": 1794243538967 } --- # Message Analysis Intent: information Sentiment: neutral (0.",
+            "nMsgs": 10
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 2266,
+            "reply": "Ótimo saber que o rastreio é da Jet! Eles costumam ser bem eficientes. Com o seu pedido a caminho e um prazo de 7 dias, você deve estar ansioso para recebê-lo. Se precisar de mais informações ou tiver alguma dúvida sobre o produto, estou aqui para ajudar! Você já conhece mais sobre os benefícios que",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia moderada Responda com ENERGIA MODERADA: - Tom equilibrado entre informativo e engajante - Complete a resposta com uma abertura natural para continuar - Não arraste, mas não corte a conversa ## 🎙️ Communication Style: Perfil neutro Tom profissional padrão — adapte à conversa conforme ela se desenvolve. ## 🔄 Style Variation Continue variando o estilo naturalmente — está funcionando bem. --- # Client Context Recent Conversation: Agent: Beleza, fico no aguardo Agent: O que eu comprei é aquele da foto, de 90mg? Client: Sim Client: PX123456789BR Client: O prazo é de uns 7 dias Metadata: { \"chatId\": \"5521900000000@c.us\", \"messageCount\": 0, \"summaryCount\": 0, \"createdAt\": 1794243538967, \"updatedAt\": 1794243538967 } --- # Message Analysis Intent: information Sentiment: neutral (0.",
+            "nMsgs": 10
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 404,
+        "ms": 480,
+        "error": "fail",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "llama-3.3-70b-versatile",
+            "status": 404,
+            "ms": 468,
+            "erro": "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+            "exception": "Request failed with status code 404"
+          }
+        ]
+      }
+    },
+    "colega_trabalho": {
+      "lastUserMsg": "Vão dizer que é assunto da outra unidade",
+      "metodo0": {
+        "status": 200,
+        "ms": 3370,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Entendi, parece que a situação está um pouco confusa. Muitas vezes, o RH pode ser um ponto de partida útil, mesmo que a questão seja mais específica de outra unidade. Se precisar, posso ajudar a encontrar um canal mais direto para resolver isso. Que tipo de informação você está buscando?",
+        "intent": "information",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1844,
+            "reply": "{ \"intent\": \"information\", \"confidence\": 0.3, \"reasoning\": \"A mensagem sugere que a pessoa está comentando sobre um assunto que pode ser considerado de outra unidade, o que indica uma busca por esclarecimento ou informação sobre a situação.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1498,
+            "reply": "Entendi, parece que a situação está um pouco confusa. Muitas vezes, o RH pode ser um ponto de partida útil, mesmo que a questão seja mais específica de outra unidade. Se precisar, posso ajudar a encontrar um canal mais direto para resolver isso. Que tipo de informação você está buscando?",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA URGENTE: escassez, prazo ou oportunidade única. Comprimento: CURTO — máximo 2 frases. Vá direto ao ponto. Tom: CONVERSACIONAL e próximo, como um consultor amigável. _(estratégia baseada em performance histórica: exploration)_ --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia moderada Responda com ENERGIA MODERADA: - Tom equilibrado entre informativo e engajante - Complete a resposta com uma abertura natural para continuar - Não arraste, mas não corte a conversa ## 🎙️ Communication Style: Perfil informal O cliente usa tom descontraído e informal. - Adapte o tom: mais leve, próximo, sem formalidades excessivas - Linguagem natural, pode usar contrações e expressões coloquiais - Emojis esparsos são bem-vindos se o cliente os usar - Mantenha profissionalismo no conteúdo, mas libere o tom ## 🔄 Style Variation Continue variando o estilo naturalmente — está funcionando bem. --- # Client Context Recent Conversation: Agent: Fala, pode tirar uma dúvida minha? Agent: Tu tem o contato de ",
+            "nMsgs": 6
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 404,
+        "ms": 100,
+        "error": "fail",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "llama-3.3-70b-versatile",
+            "status": 404,
+            "ms": 94,
+            "erro": "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+            "exception": "Request failed with status code 404"
+          }
+        ]
+      }
+    },
+    "pessoal_tensa": {
+      "lastUserMsg": "A conclusão é que você vai fazer de novo e pior",
+      "metodo0": {
+        "status": 200,
+        "ms": 2013,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Entendo que você esteja frustrado e peço desculpas por isso. É realmente importante para mim que possamos resolver essa situação. Podemos conversar sobre como posso corrigir isso e garantir que não aconteça novamente. O que você acha?",
+        "intent": "complaint",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1090,
+            "reply": "{ \"intent\": \"complaint\", \"confidence\": 0.85, \"reasoning\": \"A mensagem expressa insatisfação e crítica em relação a uma ação que será repetida, sugerindo uma expectativa negativa.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 911,
+            "reply": "Entendo que você esteja frustrado e peço desculpas por isso. É realmente importante para mim que possamos resolver essa situação. Podemos conversar sobre como posso corrigir isso e garantir que não aconteça novamente. O que você acha?",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: responder_duvida ## 💡 OBJETIVO DA RESPOSTA: RESOLVER DÚVIDA O cliente precisa de clareza. Sua missão é responder de forma precisa e abrir caminho para a próxima etapa. - Vá direto ao ponto — responda a dúvida completamente - Use informações verificadas da base de conhecimento - Se relevante, conecte a resposta ao próximo passo natural - Tom: profissional, claro, confiante - Evite respostas genéricas ou incompletas ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. O cliente está irritado/frustrado. Reconheça o incômodo com sinceridade, peça desculpas se fizer sentido e vá DIRETO à solução. Tom calmo, humano e resolutivo. Evite jargão de vendas, respostas longas ou defensivas. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia baixa (foco em resolver) Responda com FOCO TOTAL EM RESOLVER: - Tom sereno, claro e profissional - Priorize precisão acima de qualquer outra coisa - Sem motivação forçada — apenas solução eficiente - Confirme entendimento do problema antes de responder quando necessário ## 🎙️ Communication Style: Perfil neutro Tom profissional padrão — adapte à conversa conforme ela se desenvolve. ## 🔄 Style Variation Varie a estrutura e abertura das suas respostas para soar sempre natural e humano. --- # Client Context Stage: cold Lembretes sobre o cliente (use com naturalidade, não repita de forma robótica): - nem imaginar como vai ser da próxima vez Recent Conversation: Client: Melhor a gente não se falar hoje Client: Você prometeu e não cumpriu de novo Agent: Calma, deixa eu te explicar Client: Não quero nem imaginar como vai ser da próxima vez Metadata: { \"chatId\": \"5521900000002@c.us\", \"messageCount\": 0, \"summaryCount\": 0, \"createdAt\": 1794243548408, \"updatedAt\": 1794243548408 } --- # Message Analysis Intent: comp",
+            "nMsgs": 6
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 404,
+        "ms": 96,
+        "error": "fail",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "llama-3.3-70b-versatile",
+            "status": 404,
+            "ms": 90,
+            "erro": "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+            "exception": "Request failed with status code 404"
+          }
+        ]
+      }
+    },
+    "loja_controle": {
+      "lastUserMsg": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+      "metodo0": {
+        "status": 200,
+        "ms": 1429,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Preciso verificar essa informação sobre preços e fidelidade do plano. Posso te encaminhar para um atendente que pode te ajudar com todos os detalhes?",
+        "intent": "pricing",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1419,
+            "reply": "Preciso verificar essa informação sobre preços e fidelidade do plano. Posso te encaminhar para um atendente que pode te ajudar com todos os detalhes?",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: fechar_venda ## 🎯 OBJETIVO DA RESPOSTA: FECHAR VENDA O cliente está próximo de tomar uma decisão. Sua missão é remover obstáculos e conduzir ao fechamento. - Confirme os benefícios mais relevantes para a necessidade dele - Remova objeções de forma proativa e segura - Facilite o próximo passo (pagamento, assinatura, agendamento) - Use linguagem de ação: \"Posso confirmar agora\", \"É só...\" - Termine com uma pergunta ou CTA direto para fechar ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia moderada Responda com ENERGIA MODERADA: - Tom equilibrado entre informativo e engajante - Complete a resposta com uma abertura natural para continuar - Não arraste, mas não corte a conversa ## 🎙️ Communication Style: Perfil neutro Tom profissional padrão — adapte à conversa conforme ela se desenvolve. ## 🔄 Style Variation Continue variando o estilo naturalmente — está funcionando bem. --- # Client Context Stage: cold Lembretes sobre o cliente (use com naturalidade, não repita de forma robótica): - saber do plano para clínica odontológica Recent Conversation: Client: Boa tarde! Vi o anúncio de vocês no Instagram Agent: Boa tarde! Que bom que chamou 😊 Como posso ajudar? Client: Queria saber do plano para clínica odontológica Agent: Temos o plano Pro, ideal para clínicas. Quantos dentistas ate",
+            "nMsgs": 7
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 404,
+        "ms": 100,
+        "error": "fail",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "llama-3.3-70b-versatile",
+            "status": 404,
+            "ms": 93,
+            "erro": "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+            "exception": "Request failed with status code 404"
+          }
+        ]
+      }
+    }
+  }
+}

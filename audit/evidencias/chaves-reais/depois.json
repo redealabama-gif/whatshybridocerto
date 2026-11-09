@@ -1,0 +1,204 @@
+{
+  "tag": "depois",
+  "generatedAt": "2026-11-09T17:44:28.142Z",
+  "backend": "http://127.0.0.1:3000",
+  "extTimeoutMs": 30000,
+  "scenarios": {
+    "compra_rastreio": {
+      "lastUserMsg": "Esse rastreio é da transportadora Jet",
+      "metodo0": {
+        "status": 200,
+        "ms": 3586,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Valeu pela informação! E como costuma ser o prazo com a Jet? Tem alguma diferença em relação a outras transportadoras?",
+        "intent": "information",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1637,
+            "reply": "{ \"intent\": \"information\", \"confidence\": 0.3, \"reasoning\": \"A mensagem fornece uma informação sobre o rastreio relacionado à transportadora jet, mas não é uma solicitação de informação.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1064,
+            "reply": "Show! Valeu pela info. Vou ficar atento ao rastreio e ao prazo. Se precisar de mais alguma coisa, só avisar!",
+            "system": "# Papel Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens \"assistant\" são dele; \"user\" são do contato. - Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor. - Se ele pergunta do pedido, da compra ou do rastreio DELE (\"meu pedido\", \"o que eu comprei\"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja. - Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de \"resolver a situação\", \"garantir sua experiência\", \"estou aqui para ajudar\". - Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos). - Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa. - Evite frases de atendimento genéricas (\"Em que posso ser útil?\", \"Estou à disposição\", \"Posso ajudar com mais alguma informação?\", \"Pode me dar mais detalhes?\", \"Se precisar de algo...\"). - As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele. Idioma: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor ",
+            "nMsgs": 10
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 863,
+            "reply": "Valeu pela informação! E como costuma ser o prazo com a Jet? Tem alguma diferença em relação a outras transportadoras?",
+            "system": "# Papel Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens \"assistant\" são dele; \"user\" são do contato. - Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor. - Se ele pergunta do pedido, da compra ou do rastreio DELE (\"meu pedido\", \"o que eu comprei\"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja. - Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de \"resolver a situação\", \"garantir sua experiência\", \"estou aqui para ajudar\". - Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos). - Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa. - Evite frases de atendimento genéricas (\"Em que posso ser útil?\", \"Estou à disposição\", \"Posso ajudar com mais alguma informação?\", \"Pode me dar mais detalhes?\", \"Se precisar de algo...\"). - As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele. Idioma: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor ",
+            "nMsgs": 10
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 200,
+        "ms": 781,
+        "text": "Obrigado! Vou acompanhar o rastreio. Qualquer novidade me avisa.",
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "openai/gpt-oss-120b",
+            "status": 200,
+            "ms": 775
+          }
+        ]
+      }
+    },
+    "colega_trabalho": {
+      "lastUserMsg": "Vão dizer que é assunto da outra unidade",
+      "metodo0": {
+        "status": 200,
+        "ms": 2171,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Entendi, é que preciso de uma informação específica e não tô conseguindo por aqui. Se tiver algum jeito de me ajudar com um contato, seria ótimo!",
+        "intent": "information",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 80,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1124,
+            "reply": "{ \"intent\": \"information\", \"confidence\": 0.3, \"reasoning\": \"A mensagem sugere que a pessoa está comentando sobre um assunto que pode ser considerado de outra unidade, o que indica uma busca por informações ou esclarecimentos sobre o tema.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1032,
+            "reply": "Entendi, é que preciso de uma informação específica e não tô conseguindo por aqui. Se tiver algum jeito de me ajudar com um contato, seria ótimo!",
+            "system": "# Papel Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens \"assistant\" são dele; \"user\" são do contato. - Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor. - Se ele pergunta do pedido, da compra ou do rastreio DELE (\"meu pedido\", \"o que eu comprei\"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja. - Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de \"resolver a situação\", \"garantir sua experiência\", \"estou aqui para ajudar\". - Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos). - Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa. - Evite frases de atendimento genéricas (\"Em que posso ser útil?\", \"Estou à disposição\", \"Posso ajudar com mais alguma informação?\", \"Pode me dar mais detalhes?\", \"Se precisar de algo...\"). - As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele. Idioma: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor ",
+            "nMsgs": 6
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 200,
+        "ms": 584,
+        "text": "É sobre a transferência de um colaborador que está pedindo documentação. Preciso mesmo de alguém que possa confirmar os procedimentos, porque lá parece que não têm acesso ao histórico. Você teria algum contato direto ou poderia me indicar alguém que realmente possa ajudar?",
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "openai/gpt-oss-120b",
+            "status": 200,
+            "ms": 578
+          }
+        ]
+      }
+    },
+    "pessoal_tensa": {
+      "lastUserMsg": "A conclusão é que você vai fazer de novo e pior",
+      "metodo0": {
+        "status": 200,
+        "ms": 1941,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Eu entendo sua frustração e peço desculpas por isso. Eu realmente quero corrigir essa situação e garantir que você fique satisfeito. Vamos conversar sobre como posso resolver isso pra você?",
+        "intent": "complaint",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 971,
+            "reply": "{ \"intent\": \"complaint\", \"confidence\": 0.85, \"reasoning\": \"A mensagem expressa uma insatisfação ou crítica em relação a uma ação que será repetida, sugerindo que será pior do que antes.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 958,
+            "reply": "Eu entendo sua frustração e peço desculpas por isso. Eu realmente quero corrigir essa situação e garantir que você fique satisfeito. Vamos conversar sobre como posso resolver isso pra você?",
+            "system": "# Papel Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens \"assistant\" são dele; \"user\" são do contato. - Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor. - Se ele pergunta do pedido, da compra ou do rastreio DELE (\"meu pedido\", \"o que eu comprei\"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja. - Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de \"resolver a situação\", \"garantir sua experiência\", \"estou aqui para ajudar\". - Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos). - Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa. - Evite frases de atendimento genéricas (\"Em que posso ser útil?\", \"Estou à disposição\", \"Posso ajudar com mais alguma informação?\", \"Pode me dar mais detalhes?\", \"Se precisar de algo...\"). - As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele. Idioma: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: responder_duvida ## 💡 OBJETIVO DA RESPOSTA: RESOLVER DÚVIDA O cliente precisa de clareza. Sua missão é responder de forma precisa e abrir caminho para a próxima etapa. - Vá direto ao ponto — responda a dúvida completamente - Use informações verificadas da base de conhecimento - Se relevante, conecte a resposta ao próximo passo natural - Tom: profissional, claro, confiante - Evite respostas genéricas ou incompletas ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. O cliente está irritado/frustrado. Reconheça o incômodo com sinceridade, peça desculpas se fizer sentido e vá DIRETO à solução. Tom calmo, humano e resolutivo. Evite jargão de vendas, respostas longas ou defensivas. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais ",
+            "nMsgs": 6
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 200,
+        "ms": 666,
+        "text": "Desculpa mesmo, reconheço que falhei. Vou fazer o possível para corrigir isso agora e garantir que não se repita.",
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "openai/gpt-oss-120b",
+            "status": 200,
+            "ms": 660
+          }
+        ]
+      }
+    },
+    "loja_controle": {
+      "lastUserMsg": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+      "metodo0": {
+        "status": 200,
+        "ms": 811,
+        "dentroDoTimeoutDaExtensao": true,
+        "success": true,
+        "response": "Vou confirmar as informações sobre o preço e a fidelidade do plano Pro para vocês. Um momento!",
+        "intent": "pricing",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 80,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 802,
+            "reply": "Vou confirmar as informações sobre o preço e a fidelidade do plano Pro para vocês. Um momento!",
+            "system": "# Papel Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens \"assistant\" são dele; \"user\" são do contato. - Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor. - Se ele pergunta do pedido, da compra ou do rastreio DELE (\"meu pedido\", \"o que eu comprei\"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja. - Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de \"resolver a situação\", \"garantir sua experiência\", \"estou aqui para ajudar\". - Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos). - Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa. - Evite frases de atendimento genéricas (\"Em que posso ser útil?\", \"Estou à disposição\", \"Posso ajudar com mais alguma informação?\", \"Pode me dar mais detalhes?\", \"Se precisar de algo...\"). - As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele. Idioma: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: fechar_venda ## 🎯 OBJETIVO DA RESPOSTA: FECHAR VENDA O cliente está próximo de tomar uma decisão. Sua missão é remover obstáculos e conduzir ao fechamento. - Confirme os benefícios mais relevantes para a necessidade dele - Remova objeções de forma proativa e segura - Facilite o próximo passo (pagamento, assinatura, agendamento) - Use linguagem de ação: \"Posso confirmar agora\", \"É só...\" - Termine com uma pergunta ou CTA direto para fechar ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Respon",
+            "nMsgs": 7
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 200,
+        "ms": 518,
+        "text": "Vou verificar o valor mensal para 3 dentistas e 2 recepcionistas e confirmar se há algum período de fidelidade. Já retorno em breve!",
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "openai/gpt-oss-120b",
+            "status": 200,
+            "ms": 510
+          }
+        ]
+      }
+    }
+  }
+}

@@ -96,10 +96,18 @@ services:
       # crash-loop no primeiro deploy (provado em simulação). O :? falha já
       # no `docker compose up` com mensagem clara, em vez de loop silencioso.
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required (>=16 chars)}
+      # Kill switch da IA (POST /api/v1/admin/kill-switch/set): em produção a
+      # chave padrão é recusada e, sem esta variável, a rota responde 503 —
+      # não haveria como desligar a IA nem o autopilot. Sem valor padrão aqui
+      # de propósito: um padrão no compose seria uma chave pública.
+      - ADMIN_KILL_SWITCH_KEY=${ADMIN_KILL_SWITCH_KEY:-}
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # IA-41: modelos da Groq (vazio = padrão do código); a Groq desativa modelos.
+      - GROQ_MODEL=${GROQ_MODEL:-}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-}
       - DB_PATH=/app/data/whatshybrid.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ORCHESTRATOR_MAX_TENANTS=${ORCHESTRATOR_MAX_TENANTS:-200}
@@ -198,6 +206,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # IA-41: modelos da Groq (vazio = padrão do código); a Groq desativa modelos.
+      - GROQ_MODEL=${GROQ_MODEL:-}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-}
       - DB_PATH=/app/data/whatshybrid.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}

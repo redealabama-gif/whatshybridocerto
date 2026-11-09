@@ -420,6 +420,7 @@ Todas as saídas estão em `audit/evidencias/fase2/`:
 | IA-02 | ✅ | 00ddf06 | `ext/tests/unit/autopilot-faq-guard.test.js` | 0/2 → 2/2 |
 | IA-03 | ✅ | f38d2e0 | `be/tests/unit/intent-classifier-regex.spec.js` + `autopilot-guard-factual.spec.js`; `ext/tests/unit/confidence-greeting.test.js` | 3/15 → 15/15; 1/2 → 2/2 |
 | IA-04 | ✅ | b196b34 | `be/tests/integration/kill-switch.routes.spec.js`; `ext/tests/unit/autopilot-kill-switch.test.js` | 1/6 → 6/6; 0/3 → 4/4 |
+| IA-04 (deploy) | ✅ depois do merge (11.8) | 4fd2642 | `be/tests/unit/deploy-killswitch-key.spec.js`; controle em `kill-switch.routes.spec.js` | 0/3 → 3/3; `docker compose config`: chave ausente no container → presente |
 | IA-05 | ✅ | 918aee0 | `ext/tests/unit/autopilot-multi-tab.test.js` | 2 envios (1/2) → 1 envio (3/3) |
 | IA-06 | ✅ | 943611d | `ext/tests/unit/suggestion-context-dom.test.js` | 1 mensagem (1/6) → 6/6 |
 | IA-07 | ✅ | 60f2ac7 | `be/tests/unit/safety-filter-business-pii.spec.js` | 3/5 → 5/5 |
@@ -535,3 +536,67 @@ Logs em `audit/evidencias/baseline-depois/`. Os bundles foram gerados com `npm r
 - **Commits do backend:** feitos sem o hook do repositório (`--no-verify`), por decisão sua, para o diff ficar mínimo. O `eslint` foi rodado à mão: 0 erros e os mesmos avisos de antes, arquivo por arquivo.
 - **DOM real:** as correções de contexto usam `[data-id]` e ícones de entrega, validados no harness com o formato do seu diagnóstico. A sugestão tenta primeiro a Store do WhatsApp pela ponte da página. Confirmar no seu WhatsApp com o comando da seção 9 continua recomendado.
 - **Modelo real:** o GPT/Groq real não foi chamado. Está provado o que chega ao modelo; a qualidade do texto gerado pelo modelo real é NÃO VERIFICADA.
+
+### 11.8 Ajuste depois do merge (PR #313): chave do kill switch no deploy Docker
+
+- **Lacuna:** IA-04 passou a recusar, em produção, a chave padrão `CHANGE_ME_IN_PRODUCTION` (`be/src/routes/admin-killswitch.js:34-38`); sem `ADMIN_KILL_SWITCH_KEY`, `POST /api/v1/admin/kill-switch/set` responde 503 (`:160-162`). O `docker-compose.yml` só entrega ao container as variáveis que lista, e essa não estava na lista. Com `.env` de teste contendo a chave, `docker compose config` mostrava o backend em `NODE_ENV=production` **sem** ela (`audit/evidencias/fase2/IA-04-deploy-compose-antes.txt`): no deploy Docker não havia como ligar o kill switch.
+- **Correção (4fd2642):** o compose repassa `ADMIN_KILL_SWITCH_KEY=${ADMIN_KILL_SWITCH_KEY:-}` ao backend (sem valor padrão); os dois `.env.example` documentam a variável vazia; o `install.sh` gera uma chave aleatória no `.env` novo.
+- **Prova:** `be/tests/unit/deploy-killswitch-key.spec.js` 0/3 → 3/3 (`IA-04-deploy-antes.txt`, `IA-04-deploy-depois.txt`). O compose real entrega a chave ao container; o trecho do `install.sh` que cria o `.env` foi executado numa pasta temporária e a chave gerada (64 hex) chega ao backend (`IA-04-deploy-compose-depois.txt`). Controle: em produção, com a chave configurada, o admin liga o kill switch e `/process` responde 503 sem chamar o orquestrador (`kill-switch.routes.spec.js`, 7/7).
+- **Servidor que já existe:** o `install.sh` só gera o `.env` novo. Num `.env` existente, acrescente `ADMIN_KILL_SWITCH_KEY=` com o valor de `openssl rand -hex 32` e rode `./deploy/scripts/deploy.sh`. Sem isso, o kill switch segue respondendo 503 "ADMIN_KILL_SWITCH_KEY não configurada".
+
+## 12. Fase 3 — diagnóstico com as chaves reais (2026-11-09)
+
+Depois do merge do PR #313, o teste no WhatsApp real continuou mostrando sugestões genéricas ("Ok! Em que posso ser útil?", "Certo! Pode me dar mais detalhes?"). O usuário autorizou o uso das chaves dele (OpenAI e Groq) para o diagnóstico. As chaves e as conversas reais ficaram **fora do repositório**: as evidências abaixo usam conversas sintéticas que reproduzem as mesmas situações (o dono da conta como comprador recebendo rastreio, colega de trabalho, conversa pessoal tensa e um controle de loja). Harness: `audit/harness/start-backend-real.sh`, `log-fetch.js`, `real-provider-check.js`, `real-sampling.js` e `extension-e2e.js` (modo IA real).
+
+Chaves: a da OpenAI responde e tem crédito (HTTP 200). A primeira da Groq foi desativada pelo usuário; a nova responde, mas a conta tem limite de 8.000 tokens por minuto (429 depois de 3–4 sugestões por minuto — `IA-41-groq-modelos.txt` e o log da avaliação).
+
+### 12.1 Causas encontradas
+
+| ID | Prior. | Achado | Prova |
+|---|---|---|---|
+| IA-39 | P0 | Com o backend conectado e a IA do servidor falhando (MÉTODOS 0 e 3), o popup mostrava uma frase de `DEFAULT_RESPONSES` (`ext/modules/smart-suggestions.js:164-169`) como se fosse a sugestão — o comentário em `ai-suggestion-fixed.js` dizia "só sem backend nem providers", mas a condição não checava. O filtro de segurança local também trocava a sugestão do servidor (ex.: telefone da loja, liberado no backend pelo IA-07) por frase pronta | `fase3/ext-suggestion-no-canned-backend-antes.txt` |
+| IA-40 | P0 | Redis ligado (padrão do compose) e `ai-worker` parado: `/api/v2/ai/process` esperava a fila por até 45 s (`AI_QUEUE_WAIT_MS`) antes do caminho síncrono; a extensão desiste em 30 s → frase pronta | Redis + backend real: **48,3 s** (`chaves-reais/fila-sem-worker-antes.md`) |
+| IA-41 | P0 | A Groq desativou os modelos fixos no código (`llama-3.3-70b-versatile` e outros: 404/400). Em `/api/v1/ai/complete` (MÉTODO 3) a cadeia começa pela Groq e 404/401 abortavam sem tentar a OpenAI. Os modelos atuais da Groq são de raciocínio: com limite baixo de tokens o texto volta vazio | `fase3/IA-41-groq-modelos.txt`; MÉTODO 3 = 404 em 4/4 (`chaves-reais/antes.md`) |
+| IA-42 | P1 | Com o LLM respondendo, o texto saía com voz de atendente de loja e invertia papéis: identidade "You are a professional customer service assistant", diretivas comerciais em qualquer conversa, resumo com "Client:", CTA obrigatória no verificador de qualidade; o MÉTODO 3 da extensão usava "Você é um atendente humano" | `fase3/IA-42-real-antes-openai.txt` |
+| IA-43 | P1 | Uma geração travada na OpenAI consumiu o prazo inteiro (abortada aos 23,5 s de 25 s) e a Groq nem foi tentada | rodada intermediária, cenário colega_trabalho |
+| IA-14 | P2 | O A/B colava "Posso te ajudar com mais alguma informação?" (apareceu como fim de sugestão numa conversa pessoal real) — decisão que estava pendente, resolvida pelo pedido do usuário | `fase3/IA-14-antes.txt` |
+
+### 12.2 Achado × commit × teste
+
+| ID | Commit | Teste de regressão | Antes → depois |
+|---|---|---|---|
+| diagnóstico | 4355e0e | harness com chaves reais | — |
+| IA-40 | caed80e | `be/tests/integration/ai-process-queue.routes.spec.js` | 1/3 (4 s esperando a fila) → 3/3 (44 ms e 310 ms) |
+| IA-41 | b5913a7 | `be/tests/unit/groq-models.spec.js`, `be/tests/integration/ai-complete-fallback.routes.spec.js` | 0/7 → 7/7 |
+| IA-43 | fb77e59 | `be/tests/unit/airouter-fallback-reserve.spec.js` | 0/1 (falha aos 6 s, reserva não tentado) → 1/1 (reserva responde aos 4 s) |
+| IA-42 | 0f11880 | `be/tests/unit/prompt-papel-conversa.spec.js` | 0/6 → 6/6 |
+| IA-14 | 41c19be | `be/tests/unit/ab-variant-text.spec.js` | 1/3 → 3/3 |
+| IA-39 | 930e2ad | `ext/tests/unit/suggestion-no-canned-backend.test.js` | 1/3 → 3/3 |
+| IA-42 (ext.) | afc7060 | `ext/tests/unit/suggestion-metodo3-papel.test.js` | 0/2 → 2/2 |
+
+### 12.3 Antes × depois com as chaves reais
+
+| Medida | Antes | Depois | Evidência |
+|---|---|---|---|
+| Popup com a IA do servidor falhando | frase pronta disfarçada | erro com o motivo e "Tentar Novamente" | `fase3/ext-suggestion-no-canned-backend-*.txt` |
+| Fila sem `ai-worker` (Redis real) | 48,3 s | 2,7 s (log: "fila de IA sem worker ativo") | `chaves-reais/fila-sem-worker-*.md` |
+| MÉTODO 3 (`/api/v1/ai/complete`) | 404 em 4/4 | 200 em 4/4, sem preço inventado | `chaves-reais/antes.md`, `depois.md` |
+| Caminho principal, gpt-4o-mini, 3 amostras × 4 conversas | compra 3/3 genéricas, com fatos inventados ("a Jet é conhecida por sua eficiência") e voz de loja; colega e pessoal com voz de SAC; loja 3/3 "vou confirmar" | compra 3/3 como comprador (1 fecho genérico, 1 palpite sobre a transportadora); colega 2/3 no papel certo; pessoal 3/3 em primeira pessoa; loja 3/3 "vou confirmar" | `fase3/IA-42-real-*.txt` |
+| Extensão real no Chromium + backend + OpenAI | — | "O plano Pro para clínicas custa R$ 189/mês para até 5 usuários, sem fidelidade..." — da FAQ treinada, 6 mensagens de histórico | `fase3/50-extensao-e2e-atual-chaves-reais.json` |
+| Testes | backend 188, extensão 108 | backend 208, extensão 113, zero-dep 11/11 | — |
+
+### 12.4 O que fazer no servidor
+
+1. Deploy do backend: quase todas as correções desta fase são do backend (IA-40, IA-41, IA-42, IA-43, IA-14).
+2. Conferir o `ai-worker` (`docker compose ps ai-worker`, `docker compose logs --tail 50 ai-worker`). Com o IA-40 um worker parado não trava mais a sugestão, mas o log do backend avisa "fila de IA sem worker ativo".
+3. Trocar no `.env` a `GROQ_API_KEY` desativada pela nova. `GROQ_MODEL`/`GROQ_FAST_MODEL` vazios usam `openai/gpt-oss-120b`/`openai/gpt-oss-20b`.
+4. Extensão: atualizar e recarregar (IA-39 e MÉTODO 3 estão no `dist/`).
+
+### 12.5 Limites e pendências
+
+- O gpt-4o-mini ainda escorrega às vezes (palpite sobre a transportadora, fecho genérico, papel invertido em conversa ambígua). Um modelo maior melhora isso, mas custa mais: o `OpenAIProvider` fixa `gpt-4o-mini` e ignora o `AI_DEFAULT_MODEL` do `.env`; consertar a leitura trocaria o modelo de todos para o padrão do config (`gpt-4o`, cerca de 16× o custo) — decisão do usuário.
+- Groq com 8.000 tokens por minuto: como reserva serve; como principal, não aguenta volume.
+- Extensão: os modelos Groq locais (`ai-service.js`, `ai-gateway.js`, `api-config.js`) seguem os antigos, mas esse caminho está desligado (`FORCE_BACKEND`; `addApiKey` recusa chaves de LLM).
+- `CostLoggerService`/`metrics.js` não têm preço para os modelos novos da Groq (custo registrado aproximado).
+- NÃO VERIFICADO: o servidor de produção do usuário (versão em execução, estado do `ai-worker`, chaves no `.env`) — não acessível daqui.
+- Pendências anteriores sem mudança: IA-17, IA-18, remoções da seção 5 e P3.

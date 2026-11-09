@@ -1,0 +1,20 @@
+# Groq com a chave real do usuário — 2026-11-09T17:05:30Z
+## GET /openai/v1/models
+['allam-2-7b', 'canopylabs/orpheus-arabic-saudi', 'canopylabs/orpheus-v1-english', 'meta-llama/llama-prompt-guard-2-22m', 'meta-llama/llama-prompt-guard-2-86m', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'openai/gpt-oss-safeguard-20b', 'qwen/qwen3.8-27b', 'whisper-large-v3', 'whisper-large-v3-turbo']
+
+## Modelos que o backend pedia
+llama-3.3-70b-versatile    HTTP 404
+llama-3.1-8b-instant       HTTP 404
+llama3-8b-8192             HTTP 400
+mixtral-8x7b-32768         HTTP 400
+
+## Modelos atuais com prompt de sugestão (350 tokens) e de classificação (100 tokens)
+openai/gpt-oss-120b    max=350  {}                         HTTP 200 1307ms finish=length tokens=350 content="Não consigo acessar o sistema da Jet para consultar o status em tempo real, mas você pode verificar o andament"
+openai/gpt-oss-120b    max=350  {"reasoning_effort":"low"} HTTP 200 612ms finish=stop tokens=123 content="Oi! Acabei de consultar o rastreio **PX123456789BR** na Jet. No momento o status está como **“Em trânsito – sa"
+openai/gpt-oss-120b    max=100  {}                         HTTP 200 550ms finish=length tokens=100 content=""
+openai/gpt-oss-20b     max=350  {}                         HTTP 200 749ms finish=length tokens=350 content=""
+openai/gpt-oss-20b     max=350  {"reasoning_effort":"low"} HTTP 200 782ms finish=stop tokens=53 content="Oi! Ainda não recebi nenhuma confirmação da Jet, mas vou verificar agora e te aviso assim que tiver mais infor"
+openai/gpt-oss-20b     max=100  {}                         HTTP 200 380ms finish=length tokens=100 content=""
+qwen/qwen3.8-27b       max=350  {}                         HTTP 200 193ms finish=stop tokens=1 content=""
+qwen/qwen3.8-27b       max=350  {"reasoning_effort":"low"} HTTP 200 508ms finish=stop tokens=106 content="Ah, J&T. Vou ficar de olho no site deles pra ver quando atualiza o status."
+qwen/qwen3.8-27b       max=100  {}                         HTTP 200 860ms finish=stop tokens=13 content="{\"intent\":\"pricing\",\"confidence\":0.98}"

@@ -1,0 +1,15 @@
+$ docker compose --env-file compose-teste.env config --format json  (o .env de teste TEM ADMIN_KILL_SWITCH_KEY=chave-de-teste-local-nao-real-0001)
+serviço backend — NODE_ENV = production
+serviço backend — ADMIN_KILL_SWITCH_KEY = 'chave-de-teste-local-nao-real-0001'
+
+$ (sem a variável no .env) — vazia: o backend em produção recusa e /set responde 503, como antes
+serviço backend — NODE_ENV = production
+serviço backend — ADMIN_KILL_SWITCH_KEY = ''
+
+$ trecho do install.sh que cria o .env (cp do template → geração dos segredos), rodado numa pasta temporária:
+  .env gerado: ADMIN_KILL_SWITCH_KEY com 64 caracteres hex: sim (valor não registrado aqui)
+  (o template de origem traz: ADMIN_KILL_SWITCH_KEY=)
+
+$ passo manual do operador (o install.sh pede): DOMAIN e LETSENCRYPT_EMAIL — valores de teste
+$ docker compose --env-file <.env gerado pelo install.sh> config — a chave gerada chega ao backend?
+  backend NODE_ENV = production | recebe ADMIN_KILL_SWITCH_KEY igual à gerada: True

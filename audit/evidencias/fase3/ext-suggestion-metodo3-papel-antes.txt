@@ -1,0 +1,25 @@
+• suggestion-metodo3-papel.test.js
+  ✗ IA-42: MÉTODO 3 pede a próxima mensagem do dono da conta, com "Eu"/"Contato"
+      The input was expected to not match the regular expression /atendente humano/i. Input:
+
+'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.'
+
+  ✗ IA-42: resposta do MÉTODO 3 que repete o rótulo ("Eu: ...") aparece sem ele
+      The input was expected to not match the regular expression /Eu: Obrigado/. Input:
+
+'\n' +
+  '      <div class="whl-ai-suggestion" id="whl-ai-sug-text">\n' +
+  '        Eu: Obrigado! Vou acompanhar o rastreio na Jet.\n' +
+  '      </div>\n' +
+  '      <div class="whl-ai-actions" style="display:flex;gap:6px;margin-top:10px;">\n' +
+  '        <button id="whl-ai-sug-edit" class="whl-ai-btn3d whl-ai-btn-edit">✏️ Editar</button>\n' +
+  '        <button id="whl-ai-sug-reject" class="whl-ai-btn3d whl-ai-btn-reject">❌ Reprovar</button>\n' +
+  '        <button id="whl-ai-sug-approve" class="whl-ai-btn3d whl-ai-btn-approve">✅ Aprovar</button>\n' +
+  '      </div>\n' +
+  '      <div class="whl-ai-hint" style="margin-top:6px;font-size:11px;opacity:0.6;">\n' +
+  '        Editar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta\n' +
+  '      </div>\n' +
+  '    '
+
+
+  0 passou, 2 falhou (2 no total)

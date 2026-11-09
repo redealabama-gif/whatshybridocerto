@@ -1,0 +1,10 @@
+PASS tests/unit/deploy-killswitch-key.spec.js
+  ✓ docker-compose.yml: o container do backend recebe ADMIN_KILL_SWITCH_KEY (4 ms)
+  ✓ .env.example (raiz e backend) trazem ADMIN_KILL_SWITCH_KEY vazia (2 ms)
+  ✓ install.sh gera ADMIN_KILL_SWITCH_KEY aleatória no .env novo (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        0.215 s, estimated 1 s
+Ran all test suites matching /tests\/unit\/deploy-killswitch-key.spec.js/i.

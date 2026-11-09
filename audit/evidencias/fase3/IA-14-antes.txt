@@ -1,0 +1,52 @@
+  console.log
+    {"level":"info","message":"[DB] Driver: SQLite (better-sqlite3)","timestamp":"2026-11-09T17:19:42.139Z"}
+
+      at Logger.log [as info] (src/utils/logger.js:147:13)
+
+FAIL tests/unit/ab-variant-text.spec.js
+  ✕ variant_b: não cola "Posso te ajudar com mais alguma informação?" (7 ms)
+  ✕ variant_a: não corta o começo da mensagem
+  ✓ controle: default devolve o texto do modelo
+
+  ● variant_b: não cola "Posso te ajudar com mais alguma informação?"
+
+    expect(received).resolves.toBe(expected) // Object.is equality
+
+    Expected: "Beleza, vou acompanhar pela Jet. Valeu!"
+    Received: "Beleza, vou acompanhar pela Jet. Valeu! Posso te ajudar com mais alguma informação?"
+
+      30 |
+      31 | test('variant_b: não cola "Posso te ajudar com mais alguma informação?"', async () => {
+    > 32 |   await expect(generate('variant_b', 'Beleza, vou acompanhar pela Jet. Valeu!')).resolves.toBe('Beleza, vou acompanhar pela Jet. Valeu!');
+         |                                                                                           ^
+      33 | });
+      34 |
+      35 | test('variant_a: não corta o começo da mensagem', async () => {
+
+      at Object.toBe (../node_modules/expect/build/index.js:174:22)
+      at Object.toBe (tests/unit/ab-variant-text.spec.js:32:91)
+
+  ● variant_a: não corta o começo da mensagem
+
+    expect(received).resolves.toBe(expected) // Object.is equality
+
+    Expected: "Oi! Recebi o código, valeu."
+    Received: "Recebi o código, valeu."
+
+      34 |
+      35 | test('variant_a: não corta o começo da mensagem', async () => {
+    > 36 |   await expect(generate('variant_a', 'Oi! Recebi o código, valeu.')).resolves.toBe('Oi! Recebi o código, valeu.');
+         |                                                                               ^
+      37 | });
+      38 |
+      39 | test('controle: default devolve o texto do modelo', async () => {
+
+      at Object.toBe (../node_modules/expect/build/index.js:174:22)
+      at Object.toBe (tests/unit/ab-variant-text.spec.js:36:79)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 1 passed, 3 total
+Snapshots:   0 total
+Time:        0.91 s
+Ran all test suites matching /tests\/unit\/ab-variant-text.spec.js/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

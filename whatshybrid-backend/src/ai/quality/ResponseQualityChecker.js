@@ -32,7 +32,12 @@ const LOW_STAKES_INTENTS = new Set(['greeting', 'goodbye', 'thanks', 'feedback',
 const GENERIC_PATTERNS = [
   /^(claro|certo|ok|tudo\s+bem|entendido|com\s+certeza)[,!.]?\s*$/i,
   /^(olá|oi|bom\s+dia|boa\s+tarde|boa\s+noite)[,!.]?\s*$/i,
-  /posso\s+(te\s+)?ajudar\s+com\s+mais\s+alguma\s+coisa/i,
+  /posso\s+(te\s+)?ajudar\s+com\s+mais\s+alguma\s+(coisa|informação)/i, // IA-42: + "informação"
+  // IA-42: frases de atendimento que viravam a sugestão inteira (popup e LLM).
+  /em\s+que\s+(mais\s+)?posso\s+(ser\s+útil|te\s+ajudar|ajudar)\s*\??\s*$/i,
+  /estou\s+aqui\s+para\s+(te\s+)?ajudar/i,
+  /se\s+(houver|tiver|precisar\s+de)\s+(mais\s+)?(algo|alguma\s+(coisa|informação))/i,
+  /^(certo|ok|entendi|claro)[!.,]?\s*pode\s+me\s+dar\s+mais\s+detalhes\s*\??\s*$/i,
   /qualquer\s+dúvida\s+estou\s+à\s+disposição/i,
   /estou\s+à\s+disposição/i,                            // v10.1: cobre "Claro, estou à disposição"
   /à\s+sua\s+disposição/i,
@@ -179,7 +184,11 @@ class ResponseQualityChecker {
       }
     }
 
-    const passed = issues.length === 0;
+    // IA-42: falta de chamada para ação não reprova sozinha. Exigir CTA em
+    // toda resposta regenerava até conversa pessoal com "conduza o cliente
+    // para o próximo passo" — e a sugestão virava "Se precisar de algo,
+    // estou à disposição". O issue continua registrado nas métricas.
+    const passed = issues.every((i) => i === 'missing_cta');
     const score = Math.max(0, 100 - issues.length * 20);
 
     if (passed) {
@@ -216,9 +225,6 @@ class ResponseQualityChecker {
     }
     if (issues.includes('robotic')) {
       parts.push('- A resposta soa ROBÓTICA. Escreva de forma natural e humana.');
-    }
-    if (issues.includes('missing_cta')) {
-      parts.push(`- Faltou CALL-TO-ACTION. Para o goal "${context.goal}", sempre conduza o cliente para o próximo passo.`);
     }
     if (issues.includes('no_context')) {
       parts.push('- Não utilizou o CONHECIMENTO disponível. Use as informações da empresa na resposta.');
