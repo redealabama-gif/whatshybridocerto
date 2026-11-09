@@ -701,7 +701,10 @@ Diretrizes:
     } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
 
     // Analisar mensagem
-    const analysis = await analyzeMessage(message, chatId);
+    // IA-24 — em segundo plano não chama IA: ninguém exibe essa análise nem as
+    // sugestões geradas aqui (o listener de 'copilot:suggestions' foi removido),
+    // e cada mensagem recebida gastava até 2 chamadas de IA (e crédito).
+    const analysis = await analyzeMessage(message, chatId, { background: true });
 
     // Emitir análise COM a mensagem original para aprendizado
     if (window.EventBus) {
@@ -711,7 +714,7 @@ Diretrizes:
     // Agir baseado no modo
     switch (state.mode) {
       case MODES.SUGGEST.id:
-        await generateSuggestions(chatId, analysis);
+        await generateSuggestions(chatId, analysis, { background: true });
         break;
       // Outros modos foram removidos (não responder automaticamente aqui)
       default:
@@ -733,7 +736,7 @@ Diretrizes:
     return { sanitized };
   }
 
-  async function analyzeMessage(message, chatId) {
+  async function analyzeMessage(message, chatId, options = {}) {
     const { sanitized, error } = sanitizeUserMessage(message);
     if (error) {
       return { error, intent: null, sentiment: null, entities: [], knowledgeMatches: [], context: [], urgency: 0, aiAnalysis: null, originalMessage: '' };
@@ -762,7 +765,7 @@ Diretrizes:
     // Usar IA para análise profunda (se configurada)
     let aiAnalysis = null;
     const configuredProviders = window.AIService?.getConfiguredProviders() || [];
-    if (window.AIService && configuredProviders.length > 0) {
+    if (window.AIService && configuredProviders.length > 0 && !options.background) {
       try {
         aiAnalysis = await deepAnalysis(safeMessage, context);
       } catch (e) {
@@ -2247,13 +2250,13 @@ Diretrizes obrigatórias:
   // ============================================
   // SUGESTÕES
   // ============================================
-  async function generateSuggestions(chatId, analysis) {
+  async function generateSuggestions(chatId, analysis, options = {}) {
     try {
       const suggestions = [];
       
       // FIX: Verificar primeiro se temos providers de IA configurados
       // Se tiver, PRIORIZAR a IA ao invés de templates genéricos
-      const hasConfiguredProviders = window.AIService && 
+      const hasConfiguredProviders = !options.background && window.AIService && 
         typeof window.AIService.getConfiguredProviders === 'function' &&
         window.AIService.getConfiguredProviders().length > 0;
       

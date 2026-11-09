@@ -1,0 +1,5 @@
+• copilot-background-ai.test.js
+  ✓ IA-24: mensagem recebida em segundo plano NÃO chama a IA
+  ✓ IA-24 (controle): pedido explícito de sugestão continua usando a IA
+
+  2 passou, 0 falhou (2 no total)
