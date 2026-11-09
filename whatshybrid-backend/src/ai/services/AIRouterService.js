@@ -472,7 +472,12 @@ class AIRouterService {
 
     // Try primary provider
     try {
-      const result = await provider.complete(messages, callOptions);
+      // IA-11 — teto de tentativas: 1 nova tentativa no principal e 1 tentativa em
+      // cada reserva (eram até 4 em cada um: 500 rápido = custo ×8 só na geração).
+      const result = await provider.complete(messages, {
+        ...callOptions,
+        maxRetries: Number.isInteger(options.maxRetries) ? options.maxRetries : 1,
+      });
       this._recordProviderSuccess(provider.name, tenantId); // v9.2.0
       trackingResult.provider = provider.name;
       trackingResult.model = result.model || options.model || provider.name;
@@ -501,7 +506,8 @@ class AIRouterService {
           
           const result = await fallback.complete(messages, {
             ...callOptions,
-            model: undefined // Use fallback's default model
+            model: undefined, // Use fallback's default model
+            maxRetries: 0, // IA-11
           });
           this._recordProviderSuccess(fallback.name, tenantId); // v9.2.0
 

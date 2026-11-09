@@ -1,0 +1,3 @@
+  ✓ AIRouter: provedores com 500 → no máximo 3 chamadas (1 nova tentativa no principal + 1 no reserva) (1131 ms)
+  ✓ classificador de intenção: LLM com 500 → 1 chamada e cai no regex (11 ms)
+Tests:       2 passed, 2 total

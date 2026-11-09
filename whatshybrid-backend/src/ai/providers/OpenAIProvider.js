@@ -108,7 +108,7 @@ class OpenAIProvider extends BaseProvider {
         }
 
         return res.json();
-      }, this.maxRetries, options.deadline);
+      }, Number.isInteger(options.maxRetries) ? options.maxRetries : this.maxRetries, options.deadline); // IA-11
 
       const latency = Date.now() - startTime;
       this.recordLatency(latency);

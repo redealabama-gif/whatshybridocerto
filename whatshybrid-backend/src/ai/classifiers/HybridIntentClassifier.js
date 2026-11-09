@@ -345,7 +345,7 @@ RESPONDA NO FORMATO JSON:
           { role: 'user', content: prompt }
         ],
         // IA-11 — classificar intenção tem orçamento curto (era 4 × 40 s)
-        { ...this.llmConfig, deadline: Date.now() + 5000 }
+        { ...this.llmConfig, deadline: Date.now() + 5000, maxRetries: 0 }
       );
 
       const content = response.content.trim();
