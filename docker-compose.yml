@@ -96,6 +96,11 @@ services:
       # crash-loop no primeiro deploy (provado em simulação). O :? falha já
       # no `docker compose up` com mensagem clara, em vez de loop silencioso.
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required (>=16 chars)}
+      # Kill switch da IA (POST /api/v1/admin/kill-switch/set): em produção a
+      # chave padrão é recusada e, sem esta variável, a rota responde 503 —
+      # não haveria como desligar a IA nem o autopilot. Sem valor padrão aqui
+      # de propósito: um padrão no compose seria uma chave pública.
+      - ADMIN_KILL_SWITCH_KEY=${ADMIN_KILL_SWITCH_KEY:-}
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}

@@ -1,0 +1,80 @@
+FAIL tests/unit/deploy-killswitch-key.spec.js
+  ✕ docker-compose.yml: o container do backend recebe ADMIN_KILL_SWITCH_KEY (6 ms)
+  ✕ .env.example (raiz e backend) trazem ADMIN_KILL_SWITCH_KEY vazia (5 ms)
+  ✕ install.sh gera ADMIN_KILL_SWITCH_KEY aleatória no .env novo (1 ms)
+
+  ● docker-compose.yml: o container do backend recebe ADMIN_KILL_SWITCH_KEY
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: "ADMIN_KILL_SWITCH_KEY"
+    Received array: ["NODE_ENV", "PORT", "JWT_SECRET", "WEBHOOK_SECRET", "REDIS_URL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "DB_PATH", "LOG_LEVEL", …]
+
+      41 | test('docker-compose.yml: o container do backend recebe ADMIN_KILL_SWITCH_KEY', () => {
+      42 |   const backend = serviceBlock(read('docker-compose.yml'), 'backend');
+    > 43 |   expect(envNames(backend)).toContain('ADMIN_KILL_SWITCH_KEY');
+         |                             ^
+      44 |   // Vem só do .env: um valor padrão no compose seria uma chave pública.
+      45 |   expect(backend).toMatch(/^\s*- ADMIN_KILL_SWITCH_KEY=\$\{ADMIN_KILL_SWITCH_KEY(:-)?\}\s*$/m);
+      46 | });
+
+      at Object.toContain (tests/unit/deploy-killswitch-key.spec.js:43:29)
+
+  ● .env.example (raiz e backend) trazem ADMIN_KILL_SWITCH_KEY vazia
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 1
+
+    - Array [
+    -   "ADMIN_KILL_SWITCH_KEY=",
+    - ]
+    + Array []
+
+      49 |   // Vazia de propósito: o install.sh copia o template para o .env, e um valor
+      50 |   // de exemplo viraria a chave de produção (só CHANGE_ME_IN_PRODUCTION é recusada).
+    > 51 |   expect(assignments(read('.env.example'), 'ADMIN_KILL_SWITCH_KEY')).toEqual(['ADMIN_KILL_SWITCH_KEY=']);
+         |                                                                      ^
+      52 |   expect(assignments(read('whatshybrid-backend/.env.example'), 'ADMIN_KILL_SWITCH_KEY')).toEqual([
+      53 |     'ADMIN_KILL_SWITCH_KEY=',
+      54 |   ]);
+
+      at Object.toEqual (tests/unit/deploy-killswitch-key.spec.js:51:70)
+
+  ● install.sh gera ADMIN_KILL_SWITCH_KEY aleatória no .env novo
+
+    expect(received).toMatch(expected)
+
+    Expected pattern: /^\s*ADMIN_KILL_SWITCH_KEY=\$\(openssl rand -hex 32\)$/m
+    Received string:  "cp .env.example .env·
+        # Gerar JWT_SECRET aleatório forte automaticamente
+        JWT_SECRET=$(openssl rand -hex 32)
+        sed -i \"s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|\" .env·
+        # Gerar WEBHOOK_SECRET aleatório. O template traz um placeholder público
+        # (está no repositório) e o config/index.js só valida o tamanho mínimo:
+        # sem esta troca, a produção subiria com um segredo conhecido.
+        WEBHOOK_SECRET=\"WHK_$(openssl rand -hex 32)\"
+        sed -i \"s|^WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$WEBHOOK_SECRET|\" .env·
+        # Gerar POSTGRES_PASSWORD aleatório. Só é usado se o profile \"postgres\"
+        # for habilitado (ver docker-compose.yml); assim ninguém liga o Postgres
+        # com senha fraca ou vazia.
+        POSTGRES_PASSWORD=$(openssl rand -hex 24)
+        sed -i \"s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|\" .env·
+        "
+
+      57 | test('install.sh gera ADMIN_KILL_SWITCH_KEY aleatória no .env novo', () => {
+      58 |   const block = envSetupBlock(read('deploy/scripts/install.sh'));
+    > 59 |   expect(block).toMatch(/^\s*ADMIN_KILL_SWITCH_KEY=\$\(openssl rand -hex 32\)$/m);
+         |                 ^
+      60 |   expect(block).toContain('sed -i "s|^ADMIN_KILL_SWITCH_KEY=.*|ADMIN_KILL_SWITCH_KEY=$ADMIN_KILL_SWITCH_KEY|" .env');
+      61 | });
+      62 |
+
+      at Object.toMatch (tests/unit/deploy-killswitch-key.spec.js:59:17)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 3 total
+Snapshots:   0 total
+Time:        0.408 s, estimated 1 s
+Ran all test suites matching /tests\/unit\/deploy-killswitch-key.spec.js/i.

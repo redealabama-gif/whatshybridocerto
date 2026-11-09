@@ -125,6 +125,21 @@ describe('IA-04 — chave e persistência', () => {
     }
   });
 
+  // Controle do ajuste de deploy (tests/unit/deploy-killswitch-key.spec.js):
+  // com a chave entregue ao processo, a produção aceita e a IA para.
+  test('controle: produção com ADMIN_KILL_SWITCH_KEY configurada → liga e a IA para', async () => {
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      expect((await setKill({ feature: 'ai', enabled: true })).status).toBe(200);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
+    const res = await processAs(A);
+    expect(res.status).toBe(503);
+    expect(processMessage).not.toHaveBeenCalled();
+  });
+
   test('o estado sobrevive a um restart (nova instância do módulo)', async () => {
     expect((await setKill({ feature: 'ai', enabled: true })).status).toBe(200);
     let freshApp;

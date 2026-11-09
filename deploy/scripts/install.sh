@@ -159,13 +159,18 @@ if [[ ! -f .env ]]; then
     WEBHOOK_SECRET="WHK_$(openssl rand -hex 32)"
     sed -i "s|^WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$WEBHOOK_SECRET|" .env
 
+    # Gerar ADMIN_KILL_SWITCH_KEY aleatória. Em produção o backend recusa a
+    # chave padrão; sem esta, o kill switch da IA não liga (a rota responde 503).
+    ADMIN_KILL_SWITCH_KEY=$(openssl rand -hex 32)
+    sed -i "s|^ADMIN_KILL_SWITCH_KEY=.*|ADMIN_KILL_SWITCH_KEY=$ADMIN_KILL_SWITCH_KEY|" .env
+
     # Gerar POSTGRES_PASSWORD aleatório. Só é usado se o profile "postgres"
     # for habilitado (ver docker-compose.yml); assim ninguém liga o Postgres
     # com senha fraca ou vazia.
     POSTGRES_PASSWORD=$(openssl rand -hex 24)
     sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" .env
 
-    log_ok ".env criado a partir do template com JWT_SECRET, WEBHOOK_SECRET e POSTGRES_PASSWORD aleatórios"
+    log_ok ".env criado a partir do template com JWT_SECRET, WEBHOOK_SECRET, ADMIN_KILL_SWITCH_KEY e POSTGRES_PASSWORD aleatórios"
     log_warn "═════════════════════════════════════════════════════════════════"
     log_warn " AÇÃO MANUAL NECESSÁRIA:"
     log_warn "  Edite $PROJECT_DIR/.env e preencha:"
