@@ -1,0 +1,57 @@
+{
+  "tag": "fila-sem-worker-antes",
+  "generatedAt": "2026-11-09T16:57:35.109Z",
+  "backend": "http://127.0.0.1:3001",
+  "extTimeoutMs": 30000,
+  "scenarios": {
+    "compra_rastreio": {
+      "lastUserMsg": "Esse rastreio é da transportadora Jet",
+      "metodo0": {
+        "status": 200,
+        "ms": 48268,
+        "dentroDoTimeoutDaExtensao": false,
+        "success": true,
+        "response": "Ótimo saber que o rastreio é da transportadora Jet! Eles costumam ser bem eficientes. Assim que você receber o código, será possível acompanhar o status da entrega em tempo real. Isso traz mais tranquilidade, não é mesmo? Se precisar de mais informações ou tiver alguma dúvida sobre o processo, estou aqui para ajudar! Tem algo mais que você gostaria de saber?",
+        "intent": "information",
+        "llmFallback": false,
+        "safetyReplaced": false,
+        "qualityScore": 100,
+        "chamadas": [
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1781,
+            "reply": "{ \"intent\": \"information\", \"confidence\": 0.3, \"reasoning\": \"A mensagem fornece uma informação sobre o rastreio relacionado à transportadora Jet, mas não é uma solicitação de informação direta.\" }",
+            "system": "Você é um classificador de intenções especializado. Responda apenas com JSON válido.",
+            "nMsgs": 2
+          },
+          {
+            "via": "fetch",
+            "model": "gpt-4o-mini",
+            "status": 200,
+            "ms": 1462,
+            "reply": "Ótimo saber que o rastreio é da transportadora Jet! Eles costumam ser bem eficientes. Assim que você receber o código, será possível acompanhar o status da entrega em tempo real. Isso traz mais tranquilidade, não é mesmo? Se precisar de mais informações ou tiver alguma dúvida sobre o processo, estou",
+            "system": "You are a professional customer service assistant. Language: pt-BR --- # Critical Guardrails (NEVER VIOLATE) 1. NEVER invent information or make up data that was not provided 2. NEVER share data or information from other clients 3. NEVER promise prices, deadlines, or deliveries without explicit confirmation 4. If you don't know something, say \"I need to verify this information\" 5. Always respect client privacy and data protection laws --- # Behavioral Directive responseGoal: gerar_interesse ## 🔥 OBJETIVO DA RESPOSTA: GERAR INTERESSE O cliente está em fase de descoberta. Sua missão é criar desejo e avançar o relacionamento. - Destaque benefícios reais e diferenciais (não apenas características) - Use exemplos concretos ou histórias de sucesso quando disponíveis - Desperte curiosidade para a próxima camada de informação - Faça uma pergunta de continuação ao final para manter o diálogo - Tom: empolgante mas honesto, nunca exagerado ## Response Performance Standards - Resolva a dúvida E mantenha a conversa fluindo - Tom natural e humano (nunca robótico) - Direto, sem enrolação — nem curto demais, nem longo demais - Adapte o tom ao estilo da mensagem do cliente - Use o conhecimento da empresa como fonte principal - Evite repetir informações já dadas na conversa - Nunca invente dados — se não souber, diga \"Preciso verificar\" --- # Business Rules (MUST BE FOLLOWED) 1. ## 💼 Commercial Strategy: EXPLORATÓRIA Construa relacionamento e confiança. Sem pressão. Foco em informar e gerar interesse. Termine com CTA SUAVE: convite natural para continuar a conversa. Comprimento: NORMAL — até 4 frases. Equilibrado. Tom: CONVERSACIONAL e próximo, como um consultor amigável. --- # ⚠️ Sem informação específica na base Você NÃO recuperou informação específica da empresa para esta pergunta. - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições). - Se puder ajudar com orientação geral e segura, ajude. - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano. --- # Tom e Abordagem da Resposta Escreva como um humano atencioso numa conversa real: comece reconhecendo brevemente o que a pessoa disse e responda de forma completa e calorosa (em geral 2 a 4 frases). Quando fizer sentido, acrescente um complemento útil ou um próximo passo natural. Use um tom cordial e natural — como uma pessoa falaria, sem soar robótico nem formal demais. Evite respostas secas de uma linha, mas também evite textões. Se o cliente estiver irritado ou com pressa, seja mais enxuto. Antes de responder, pense internamente: (1) o que o cliente realmente quer agora, (2) como ele está se sentindo, (3) qual a melhor próxima ação. Responda APENAS com a mensagem final — natural, humana e proporcional ao momento. NÃO mostre este raciocínio. --- ## 📍 Client Stage: Novo visitante (frio) O cliente ainda não conhece bem os produtos/serviços. - Seja mais explicativo e didático - Apresente contexto e benefícios antes de qualquer proposta - Evite jargões ou assumir conhecimento prévio - Crie curiosidade genuína para avançar o diálogo - Tom: acolhedor, educativo, sem pressão ## 🔋 Response Energy: Energia moderada Responda com ENERGIA MODERADA: - Tom equilibrado entre informativo e engajante - Complete a resposta com uma abertura natural para continuar - Não arraste, mas não corte a conversa ## 🎙️ Communication Style: Perfil neutro Tom profissional padrão — adapte à conversa conforme ela se desenvolve. ## 🔄 Style Variation Continue variando o estilo naturalmente — está funcionando bem. --- # Client Context Recent Conversation: Agent: Beleza, fico no aguardo Agent: O que eu comprei é aquele da foto, de 90mg? Client: Sim Client: PX123456789BR Client: O prazo é de uns 7 dias Metadata: { \"chatId\": \"5521900000000@c.us\", \"messageCount\": 0, \"summaryCount\": 0, \"createdAt\": 1794243500119, \"updatedAt\": 1794243500119 } --- # Message Analysis Intent: information Sentiment: neutral (0.",
+            "nMsgs": 10
+          }
+        ]
+      },
+      "metodo3": {
+        "status": 404,
+        "ms": 463,
+        "error": "fail",
+        "chamadas": [
+          {
+            "via": "axios",
+            "model": "llama-3.3-70b-versatile",
+            "status": 404,
+            "ms": 456,
+            "erro": "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+            "exception": "Request failed with status code 404"
+          }
+        ]
+      }
+    }
+  }
+}
