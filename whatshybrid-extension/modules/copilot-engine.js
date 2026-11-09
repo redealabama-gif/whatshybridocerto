@@ -701,7 +701,10 @@ Diretrizes:
     } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
 
     // Analisar mensagem
-    const analysis = await analyzeMessage(message, chatId);
+    // IA-24 — em segundo plano não chama IA: ninguém exibe essa análise nem as
+    // sugestões geradas aqui (o listener de 'copilot:suggestions' foi removido),
+    // e cada mensagem recebida gastava até 2 chamadas de IA (e crédito).
+    const analysis = await analyzeMessage(message, chatId, { background: true });
 
     // Emitir análise COM a mensagem original para aprendizado
     if (window.EventBus) {
@@ -711,7 +714,7 @@ Diretrizes:
     // Agir baseado no modo
     switch (state.mode) {
       case MODES.SUGGEST.id:
-        await generateSuggestions(chatId, analysis);
+        await generateSuggestions(chatId, analysis, { background: true });
         break;
       // Outros modos foram removidos (não responder automaticamente aqui)
       default:
@@ -733,7 +736,7 @@ Diretrizes:
     return { sanitized };
   }
 
-  async function analyzeMessage(message, chatId) {
+  async function analyzeMessage(message, chatId, options = {}) {
     const { sanitized, error } = sanitizeUserMessage(message);
     if (error) {
       return { error, intent: null, sentiment: null, entities: [], knowledgeMatches: [], context: [], urgency: 0, aiAnalysis: null, originalMessage: '' };
@@ -762,7 +765,7 @@ Diretrizes:
     // Usar IA para análise profunda (se configurada)
     let aiAnalysis = null;
     const configuredProviders = window.AIService?.getConfiguredProviders() || [];
-    if (window.AIService && configuredProviders.length > 0) {
+    if (window.AIService && configuredProviders.length > 0 && !options.background) {
       try {
         aiAnalysis = await deepAnalysis(safeMessage, context);
       } catch (e) {
@@ -1365,10 +1368,23 @@ Diretrizes:
 
     try {
       // ✅ Método mais robusto (WhatsApp atual): rows com data-id true_/false_
-      const rows = Array.from(document.querySelectorAll('#main [data-id^="true_"], #main [data-id^="false_"]'));
+      let rows = Array.from(document.querySelectorAll('#main [data-id^="true_"], #main [data-id^="false_"]'));
+      // IA-21 — WhatsApp atual: data-id é só o id da mensagem (sem true_/false_).
+      // Usa as raízes [data-id] da conversa (um data-id dentro de outro é citação);
+      // a direção sai de isOutgoingRow (ícones de entrega/cauda). Antes caía no
+      // msg-container, que só existe em UM balão: o autopilot mandava ao backend
+      // 1 mensagem de histórico.
+      if (rows.length === 0) {
+        rows = Array.from(document.querySelectorAll('#main [data-id]')).filter((el) => {
+          const id = safe(el.getAttribute('data-id'));
+          if (!/^[0-9A-Za-z]{10,64}$/.test(id) || !/\d/.test(id)) return false;
+          return !(el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]'));
+        });
+      }
       if (rows.length > 0) {
         rows.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-        const windowRows = rows.slice(-Math.max(1, maxMessages));
+        // IA-21 — 0 = todo o histórico (como no caminho da Store); antes virava 1.
+        const windowRows = maxMessages > 0 ? rows.slice(-maxMessages) : rows;
 
         let idx = 0;
         for (const row of windowRows) {
@@ -1416,7 +1432,7 @@ Diretrizes:
           });
         });
         console.log(`[CopilotEngine][CTX] 📜 Fallback msg-container extraidas=${messages.length}`);
-        return messages.slice(-Math.max(1, maxMessages));
+        return maxMessages > 0 ? messages.slice(-maxMessages) : messages;
       }
 
       // Fallback final: classes antigas
@@ -1440,7 +1456,7 @@ Diretrizes:
       console.error('[CopilotEngine] Erro ao extrair mensagens do DOM:', error);
     }
 
-    return messages.slice(-Math.max(1, maxMessages));
+    return maxMessages > 0 ? messages.slice(-maxMessages) : messages;
   }
 
   function clearConversationContext(chatId) {
@@ -1465,7 +1481,8 @@ Diretrizes:
           intent: analysis.intent?.id,
           entities: analysis.entities,
           sentiment: analysis.sentiment?.score,
-          category: analysis.category
+          category: analysis.category,
+          chatId // IA-15
         });
         
         if (cached) {
@@ -1638,7 +1655,8 @@ Diretrizes:
             intent: analysis.intent?.id,
             entities: analysis.entities,
             sentiment: analysis.sentiment?.score,
-            category: analysis.category
+            category: analysis.category,
+            chatId // IA-15
           },
           response,
           confidence
@@ -2232,13 +2250,13 @@ Diretrizes obrigatórias:
   // ============================================
   // SUGESTÕES
   // ============================================
-  async function generateSuggestions(chatId, analysis) {
+  async function generateSuggestions(chatId, analysis, options = {}) {
     try {
       const suggestions = [];
       
       // FIX: Verificar primeiro se temos providers de IA configurados
       // Se tiver, PRIORIZAR a IA ao invés de templates genéricos
-      const hasConfiguredProviders = window.AIService && 
+      const hasConfiguredProviders = !options.background && window.AIService && 
         typeof window.AIService.getConfiguredProviders === 'function' &&
         window.AIService.getConfiguredProviders().length > 0;
       

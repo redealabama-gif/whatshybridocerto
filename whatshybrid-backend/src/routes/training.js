@@ -55,6 +55,17 @@ function preserveOrUuid(rawId) {
   return uuid();
 }
 
+// IA-10 — o id do cliente vira chave primária GLOBAL da tabela. Se outro
+// workspace já usa esse id (ex.: troca de conta no mesmo navegador, ids
+// Date.now() reaproveitados), gera um novo para este workspace em vez de o
+// INSERT falhar e o item se perder. (O DELETE do próprio workspace já rodou,
+// então um dono diferente só pode ser outro workspace.)
+function idForWorkspace(table, rawId, workspaceId) {
+  const id = preserveOrUuid(rawId);
+  const owner = db.get(`SELECT workspace_id FROM ${table} WHERE id = ?`, [id]);
+  return owner && owner.workspace_id !== workspaceId ? uuid() : id;
+}
+
 /**
  * POST /api/v1/training/sync
  * Body: { examples?: [...], faqs?: [...], products?: [...], businessInfo?: {...} }
@@ -75,6 +86,9 @@ router.post('/sync',
     // ── examples → training_examples ──────────────────────────────
     if (Array.isArray(examples)) {
       try {
+        let n = 0;
+        // IA-10: DELETE + INSERTs numa transação — falhou, nada é apagado.
+        db.transaction(() => {
         db.run('DELETE FROM training_examples WHERE workspace_id = ?', [workspaceId]);
         for (const ex of examples) {
           if (!ex || typeof ex !== 'object') continue;
@@ -87,7 +101,7 @@ router.post('/sync',
                (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              preserveOrUuid(ex.id), workspaceId, userId,
+              idForWorkspace('training_examples', ex.id, workspaceId), workspaceId, userId,
               input, output,
               (ex.intent || '').toString().slice(0, 200),
               (ex.category || 'geral').toString().slice(0, 100),
@@ -95,8 +109,10 @@ router.post('/sync',
               Number.isFinite(ex.usageCount) ? ex.usageCount : 0,
             ]
           );
-          stats.examples++;
+          n++;
         }
+        });
+        stats.examples = n;
       } catch (e) {
         errors.push(`examples: ${e.message}`);
         logger.warn(`[training/sync] examples failed: ${e.message}`);
@@ -106,6 +122,8 @@ router.post('/sync',
     // ── faqs → faqs ────────────────────────────────────────────────
     if (Array.isArray(faqs)) {
       try {
+        let n = 0;
+        db.transaction(() => {
         db.run('DELETE FROM faqs WHERE workspace_id = ?', [workspaceId]);
         for (const f of faqs) {
           if (!f || typeof f !== 'object') continue;
@@ -118,14 +136,16 @@ router.post('/sync',
                (id, workspace_id, question, answer, category, keywords, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              preserveOrUuid(f.id), workspaceId,
+              idForWorkspace('faqs', f.id, workspaceId), workspaceId,
               question, answer,
               (f.category || 'general').toString().slice(0, 100),
               JSON.stringify(Array.isArray(f.keywords) ? f.keywords.slice(0, 30) : []),
             ]
           );
-          stats.faqs++;
+          n++;
         }
+        });
+        stats.faqs = n;
       } catch (e) {
         errors.push(`faqs: ${e.message}`);
         logger.warn(`[training/sync] faqs failed: ${e.message}`);
@@ -135,6 +155,8 @@ router.post('/sync',
     // ── products → products ────────────────────────────────────────
     if (Array.isArray(products)) {
       try {
+        let n = 0;
+        db.transaction(() => {
         db.run('DELETE FROM products WHERE workspace_id = ?', [workspaceId]);
         for (const p of products) {
           if (!p || typeof p !== 'object') continue;
@@ -168,7 +190,7 @@ router.post('/sync',
                 created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-              preserveOrUuid(p.id), workspaceId,
+              idForWorkspace('products', p.id, workspaceId), workspaceId,
               name,
               (p.description || '').toString().slice(0, 5000),
               (p.shortDescription || p.short_description || '').toString().slice(0, 500),
@@ -182,8 +204,10 @@ router.post('/sync',
               JSON.stringify(Array.isArray(p.tags) ? p.tags.slice(0, 30) : []),
             ]
           );
-          stats.products++;
+          n++;
         }
+        });
+        stats.products = n;
       } catch (e) {
         errors.push(`products: ${e.message}`);
         logger.warn(`[training/sync] products failed: ${e.message}`);
@@ -228,7 +252,9 @@ router.post('/sync',
 
     logger.info(`[training/sync] workspace=${workspaceId} examples=${stats.examples} faqs=${stats.faqs} products=${stats.products} business=${stats.businessInfo}`);
 
-    res.json({
+    // IA-10: falha em alguma parte → status de erro (antes: 200 com
+    // success:false, e a extensão mostrava "sincronizado").
+    res.status(errors.length ? 500 : 200).json({
       success: errors.length === 0,
       synced: stats,
       errors: errors.length ? errors : undefined,

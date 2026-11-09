@@ -1,0 +1,5 @@
+• confidence-greeting.test.js
+  ✓ IA-03: "Oi, <pedido>" não é saudação simples
+  ✓ IA-03 (controle): cumprimento puro continua saudação simples
+
+  2 passou, 0 falhou (2 no total)

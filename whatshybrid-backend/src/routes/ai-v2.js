@@ -10,6 +10,7 @@ const { authenticate, checkWorkspace } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { aiLimiter } = require('../middleware/rateLimiter');
 const { checkSubscription } = require('../middleware/subscription');
+const { killSwitchGuard, isKilled } = require('./admin-killswitch'); // IA-04
 
 // Aplicar rate limiting específico para IA em todas as rotas
 router.use(aiLimiter);
@@ -80,7 +81,7 @@ router.get('/models', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/complete
  * Chat completion
  */
-router.post('/complete', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
+router.post('/complete', authenticate, checkSubscription('ai_basic'), killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!AIRouter) {
     return res.status(503).json({ error: 'AI Router not available' });
   }
@@ -132,7 +133,7 @@ router.post('/complete', authenticate, checkSubscription('ai_basic'), asyncHandl
  * POST /api/v2/ai/analyze
  * Análise de mensagem (intent, sentiment, entities)
  */
-router.post('/analyze', authenticate, asyncHandler(async (req, res) => {
+router.post('/analyze', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
@@ -165,7 +166,7 @@ router.post('/analyze', authenticate, asyncHandler(async (req, res) => {
  */
 const REPLIES_SUNSET_DATE = 'Sat, 01 Aug 2026 00:00:00 GMT';
 let _repliesDeprecationWarnings = 0;
-router.post('/replies', authenticate, asyncHandler(async (req, res) => {
+router.post('/replies', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   // Aviso programático ao cliente (RFC 8594 + Warning header legado).
   res.set('Deprecation', 'true');
   res.set('Sunset', REPLIES_SUNSET_DATE);
@@ -212,7 +213,7 @@ router.post('/replies', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/score
  * Lead scoring
  */
-router.post('/score', authenticate, asyncHandler(async (req, res) => {
+router.post('/score', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
@@ -231,7 +232,7 @@ router.post('/score', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/summarize
  * Resumo de conversa
  */
-router.post('/summarize', authenticate, asyncHandler(async (req, res) => {
+router.post('/summarize', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
@@ -250,7 +251,7 @@ router.post('/summarize', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/translate
  * Tradução de texto
  */
-router.post('/translate', authenticate, asyncHandler(async (req, res) => {
+router.post('/translate', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
@@ -269,7 +270,7 @@ router.post('/translate', authenticate, asyncHandler(async (req, res) => {
  * POST /api/v2/ai/correct
  * Correção gramatical
  */
-router.post('/correct', authenticate, asyncHandler(async (req, res) => {
+router.post('/correct', authenticate, killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   if (!CopilotEngine) {
     return res.status(503).json({ error: 'Copilot Engine not available' });
   }
@@ -417,7 +418,7 @@ router.get('/knowledge/search', authenticate, asyncHandler(async (req, res) => {
  *   conversa (lidas da tela do WhatsApp pela extensão). Dá ao orquestrador o
  *   contexto anterior à última mensagem. Opcional e sanitizado abaixo.
  */
-router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandler(async (req, res) => {
+router.post('/process', authenticate, checkSubscription('ai_basic'), killSwitchGuard('ai'), asyncHandler(async (req, res) => {
   const { chatId, message, language = 'pt-BR', businessRules, persona, history } = req.body;
   // FIX v9.3.0 BUG CRÍTICO MULTI-TENANT:
   //   Antes: req.user.tenantId (não existe) || req.user.workspaceId (camelCase, não existe — user tem workspace_id snake_case)
@@ -578,6 +579,18 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), asyncHandle
     });
   }
 
+
+  // IA-04 — kill switch do autopilot: a sugestão continua, mas a guarda nega
+  // o envio automático (o autopilot da extensão manda para revisão).
+  if (await isKilled('autopilot', req.user?.id || req.user?.userId)) {
+    result = {
+      ...result,
+      metadata: {
+        ...(result.metadata || {}),
+        autopilot: { allowAutoSend: false, escalate: true, reasons: ['kill_switch'], primaryReason: 'kill_switch', riskTier: 'high', minConfidence: 101 },
+      },
+    };
+  }
 
   res.json({
     ...result,

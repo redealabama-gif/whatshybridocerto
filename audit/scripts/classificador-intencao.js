@@ -8,7 +8,9 @@
 'use strict';
 const path = require('path');
 const fs = require('fs');
-const BE = path.resolve(__dirname, '../../whatshybrid-backend');
+// BE_DIR: outra cópia do backend (antes × depois); TAG grava em fase2/matriz/.
+const BE = process.env.BE_DIR || path.resolve(__dirname, '../../whatshybrid-backend');
+const TAG = process.env.TAG || '';
 const C = require(path.join(BE, 'src/ai/classifiers/HybridIntentClassifier.js'));
 const c = new C({});
 const src = fs.readFileSync(path.join(BE, 'src/ai/classifiers/HybridIntentClassifier.js'), 'utf8');
@@ -34,5 +36,7 @@ for (const [k, m] of MSGS) {
   out.push(`- **${k}**: "${m}" → intent=**${r.intent}** conf=${r.confidence} ${r.confidence > c.confidenceThreshold ? '(LLM NÃO consultado)' : '(vai ao LLM se houver chave)'}`);
   out.push(`  scores (soma de pattern.source.length): ${scores.map((s) => `${s.intent}=${s.score}/${s.matches}m`).join(' · ')}`);
 }
-fs.writeFileSync(path.resolve(__dirname, '../evidencias/23-classificador-intencao.md'), out.join('\n') + '\n');
+const outFile = TAG ? path.resolve(__dirname, `../evidencias/fase2/matriz/23-classificador-intencao-${TAG}.md`) : path.resolve(__dirname, '../evidencias/23-classificador-intencao.md');
+fs.mkdirSync(path.dirname(outFile), { recursive: true });
+fs.writeFileSync(outFile, out.join('\n') + '\n');
 console.log(out.join('\n'));

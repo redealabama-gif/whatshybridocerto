@@ -1,0 +1,23 @@
+• copilot-context-dom.test.js
+  ✗ IA-21: DOM atual → histórico com as 6 mensagens e a direção certa
+      extraiu 1: ["Boa tarde! Vi o anúncio de vocês no Instagram"]
+
+1 !== 6
+
+  ✗ IA-21: sem argumento (0 = todo o histórico) → não fica só com a última
+      extraiu 1
+
+1 !== 6
+
+  ✗ IA-21 (controle): janela menor continua respeitada
+      Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
++   'Boa tarde! Vi o anúncio de vocês no Instagram'
+-   'Somos 3 dentistas e 2 recepcionistas',
+-   'Quanto fica por mês para esse tamanho? E tem fidelidade?'
+  ]
+
+
+  0 passou, 3 falhou (3 no total)

@@ -13,7 +13,9 @@ const path = require('path');
 const DB_PATH = process.argv[2];
 const B = process.argv[3] || 'http://127.0.0.1:3000';
 const F = process.argv[4] || 'http://127.0.0.1:18080';
-const OUT = path.resolve(__dirname, '../evidencias');
+// TAG: grava em audit/evidencias/fase2/matriz/ (antes × depois da Fase 2)
+const TAG = process.env.TAG || '';
+const OUT = TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias');
 const RICH_PREFIX = 'Olá! Que bom que você chamou.';
 const Database = require(path.resolve(__dirname, '../../node_modules/better-sqlite3'));
 
@@ -246,6 +248,21 @@ async function processMsg(token, chatId, message, history = [], extra = {}) {
   say(`- persona no system prompt: ${/vendedor entusiasmado/.test(sp)}`);
   say(`- cliente escreve em inglês (extensão sempre manda language=pt-BR): prompt usa Language=${(sen.match(/Language: ([\w-]+)/) || [])[1]} · intent=${ren.body.metadata?.intent}`);
 
+  // ── S10: dados da própria loja / do próprio cliente na resposta (IA-07) ──
+  say('## S10 — Telefone/e-mail da loja (cadastrados) e nº de pedido do cliente na resposta');
+  await http('POST', `${B}/api/v1/training/sync`, { businessInfo: { name: 'Loja A', phone: '(11) 98765-4321', email: 'contato@lojaa.com.br', hours: 'Seg a Sex 9h às 18h' } }, A.token);
+  const s10 = {};
+  for (const [mode, msg] of [['phone', 'Qual o telefone e o e-mail de vocês?'], ['order', 'Oi, meu pedido 87654321 ainda não chegou']]) {
+    await setMode(mode);
+    const r = await processMsg(A.token, `c-pii-${mode}@c.us`, msg);
+    const resp = r.body.response || '';
+    s10[mode] = { status: r.status, success: r.body.success, replaced: /não posso processar essa solicitação/.test(resp), safety: r.body.metadata?.safetyIssues || [], response: resp.slice(0, 160) };
+    say(`- **${mode}** ("${msg}") → resposta trocada pela frase de segurança? ${s10[mode].replaced ? '**SIM**' : 'não'} · safety=${JSON.stringify(s10[mode].safety.map((i) => i.type + ':' + (i.piiTypes || []).join('+')))} · resposta=${JSON.stringify(s10[mode].response)}`);
+  }
+  await setMode('ok');
+  ev.scenarios.S10 = s10;
+  say('');
+
   // ── S3: falhas do provedor (POR ÚLTIMO: falhas abrem o circuit breaker) ──
   say('## S3 — Provedor falhando (vazio / malicioso / 500) — rodado por último');
   say('- modo **lento** medido à parte (a requisição leva ~500 s e derruba o fetch do harness): ver `audit/evidencias/22-provedor-lento.txt`');
@@ -264,8 +281,10 @@ async function processMsg(token, chatId, message, history = [], extra = {}) {
   ev.scenarios.S3 = s3;
   say('');
 
-  fs.writeFileSync(path.join(OUT, '20-backend-cenarios.json'), JSON.stringify(ev, null, 2));
-  fs.writeFileSync(path.join(OUT, '20-backend-cenarios.md'), '# Cenários do backend (execução real, provedor falso)\n\n' + md.join('\n') + '\n');
+  fs.mkdirSync(OUT, { recursive: true });
+  const base = TAG ? `20-backend-cenarios-${TAG}` : '20-backend-cenarios';
+  fs.writeFileSync(path.join(OUT, `${base}.json`), JSON.stringify(ev, null, 2));
+  fs.writeFileSync(path.join(OUT, `${base}.md`), '# Cenários do backend (execução real, provedor falso)\n\n' + md.join('\n') + '\n');
   db.close();
   console.log('\nOK — evidências em audit/evidencias/20-backend-cenarios.{json,md}');
 })().catch((e) => { console.error('FALHOU:', e); process.exit(1); });

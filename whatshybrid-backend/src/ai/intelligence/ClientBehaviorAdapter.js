@@ -157,15 +157,16 @@ const CLIENT_STYLE_INSTRUCTIONS = {
 };
 
 // ─── 4. CLOSING MOMENT SIGNALS ───────────────────────────────────────────────
+// IA-08: só sinais de DECISÃO. Perguntas de informação ("quanto custa", "tem
+// desconto", "quando entrega") saíram daqui — disparavam "não adicione
+// informações extras" justamente quando o cliente pedia a informação.
 const CLOSING_SIGNALS = [
-  /\bquanto\s+(custa|é|fica|vale)\b/i,
-  /\btem\s+(parcelamento|parcela|desconto|promoção)\b/i,
   /\bposso\s+(pagar|fechar|assinar|confirmar)\b/i,
   /\bcomo\s+(faço|procedo|confirmo|finalizo)\b/i,
   /\bquero\s+(fechar|confirmar|assinar|contratar|começar)\b/i,
   /\bvou\s+(levar|pegar|fechar|contratar|comprar)\b/i,
   /\bme\s+(manda|envia|passa)\s+(o\s+link|o\s+pix|o\s+boleto|os\s+dados)\b/i,
-  /\bquando\s+(posso|começa|entrega|libera)\b/i,
+  /\bquando\s+(posso|começa|libera)\b/i,
   /\bpreciso\s+(disso|desse|dessa)\s+agora\b/i,
 ];
 

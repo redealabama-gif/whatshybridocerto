@@ -1,0 +1,18 @@
+{
+  "variant": "antigo",
+  "extensionId": "bgkgmonnhajnieffffglfcjieggahilj",
+  "buttonInjected": true,
+  "panel": "🤖\nSugestão de IA\n✕\nOlá! Que bom que você chamou. O plano mensal custa R$ 97 e inclui todos os recursos de atendimento, e no pagamento anual você ganha dois meses grátis, saindo por R$ 80 por mês. Se quiser, eu já te mostro como fica a contratação e tiro qualquer dúvida sobre o que está incluso. Prefere seguir com o mensal ou com o anual?\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · A",
+  "providerCalls": 1,
+  "modelSaw": {
+    "lastUserMessage": "Quanto fica por mês para esse tamanho? E tem fidelidade?",
+    "historyCount": 6,
+    "knowledgeInPrompt": true,
+    "intent": "pricing"
+  },
+  "logs": [
+    "[BackendClient] Health check failed: Failed to fetch",
+    "[BackendClient] Persisted URL http://127.0.0.1:3000 failed /health on boot — resetting to DEFAULT_BASE_URL",
+    "[BackendClient] Health check failed: Failed to fetch"
+  ]
+}

@@ -1,0 +1,1 @@
+duração=25s chamadas_ao_provedor=2 status=200 resposta={"success":false,"response":"Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.","error":"LLM indisponível e sem conhecimento ancorado para fallback","metadata":{"latency":25003,"timestamp":"2026-11-09T00:47:43.913Z"},"intelligence":{"responseGoal":null,"commercialConfi

@@ -1,0 +1,16 @@
+    ✓ "Oi, quanto custa…" é pergunta de preço (7 ms)
+    ✓ "Bom dia! Vocês entregam…" não é saudação (4 ms)
+    ✓ só o cumprimento continua sendo saudação, com confiança alta (1 ms)
+    ✓ "Falar com…" e "Oitenta…" não começam com saudação
+    ✓ reclamação de entrega é complaint
+    ✓ dinheiro de volta / Procon não é intenção de compra
+    ✓ "diabetes" não vira agendamento (1 ms)
+    ✓ agendar um horário é schedule
+    ✓ match único de substring fica abaixo do limiar (1 ms)
+    ✓ classify() consulta o LLM numa mensagem ambígua (2 ms)
+    ✓ palavra inteira exata ("sim") continua decisiva sem LLM
+    ✓ preço rotulado como saudação, sem base → não auto-envia (1 ms)
+    ✓ entrega rotulada como saudação, sem base → não auto-envia
+    ✓ pergunta factual COM base → libera, mas no tier normal (não "baixo risco") (1 ms)
+    ✓ controle: saudação de verdade continua baixo risco
+Tests:       15 passed, 15 total

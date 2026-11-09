@@ -91,6 +91,23 @@
     return v ? v.replace(/\/$/, '') : '';
   }
 
+  // IA-13 — URL do backend definida pelo usuário: host real, fora do anel de
+  // failover. Nunca é trocada automaticamente (antes, falha no /health do boot
+  // ou 3 falhas seguidas gravavam http://localhost:3000 no lugar dela).
+  // Loopback antigo (ex.: localhost:3001 morto) continua sendo corrigido.
+  function isUserConfiguredUrl(url) {
+    const u = normalizeBaseUrl(url);
+    if (!u) return false;
+    const ring = [CONFIG.DEFAULT_BASE_URL, ...CONFIG.FALLBACK_URLS].map(normalizeBaseUrl);
+    if (ring.includes(u)) return false;
+    try {
+      const host = new URL(u).hostname;
+      return !['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function syncLegacyBackendConfig() {
     try {
       const baseUrl = normalizeBaseUrl(getBaseUrl());
@@ -197,6 +214,13 @@
    * Attempts to failover to next backend URL
    */
   async function attemptFailover() {
+    if (isUserConfiguredUrl(state.baseUrl)) {
+      console.warn('[BackendClient] Backend configurado sem resposta — mantendo a URL do usuário:', state.baseUrl);
+      state.backendHealth.isHealthy = false;
+      state.backendHealth.consecutiveFailures = 0;
+      return;
+    }
+
     const currentIndex = state.backendHealth.currentUrlIndex;
     const nextIndex = (currentIndex + 1) % CONFIG.FALLBACK_URLS.length;
 
@@ -330,7 +354,9 @@
       if (state.baseUrl && state.baseUrl !== CONFIG.DEFAULT_BASE_URL) {
         const persistedUrl = state.baseUrl;
         const persistedOk = await checkBackendHealth();
-        if (!persistedOk) {
+        if (!persistedOk && isUserConfiguredUrl(persistedUrl)) {
+          console.warn(`[BackendClient] ${persistedUrl} não respondeu /health no boot — mantendo a URL configurada`);
+        } else if (!persistedOk) {
           console.warn(`[BackendClient] Persisted URL ${persistedUrl} failed /health on boot — resetting to DEFAULT_BASE_URL`);
           state.baseUrl = CONFIG.DEFAULT_BASE_URL;
           state.backendHealth.currentUrlIndex = 0;
@@ -560,6 +586,9 @@
         return data;
       } catch (error) {
         lastError = error;
+
+        // IA-04: kill switch do backend não é transitório — sem retry.
+        if (error.code === 'KILL_SWITCH') throw error;
 
         // v9.3.3: 4xx (exceto 401 já tratado, 408 timeout, 429 rate limit) são
         // erros de cliente — não fazem sentido retry. Antes: 400 (validação),

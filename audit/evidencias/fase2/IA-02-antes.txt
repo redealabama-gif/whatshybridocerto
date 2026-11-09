@@ -1,0 +1,13 @@
+• autopilot-faq-guard.test.js
+  ✗ IA-02: FAQ + pedido de humano → consulta a guarda e NÃO envia
+      a guarda do backend não foi consultada (chamadas=0)
+
+0 !== 1
+
+  ✗ IA-02: FAQ + mensagem comum + guarda libera → envia a resposta da FAQ
+      a guarda do backend não foi consultada (chamadas=0)
+
+0 !== 1
+
+
+  0 passou, 2 falhou (2 no total)

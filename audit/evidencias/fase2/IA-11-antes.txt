@@ -1,0 +1,7 @@
+  ✕ AIRouter: provedores travados → desiste no prazo global e não repete (26122 ms)
+  ✕ classificador de intenção: LLM travado → 1 tentativa curta e cai no regex (19021 ms)
+    Expected: <= 2
+    Received:    8
+    Expected: 1
+    Received: 4
+Tests:       2 failed, 2 total

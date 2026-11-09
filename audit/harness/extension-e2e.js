@@ -20,8 +20,10 @@ const B = process.env.BACKEND || 'http://127.0.0.1:3000';
 const F = process.env.FAKE || 'http://127.0.0.1:18080';
 const VARIANT = process.argv[2] || 'atual';
 const SCRATCH = process.argv[3] || fs.mkdtempSync(path.join(os.tmpdir(), 'audit-e2e-'));
-const SRC_EXT = path.resolve(__dirname, '../../whatshybrid-extension');
-const OUT = path.resolve(__dirname, '../evidencias');
+// EXT_DIR: outra cópia da extensão (antes × depois); TAG grava em fase2/matriz/.
+const SRC_EXT = process.env.EXT_DIR || path.resolve(__dirname, '../../whatshybrid-extension');
+const TAG = process.env.TAG || '';
+const OUT = TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias');
 
 async function http(method, url, body, token) {
   const r = await fetch(url, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -88,6 +90,7 @@ async function http(method, url, body, token) {
   }
   result.logs = logs.slice(-25);
   await ctx.close();
-  fs.writeFileSync(path.join(OUT, `50-extensao-e2e-${VARIANT}.json`), JSON.stringify(result, null, 2));
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(path.join(OUT, `50-extensao-e2e-${VARIANT}${TAG ? '-' + TAG : ''}.json`), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 })().catch((e) => { console.error(e); process.exit(1); });

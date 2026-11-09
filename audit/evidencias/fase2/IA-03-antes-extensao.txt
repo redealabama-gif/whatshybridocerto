@@ -1,0 +1,9 @@
+• confidence-greeting.test.js
+  ✗ IA-03: "Oi, <pedido>" não é saudação simples
+      tratou como saudação simples: Oi, quanto custa o plano mensal de vocês? Tem desconto no anual?
+
+true !== false
+
+  ✓ IA-03 (controle): cumprimento puro continua saudação simples
+
+  1 passou, 1 falhou (2 no total)

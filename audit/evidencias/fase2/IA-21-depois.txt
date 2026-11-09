@@ -1,0 +1,6 @@
+• copilot-context-dom.test.js
+  ✓ IA-21: DOM atual → histórico com as 6 mensagens e a direção certa
+  ✓ IA-21: sem argumento (0 = todo o histórico) → não fica só com a última
+  ✓ IA-21 (controle): janela menor continua respeitada
+
+  3 passou, 0 falhou (3 no total)

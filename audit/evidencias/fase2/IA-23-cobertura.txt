@@ -1,0 +1,4 @@
+    ✓ A e B (mesmo chatId) → cada um no seu workspace (74 ms)
+    ✓ workspace/tenant no corpo da requisição é ignorado (5 ms)
+    ✓ mesma conversa, clientes diferentes → chaves de cache diferentes (14 ms)
+Tests:       3 passed, 3 total

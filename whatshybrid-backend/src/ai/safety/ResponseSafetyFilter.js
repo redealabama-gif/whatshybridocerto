@@ -135,7 +135,7 @@ class ResponseSafetyFilter {
     }
 
     // Check 7: PII leak detection
-    const piiCheck = this._checkPII(response);
+    const piiCheck = this._checkPII(response, context.allowedText);
     if (piiCheck.detected) {
       issues.push({
         type: 'pii_leak',
@@ -189,10 +189,25 @@ class ResponseSafetyFilter {
    * Check for PII (Personally Identifiable Information) leak
    * @private
    */
-  _checkPII(response) {
+  _checkPII(response, allowedText = '') {
+    // IA-07 — dado que o modelo recebeu da base da própria empresa ou da
+    // conversa do próprio cliente (context.allowedText) não é vazamento:
+    // telefone/e-mail da loja, nº de pedido que o cliente mandou. Antes, isso
+    // trocava a resposta certa por uma frase genérica.
+    const allowed = String(allowedText || '');
+    const allowedNums = allowed.replace(/(?<=\d)[\s().\-/]+(?=\d)/g, '');
+    const allowedLower = allowed.toLowerCase();
     const matches = [];
     for (const { pattern, type } of this.config.piiPatterns) {
-      if (pattern.test(response)) {
+      const re = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+      const found = response.match(re) || [];
+      const leaked = found.filter((v) => {
+        if (!allowed) return true;
+        if (type === 'email') return !allowedLower.includes(v.toLowerCase());
+        const digits = v.replace(/\D/g, '');
+        return !digits || !allowedNums.includes(digits);
+      });
+      if (leaked.length > 0) {
         matches.push(type);
       }
     }

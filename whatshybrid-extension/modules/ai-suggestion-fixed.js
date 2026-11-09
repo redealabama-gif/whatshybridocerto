@@ -1088,8 +1088,9 @@
     if (btn) btn.classList.add('generating');
 
     try {
-      // Extrair mensagens do DOM
-      const messages = extractMessages();
+      // IA-06 — Store do WhatsApp primeiro (direção exata); DOM como reserva.
+      let messages = await extractMessagesFromStore();
+      if (messages.length === 0) messages = extractMessages();
 
       if (messages.length === 0) {
         showError('Nenhuma mensagem encontrada');
@@ -1270,6 +1271,11 @@
           state.backendReady = false;
           applyReadinessClass('offline');
           log('Backend orchestrator falhou (cairá pra fallback):', e?.message || e);
+          // IA-04: kill switch do backend → para aqui, sem cair na IA local.
+          if (e?.code === 'KILL_SWITCH' || e?.body?.error === 'kill_switch') {
+            showError('A IA foi desativada temporariamente pelo administrador.');
+            return;
+          }
           // Se foi 402 (sem créditos), interrompe — não chame OpenAI direto sem cobrar
           if (e?.status === 402 || /payment.required|insufficient.*token/i.test(String(e?.message))) {
             _renderAccessBlocked({ reason: 'no_credits', canBuyCredits: true });
@@ -1546,6 +1552,78 @@ Responda APENAS com o texto da sugestão:`;
   // EXTRAÇÃO DE MENSAGENS
   // ============================================
 
+  // IA-06 — raízes das mensagens no WhatsApp atual: o data-id de nível mais
+  // alto dentro da conversa (mesmo critério do Recover). O DOM novo não tem
+  // .message-in/.message-out e tem um único data-testid="msg-container" — só
+  // esses eram procurados, e a IA recebia 1 mensagem (às vezes a errada).
+  function findMessageRoots() {
+    const scope = document.querySelector('#main') || document.querySelector('[data-testid="conversation-panel-messages"]');
+    if (!scope) return [];
+    const roots = [];
+    for (const el of scope.querySelectorAll('[data-id]')) {
+      const raw = el.getAttribute('data-id') || '';
+      const id = (raw.split('_').length >= 3 && /^(true|false)_/.test(raw)) ? raw.split('_')[2] : raw;
+      if (!/^[0-9A-Za-z]{10,64}$/.test(id) || !/\d/.test(id)) continue;
+      // um data-id dentro de outro é citação/prévia, não mensagem
+      if (el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]')) continue;
+      roots.push(el);
+    }
+    return roots;
+  }
+
+  // IA-06 — enviada por você: prefixo true_ (formato antigo), .message-out, ou
+  // ícone de entrega/cauda de saída no balão.
+  function isOutgoingMessage(el) {
+    const raw = (el.getAttribute && el.getAttribute('data-id')) || '';
+    if (raw.startsWith('true_')) return true;
+    if (raw.startsWith('false_')) return false;
+    if ((el.closest && el.closest('.message-out')) || el.querySelector('.message-out')) return true;
+    if ((el.closest && el.closest('.message-in')) || el.querySelector('.message-in')) return false;
+    return !!el.querySelector('[data-icon="tail-out"], [data-icon="msg-dblcheck"], [data-icon="msg-check"], [data-icon="msg-time"], [data-testid="msg-dblcheck"], [data-testid="msg-check"]');
+  }
+
+  // IA-06 — mensagens do chat ativo pela Store do WhatsApp (via a ponte que roda
+  // no mundo da página): direção exata (fromMe), independente do DOM.
+  const STORE_MEDIA_PLACEHOLDER = {
+    image: '[MÍDIA: imagem]', video: '[MÍDIA: vídeo]', audio: '[MÍDIA: áudio]',
+    ptt: '[MÍDIA: áudio (PTT)]', sticker: '[MÍDIA: figurinha]', document: '[MÍDIA: documento]',
+  };
+  function mapStoreMessages(list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const m of list) {
+      if (!m || m.isNotification) continue;
+      const role = m.fromMe ? 'assistant' : 'user';
+      const text = String((m.type === 'chat' ? m.body : m.caption) || '').trim();
+      if (text) out.push({ role, content: text });
+      else if (STORE_MEDIA_PLACEHOLDER[m.type]) out.push({ role, content: STORE_MEDIA_PLACEHOLDER[m.type] });
+    }
+    return out.slice(-20);
+  }
+  function extractMessagesFromStore(limit = 20) {
+    return new Promise((resolve) => {
+      const requestId = `whl_sug_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      let timer = null;
+      const onMsg = (e) => {
+        if (e.source !== window) return;
+        const d = e.data;
+        if (!d || d.source !== 'WHL_PAGE_BRIDGE' || d.type !== 'RESPONSE' || d.requestId !== requestId) return;
+        window.removeEventListener('message', onMsg);
+        clearTimeout(timer);
+        resolve(d.error ? [] : mapStoreMessages(d.data && d.data.messages));
+      };
+      timer = setTimeout(() => { window.removeEventListener('message', onMsg); resolve([]); }, 1500);
+      window.addEventListener('message', onMsg);
+      try {
+        window.postMessage({ source: 'WHL_ISOLATED', type: 'getActiveChatMessages', requestId, payload: { limit } }, window.location.origin);
+      } catch (_) {
+        window.removeEventListener('message', onMsg);
+        clearTimeout(timer);
+        resolve([]);
+      }
+    });
+  }
+
   function extractMessages() {
     const messages = [];
 
@@ -1571,9 +1649,13 @@ Responda APENAS com o texto da sugestão:`;
       if (!container) return messages;
 
       // Buscar mensagens (inclui mensagens de sistema)
-      const msgElements = container.querySelectorAll(
+      let msgElements = Array.from(container.querySelectorAll(
         '[data-testid="msg-container"], .message-in, .message-out, .message-system, [data-testid*="system-message"]'
-      );
+      ));
+      // IA-06 — DOM atual: as raízes [data-id] acham as mensagens que os
+      // seletores clássicos não acham.
+      const roots = findMessageRoots();
+      if (roots.length > msgElements.length) msgElements = roots;
 
       const isSystemMessage = (el) => {
         try {
@@ -1641,11 +1723,7 @@ Responda APENAS com o texto da sugestão:`;
         }
 
         // Detectar se é mensagem enviada ou recebida
-        const isOutgoing = el.classList.contains('message-out') ||
-                          el.querySelector('[data-testid="msg-dblcheck"]') ||
-                          el.querySelector('[data-icon="msg-dblcheck"]') ||
-                          el.querySelector('[data-icon="msg-check"]') ||
-                          el.querySelector('[data-icon="tail-out"]');
+        const isOutgoing = isOutgoingMessage(el);
 
         // Extrair texto
         const textEl = el.querySelector('[data-testid="msg-text"], .copyable-text span, .selectable-text span, span.selectable-text');
@@ -2174,7 +2252,9 @@ Responda APENAS com o texto da sugestão:`;
   window.AISuggestionFixed = {
     init,
     inject,
-    generateSuggestion
+    generateSuggestion,
+    // IA-06: exposto para os testes (tests/unit/suggestion-context-dom.test.js)
+    _internals: { extractMessages, extractMessagesFromStore }
   };
 
   // Auto-inicializar

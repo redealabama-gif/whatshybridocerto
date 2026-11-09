@@ -728,12 +728,17 @@
       
       const normalized = (message || '').toLowerCase().trim();
       
-      // Match exato ou começa com saudação + separador
+      // Match exato ou saudação + separador. IA-03: depois do cumprimento só
+      // pode vir outro cumprimento ("tudo bem?") — antes, "Oi, quero meu
+      // dinheiro de volta…" contava como saudação simples (confiança 95).
+      const GREETING_TAIL_RE = /^((tudo bem|tudo bom|td bem|tudo certo|como vai|beleza|blz|bom dia|boa tarde|boa noite)[\s,!?.…]*)+$/;
       return greetings.some(g => {
         if (normalized === g) return true;
         if (normalized.startsWith(g)) {
           const nextChar = normalized.charAt(g.length);
-          return /[\s,!?.]/.test(nextChar);
+          if (!/[\s,!?.]/.test(nextChar)) return false;
+          const rest = normalized.slice(g.length).replace(/^[\s,!?.…]+/, '');
+          return rest === '' || GREETING_TAIL_RE.test(rest);
         }
         return false;
       });

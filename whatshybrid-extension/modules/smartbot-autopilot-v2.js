@@ -579,6 +579,49 @@
     return LOW_STAKES_MSG_RE.test(norm);
   }
 
+  // IA-04 — kill switch: módulo KillSwitch (status do backend, cacheado) ou
+  // resposta 503 KILL_SWITCH do backend → o autopilot para e não usa IA local.
+  function isKillSwitchActive() {
+    try {
+      const ks = window.KillSwitch;
+      return !!(ks && typeof ks.isFeatureDisabled === 'function' &&
+        (ks.isFeatureDisabled('autopilot') || ks.isFeatureDisabled('ai')));
+    } catch (_) { return false; }
+  }
+
+  function isKillSwitchError(e) {
+    return !!(e && (e.code === 'KILL_SWITCH' || (e.body && e.body.error === 'kill_switch')));
+  }
+
+  // IA-05 — reserva da mensagem no service worker: com duas abas abertas, só
+  // a que reservar primeiro responde. Sem resposta do service worker (contexto
+  // da extensão inválido, SW mudo) → não responde (fail-closed).
+  function claimMessage(id) {
+    return new Promise((resolve) => {
+      let done = false;
+      let timer = null;
+      const finish = (r) => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        resolve(r && typeof r.granted === 'boolean' ? r : { granted: false, reason: 'no_response' });
+      };
+      timer = setTimeout(() => finish({ granted: false, reason: 'timeout' }), 3000);
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+          finish({ granted: false, reason: 'no_runtime' });
+          return;
+        }
+        chrome.runtime.sendMessage({ type: 'WHL_AUTOPILOT_CLAIM', key: `autopilot:${id}` }, (resp) => {
+          const err = chrome.runtime?.lastError;
+          finish(err ? { granted: false, reason: 'runtime_error' } : resp);
+        });
+      } catch (_) {
+        finish({ granted: false, reason: 'runtime_error' });
+      }
+    });
+  }
+
   async function checkConfidenceSystem(item) {
     // Se desabilitado, permitir sempre
     if (!CONFIG.useConfidenceSystem) {
@@ -836,6 +879,13 @@
       return;
     }
 
+    if (isKillSwitchActive()) {
+      console.warn('[Autopilot] ✋ Kill switch ligado — parando sem responder');
+      emitRuntimeEvent('stopped', { reason: 'kill_switch' });
+      stopAutopilot().catch(() => {});
+      return;
+    }
+
     // PEND-MED-009: Verificar se foi abortado
     if (state.abortController?.signal.aborted) {
       console.log('[Autopilot] ✋ Operação abortada pelo kill switch');
@@ -892,6 +942,26 @@
       }
 
       console.log('[Autopilot] 🔄 Processando:', item.chatId || item.phone);
+
+      // IA-05 — só a aba que reservar a mensagem responde (antes de gerar, para
+      // não pagar a IA duas vezes).
+      const claim = await claimMessage(item.id);
+      if (!claim.granted) {
+        if (claim.reason === 'claimed_by_other_tab') {
+          console.log('[Autopilot] 👥 Outra aba já está respondendo:', item.chatId || item.phone);
+          state.processed.add(item.id);
+          saveProcessed();
+          emitRuntimeEvent('skipped', { reason: 'claimed_by_other_tab', chatId: item.chatId });
+          return;
+        }
+        console.warn(`[Autopilot] 🧑‍💼 Sem a trava entre abas (${claim.reason}) → revisão humana`);
+        state.stats.skippedEscalated++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', { item, reason: 'claim_unavailable' });
+        }
+        emitRuntimeEvent('suggestion-only', { chatId: item.chatId, phone: item.phone, reason: 'claim_unavailable' });
+        return;
+      }
 
       // Confiança
       const confidenceCheck = await checkConfidenceSystem(item);
@@ -961,7 +1031,18 @@
       }
 
       // Gerar resposta (backend soberano via CopilotEngine)
-      const response = confidenceCheck.answer || await generateResponse(item);
+      // IA-02 — resposta pronta do ConfidenceSystem (FAQ / resposta rápida)
+      // também passa pela guarda do backend: o orquestrador avalia a MENSAGEM do
+      // cliente (pedido de humano, reclamação, tema sensível...). A chamada
+      // preenche item.__aiGuard / __responseTier; se a guarda liberar, envia a
+      // resposta pronta (texto exato cadastrado), senão vai para revisão.
+      let response;
+      if (confidenceCheck.answer) {
+        await generateResponse(item);
+        response = confidenceCheck.answer;
+      } else {
+        response = await generateResponse(item);
+      }
       if (!response) throw new Error('Falha ao gerar resposta');
 
       // SEGURANÇA — fallback local NÃO é auto-enviado. Quando o Tier 0
@@ -994,10 +1075,30 @@
       // alta no cliente, NÃO auto-enviar quando o backend recomenda humano
       // (tema sensível, PII, cliente irritado/reclamação, pedido explícito de
       // atendente, transação de alto valor, ou resposta sem base). Roteia pra
-      // sugestão — o humano revisa a resposta já gerada. Fail-safe: guard ausente
-      // (backend antigo / kill-switch) → segue o fluxo normal de envio.
+      // sugestão — o humano revisa a resposta já gerada.
+      // IA-01 — fail-closed: guarda ausente (backend antigo, resposta que não
+      // passou pelo orquestrador, erro de serialização) → revisão humana. O
+      // autopilot só envia sozinho o que a guarda do backend liberou.
       const guard = item.__aiGuard;
-      if (guard && guard.allowAutoSend === false) {
+      if (!guard || typeof guard.allowAutoSend !== 'boolean') {
+        console.warn(`[Autopilot] 🧑‍💼 Sem guarda do backend → revisão humana: ${item.chatId || item.phone}`);
+        state.stats.skippedEscalated++;
+        if (window.EventBus) {
+          window.EventBus.emit('autopilot:suggestion-only', {
+            item,
+            reason: 'no_backend_guard',
+            suggestion: response,
+          });
+        }
+        emitRuntimeEvent('suggestion-only', {
+          chatId: item.chatId,
+          phone: item.phone,
+          reason: 'no_backend_guard',
+        });
+        nextDelayOverride = Math.random() * 1000 + 500;
+        return;
+      }
+      if (guard.allowAutoSend === false) {
         console.log(`[Autopilot] 🧑‍💼 Escalando p/ humano (backend): ${(guard.reasons || []).join(', ') || guard.primaryReason || 'escalation'}`);
         state.stats.skippedEscalated++;
 
@@ -1026,18 +1127,22 @@
       // Mesmo liberado pela guarda, exige a confiança mínima do tier: baixo risco
       // passa com menos, normal exige mais. Pega o caso em que o detector local
       // achou "baixo risco" mas o backend classificou como normal → prevalece o
-      // limiar do backend e vai pra revisão. Fail-safe: minConfidence ausente
-      // (backend antigo / kill-switch) ou score desconhecido → não bloqueia.
-      const apScore = confidenceCheck.score;
-      if (guard && Number.isFinite(guard.minConfidence) && Number.isFinite(apScore) && apScore < guard.minConfidence) {
-        console.log(`[Autopilot] 🧑‍💼 Confiança ${apScore}% < limiar do tier ${guard.minConfidence}% (${guard.riskTier || 'tier'}) → revisão`);
+      // limiar do backend e vai pra revisão.
+      // IA-01 — fail-closed: a confiança vem em `score` (caminhos internos) ou em
+      // `confidence` (formato do ConfidenceSystem.canAutoSendSmart); desconhecida
+      // → revisão. Guarda sem minConfidence (WHL_AUTOPILOT_GUARD=0 no backend) →
+      // vale o limiar global do cliente (CONFIG.minConfidence).
+      const apScore = Number.isFinite(confidenceCheck.score) ? confidenceCheck.score : confidenceCheck.confidence;
+      const tierMin = Number.isFinite(guard.minConfidence) ? guard.minConfidence : CONFIG.minConfidence;
+      if (!Number.isFinite(apScore) || apScore < tierMin) {
+        console.log(`[Autopilot] 🧑‍💼 Confiança ${apScore}% < limiar do tier ${tierMin}% (${guard.riskTier || 'tier'}) → revisão`);
         state.stats.skippedLowConfidence++;
         if (window.EventBus) {
           window.EventBus.emit('autopilot:suggestion-only', {
             item,
             reason: 'tier_confidence',
             riskTier: guard.riskTier || null,
-            minConfidence: guard.minConfidence,
+            minConfidence: tierMin,
             score: apScore,
             suggestion: response,
           });
@@ -1408,6 +1513,13 @@
         tier0Failed = true;
         console.error('[Autopilot] ❌ ai.process falhou:', e.message);
 
+        if (isKillSwitchError(e)) {
+          console.warn('[Autopilot] ✋ Kill switch do backend — parando (sem fallback local)');
+          emitRuntimeEvent('stopped', { reason: 'kill_switch' });
+          stopAutopilot().catch(() => {});
+          throw e;
+        }
+
         // FORCE_BACKEND + DISABLE_LOCAL_FALLBACK → propaga erro (cliente NÃO recebe template)
         if (FORCE_BACKEND && DISABLE_LOCAL_FALLBACK) {
           if (SHOW_BACKEND_ERRORS && window.EventBus) {
@@ -1563,6 +1675,15 @@
     while (Date.now() - start < timeoutMs) {
       const lastOut = document.querySelector('.message-out:last-child');
       if (lastOut && hasAnyStatusIcon(lastOut)) return true;
+      // IA-19 — DOM atual: sem .message-out; a última mensagem é a última raiz
+      // [data-id] da conversa (um data-id dentro de outro é citação).
+      const roots = document.querySelectorAll('#main [data-id]');
+      for (let i = roots.length - 1; i >= 0; i--) {
+        const el = roots[i];
+        if (el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]')) continue;
+        if (hasAnyStatusIcon(el)) return true;
+        break;
+      }
       await sleep(200);
     }
     return false;
@@ -1576,6 +1697,11 @@
     await stateMutex.acquire();
     try {
       if (state.running && CONFIG.enabled) return { success: false, reason: 'already_running' };
+      if (isKillSwitchActive()) {
+        console.warn('[Autopilot] ✋ Kill switch ligado — não inicia');
+        emitRuntimeEvent('blocked', { reason: 'kill_switch' });
+        return { success: false, reason: 'kill_switch' };
+      }
 
       // PEND-MED-009: Criar novo AbortController para esta sessão
       state.abortController = new AbortController();

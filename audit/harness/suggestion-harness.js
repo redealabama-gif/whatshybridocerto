@@ -16,8 +16,10 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
-const EXT = path.resolve(__dirname, '../../whatshybrid-extension');
-const OUT = path.resolve(__dirname, '../evidencias');
+// EXT_DIR: outra cópia do código (antes × depois); TAG grava em fase2/matriz/.
+const EXT = process.env.EXT_DIR || path.resolve(__dirname, '../../whatshybrid-extension');
+const TAG = process.env.TAG || '';
+const OUT = TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias');
 const SRC = fs.readFileSync(path.join(EXT, 'modules/ai-suggestion-fixed.js'), 'utf8');
 
 const { CONV, bubbleOld, bubbleNew, page } = require('./wa-dom');
@@ -61,7 +63,9 @@ async function run(browser, label, html) {
     md.push(`- histórico enviado: ${Array.isArray(c.history) ? c.history.length : 0} mensagens → ${JSON.stringify(c.history)}`);
     md.push(`- language: ${c.language} · chatId: ${c.chatId}`, '');
   }
-  fs.writeFileSync(path.join(OUT, '40-sugestao-contexto.json'), JSON.stringify({ old, cur, curLast }, null, 2));
-  fs.writeFileSync(path.join(OUT, '40-sugestao-contexto.md'), md.join('\n') + '\n');
+  fs.mkdirSync(OUT, { recursive: true });
+  const base = TAG ? `40-sugestao-contexto-${TAG}` : '40-sugestao-contexto';
+  fs.writeFileSync(path.join(OUT, `${base}.json`), JSON.stringify({ ext: EXT, old, cur, curLast }, null, 2));
+  fs.writeFileSync(path.join(OUT, `${base}.md`), md.join('\n') + '\n');
   console.log(md.join('\n'));
 })().catch((e) => { console.error(e); process.exit(1); });

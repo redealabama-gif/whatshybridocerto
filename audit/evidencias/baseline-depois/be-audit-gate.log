@@ -1,0 +1,31 @@
+
+> whatshybrid-backend@9.5.8 audit:gate
+> node scripts/audit-gate.js
+
+
+🔐 Gate de segurança de dependências (npm audit)
+
+Produção (--omit=dev): 0 high/critical | 0 allowlisted | 0 bloqueantes
+
+Dev/build (não-produção): 18 high/critical — WARNING (não bloqueia):
+   ::warning::high brace-expansion GHSA-3jxr-9vmj-r5cp — brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups
+   ::warning::high brace-expansion GHSA-mh99-v99m-4gvg — brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash
+   ::warning::high brace-expansion GHSA-rgw5-rvv9-x895 — brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation
+   ::warning::high brace-expansion GHSA-qhr7-859c-m2p7 — brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion
+   ::warning::high brace-expansion GHSA-6j4f-fj2g-mc7p — brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion
+   ::warning::high browserslist GHSA-c83g-rgw3-j3cx — Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM
+   ::warning::high browserslist GHSA-73wf-gq98-2v4g — Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)
+   ::warning::high fast-uri GHSA-v2hh-gcrm-f6hx — fast-uri vulnerable to host confusion via literal backslash authority delimiter
+   ::warning::high fast-uri GHSA-7p8r-x3mc-p8w7 — fast-uri vulnerable to host confusion via backslash authority introducer
+   ::warning::high fast-uri GHSA-q3j6-qgpj-74h6 — fast-uri vulnerable to path traversal via percent-encoded dot segments
+   ::warning::high fast-uri GHSA-v39h-62p7-jpjc — fast-uri vulnerable to host confusion via percent-encoded authority delimiters
+   ::warning::high fast-uri GHSA-f65p-4m7j-42xc — fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization
+   ::warning::high fast-uri GHSA-jqff-g426-hqxp — fast-uri vulnerable to host confusion via percent-encoded scheme normalization
+   ::warning::high fast-uri GHSA-4c8g-83qw-93j6 — fast-uri vulnerable to host confusion via failed IDN canonicalization
+   ::warning::high fast-uri GHSA-qw65-cvwx-89v3 — fast-uri vulnerable to authority injection via an unvalidated port in serialize
+   ::warning::high js-yaml GHSA-52cp-r559-cp3m — js-yaml: YAML merge-key chains can force quadratic CPU consumption
+   ::warning::high js-yaml GHSA-5p4m-2wfm-xmqj — JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported
+   ::warning::high js-yaml GHSA-2883-xcg3-v3hh — js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources
+
+✅ Sem high/critical de produção fora do allowlist.
+

@@ -123,6 +123,14 @@ const HUMAN_REQUEST_PATTERNS = [
   /\bnao (quero|e|to|estou) (falar com )?(um |uma )?(robo|bot|maquina|ia)\b/,
 ];
 
+// IA-03 — pergunta factual do negócio detectada no TEXTO da mensagem. O rótulo
+// do classificador pode errar ("Oi, quanto custa…" saía como greeting e o envio
+// automático era liberado no tier de baixo risco). Termos já normalizados.
+const FACTUAL_TERMS_RE = /\b(quanto|precos?|valor(es)?|custa(m)?|custo|prazo|entrega(m|r)?|frete|horario|endereco|pagamento|pagar|pix|cartao|parcel\w*|desconto|estoque|disponivel|garantia|tamanho)\b/;
+const INTERROGATIVE_RE = /\b(quanto|qual|quais|como|quando|onde)\b/;
+// Rótulos "sociais": se a mensagem é uma pergunta factual, o rótulo está errado.
+const SOCIAL_INTENTS = new Set(['greeting', 'goodbye', 'thanks', 'feedback', 'confirmation']);
+
 function asArray(x) {
   return Array.isArray(x) ? x : [];
 }
@@ -206,8 +214,17 @@ function evaluateAutoSend(signals = {}, options = {}) {
   }
 
   // ── 6. Resposta sem base — nunca auto-enviar um chute ──────────────────────
-  if (knowledgeCount === 0 && knowledgeSeeking.has(intent)) {
+  // IA-03: vale também quando o rótulo é "social" mas o texto é pergunta factual.
+  const mislabeledFactual = SOCIAL_INTENTS.has(intent) && !!norm &&
+    FACTUAL_TERMS_RE.test(norm) && (message.includes('?') || INTERROGATIVE_RE.test(norm));
+  if (knowledgeCount === 0 && (knowledgeSeeking.has(intent) || mislabeledFactual)) {
     reasons.push('ungrounded');
+  }
+
+  // ── 7. IA-12: IA indisponível — a resposta é o texto cru da base (fallback do
+  // orquestrador), não uma resposta à mensagem. Nunca auto-enviar.
+  if (signals.llmFallback === true) {
+    reasons.push('llm_unavailable');
   }
 
   // Dedup preservando a ordem de prioridade (primaryReason = mais prioritário).
@@ -222,7 +239,7 @@ function evaluateAutoSend(signals = {}, options = {}) {
   if (escalate) {
     riskTier = 'high';
     minConfidence = CONFIDENCE_TIERS.escalate;
-  } else if (LOW_RISK_INTENTS.has(intent)) {
+  } else if (LOW_RISK_INTENTS.has(intent) && !mislabeledFactual) {
     riskTier = 'low';
     minConfidence = CONFIDENCE_TIERS.low;
   } else {

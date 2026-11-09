@@ -539,7 +539,10 @@
     const messages = [];
     try {
       // CORREÇÃO CRÍTICA: Verificar chat ativo antes de extrair
-      const currentChatId = getCurrentChatId();
+      // IA-25 — no WhatsApp atual (sem Store no mundo isolado e sem data-id
+      // true_/false_) o id do chat vinha nulo e a extração saía vazia: usa o
+      // título do chat como chave.
+      const currentChatId = getCurrentChatId() || safeText(getChatTitleFromDOM()) || null;
       if (!currentChatId) {
         console.warn('[SuggestionInjector] Nenhum chat ativo - não é possível extrair mensagens');
         return messages;
@@ -549,7 +552,8 @@
       // O WhatsApp Web renderiza mensagens dentro do elemento [data-tab="1"] ou similar
       const chatContainer = document.querySelector('[data-tab="1"]') ||
                             document.querySelector('[role="application"]') ||
-                            document.querySelector('div[class*="conversation-panel"]');
+                            document.querySelector('div[class*="conversation-panel"]') ||
+                            document.querySelector('#main');
 
       if (!chatContainer) {
         console.warn('[SuggestionInjector] Container de chat não encontrado');
@@ -569,6 +573,15 @@
         msgElements = chatContainer.querySelectorAll(sel);
         if (msgElements && msgElements.length > 0) break;
       }
+
+      // IA-25 — DOM atual: um único msg-container na página; as mensagens são
+      // as raízes [data-id] da conversa (um data-id dentro de outro é citação).
+      const roots = Array.from(document.querySelectorAll('#main [data-id]')).filter((el) => {
+        const id = el.getAttribute('data-id') || '';
+        if (!/^[0-9A-Za-z]{10,64}$/.test(id) || !/\d/.test(id)) return false;
+        return !(el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]'));
+      });
+      if (roots.length > ((msgElements && msgElements.length) || 0)) msgElements = roots;
 
       if (!msgElements || msgElements.length === 0) {
         console.warn('[SuggestionInjector] Nenhuma mensagem encontrada no chat ativo');
@@ -653,6 +666,34 @@
       } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
 
       const hasProviders = window.AIService?.getConfiguredProviders && window.AIService.getConfiguredProviders().length > 0;
+
+      // IA-25 — MÉTODO 0: o mesmo orquestrador do botão 🤖 (backend com
+      // treinamento, memória e guarda). Antes o atalho só usava a IA local.
+      if (lastUserMessage && window.BackendClient?.ai?.process && window.BackendClient.isConnected?.()) {
+        try {
+          const history = domMessages
+            .filter((m) => (m.role === 'user' || m.role === 'assistant') && safeText(m.content))
+            .slice(-30)
+            .map((m) => ({ role: m.role, content: safeText(m.content) }));
+          const result = await window.BackendClient.ai.process(chatKey, lastUserMessage, { language: 'pt-BR', history });
+          const text = result && result.success ? safeText(result.response || result.content) : '';
+          if (text) {
+            showSuggestions([{ text, type: 'ai', confidence: 0.9 }], chatKey);
+            return;
+          }
+        } catch (e) {
+          // kill switch ou créditos esgotados: para aqui (sem IA local por fora)
+          if (e?.code === 'KILL_SWITCH' || e?.body?.error === 'kill_switch' || e?.status === 402) {
+            if (body) {
+              body.innerHTML = `<div class="whl-sug-loading"><span>${e?.status === 402
+                ? 'Créditos de IA esgotados.'
+                : 'A IA foi desativada temporariamente pelo administrador.'}</span></div>`;
+            }
+            return;
+          }
+          console.warn('[SuggestionInjector] Backend falhou, usando fallback local:', e?.message || e);
+        }
+      }
 
       // MÉTODO 1 (PRIORIDADE): CopilotEngine (robusto: memória + exemplos + prompt completo)
       if (hasProviders && window.CopilotEngine?.analyzeMessage && window.CopilotEngine?.generateResponse) {
@@ -973,7 +1014,9 @@ Responda APENAS com o texto da sugestão, sem formatação adicional.`;
     showPanel: showPanel,
     showLoading,
     isVisible: () => state.isVisible,
-    getSuggestions: () => state.currentSuggestions
+    getSuggestions: () => state.currentSuggestions,
+    // IA-25: exposto para os testes (tests/unit/suggestion-injector-backend.test.js)
+    _internals: { extractMessagesFromDOM, requestSuggestionGeneration }
   };
 
 })();

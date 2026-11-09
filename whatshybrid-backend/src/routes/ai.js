@@ -186,6 +186,7 @@ router.post(
   '/complete',
   aiCompletionLimiter,
   authenticate,
+  require('./admin-killswitch').killSwitchGuard('ai'), // IA-04
   // v9.7.x — Gate de plano: free não tem acesso a IA. Antes só o saldo de
   // tokens segurava (free=0 tokens), mas isso retornava erro genérico de
   // saldo. Agora retorna 402 FEATURE_NOT_AVAILABLE com upgradeUrl —

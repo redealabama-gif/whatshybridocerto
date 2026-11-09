@@ -119,27 +119,35 @@ class AIRouterService {
     return { type: 'unknown', action: 'none', durationMs: 0, provider: providerName };
   }
 
-  _applyErrorPolicy(classification) {
-    if (!classification || classification.action !== 'cooldown') return;
-    const until = Date.now() + (classification.durationMs || 0);
-    this.providerCooldownUntil.set(classification.provider, until);
+  // IA-12 — cooldown e circuit breaker valem por (cliente, provedor): antes as
+  // falhas de UM cliente deixavam o provedor fora para TODOS (o AIRouter é um
+  // singleton). O custo por cliente fica limitado pelo prazo global (IA-11).
+  _breakerKey(providerName, tenantId) {
+    return `${tenantId || 'default'}::${providerName}`;
   }
 
-  _isCoolingDown(providerName) {
+  _applyErrorPolicy(classification, tenantId) {
+    if (!classification || classification.action !== 'cooldown') return;
+    const until = Date.now() + (classification.durationMs || 0);
+    this.providerCooldownUntil.set(this._breakerKey(classification.provider, tenantId), until);
+  }
+
+  _isCoolingDown(providerName, tenantId) {
+    const key = this._breakerKey(providerName, tenantId);
     // Tipo-específico (auth/rate_limit/server/timeout)
-    const until = this.providerCooldownUntil.get(providerName);
+    const until = this.providerCooldownUntil.get(key);
     if (until) {
       if (Date.now() > until) {
-        this.providerCooldownUntil.delete(providerName);
+        this.providerCooldownUntil.delete(key);
       } else {
         return true;
       }
     }
 
     // v9.2.0: Circuit breaker por falhas consecutivas
-    const failures = this.consecutiveFailures.get(providerName) || 0;
+    const failures = this.consecutiveFailures.get(key) || 0;
     if (failures >= this.CIRCUIT_BREAKER_THRESHOLD) {
-      const lastFailure = this.lastSuccess.get(providerName + ':last_failure_at');
+      const lastFailure = this.lastSuccess.get(key + ':last_failure_at');
       if (lastFailure && (Date.now() - lastFailure) < this.CIRCUIT_BREAKER_COOLDOWN_MS) {
         return true;
       }
@@ -153,18 +161,20 @@ class AIRouterService {
   /**
    * v9.2.0: registra sucesso e reseta contador de falhas
    */
-  _recordProviderSuccess(providerName) {
-    this.consecutiveFailures.set(providerName, 0);
-    this.lastSuccess.set(providerName, Date.now());
+  _recordProviderSuccess(providerName, tenantId) {
+    const key = this._breakerKey(providerName, tenantId);
+    this.consecutiveFailures.set(key, 0);
+    this.lastSuccess.set(key, Date.now());
   }
 
   /**
    * v9.2.0: registra falha e abre circuito se threshold for atingido
    */
-  _recordProviderFailure(providerName) {
-    const current = (this.consecutiveFailures.get(providerName) || 0) + 1;
-    this.consecutiveFailures.set(providerName, current);
-    this.lastSuccess.set(providerName + ':last_failure_at', Date.now());
+  _recordProviderFailure(providerName, tenantId) {
+    const key = this._breakerKey(providerName, tenantId);
+    const current = (this.consecutiveFailures.get(key) || 0) + 1;
+    this.consecutiveFailures.set(key, current);
+    this.lastSuccess.set(key + ':last_failure_at', Date.now());
 
     if (current === this.CIRCUIT_BREAKER_THRESHOLD) {
       logger.warn(`[AIRouter] 🔌 Circuit breaker OPEN for ${providerName} after ${current} consecutive failures`);
@@ -172,6 +182,7 @@ class AIRouterService {
       try {
         const alertManager = require('../../observability/alertManager');
         alertManager?.send?.('warning', `🔌 AI provider down: ${providerName}`, {
+          tenant: tenantId || 'default',
           consecutive_failures: current,
           cooldown_seconds: Math.round(this.CIRCUIT_BREAKER_COOLDOWN_MS / 1000),
         });
@@ -291,11 +302,11 @@ class AIRouterService {
   /**
    * Get next provider based on strategy
    */
-  getNextProvider(preferredProvider = null) {
+  getNextProvider(preferredProvider = null, tenantId = null) {
     // If preferred provider is specified and available, use it
     if (preferredProvider) {
       const provider = this.providers.get(preferredProvider);
-      if (provider?.isConfigured() && provider?.isAvailable() && !this._isCoolingDown(provider.name)) {
+      if (provider?.isConfigured() && provider?.isAvailable() && !this._isCoolingDown(provider.name, tenantId)) {
         return provider;
       }
     }
@@ -320,7 +331,7 @@ class AIRouterService {
     // Find first available provider in priority order
     for (const name of priority) {
       const provider = this.providers.get(name);
-      if (provider?.isConfigured() && provider?.isAvailable() && !this._isCoolingDown(provider.name)) {
+      if (provider?.isConfigured() && provider?.isAvailable() && !this._isCoolingDown(provider.name, tenantId)) {
         return provider;
       }
     }
@@ -331,13 +342,13 @@ class AIRouterService {
   /**
    * Get fallback providers (excluding the one that failed)
    */
-  getFallbackProviders(excludeProvider) {
+  getFallbackProviders(excludeProvider, tenantId = null) {
     const priority = STRATEGY_PRIORITY[this.strategy] || STRATEGY_PRIORITY[STRATEGIES.BALANCED];
     
     return priority
       .filter(name => name !== excludeProvider)
       .map(name => this.providers.get(name))
-      .filter(p => p?.isConfigured() && p?.isAvailable() && !this._isCoolingDown(p.name));
+      .filter(p => p?.isConfigured() && p?.isAvailable() && !this._isCoolingDown(p.name, tenantId));
   }
 
   /**
@@ -430,6 +441,12 @@ class AIRouterService {
     const requestId = options.requestId || null;
     let trackingResult = { provider: null, model: null, status: 'success', error_message: null,
                             prompt_tokens: 0, completion_tokens: 0, fromCache: false };
+    // IA-11 — prazo global da requisição, para TODAS as tentativas e provedores
+    // (antes: provedor lento = até 4 × 40 s em cada um; 501 s e 12 chamadas).
+    const deadline = Number.isFinite(options.deadline)
+      ? options.deadline
+      : startTime + (Number(options.deadlineMs) || parseInt(process.env.AI_REQUEST_DEADLINE_MS, 10) || 25000);
+    const callOptions = { ...options, deadline };
     
     // Check cache first
     const cacheKey = this.getCacheKey(messages, options);
@@ -443,7 +460,7 @@ class AIRouterService {
     this.metrics.cacheMisses++;
 
     // Get provider
-    let provider = this.getNextProvider(options.provider);
+    let provider = this.getNextProvider(options.provider, tenantId);
     
     if (!provider) {
       this.metrics.errors++;
@@ -455,8 +472,13 @@ class AIRouterService {
 
     // Try primary provider
     try {
-      const result = await provider.complete(messages, options);
-      this._recordProviderSuccess(provider.name); // v9.2.0
+      // IA-11 — teto de tentativas: 1 nova tentativa no principal e 1 tentativa em
+      // cada reserva (eram até 4 em cada um: 500 rápido = custo ×8 só na geração).
+      const result = await provider.complete(messages, {
+        ...callOptions,
+        maxRetries: Number.isInteger(options.maxRetries) ? options.maxRetries : 1,
+      });
+      this._recordProviderSuccess(provider.name, tenantId); // v9.2.0
       trackingResult.provider = provider.name;
       trackingResult.model = result.model || options.model || provider.name;
       trackingResult.prompt_tokens = result.usage?.promptTokens || result.usage?.prompt_tokens || 0;
@@ -466,22 +488,28 @@ class AIRouterService {
       return result;
     } catch (error) {
       logger.warn(`[AIRouter] ${provider.name} failed: ${error.message}`);
-      this._applyErrorPolicy(this.classifyError(error, provider.name));
-      this._recordProviderFailure(provider.name); // v9.2.0
+      this._applyErrorPolicy(this.classifyError(error, provider.name), tenantId);
+      this._recordProviderFailure(provider.name, tenantId); // v9.2.0
       
       // Try fallback providers
-      const fallbacks = this.getFallbackProviders(provider.name);
+      const fallbacks = this.getFallbackProviders(provider.name, tenantId);
       
       for (const fallback of fallbacks) {
+        // IA-11 — prazo esgotado: não tenta mais provedores.
+        if (Date.now() >= deadline) {
+          logger.warn(`[AIRouter] Prazo da requisição esgotado — fallback ${fallback.name} não tentado`);
+          break;
+        }
         try {
           logger.info(`[AIRouter] Trying fallback: ${fallback.name}`);
           this.metrics.fallbacks++;
           
           const result = await fallback.complete(messages, {
-            ...options,
-            model: undefined // Use fallback's default model
+            ...callOptions,
+            model: undefined, // Use fallback's default model
+            maxRetries: 0, // IA-11
           });
-          this._recordProviderSuccess(fallback.name); // v9.2.0
+          this._recordProviderSuccess(fallback.name, tenantId); // v9.2.0
 
           result.fallbackFrom = provider.name;
           trackingResult.provider = fallback.name;
@@ -493,8 +521,8 @@ class AIRouterService {
           return result;
         } catch (fallbackError) {
           logger.warn(`[AIRouter] Fallback ${fallback.name} failed: ${fallbackError.message}`);
-          this._applyErrorPolicy(this.classifyError(fallbackError, fallback.name));
-          this._recordProviderFailure(fallback.name); // v9.2.0
+          this._applyErrorPolicy(this.classifyError(fallbackError, fallback.name), tenantId);
+          this._recordProviderFailure(fallback.name, tenantId); // v9.2.0
         }
       }
       
@@ -577,7 +605,7 @@ class AIRouterService {
    * Streaming completion
    */
   async *stream(messages, options = {}) {
-    const provider = this.getNextProvider(options.provider);
+    const provider = this.getNextProvider(options.provider, options.tenantId);
     
     if (!provider) {
       throw new Error('No AI provider available');
@@ -589,7 +617,7 @@ class AIRouterService {
       }
     } catch (error) {
       // Try fallback for streaming
-      const fallbacks = this.getFallbackProviders(provider.name);
+      const fallbacks = this.getFallbackProviders(provider.name, options.tenantId);
       
       for (const fallback of fallbacks) {
         try {

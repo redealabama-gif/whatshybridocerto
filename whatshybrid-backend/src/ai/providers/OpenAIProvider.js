@@ -97,7 +97,7 @@ class OpenAIProvider extends BaseProvider {
             ...(options.stop && { stop: options.stop }),
             ...(options.responseFormat && { response_format: options.responseFormat })
           }),
-          signal: AbortSignal.timeout(this.timeout)
+          signal: AbortSignal.timeout(this.attemptTimeout(options.deadline)) // IA-11
         });
 
         if (!res.ok) {
@@ -108,7 +108,7 @@ class OpenAIProvider extends BaseProvider {
         }
 
         return res.json();
-      });
+      }, Number.isInteger(options.maxRetries) ? options.maxRetries : this.maxRetries, options.deadline); // IA-11
 
       const latency = Date.now() - startTime;
       this.recordLatency(latency);

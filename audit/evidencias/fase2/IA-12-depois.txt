@@ -1,0 +1,4 @@
+  ✓ falhas do cliente B não deixam o cliente A sem IA (97 ms)
+  ✓ controle: o próprio cliente B fica em espera (não martela o provedor) (13 ms)
+  ✓ resposta de fallback da base (IA indisponível) → guarda nega o envio automático (1 ms)
+Tests:       3 passed, 3 total

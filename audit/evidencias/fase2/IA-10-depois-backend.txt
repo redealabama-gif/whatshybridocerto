@@ -1,0 +1,4 @@
+    ✓ B sincroniza a própria FAQ + uma com o mesmo id de A → as duas ficam em B (49 ms)
+    ✓ B envia só o conjunto local de A → B não fica zerado (10 ms)
+    ✓ erro num INSERT → nada é apagado (transação) e a resposta NÃO é 2xx (12 ms)
+Tests:       3 passed, 3 total

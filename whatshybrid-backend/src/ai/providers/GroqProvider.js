@@ -94,7 +94,7 @@ class GroqProvider extends BaseProvider {
             top_p: options.topP ?? 1,
             ...(options.stop && { stop: options.stop })
           }),
-          signal: AbortSignal.timeout(this.timeout)
+          signal: AbortSignal.timeout(this.attemptTimeout(options.deadline)) // IA-11
         });
 
         if (!res.ok) {
@@ -105,7 +105,7 @@ class GroqProvider extends BaseProvider {
         }
 
         return res.json();
-      });
+      }, Number.isInteger(options.maxRetries) ? options.maxRetries : this.maxRetries, options.deadline); // IA-11
 
       const latency = Date.now() - startTime;
       this.recordLatency(latency);

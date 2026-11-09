@@ -66,21 +66,36 @@ const KNOWLEDGE_SEEKING_INTENTS = new Set([
   'information', 'pricing', 'question', 'support', 'schedule', 'purchase', 'negotiation',
 ]);
 
+/**
+ * IA-09 — pergunta de esclarecimento só quando ajuda: mensagem curta/vaga
+ * (até 4 palavras, ex.: "Quanto custa?") que pede dado do negócio sem base para
+ * responder. Antes, toda pergunta sem base — ou com confiança do classificador
+ * abaixo do limiar, que não mede ambiguidade ("ok obrigado" caía aí) — recebia
+ * "faça UMA pergunta" (10 das 12 mensagens do S1) e a resposta virava uma
+ * pergunta curta. Pergunta clara sem base fica com o GROUNDING_NOTICE (não
+ * inventar, oferecer confirmar/atendente).
+ */
+function shouldClarify({ intent, knowledgeCount, message } = {}) {
+  const words = String(message || '').trim().split(/\s+/).filter(Boolean).length;
+  if (words === 0 || words > 4) return false;
+  return knowledgeCount === 0 && KNOWLEDGE_SEEKING_INTENTS.has(intent);
+}
+
 const GROUNDING_NOTICE = {
   'pt-BR': `# ⚠️ Sem informação específica na base
 Você NÃO recuperou informação específica da empresa para esta pergunta.
 - NÃO invente dados do negócio (preços, prazos, políticas, estoque, endereços, condições).
-- Se puder ajudar com orientação geral e segura, ajude de forma breve.
+- Se puder ajudar com orientação geral e segura, ajude.
 - Para qualquer dado específico que você não tem certeza, diga com naturalidade que vai confirmar e ofereça encaminhar para um atendente humano.`,
   en: `# ⚠️ No specific knowledge available
 You did NOT retrieve company-specific information for this question.
 - Do NOT invent business data (prices, deadlines, policies, stock, addresses, terms).
-- If you can help with safe, general guidance, do so briefly.
+- If you can help with safe, general guidance, do so.
 - For any specific data you are unsure about, naturally say you will confirm and offer to connect the customer with a human agent.`,
   es: `# ⚠️ Sin información específica disponible
 NO recuperaste información específica de la empresa para esta pregunta.
 - NO inventes datos del negocio (precios, plazos, políticas, stock, direcciones, condiciones).
-- Si puedes ayudar con orientación general y segura, hazlo brevemente.
+- Si puedes ayudar con orientación general y segura, hazlo.
 - Para cualquier dato específico del que no estés seguro, di con naturalidad que lo confirmarás y ofrece derivar a un agente humano.`,
 };
 
@@ -978,5 +993,6 @@ module.exports = instance;
 module.exports.DynamicPromptBuilder = DynamicPromptBuilder;
 module.exports.SECTION_PRIORITIES = SECTION_PRIORITIES;
 module.exports.KNOWLEDGE_SEEKING_INTENTS = KNOWLEDGE_SEEKING_INTENTS; // FASE 3a
+module.exports.shouldClarify = shouldClarify; // IA-09
 module.exports.DEFAULT_BUDGETS = DEFAULT_BUDGETS;
 module.exports.COT_TEMPLATES = COT_TEMPLATES;
