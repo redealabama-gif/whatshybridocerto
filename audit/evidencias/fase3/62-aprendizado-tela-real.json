@@ -1,0 +1,170 @@
+{
+  "generatedAt": "2026-11-09T23:27:54.760Z",
+  "editarAprovar": {
+    "sugestaoOriginal": "Preciso verificar essa informação. Vou confirmar e já te falo!",
+    "feedbackHttp": [
+      "200"
+    ],
+    "banco": {
+      "ai_feedback": [
+        {
+          "rating": 5,
+          "feedback_type": "correction",
+          "chat_id": "Paciente A",
+          "corrigida": "Temos sim! Estacionamento conveniado na "
+        }
+      ],
+      "learned_examples": [
+        {
+          "input": "Vocês têm estacionamento?",
+          "output": "Temos sim! Estacionamento conveniado na Rua das Fl"
+        }
+      ],
+      "learning_patterns": [
+        {
+          "pattern_key": "estacionamento m s t voc",
+          "positive_count": 0,
+          "negative_count": 1,
+          "total_count": 1,
+          "status": "candidate"
+        }
+      ]
+    }
+  },
+  "depoisDaCorrecao": {
+    "correcaoNoPrompt": true,
+    "resposta": "Temos sim! Estacionamento conveniado na Rua das Flores, 120 — 2 horas grátis com o tíquete da recepção."
+  },
+  "aprovarCincoVezes": {
+    "feedbackHttp": [
+      "200",
+      "200",
+      "200",
+      "200",
+      "200"
+    ],
+    "sugestoes": [
+      "A consulta de avaliação costuma durar cerca de 30 a 45 minutos. Isso permite que a gente converse bem sobre suas necessidades. Tem algum dia e horário em mente para agendarmos?",
+      "A consulta de avaliação geralmente dura cerca de 1 hora. Se precisar, posso agendar um horário para você. Qual dia e horário você prefere?",
+      "A consulta de avaliação costuma durar cerca de 40 minutos. Se precisar de mais informações ou quiser agendar, é só avisar!",
+      "A consulta de avaliação geralmente dura cerca de 1 hora. Se precisar de mais informações ou quiser agendar, é só me avisar!",
+      "A consulta de avaliação normalmente dura em torno de 1 hora. Se precisar de mais informações ou quiser agendar, é só avisar!"
+    ],
+    "banco": {
+      "ai_feedback": [
+        {
+          "rating": 5,
+          "feedback_type": "correction",
+          "chat_id": "Paciente A",
+          "corrigida": "Temos sim! Estacionamento conveniado na "
+        },
+        {
+          "rating": 5,
+          "feedback_type": "rating",
+          "chat_id": "Paciente C1",
+          "corrigida": null
+        },
+        {
+          "rating": 5,
+          "feedback_type": "rating",
+          "chat_id": "Paciente C2",
+          "corrigida": null
+        },
+        {
+          "rating": 5,
+          "feedback_type": "rating",
+          "chat_id": "Paciente C3",
+          "corrigida": null
+        },
+        {
+          "rating": 5,
+          "feedback_type": "rating",
+          "chat_id": "Paciente C4",
+          "corrigida": null
+        },
+        {
+          "rating": 5,
+          "feedback_type": "rating",
+          "chat_id": "Paciente C5",
+          "corrigida": null
+        }
+      ],
+      "learned_examples": [
+        {
+          "input": "Vocês têm estacionamento?",
+          "output": "Temos sim! Estacionamento conveniado na Rua das Fl"
+        }
+      ],
+      "learning_patterns": [
+        {
+          "pattern_key": "a avalia consulta de dura o quanto tempo",
+          "positive_count": 5,
+          "negative_count": 0,
+          "total_count": 5,
+          "status": "graduated"
+        },
+        {
+          "pattern_key": "estacionamento m s t voc",
+          "positive_count": 0,
+          "negative_count": 1,
+          "total_count": 1,
+          "status": "candidate"
+        }
+      ]
+    },
+    "sextaVez": {
+      "fewShotNoPrompt": true,
+      "trechoFewShot": "# Proven Response Examples (follow this style)\nThese are real interactions that received positive feedback from your team:\n\nExample 1:\nCustomer: \"Quanto tempo dura a consulta de avaliação?\"\nResponse: \"A consulta de avaliação costuma durar cerca de 30 a 45 minutos. Isso permite que a gente converse bem sobre suas necessidades. Tem algum dia e horário em mente para agendarmos?\"\n\n---\n\n# Message Analysis\nIntent: question\nSentiment: neutral (0.00)\n",
+      "resposta": "A consulta de avaliação costuma durar cerca de 30 a 45 minutos. Assim, conseguimos conversar bem sobre suas necessidades. Tem algum dia e horário que você tem em mente para agendarmos?"
+    }
+  },
+  "reprovar": {
+    "feedbackHttp": [
+      "200"
+    ],
+    "banco": [
+      {
+        "rating": 5,
+        "feedback_type": "correction",
+        "chat_id": "Paciente A",
+        "corrigida": "Temos sim! Estacionamento conveniado na "
+      },
+      {
+        "rating": 5,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C1",
+        "corrigida": null
+      },
+      {
+        "rating": 5,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C2",
+        "corrigida": null
+      },
+      {
+        "rating": 5,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C3",
+        "corrigida": null
+      },
+      {
+        "rating": 5,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C4",
+        "corrigida": null
+      },
+      {
+        "rating": 5,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C5",
+        "corrigida": null
+      },
+      {
+        "rating": 0,
+        "feedback_type": "rating",
+        "chat_id": "Paciente C6",
+        "corrigida": null
+      }
+    ]
+  }
+}
