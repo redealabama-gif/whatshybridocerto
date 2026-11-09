@@ -1,0 +1,6 @@
+• suggestion-injector-backend.test.js
+  ✓ IA-25: DOM atual → o atalho extrai as 6 mensagens
+  ✓ IA-25: o atalho usa o orquestrador do backend com a pergunta certa e o histórico
+  ✓ IA-25: kill switch do backend → o atalho não cai na IA local
+
+  3 passou, 0 falhou (3 no total)
