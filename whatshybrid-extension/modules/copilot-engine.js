@@ -1365,10 +1365,23 @@ Diretrizes:
 
     try {
       // ✅ Método mais robusto (WhatsApp atual): rows com data-id true_/false_
-      const rows = Array.from(document.querySelectorAll('#main [data-id^="true_"], #main [data-id^="false_"]'));
+      let rows = Array.from(document.querySelectorAll('#main [data-id^="true_"], #main [data-id^="false_"]'));
+      // IA-21 — WhatsApp atual: data-id é só o id da mensagem (sem true_/false_).
+      // Usa as raízes [data-id] da conversa (um data-id dentro de outro é citação);
+      // a direção sai de isOutgoingRow (ícones de entrega/cauda). Antes caía no
+      // msg-container, que só existe em UM balão: o autopilot mandava ao backend
+      // 1 mensagem de histórico.
+      if (rows.length === 0) {
+        rows = Array.from(document.querySelectorAll('#main [data-id]')).filter((el) => {
+          const id = safe(el.getAttribute('data-id'));
+          if (!/^[0-9A-Za-z]{10,64}$/.test(id) || !/\d/.test(id)) return false;
+          return !(el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]'));
+        });
+      }
       if (rows.length > 0) {
         rows.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-        const windowRows = rows.slice(-Math.max(1, maxMessages));
+        // IA-21 — 0 = todo o histórico (como no caminho da Store); antes virava 1.
+        const windowRows = maxMessages > 0 ? rows.slice(-maxMessages) : rows;
 
         let idx = 0;
         for (const row of windowRows) {
@@ -1416,7 +1429,7 @@ Diretrizes:
           });
         });
         console.log(`[CopilotEngine][CTX] 📜 Fallback msg-container extraidas=${messages.length}`);
-        return messages.slice(-Math.max(1, maxMessages));
+        return maxMessages > 0 ? messages.slice(-maxMessages) : messages;
       }
 
       // Fallback final: classes antigas
@@ -1440,7 +1453,7 @@ Diretrizes:
       console.error('[CopilotEngine] Erro ao extrair mensagens do DOM:', error);
     }
 
-    return messages.slice(-Math.max(1, maxMessages));
+    return maxMessages > 0 ? messages.slice(-maxMessages) : messages;
   }
 
   function clearConversationContext(chatId) {

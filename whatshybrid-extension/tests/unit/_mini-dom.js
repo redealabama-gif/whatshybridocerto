@@ -27,6 +27,7 @@ class Node {
     const list = String(this.attrs.class || '').split(/\s+/).filter(Boolean);
     return { contains: (c) => list.includes(c) };
   }
+  getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 }; }
   getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; }
   hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k); }
   matches(sel) { return parseSelectorList(sel).some((complex) => matchComplex(this, complex)); }
