@@ -32,7 +32,7 @@ const SECTION_PRIORITIES = {
  * Default token budgets per section
  */
 const DEFAULT_BUDGETS = {
-  IDENTITY: 200,
+  IDENTITY: 600, // IA-42: papel na conversa (~340) + persona; 200 cortava os dois
   BUSINESS_RULES: 300,
   BEHAVIORAL_DIRECTIVE: 250, // v10: commercial goal directive
   CLIENT_BEHAVIOR: 300,      // v10.1: micro-adaptation block
@@ -44,6 +44,64 @@ const DEFAULT_BUDGETS = {
   CHAIN_OF_THOUGHT: 200,
   GUARDRAILS: 200
 };
+
+/**
+ * IA-42 — Papel do dono da conta na conversa. A sugestão é a PRÓXIMA mensagem
+ * que ele vai enviar; a conversa pode não ser de atendimento (ele comprando,
+ * colega, amigo, família), e as diretrizes comerciais só valem quando for.
+ */
+function buildConversationRole(language = 'pt-BR') {
+  if (/^pt/i.test(String(language))) {
+    return [
+      '# Papel',
+      'Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). Mensagens "assistant" são dele; "user" são do contato.',
+      '- Descubra pela conversa quem é quem: ele pode estar atendendo um cliente da empresa dele, comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a). Não presuma que ele é o vendedor.',
+      '- Se ele pergunta do pedido, da compra ou do rastreio DELE ("meu pedido", "o que eu comprei"), ele é o cliente e o contato é quem vende: responda como cliente (agradeça, confirme o que recebeu, pergunte o que falta) — nunca fale como a loja.',
+      '- Em conversa pessoal (amizade, família, relacionamento), fale como pessoa, não como empresa: nada de "resolver a situação", "garantir sua experiência", "estou aqui para ajudar".',
+      '- Responda ao que o contato acabou de dizer, usando o que já está na conversa (nomes, códigos, prazos).',
+      '- Escreva como ele escreve aqui: mesmo registro e gírias, tamanho parecido, sem saudação no meio da conversa.',
+      '- Evite frases de atendimento genéricas ("Em que posso ser útil?", "Estou à disposição", "Posso ajudar com mais alguma informação?", "Pode me dar mais detalhes?", "Se precisar de algo...").',
+      '- As diretrizes de atendimento e venda abaixo só valem quando a conversa é atendimento a um cliente da empresa dele.',
+      `Idioma: ${language}`,
+    ].join('\n');
+  }
+  return [
+    '# Role',
+    'You write the next message the owner of this WhatsApp account will send in this conversation, on his behalf (first person). "assistant" messages are his; "user" messages are from the contact.',
+    '- Work out who is who from the conversation: he may be serving a customer of his business, buying from a supplier, or talking to a colleague, friend, family member or partner. Do not assume he is the seller.',
+    '- If he asks about HIS order, purchase or tracking ("my order", "what I bought"), he is the customer and the contact is the seller: reply as the customer (thank, confirm what he got, ask what is missing) — never speak as the shop.',
+    '- In personal conversations (friends, family, partner), speak as a person, not a company: no "resolve the situation", "ensure your experience", "I am here to help".',
+    '- Reply to what the contact just said, using what is already in the conversation (names, codes, dates).',
+    '- Write the way he writes here: same register and slang, similar length, no greeting mid-conversation.',
+    '- Avoid generic service phrases ("How can I help you?", "I am at your disposal", "Anything else I can help with?").',
+    '- The customer-service and sales guidelines below only apply when the conversation is customer service for his business.',
+    `Language: ${language}`,
+  ].join('\n');
+}
+
+/**
+ * IA-42 — Lembrete que fecha o prompt (sempre incluído, depois das seções).
+ */
+function buildClosingReminder(language = 'pt-BR') {
+  if (/^pt/i.test(String(language))) {
+    return [
+      '# Antes de responder',
+      '- Releia as últimas mensagens: quem pediu o quê e quem está esperando o quê. Você é o dono da conta escrevendo para este contato.',
+      '- Responda ao que o contato disse por último, como o dono responderia nesta relação. Se a conversa não for atendimento a um cliente da empresa dele, ignore as diretrizes comerciais e de atendimento acima.',
+      '- Preço, prazo, fidelidade, garantia, estoque, status de pedido, opinião sobre empresas: só afirme o que estiver na conversa ou na base de conhecimento. Se não estiver, diga que vai confirmar — nunca suponha ("não tem fidelidade", "costuma ser rápido") nem deixe lacuna ("R$ XXX", "[valor]").',
+      '- Termine quando o assunto terminar, sem fecho genérico ("se precisar de algo", "estou à disposição", "qualquer dúvida me avisa").',
+      '- Responda só com o texto da mensagem.',
+    ].join('\n');
+  }
+  return [
+    '# Before replying',
+    '- Re-read the last messages: who asked for what and who is waiting for what. You are the account owner writing to this contact.',
+    '- Reply to what the contact said last, the way the owner would in this relationship. If this is not customer service for his business, ignore the sales and customer-service guidelines above.',
+    '- Price, deadline, contract terms, warranty, stock, order status, opinions about companies: only state what is in the conversation or the knowledge base. If it is not there, say you will confirm — never assume ("there is no contract", "they are usually fast") or leave blanks ("$XXX", "[value]").',
+    '- Stop when the subject ends, without a generic closing ("if you need anything", "I am at your disposal").',
+    '- Reply with the message text only.',
+  ].join('\n');
+}
 
 /**
  * Guardrails that must never be violated
@@ -358,11 +416,15 @@ class DynamicPromptBuilder {
    * @returns {string} Identity section text
    */
   buildIdentitySection(persona, language = 'pt-BR') {
+    // IA-42: antes, sem persona, era "You are a professional customer service
+    // assistant." — e toda sugestão saía com voz de atendente de loja, até em
+    // conversa pessoal ou quando o dono da conta era o comprador.
+    const role = buildConversationRole(language);
     if (!persona) {
-      return `You are a professional customer service assistant.\nLanguage: ${language}`;
+      return role;
     }
-    
-    let section = `# Identity\n`;
+
+    let section = `${role}\n\n# Identity (persona para quando ele atende clientes)\n`;
     section += `Persona: ${persona.name || 'Professional Assistant'}\n`;
     
     if (persona.description) {
@@ -438,7 +500,9 @@ class DynamicPromptBuilder {
         // `fromMe` → o histórico ao vivo (que usa `role`) rotulava TODOS como
         // "Client", embaralhando quem disse o quê neste bloco de contexto.
         const isAgent = msg.fromMe === true || msg.role === 'assistant';
-        const speaker = isAgent ? 'Agent' : 'Client';
+        // IA-42: "Dono"/"Contato" — "Agent"/"Client" fixava o contato como cliente
+        // da empresa mesmo quando o dono era o comprador, o amigo ou o colega.
+        const speaker = isAgent ? 'Dono' : 'Contato';
         section += `${speaker}: ${msg.content}\n`;
       });
     }
@@ -923,8 +987,12 @@ class DynamicPromptBuilder {
     }
     
     // Build final prompt
+    // IA-42: o lembrete do papel fecha o prompt sempre (fora do orçamento) — os
+    // modelos seguem mais o fim do prompt, e as diretrizes comerciais do meio
+    // puxavam toda conversa para o roteiro de atendente.
     const prompt = includedSections
       .map(section => section.content)
+      .concat(buildClosingReminder(language))
       .join('\n\n---\n\n');
     
     // Update statistics
