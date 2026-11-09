@@ -408,6 +408,48 @@ router.get('/knowledge/search', authenticate, asyncHandler(async (req, res) => {
   res.json({ results });
 }));
 
+// IA-40 — a fila só vale com um worker vivo consumindo. Sem o container
+// ai-worker, o job esperava AI_QUEUE_WAIT_MS (45 s) antes do caminho síncrono e
+// a extensão, que desiste em 30 s, mostrava uma frase pronta. getWorkersCount()
+// lista as conexões de worker no Redis; se o comando falhar (Redis gerenciado
+// sem CLIENT LIST), segue pela fila e waitQueuedJob protege.
+async function hasQueueWorker(queue) {
+  if (typeof queue.getWorkersCount !== 'function') return true;
+  try {
+    if ((await queue.getWorkersCount()) > 0) return true;
+    logger.warn('[AI/process] fila de IA sem worker ativo (ai-worker parado?) — usando o caminho síncrono');
+    return false;
+  } catch (_) {
+    return true;
+  }
+}
+
+// IA-40 — se nenhum worker pegar o job em AI_QUEUE_PICKUP_MS (padrão 5 s), tira
+// o job da fila e devolve o controle ao caminho síncrono (erro QUEUE_NOT_PICKED_UP).
+async function waitQueuedJob(job, events, waitMs) {
+  const pickupMs = parseInt(process.env.AI_QUEUE_PICKUP_MS, 10) || 5000;
+  const finished = job.waitUntilFinished(events, waitMs);
+  finished.catch(() => {}); // quem perder a corrida não vira rejeição solta
+  let timer;
+  const notPickedUp = new Promise((resolve) => { timer = setTimeout(resolve, pickupMs); }).then(async () => {
+    const state = await job.getState().catch(() => 'unknown');
+    if (state === 'waiting' || state === 'prioritized' || state === 'delayed') {
+      const removed = await job.remove().then(() => true, () => false);
+      if (removed) {
+        const err = new Error('queue_not_picked_up');
+        err.code = 'QUEUE_NOT_PICKED_UP';
+        throw err;
+      }
+    }
+    return finished;
+  });
+  try {
+    return await Promise.race([finished, notPickedUp]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * POST /api/v2/ai/process
  * v10.1: Processa mensagem com pipeline completo de IA (intent → goal → behavior → LLM → quality)
@@ -547,7 +589,8 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), killSwitchG
     // request — cada um abre uma conexão Redis (blocking) que nunca fechava.
     // Sob carga, vazava conexões até estourar o maxclients do Redis e derrubar
     // IA + rate-limiting juntos. Agora reusamos a instância única do worker.
-    if (realtimeQueue && realtimeEvents) {
+    // IA-40: e só com worker vivo consumindo a fila (ver hasQueueWorker).
+    if (realtimeQueue && realtimeEvents && (await hasQueueWorker(realtimeQueue))) {
       const job = await realtimeQueue.add('process', {
         tenantId, chatId, message,
         language: language || 'pt-BR',
@@ -563,11 +606,14 @@ router.post('/process', authenticate, checkSubscription('ai_basic'), killSwitchG
       //     antes de a gente responder.
       // Cadeia: provider(40s) < fila(45s) < proxy(50s). Override via env.
       const queueWaitMs = parseInt(process.env.AI_QUEUE_WAIT_MS, 10) || 45000;
-      result = await job.waitUntilFinished(realtimeEvents, queueWaitMs);
+      result = await waitQueuedJob(job, realtimeEvents, queueWaitMs);
       usedQueue = true;
     }
   } catch (_queueErr) {
-    // Redis indisponível ou timeout — fallback para chamada síncrona
+    // Redis indisponível, job não pego por worker ou timeout — fallback para chamada síncrona
+    if (_queueErr?.code === 'QUEUE_NOT_PICKED_UP') {
+      logger.warn('[AI/process] nenhum worker pegou o job da fila — usando o caminho síncrono');
+    }
   }
 
   if (!usedQueue) {
