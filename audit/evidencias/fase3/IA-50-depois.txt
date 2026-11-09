@@ -1,0 +1,6 @@
+    ✓ entram no índice semântico (17 ms)
+    ✓ são encontrados pela busca por palavra-chave (4 ms)
+    ✓ trocar o TXT reindexa (a assinatura do conhecimento muda) (1 ms)
+    ✓ leva o preço (2 ms)
+    ✓ leva o estoque esgotado (para a IA não oferecer o que acabou) (1 ms)
+Tests:       5 passed, 5 total

@@ -1198,6 +1198,28 @@ class AIOrchestrator {
    * @returns {string|null} assinatura, ou null se indisponível
    * @private
    */
+  /**
+   * IA-50: parágrafos importados de TXT na tela de treinamento. Ficam em
+   * workspace_knowledge.data.extraNotes ("--- arquivo.txt ---" + parágrafos
+   * separados por linha em branco). A tela diz "anexados ao conhecimento", mas
+   * nada os lia: a IA inventava a política que estava no arquivo.
+   * @returns {string[]} parágrafos (sem o cabeçalho do arquivo)
+   * @private
+   */
+  _knowledgeNotes(db) {
+    const wk = db.get('SELECT data FROM workspace_knowledge WHERE workspace_id = ?', [this.tenantId]);
+    if (!wk?.data) return [];
+    let bi;
+    try { bi = JSON.parse(wk.data); } catch (_) { return []; }
+    const notes = typeof bi?.extraNotes === 'string' ? bi.extraNotes : '';
+    return notes
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/^---.*---[ \t]*$/gm, '').trim())
+      .filter((p) => p.length >= 20)
+      .map((p) => p.slice(0, 1200))
+      .slice(0, 100);
+  }
+
   _computeKnowledgeSignature() {
     try {
       const db = require('../utils/database');
@@ -1209,11 +1231,13 @@ class AIOrchestrator {
            (SELECT COUNT(*)        FROM training_examples WHERE workspace_id = ?)                   AS e,
            (SELECT MAX(updated_at) FROM faqs              WHERE workspace_id = ?)                   AS mf,
            (SELECT MAX(updated_at) FROM products          WHERE workspace_id = ?)                   AS mp,
-           (SELECT MAX(updated_at) FROM training_examples WHERE workspace_id = ?)                   AS me`,
-        [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
+           (SELECT MAX(updated_at) FROM training_examples WHERE workspace_id = ?)                   AS me,
+           (SELECT MAX(updated_at) FROM workspace_knowledge WHERE workspace_id = ?)                 AS mk`,
+        [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
       );
       if (!row) return null;
-      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}`;
+      // IA-50: mk — o TXT importado (extraNotes) também é indexado.
+      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}|${row.mk || ''}`;
     } catch (_) {
       return null;
     }
@@ -1348,6 +1372,13 @@ class AIOrchestrator {
         });
       }
     } catch (e) { logger.debug?.(`[Orchestrator] index examples: ${e.message}`); }
+
+    // ── IA-50: textos importados de TXT (businessInfo.extraNotes) ──────
+    try {
+      this._knowledgeNotes(db).forEach((para, i) => {
+        docs.push({ id: `note:${i}`, content: para, metadata: { source: 'Documento importado', type: 'note' } });
+      });
+    } catch (e) { logger.debug?.(`[Orchestrator] index notes: ${e.message}`); }
 
     // Sem nada treinado: marca a assinatura e sai (não mexe no índice).
     if (docs.length === 0) { this._knowledgeSig = sig; return; }
@@ -1544,10 +1575,17 @@ class AIOrchestrator {
       }
     } catch (e) { logger.debug?.(`[Orchestrator] Learned examples query failed: ${e.message}`); }
 
+    // ── IA-50: textos importados de TXT (businessInfo.extraNotes) ──────
+    try {
+      for (const para of this._knowledgeNotes(db)) {
+        candidates.push({ type: 'note', content: para, source: 'Documento importado', fields: [{ text: para, weight: 0.8 }] });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] Notes query failed: ${e.message}`); }
+
     // Ranqueia FAQs/produtos/exemplos JUNTOS (IDF compartilhada) e aplica
     // limites por tipo, mantendo a ordenação global por relevância.
-    const CAPS = { faq: 3, product: 2, example: 3 };
-    const counts = { faq: 0, product: 0, example: 0 };
+    const CAPS = { faq: 3, product: 2, example: 3, note: 2 };
+    const counts = { faq: 0, product: 0, example: 0, note: 0 };
     let ranked = [];
     try {
       ranked = LocalKnowledgeRanker.rankDocuments(text, candidates) || [];
