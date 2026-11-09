@@ -7,6 +7,8 @@
  * extensão mostrou/inseriu.
  *
  * Pré-requisito: backend (start-backend.sh) + fake-provider.js no ar.
+ * Com IA real (start-backend-real.sh): FAKE='' e PROVIDER_LOG=<provider-calls.jsonl>;
+ * o que chegou ao modelo é lido do registro de log-fetch.js. OUT_DIR muda a saída.
  * Uso: node audit/harness/extension-e2e.js [dom: antigo|atual] [scratchDir]
  */
 'use strict';
@@ -17,13 +19,15 @@ const path = require('path');
 const { CONV, bubbleOld, bubbleNew, page } = require('./wa-dom');
 
 const B = process.env.BACKEND || 'http://127.0.0.1:3000';
-const F = process.env.FAKE || 'http://127.0.0.1:18080';
+const F = process.env.FAKE === undefined ? 'http://127.0.0.1:18080' : process.env.FAKE;
+const PROVIDER_LOG = process.env.PROVIDER_LOG || '';
+const logLines = () => (PROVIDER_LOG && fs.existsSync(PROVIDER_LOG) ? fs.readFileSync(PROVIDER_LOG, 'utf8').split('\n').filter(Boolean) : []);
 const VARIANT = process.argv[2] || 'atual';
 const SCRATCH = process.argv[3] || fs.mkdtempSync(path.join(os.tmpdir(), 'audit-e2e-'));
 // EXT_DIR: outra cópia da extensão (antes × depois); TAG grava em fase2/matriz/.
 const SRC_EXT = process.env.EXT_DIR || path.resolve(__dirname, '../../whatshybrid-extension');
 const TAG = process.env.TAG || '';
-const OUT = TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias');
+const OUT = process.env.OUT_DIR || (TAG ? path.resolve(__dirname, '../evidencias/fase2/matriz') : path.resolve(__dirname, '../evidencias'));
 
 async function http(method, url, body, token) {
   const r = await fetch(url, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -41,7 +45,7 @@ async function http(method, url, body, token) {
   await http('POST', `${B}/api/v1/training/sync`, {
     faqs: [{ id: `faq-${Date.now()}`, question: 'Quanto custa o plano para clínica?', answer: 'Plano Pro para clínicas: R$ 189/mês para até 5 usuários, sem fidelidade; anual com 15% de desconto.' }],
   }, token);
-  await fetch(`${F}/__reset`); await fetch(`${F}/__mode?m=ok`);
+  if (F) { await fetch(`${F}/__reset`); await fetch(`${F}/__mode?m=ok`); }
 
   const userData = path.join(SCRATCH, 'profile');
   const ctx = await chromium.launchPersistentContext(userData, {
@@ -72,14 +76,19 @@ async function http(method, url, body, token) {
   const result = { variant: VARIANT, extensionId: extId, buttonInjected: !!btn };
   if (btn) {
     await pg.waitForTimeout(3000); // BackendClient conectar
+    const logStart = logLines().length;
     await btn.click();
     await pg.waitForTimeout(15000);
     result.panel = await pg.evaluate(() => document.getElementById('whl-ai-panel-fixed')?.innerText?.slice(0, 400) || null);
-    const calls = await (await fetch(`${F}/__log`)).json();
+    const calls = F
+      ? await (await fetch(`${F}/__log`)).json()
+      // IA real: chamadas registradas por log-fetch.js depois do clique (geração = a última com prompt de sistema)
+      : logLines().slice(logStart).map((l) => JSON.parse(l)).filter((e) => (e.messages || []).some((m) => m.role === 'system')).map((e) => ({ body: { messages: e.messages }, model: e.model, status: e.status, reply: e.reply }));
     const c = calls[calls.length - 1];
     result.providerCalls = calls.length;
     if (c) {
       const msgs = c.body.messages || [];
+      if (!F) result.model = { name: c.model, status: c.status, reply: c.reply };
       result.modelSaw = {
         lastUserMessage: (msgs.filter((m) => m.role === 'user').pop() || {}).content,
         historyCount: msgs.filter((m) => m.role !== 'system').length,

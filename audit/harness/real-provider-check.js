@@ -5,7 +5,7 @@
  * caminhos de backend do popup "Sugestão de IA" (ai-suggestion-fixed.js), com o mesmo
  * corpo que a extensão manda:
  *   MÉTODO 0 → POST /api/v2/ai/process  (orquestrador; a extensão desiste em 30 s)
- *   MÉTODO 3 → POST /api/v1/ai/complete (LLM direto, mesmo prompt da extensão)
+ *   MÉTODO 3 → POST /api/v1/ai/complete (LLM direto, o prompt lido do código da extensão)
  * Para cada um: status, tempo, texto final e as chamadas ao provedor (modelo,
  * status, resposta crua), lidas do log de log-fetch.js.
  *
@@ -65,6 +65,26 @@ const CONVERSAS = process.env.CONVERSAS_FILE ? JSON.parse(fs.readFileSync(proces
   ],
 };
 
+// MÉTODO 3: o mesmo prompt que a extensão manda — lido do código dela, para o
+// teste nunca divergir. Sem METODO3_SYSTEM_PROMPT (código anterior ao IA-42),
+// usa o prompt antigo de "atendente humano" com a conversa "Atendente:/Cliente:".
+const EXT_SRC = fs.readFileSync(path.resolve(__dirname, '../../whatshybrid-extension/modules/ai-suggestion-fixed.js'), 'utf8');
+const M3_MATCH = EXT_SRC.match(/const METODO3_SYSTEM_PROMPT = ([\s\S]*?);\n/);
+const METODO3_SYSTEM = M3_MATCH ? Function(`return ${M3_MATCH[1]}`)() : null;
+function metodo3Messages(conv) {
+  if (METODO3_SYSTEM) {
+    const t = conv.map(([r, c]) => `${r === 'assistant' ? 'Eu' : 'Contato'}: ${c}`).join('\n');
+    return [
+      { role: 'system', content: METODO3_SYSTEM },
+      { role: 'user', content: `Conversa (as linhas "Eu:" são do dono da conta):\n${t}\n\nEscreva a próxima mensagem dele.` },
+    ];
+  }
+  return [
+    { role: 'system', content: 'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.' },
+    { role: 'user', content: `Conversa recente:\n${transcriptOf(conv)}\n\nResponda à ÚLTIMA mensagem do cliente de forma humana e coerente.` },
+  ];
+}
+
 async function http(method, url, body, token, timeoutMs = 120000) {
   const t0 = Date.now();
   try {
@@ -119,10 +139,7 @@ const transcriptOf = (conv) => conv.map(([r, c]) => `${r === 'assistant' ? 'Aten
     // MÉTODO 3 — /api/v1/ai/complete (prompt igual ao da extensão)
     n = lines().length;
     const m3 = await http('POST', `${B}/api/v1/ai/complete`, {
-      messages: [
-        { role: 'system', content: 'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.' },
-        { role: 'user', content: `Conversa recente:\n${transcriptOf(conv)}\n\nResponda à ÚLTIMA mensagem do cliente de forma humana e coerente.` },
-      ],
+      messages: metodo3Messages(conv),
       temperature: 0.7, maxTokens: 320,
     }, token);
     sc.metodo3 = {
