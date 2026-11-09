@@ -1001,20 +1001,10 @@ class AIOrchestrator {
 
     if (trace) trace.llmFallback = usedKnowledgeFallback; // IA-12
 
-    // CORREÇÃO P2: A/B testing real — estratégias diferentes, não emojis decorativos
-    // variant_a: resposta mais concisa e direta (estilo assertivo)
-    // variant_b: resposta mais consultiva com pergunta de qualificação no final
-    // O PerformanceScoreEngine fecha o loop estatístico medindo outcomes reais
-    if (variant === 'variant_a') {
-      // Estratégia A: direto ao ponto — remove introduções prolixas
-      content = content.replace(/^(Olá!?\s*|Oi!?\s*|Claro[,!]?\s*|Com prazer[,!]?\s*)/i, '').trim();
-    } else if (variant === 'variant_b') {
-      // Estratégia B: consultiva — adiciona pergunta de qualificação se não houver uma
-      if (!content.includes('?')) {
-        content = content + ' Posso te ajudar com mais alguma informação?';
-      }
-    }
-
+    // IA-14: o A/B não mexe mais no texto do modelo. Antes, variant_a cortava
+    // "Olá!/Oi!/Claro," do começo e variant_b colava " Posso te ajudar com mais
+    // alguma informação?" no fim — a sugestão saía genérica até em conversa
+    // pessoal. A variante segue registrada (métricas e PerformanceScoreEngine).
     return content;
   }
 
