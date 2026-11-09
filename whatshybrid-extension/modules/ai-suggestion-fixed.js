@@ -85,6 +85,14 @@
     return clean.trim();
   }
 
+  // IA-54: id da conversa para o feedback (/api/v1/ai/learn/feedback exige).
+  // getActiveChatId() só lê window.Store, que não existe no mundo isolado do
+  // content script → nulo → o backend recusava todo 👍/👎/edição com 400 e a IA
+  // nunca aprendia. Usa a mesma chave do pedido da sugestão.
+  function feedbackChatId() {
+    return getActiveChatId() || state.lastChatKey || safeText(getChatTitleFromDOM()) || 'active_chat';
+  }
+
   function getActiveChatId() {
     try {
       if (window.Store?.Chat?.getActive) {
@@ -1123,6 +1131,7 @@
       // ChatKey consistente (id do WhatsApp quando disponível, senão título)
       const chatId = getActiveChatId();
       const chatKey = safeText(chatId) || safeText(getChatTitleFromDOM()) || 'active_chat';
+      state.lastChatKey = chatKey; // IA-54: a mesma chave vai no feedback
       const transcript = buildTranscriptFromMessages(messages);
 
       // v9.5.4: Conversation-phase signal. The model uses message count + last-customer-msg signals
@@ -1924,7 +1933,7 @@ Responda APENAS com o texto da sugestão:`;
   // negativo (incrementa o contador "Ruim"). Não envia nada ao chat.
   function rejectSuggestion() {
     const rejected = state.suggestion;
-    const chatId = getActiveChatId() || null;
+    const chatId = feedbackChatId(); // IA-54
     const interactionId = state.lastInteractionId;
     const metadata = state.lastMetadata;
 
@@ -2119,7 +2128,7 @@ Responda APENAS com o texto da sugestão:`;
       const usedOriginal      = state.suggestion;       // texto que a IA gerou
       const usedFinal         = finalText;              // texto enviado ao chat
       const wasEdited         = !!state.suggestionEdited;
-      const usedChatId        = getActiveChatId() || null;
+      const usedChatId        = feedbackChatId(); // IA-54
 
       // Reconstrói userMessage do contexto pra o endpoint de learn/feedback
       // (ele exige userMessage + assistantResponse pra gravar exemplo de treino

@@ -1,0 +1,4 @@
+  ✓ IA-54: Aprovar manda o feedback com o id da conversa (sem ele o backend recusa com 400)
+  ✓ IA-54: Reprovar manda o feedback negativo com o id da conversa
+
+  2 passou, 0 falhou (2 no total)
