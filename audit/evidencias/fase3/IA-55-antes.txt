@@ -1,0 +1,7 @@
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ✅ Mensagem enviada
+  ✗ IA-55: clicar em Parar enquanto a IA gera a resposta → nada é enviado
+      enviou depois do Parar: [{"chat":"5511900000055@c.us","text":"Atendemos de segunda a sexta, das 8h às 18h."}]
+  0 passou, 1 falhou (1 no total)

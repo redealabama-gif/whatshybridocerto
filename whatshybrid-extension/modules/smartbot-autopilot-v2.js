@@ -898,13 +898,19 @@
 
     let nextDelayOverride = null;
     const item = state.queue.shift();
+    // IA-55: o controlador DESTA execução. stopAutopilot() aborta e zera
+    // state.abortController — perguntar state.abortController?.signal.aborted
+    // depois disso dava undefined e a resposta em andamento era enviada mesmo
+    // com o Autopilot parado.
+    const runAbort = state.abortController;
+    const aborted = () => !state.running || !!runAbort?.signal.aborted;
 
     try {
       if (!item || !item.id) return;
       if (state.processed.has(item.id)) return;
 
       // PEND-MED-009: Verificar abort antes de processar
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada - item não processado');
         return;
       }
@@ -1020,7 +1026,7 @@
       }
 
       // PEND-MED-009: Verificar abort antes de gerar resposta
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada após abrir chat');
         return;
       }
@@ -1154,7 +1160,7 @@
       }
 
       // PEND-MED-009: Verificar abort antes de enviar
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
         return;
       }
@@ -1169,6 +1175,12 @@
         state.queue.unshift(item);
         nextDelayOverride = 1200;
         emitRuntimeEvent('skipped', { reason: 'chat_changed_before_send', chatId: item.chatId });
+        return;
+      }
+
+      // IA-55: reabrir o chat pode levar segundos — confere de novo antes de digitar.
+      if (aborted()) {
+        console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
         return;
       }
 
