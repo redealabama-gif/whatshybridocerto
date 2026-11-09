@@ -1,0 +1,20 @@
+• backend-client-url.test.js
+  ✗ IA-13: /health falhando no boot NÃO troca a URL do usuário por localhost
+      Expected values to be strictly equal:
++ actual - expected
+
++ 'http://localhost:3000'
+- 'https://api.minhaloja.com.br'
+       ^
+
+  ✗ IA-13: falhas seguidas (failover) NÃO trocam a URL do usuário por localhost
+      Expected values to be strictly equal:
++ actual - expected
+
++ 'http://localhost:3000'
+- 'https://api.minhaloja.com.br'
+       ^
+
+  ✓ IA-13 (controle): URL local morta de versão antiga (localhost:3001) continua sendo corrigida no boot
+
+  1 passou, 2 falhou (3 no total)
