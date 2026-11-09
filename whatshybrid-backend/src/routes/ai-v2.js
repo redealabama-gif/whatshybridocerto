@@ -55,7 +55,7 @@ router.get('/ext/providers', asyncHandler(async (req, res) => {
       activeProviders: [
         { id: 'openai',    priority: 1, enabled: true,  defaultModel: 'gpt-4o' },
         { id: 'anthropic', priority: 2, enabled: false, defaultModel: 'claude-3-5-sonnet-20241022' },
-        { id: 'groq',      priority: 3, enabled: true,  defaultModel: 'llama-3.1-70b-versatile' },
+        { id: 'groq',      priority: 3, enabled: true,  defaultModel: 'openai/gpt-oss-120b' }, // IA-41
       ]
     });
   }

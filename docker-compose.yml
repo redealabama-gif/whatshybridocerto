@@ -105,6 +105,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # IA-41: modelos da Groq (vazio = padrão do código); a Groq desativa modelos.
+      - GROQ_MODEL=${GROQ_MODEL:-}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-}
       - DB_PATH=/app/data/whatshybrid.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ORCHESTRATOR_MAX_TENANTS=${ORCHESTRATOR_MAX_TENANTS:-200}
@@ -203,6 +206,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # IA-41: modelos da Groq (vazio = padrão do código); a Groq desativa modelos.
+      - GROQ_MODEL=${GROQ_MODEL:-}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-}
       - DB_PATH=/app/data/whatshybrid.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}

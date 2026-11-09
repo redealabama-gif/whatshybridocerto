@@ -5,6 +5,9 @@
 
 const BaseProvider = require('./BaseProvider');
 
+// IA-41: modelos de raciocínio da Groq (precisam de reasoning_effort e de folga de tokens).
+const REASONING_MODEL_RE = /^(openai\/gpt-oss|qwen\/)/;
+
 class GroqProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
@@ -13,50 +16,37 @@ class GroqProvider extends BaseProvider {
     this.baseUrl = config.baseUrl || 'https://api.groq.com/openai/v1';
     this.apiKey = config.apiKey || process.env.GROQ_API_KEY;
     
+    // IA-41: a Groq desativou os Llama/Mixtral/Gemma que estavam aqui (404
+    // model_not_found). Modelos de chat da conta em 2026-11-09; preços
+    // aproximados, por 1k tokens (só para métricas de custo).
     this.models = [
-      { 
-        id: 'llama-3.3-70b-versatile', 
-        name: 'Llama 3.3 70B', 
-        contextWindow: 128000,
-        inputPrice: 0.00059,
-        outputPrice: 0.00079,
-        description: 'Most capable Llama model'
+      {
+        id: 'openai/gpt-oss-120b',
+        name: 'GPT-OSS 120B',
+        contextWindow: 131072,
+        inputPrice: 0.00015,
+        outputPrice: 0.0006,
+        description: 'Modelo de raciocínio, o mais capaz da Groq'
       },
-      { 
-        id: 'llama-3.1-70b-versatile', 
-        name: 'Llama 3.1 70B', 
-        contextWindow: 128000,
-        inputPrice: 0.00059,
-        outputPrice: 0.00079,
-        description: 'Previous generation 70B'
+      {
+        id: 'openai/gpt-oss-20b',
+        name: 'GPT-OSS 20B',
+        contextWindow: 131072,
+        inputPrice: 0.000075,
+        outputPrice: 0.0003,
+        description: 'Modelo de raciocínio menor e mais barato'
       },
-      { 
-        id: 'llama-3.1-8b-instant', 
-        name: 'Llama 3.1 8B', 
-        contextWindow: 128000,
-        inputPrice: 0.00005,
-        outputPrice: 0.00008,
-        description: 'Fastest model'
-      },
-      { 
-        id: 'mixtral-8x7b-32768', 
-        name: 'Mixtral 8x7B', 
-        contextWindow: 32768,
-        inputPrice: 0.00024,
-        outputPrice: 0.00024,
-        description: 'Mixture of Experts'
-      },
-      { 
-        id: 'gemma2-9b-it', 
-        name: 'Gemma 2 9B', 
-        contextWindow: 8192,
-        inputPrice: 0.0002,
-        outputPrice: 0.0002,
-        description: 'Google Gemma 2'
+      {
+        id: 'qwen/qwen3.8-27b',
+        name: 'Qwen3.8 27B',
+        contextWindow: 131072,
+        inputPrice: 0.00029,
+        outputPrice: 0.00059,
+        description: 'Qwen 3.8'
       }
     ];
-    
-    this.defaultModel = 'llama-3.3-70b-versatile';
+
+    this.defaultModel = config.defaultModel || process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   }
 
   calculateCost(promptTokens, completionTokens, modelId) {
@@ -76,6 +66,7 @@ class GroqProvider extends BaseProvider {
     }
 
     const model = options.model || this.defaultModel;
+    const reasoning = REASONING_MODEL_RE.test(model); // IA-41
     const startTime = Date.now();
 
     try {
@@ -89,9 +80,12 @@ class GroqProvider extends BaseProvider {
           body: JSON.stringify({
             model,
             messages: this.formatMessages(messages),
-            max_tokens: options.maxTokens || 2048,
+            // IA-41: nos modelos de raciocínio o limite inclui o raciocínio;
+            // abaixo de ~512 o texto volta vazio (finish_reason=length).
+            max_tokens: reasoning ? Math.max(options.maxTokens || 2048, 512) : (options.maxTokens || 2048),
             temperature: options.temperature ?? 0.7,
             top_p: options.topP ?? 1,
+            ...(reasoning && { reasoning_effort: 'low' }),
             ...(options.stop && { stop: options.stop })
           }),
           signal: AbortSignal.timeout(this.attemptTimeout(options.deadline)) // IA-11
@@ -106,6 +100,15 @@ class GroqProvider extends BaseProvider {
 
         return res.json();
       }, Number.isInteger(options.maxRetries) ? options.maxRetries : this.maxRetries, options.deadline); // IA-11
+
+      // IA-41: texto vazio (o raciocínio consumiu o limite) é falha, para o
+      // roteador tentar o próximo provedor — não uma "resposta" em branco.
+      const text = response?.choices?.[0]?.message?.content;
+      if (!text || !String(text).trim()) {
+        const err = new Error(`${this.name}: resposta vazia do modelo ${model} (finish_reason=${response?.choices?.[0]?.finish_reason || '?'})`);
+        err.code = 'EMPTY_COMPLETION';
+        throw err;
+      }
 
       const latency = Date.now() - startTime;
       this.recordLatency(latency);
@@ -147,6 +150,7 @@ class GroqProvider extends BaseProvider {
     }
 
     const model = options.model || this.defaultModel;
+    const reasoning = REASONING_MODEL_RE.test(model); // IA-41
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
@@ -157,8 +161,9 @@ class GroqProvider extends BaseProvider {
       body: JSON.stringify({
         model,
         messages: this.formatMessages(messages),
-        max_tokens: options.maxTokens || 2048,
+        max_tokens: reasoning ? Math.max(options.maxTokens || 2048, 512) : (options.maxTokens || 2048),
         temperature: options.temperature ?? 0.7,
+        ...(reasoning && { reasoning_effort: 'low' }),
         stream: true
       }),
       signal: AbortSignal.timeout(this.timeout * 2)

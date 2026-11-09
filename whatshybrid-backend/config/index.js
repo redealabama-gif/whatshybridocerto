@@ -126,7 +126,8 @@ module.exports = {
     },
     groq: {
       apiKey: process.env.GROQ_API_KEY,
-      defaultModel: 'llama-3.3-70b-versatile'
+      // IA-41: a Groq desativou os Llama/Mixtral; troque por GROQ_MODEL se mudar de novo.
+      defaultModel: process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
     },
     google: {
       apiKey: process.env.GOOGLE_API_KEY,
