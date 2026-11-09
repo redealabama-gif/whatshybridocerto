@@ -430,6 +430,12 @@ class AIRouterService {
     const requestId = options.requestId || null;
     let trackingResult = { provider: null, model: null, status: 'success', error_message: null,
                             prompt_tokens: 0, completion_tokens: 0, fromCache: false };
+    // IA-11 — prazo global da requisição, para TODAS as tentativas e provedores
+    // (antes: provedor lento = até 4 × 40 s em cada um; 501 s e 12 chamadas).
+    const deadline = Number.isFinite(options.deadline)
+      ? options.deadline
+      : startTime + (Number(options.deadlineMs) || parseInt(process.env.AI_REQUEST_DEADLINE_MS, 10) || 25000);
+    const callOptions = { ...options, deadline };
     
     // Check cache first
     const cacheKey = this.getCacheKey(messages, options);
@@ -455,7 +461,7 @@ class AIRouterService {
 
     // Try primary provider
     try {
-      const result = await provider.complete(messages, options);
+      const result = await provider.complete(messages, callOptions);
       this._recordProviderSuccess(provider.name); // v9.2.0
       trackingResult.provider = provider.name;
       trackingResult.model = result.model || options.model || provider.name;
@@ -473,12 +479,17 @@ class AIRouterService {
       const fallbacks = this.getFallbackProviders(provider.name);
       
       for (const fallback of fallbacks) {
+        // IA-11 — prazo esgotado: não tenta mais provedores.
+        if (Date.now() >= deadline) {
+          logger.warn(`[AIRouter] Prazo da requisição esgotado — fallback ${fallback.name} não tentado`);
+          break;
+        }
         try {
           logger.info(`[AIRouter] Trying fallback: ${fallback.name}`);
           this.metrics.fallbacks++;
           
           const result = await fallback.complete(messages, {
-            ...options,
+            ...callOptions,
             model: undefined // Use fallback's default model
           });
           this._recordProviderSuccess(fallback.name); // v9.2.0

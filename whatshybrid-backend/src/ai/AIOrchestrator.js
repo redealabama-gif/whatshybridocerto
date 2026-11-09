@@ -228,6 +228,9 @@ class AIOrchestrator {
     if (!message || typeof message !== 'string') throw new Error('message is required and must be a string');
 
     const startTime = Date.now();
+    // IA-11 — prazo único da mensagem para as chamadas de LLM (geração e ciclo
+    // de qualidade): abaixo do teto de 30 s da extensão.
+    const llmDeadline = startTime + (parseInt(process.env.AI_REQUEST_DEADLINE_MS, 10) || 25000);
 
     // Resolve response language once, here, so every downstream stage
     // (commercial directive, prompt builder, fallback system prompt) is
@@ -526,7 +529,8 @@ class AIOrchestrator {
       // ── 8. Geração de resposta com ciclo de qualidade (v10) ─────────────────
       let response = await this._generateResponse(
         message, intentResult, conversationContext, responseVariant, knowledgeResults, dynamicPrompt, context.language,
-        true // cacheEligible: só a geração inicial pode usar o cache semântico
+        true, // cacheEligible: só a geração inicial pode usar o cache semântico
+        llmDeadline
       );
 
       let qualityResult = null;
@@ -534,7 +538,8 @@ class AIOrchestrator {
         qualityResult = await this._runQualityCycle(
           response, message, responseGoal, knowledgeResults,
           intentResult, conversationContext, responseVariant, dynamicPrompt, context.language,
-          emotionProfile // v11: autocrítica de tom (tone_mismatch)
+          emotionProfile, // v11: autocrítica de tom (tone_mismatch)
+          llmDeadline
         );
         response = qualityResult.finalResponse;
       }
@@ -740,7 +745,7 @@ class AIOrchestrator {
   async _runQualityCycle(
     initialResponse, message, responseGoal, knowledgeResults,
     intentResult, conversationContext, responseVariant, dynamicPrompt, language = 'pt-BR',
-    emotionProfile = null
+    emotionProfile = null, deadline = null
   ) {
     let response = initialResponse;
     let retries = 0;
@@ -778,6 +783,12 @@ class AIOrchestrator {
         break;
       }
 
+      // IA-11 — sem tempo para outra chamada de LLM: fica com a resposta atual.
+      if (Number.isFinite(deadline) && deadline - Date.now() < 8000) {
+        logger.warn('[QualityChecker] Sem tempo para regenerar — mantendo a resposta atual');
+        break;
+      }
+
       // ── Regenerar com instrução de reforço injetada ─────────────────────
       retries++;
       logger.debug(`[QualityChecker] Retry ${retries}. Issues: ${quality.issues.join(', ')}`);
@@ -786,10 +797,16 @@ class AIOrchestrator {
         ? `${dynamicPrompt}\n\n${quality.reinforcement}`
         : quality.reinforcement;
 
-      response = await this._generateResponse(
-        message, intentResult, conversationContext, responseVariant,
-        knowledgeResults, reinforcedPrompt, language
-      );
+      try {
+        response = await this._generateResponse(
+          message, intentResult, conversationContext, responseVariant,
+          knowledgeResults, reinforcedPrompt, language, false, deadline
+        );
+      } catch (regenErr) {
+        // IA-11 — regeneração falhou (prazo/provedor): mantém a resposta anterior.
+        logger.warn(`[QualityChecker] Regeneração falhou (${regenErr.message}) — mantendo a resposta anterior`);
+        break;
+      }
     }
 
     return {
@@ -919,7 +936,7 @@ class AIOrchestrator {
     return normalized.slice(-cap);
   }
 
-  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false) {
+  async _generateResponse(message, intentResult, conversationContext, variant, knowledgeResults = [], dynamicPrompt = null, language = 'pt-BR', cacheEligible = false, deadline = null) {
     const systemContent = dynamicPrompt || this._fallbackSystemPrompt(language);
 
     const historyMessages = (conversationContext.recentMessages || [])
@@ -936,6 +953,7 @@ class AIOrchestrator {
       maxTokens: this.config.maxResponseTokens,
       temperature: 0.7,
       tenantId: this.tenantId, // FIX: isola cache do AIRouter por tenant
+      ...(Number.isFinite(deadline) ? { deadline } : {}), // IA-11
     };
     // Deflexão (opt-in): só na geração INICIAL de intents ancorados em
     // conhecimento. Pula a chamada de LLM em perguntas repetidas (horário,

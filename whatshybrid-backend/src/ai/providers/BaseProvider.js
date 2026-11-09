@@ -218,9 +218,18 @@ class BaseProvider {
   }
 
   /**
+   * IA-11 — tempo de UMA tentativa respeitando o prazo global da requisição
+   * (deadline em epoch ms, vindo do AIRouter); nunca mais que this.timeout.
+   */
+  attemptTimeout(deadline) {
+    if (!Number.isFinite(deadline)) return this.timeout;
+    return Math.max(1, Math.min(this.timeout, deadline - Date.now()));
+  }
+
+  /**
    * Retry com exponential backoff
    */
-  async withRetry(fn, maxRetries = this.maxRetries) {
+  async withRetry(fn, maxRetries = this.maxRetries, deadline = null) {
     let lastError;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -233,9 +242,19 @@ class BaseProvider {
         if (error.status === 401 || error.status === 400) {
           throw error;
         }
+
+        // IA-11 — timeout não se repete (provedor lento: repetir só multiplica
+        // a espera e o custo — eram 4 × 40 s por provedor).
+        if (isTimeoutError(error)) {
+          throw error;
+        }
         
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s, 8s
+          // IA-11 — nada de nova tentativa depois do prazo global.
+          if (Number.isFinite(deadline) && Date.now() + delay >= deadline) {
+            throw error;
+          }
           logger.warn(`[${this.name}] Retry ${attempt + 1}/${maxRetries} after ${delay}ms`);
           await this.sleep(delay);
         }
@@ -244,6 +263,15 @@ class BaseProvider {
     
     throw lastError;
   }
+}
+
+// IA-11 — fetch abortado por AbortSignal.timeout ou timeout de cabeçalho do undici.
+function isTimeoutError(error) {
+  if (!error) return false;
+  if (error.name === 'TimeoutError' || error.name === 'AbortError') return true;
+  const code = error.code || (error.cause && error.cause.code);
+  if (code === 'UND_ERR_HEADERS_TIMEOUT' || code === 'UND_ERR_BODY_TIMEOUT' || code === 'ETIMEDOUT') return true;
+  return /timed? ?out|aborted/i.test(String(error.message || ''));
 }
 
 module.exports = BaseProvider;

@@ -344,7 +344,8 @@ RESPONDA NO FORMATO JSON:
           { role: 'system', content: 'Você é um classificador de intenções especializado. Responda apenas com JSON válido.' },
           { role: 'user', content: prompt }
         ],
-        this.llmConfig
+        // IA-11 — classificar intenção tem orçamento curto (era 4 × 40 s)
+        { ...this.llmConfig, deadline: Date.now() + 5000 }
       );
 
       const content = response.content.trim();

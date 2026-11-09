@@ -112,7 +112,7 @@ class AnthropicProvider extends BaseProvider {
             messages: formatted.messages,
             ...(options.stop && { stop_sequences: options.stop })
           }),
-          signal: AbortSignal.timeout(this.timeout)
+          signal: AbortSignal.timeout(this.attemptTimeout(options.deadline)) // IA-11
         });
 
         if (!res.ok) {
@@ -123,7 +123,7 @@ class AnthropicProvider extends BaseProvider {
         }
 
         return res.json();
-      });
+      }, this.maxRetries, options.deadline);
 
       const latency = Date.now() - startTime;
       this.recordLatency(latency);
