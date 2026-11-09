@@ -1511,6 +1511,20 @@
     window.knowledgeBase.init().then(() => {
       if (WHL_DEBUG) console.log('[KnowledgeBase] ✅ Módulo carregado e inicializado');
     });
+
+    // IA-53: a base em memória acompanha o que outras páginas gravam (tela de
+    // treinamento, painel). Sem isto o Autopilot no WhatsApp Web só via o treino
+    // novo depois de recarregar, e uma cópia aberta antes, ao salvar, gravava por
+    // cima a versão velha — apagando o treino feito depois.
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local' || !changes[STORAGE_KEY] || window.IDBStorage) return;
+        let v = changes[STORAGE_KEY].newValue;
+        if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return; } }
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+        window.knowledgeBase.knowledge = sanitizeObject(v);
+      });
+    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
   }
 
   // Tentar sync pendente e pull inicial (melhor esforço)
