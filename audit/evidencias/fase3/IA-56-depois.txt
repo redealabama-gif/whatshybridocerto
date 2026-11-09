@@ -1,0 +1,4 @@
+    ✓ 5 aprovações → padrão graduado salvo no banco deste cliente (47 ms)
+    ✓ o exemplo vai ao prompt com a pergunta do cliente, não com a chave interna (4 ms)
+    ✓ processo que já estava de pé (worker da fila) passa a usar o padrão aprovado em outro processo (11 ms)
+Tests:       3 passed, 3 total

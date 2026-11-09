@@ -248,6 +248,9 @@ class ValidatedLearningPipeline extends EventEmitter {
     // Get or create candidate pattern
     const candidate = this.candidates.get(patternKey) || {
       key: patternKey,
+      // IA-56: a pergunta como o cliente escreveu — é ela que vai ao prompt no
+      // exemplo; a chave é só para agrupar (palavras em ordem, sem acento).
+      question,
       intent,
       sampleCount: 0,
       positiveCount: 0,

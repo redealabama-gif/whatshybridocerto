@@ -1,0 +1,8 @@
+    ✕ 5 aprovações → padrão graduado salvo no banco deste cliente (87 ms)
+    ✕ o exemplo vai ao prompt com a pergunta do cliente, não com a chave interna (2 ms)
+    ✕ processo que já estava de pé (worker da fila) passa a usar o padrão aprovado em outro processo (18 ms)
+    - Expected  - 6
+    + Received  + 1
+    Received: undefined
+    TypeError: worker._maybeReloadLearning is not a function
+Tests:       3 failed, 3 total

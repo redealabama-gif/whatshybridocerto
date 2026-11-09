@@ -93,7 +93,9 @@ class AIOrchestrator {
     this.aiRouter = (config.ai && Object.keys(config.ai).length > 0)
       ? new AIRouterService(config.ai)
       : AIRouterModule;
-    this.learningPipeline = new ValidatedLearningPipeline(config.learning || {}); // P3
+    // IA-56: com o id do cliente. Sem ele o pipeline usava "default" e o banco
+    // recusava salvar (FOREIGN KEY): o aprendizado sumia a cada reinício.
+    this.learningPipeline = new ValidatedLearningPipeline({ ...(config.learning || {}), tenantId: this.tenantId }); // P3
     this.commercialEngine = new CommercialIntelligenceEngine(config.commercial || {}); // v10
     this.qualityChecker = new ResponseQualityChecker(config.quality || {}); // v10
     this.behaviorAdapter = new ClientBehaviorAdapter(config.behavior || {}); // v10.1
@@ -380,6 +382,7 @@ class AIOrchestrator {
       // ── 6. Few-shot examples (P3) ───────────────────────────────────────────
       let fewShotExamples = [];
       try {
+        await this._maybeReloadLearning();
         fewShotExamples = this.learningPipeline.getTopGraduated(intentResult.intent, 3);
       } catch (err) { logger.warn(`getTopGraduated error: ${err.message}`); }
 
@@ -989,6 +992,19 @@ class AIOrchestrator {
     // alguma informação?" no fim — a sugestão saía genérica até em conversa
     // pessoal. A variante segue registrada (métricas e PerformanceScoreEngine).
     return content;
+  }
+
+  /**
+   * IA-56: com a fila (docker compose), a resposta sai do processo worker e o
+   * feedback chega ao processo do servidor; o worker só conhecia os padrões que
+   * existiam no banco quando subiu. Relê os padrões aprendidos a cada 60 s.
+   * @private
+   */
+  async _maybeReloadLearning(now = Date.now()) {
+    if (now - (this._learningLoadedAt || 0) < 60000) return;
+    this._learningLoadedAt = now;
+    if (typeof this.learningPipeline?._loadFromDB !== 'function') return;
+    try { await this.learningPipeline._loadFromDB(); } catch (e) { logger.debug?.(`[Orchestrator] reload learning: ${e.message}`); }
   }
 
   recordFeedback(interactionId, feedback, opts = {}) {
