@@ -1063,6 +1063,14 @@
     await generateSuggestion();
   }
 
+  // IA-39 — motivo legível da falha da IA do servidor (MÉTODO 0/3).
+  function describeBackendFailure(e) {
+    if (!e) return null;
+    if (e.message === 'orchestrator_timeout') return 'não respondeu em 30 s';
+    if (e.status) return `servidor respondeu ${e.status}`;
+    return String(e.message || e).slice(0, 120);
+  }
+
   async function generateSuggestion() {
     if (state.generating) return;
 
@@ -1180,6 +1188,9 @@
       // de fallback abaixo precisam evitar gravar a resposta degradada no cache
       // local (aiResponseCache), pra não servirem essa resposta por 24h.
       let tier0Attempted = false;
+      // IA-39: motivo da falha da IA do servidor, para mostrar no erro (em vez
+      // de esconder a falha atrás de uma frase pronta).
+      let backendFailure = null;
       if (!suggestion && window.BackendClient?.isConnected?.() && typeof window.BackendClient.ai?.process === 'function') {
         tier0Attempted = true;
         try {
@@ -1263,6 +1274,7 @@
             }
           } else if (orchestrated?.error) {
             log('Backend orchestrator retornou erro:', orchestrated.error);
+            backendFailure = String(orchestrated.error); // IA-39
           }
         } catch (e) {
           // Backend offline / timeout / 401 / 402 → cai pros métodos seguintes
@@ -1271,6 +1283,7 @@
           state.backendReady = false;
           applyReadinessClass('offline');
           log('Backend orchestrator falhou (cairá pra fallback):', e?.message || e);
+          backendFailure = describeBackendFailure(e); // IA-39
           // IA-04: kill switch do backend → para aqui, sem cair na IA local.
           if (e?.code === 'KILL_SWITCH' || e?.body?.error === 'kill_switch') {
             showError('A IA foi desativada temporariamente pelo administrador.');
@@ -1349,6 +1362,7 @@
           }
         } catch (e) {
           log('BackendClient.complete falhou:', e?.message || e);
+          backendFailure = backendFailure || describeBackendFailure(e); // IA-39
         }
       }
 
@@ -1356,7 +1370,10 @@
       // É CEGO ao conteúdo (devolve frase genérica tipo "Ok! Em que posso ser útil?"),
       // então só deve entrar quando NÃO há backend nem providers. Ficar por último
       // evita que ele "engula" a resposta real do LLM.
-      if (!suggestion && window.SmartSuggestions?.getSuggestion) {
+      // IA-39: a condição não checava o backend — com a IA do servidor falhando,
+      // a frase pronta aparecia como se fosse a sugestão da IA (prints do usuário).
+      const backendUp = !!window.BackendClient?.isConnected?.();
+      if (!suggestion && !backendUp && !hasProviders && window.SmartSuggestions?.getSuggestion) {
         try {
           const result = window.SmartSuggestions.getSuggestion(lastUserMsg, messages);
           if (result?.text) {
@@ -1372,12 +1389,15 @@
       // MÉTODO 5: Decisão inteligente sobre fallback vs erro
       // v7.9.13: Usar classifyError para decisão mais precisa
       if (!suggestion) {
-        if (hasProviders) {
+        if (hasProviders || backendUp) {
           // Providers configurados mas todos falharam - mostrar erro com retry
           log('❌ Todos os providers de IA falharam');
           
           // Mostrar UI de erro com opção de retry
-          showErrorWithRetry('IA temporariamente indisponível', lastUserMsg);
+          // IA-39: com o backend conectado, diz que foi a IA do servidor e por quê.
+          showErrorWithRetry(backendUp
+            ? `A IA do servidor não conseguiu gerar a sugestão${backendFailure ? ` (${backendFailure})` : ''}. Tente de novo.`
+            : 'IA temporariamente indisponível', lastUserMsg);
           
           // Emitir evento para UI
           if (window.EventBus) {
@@ -1407,7 +1427,10 @@
 
       // v9.5.3: Apply safety filter (PII leak / blocked patterns / hallucination disclaimers)
       // Defense-in-depth — Tier 0 backend has its own filter, this catches local-fallback paths.
-      if (suggestion && window.aiSafetyFilter && typeof window.aiSafetyFilter.validate === 'function') {
+      // IA-39: a sugestão do orquestrador (tier 0) já passou pelo filtro do backend,
+      // que permite dados da própria empresa vindos da base (IA-07); o filtro local
+      // bloqueava esses mesmos dados e trocava a sugestão por uma frase pronta.
+      if (suggestion && tierUsed !== 'tier_0_backend_orchestrator' && window.aiSafetyFilter && typeof window.aiSafetyFilter.validate === 'function') {
         try {
           const safetyResult = window.aiSafetyFilter.validate(suggestion, { intent: state.lastMetadata?.intent });
           if (!safetyResult.safe) {
@@ -1417,6 +1440,11 @@
               window.EventBus.emit('ai:safety:blocked', { issues: highSev });
             }
             // Hard block: don't show unsafe content. Use neutral fallback instead.
+            // IA-39: com o backend conectado, avisa em vez de trocar por frase pronta.
+            if (backendUp) {
+              showErrorWithRetry('A sugestão foi bloqueada pelo filtro de segurança (dados pessoais). Tente de novo.', lastUserMsg);
+              return;
+            }
             suggestion = generateFallbackSuggestion(lastUserMsg);
           } else if (safetyResult.modifiedResponse && safetyResult.modifiedResponse !== suggestion) {
             // Soft modification (disclaimer added) — use it.
@@ -1449,6 +1477,11 @@
       console.error('[AI-Btn] Erro:', error);
       // Usar fallback em caso de erro
       const lastMsg = extractMessages().filter(m => m.role === 'user').pop()?.content || '';
+      // IA-39: com o backend conectado, erro visível — nunca frase pronta disfarçada.
+      if (window.BackendClient?.isConnected?.()) {
+        showErrorWithRetry('Erro ao gerar a sugestão. Tente de novo.', lastMsg);
+        return;
+      }
       const fallback = generateFallbackSuggestion(lastMsg);
       showSuggestion(fallback);
     } finally {

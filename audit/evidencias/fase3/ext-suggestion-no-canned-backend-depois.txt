@@ -1,0 +1,6 @@
+• suggestion-no-canned-backend.test.js
+  ✓ IA-39: backend conectado e IA do servidor falhando → erro com "Tentar Novamente", nunca frase pronta
+  ✓ IA-39: sugestão do orquestrador com o telefone da loja (liberado no backend, IA-07) aparece como veio
+  ✓ IA-39 (controle): sem backend e sem provedores (modo offline) → sugestão local continua
+
+  3 passou, 0 falhou (3 no total)

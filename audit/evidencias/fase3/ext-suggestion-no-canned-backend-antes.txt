@@ -1,0 +1,8 @@
+• suggestion-no-canned-backend.test.js
+  ✗ IA-39: backend conectado e IA do servidor falhando → erro com "Tentar Novamente", nunca frase pronta
+      o popup mostrou a frase pronta "Compreendo. Posso ajudar com mais alguma informação?" como sugestão
+  ✗ IA-39: sugestão do orquestrador com o telefone da loja (liberado no backend, IA-07) aparece como veio
+      sugestão do servidor não apareceu:  <div class="whl-ai-suggestion" id="whl-ai-sug-text"> Entendi! Posso ajudar com mais alguma informação? </div> <div class="whl-ai-actions" style="display:flex;gap:6px;margin-top:10px;"> <button id="whl-ai-sug-edit" class="whl-ai-btn3d whl-ai-btn-edit">✏️ Editar</button> <button id="whl-ai-sug-reject
+  ✓ IA-39 (controle): sem backend e sem provedores (modo offline) → sugestão local continua
+
+  1 passou, 2 falhou (3 no total)

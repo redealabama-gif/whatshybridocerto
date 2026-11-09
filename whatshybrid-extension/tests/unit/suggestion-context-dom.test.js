@@ -48,7 +48,10 @@ function loadSuggestion(html, extra = {}) {
   const listeners = [];
   const sandbox = {
     console: quiet, document,
-    setTimeout: (fn, ms) => (extra.realTimers ? setTimeout(fn, ms) : 0),
+    // Só as esperas curtas (1,5 s da Store). A 1ª injeção do botão (2 s, no init)
+    // dispararia mais tarde, já em outro teste da suíte, e o mini-DOM não
+    // entende o seletor "div:last-child" que ela usa.
+    setTimeout: (fn, ms) => (extra.realTimers && ms < 2000 ? setTimeout(fn, ms) : 0),
     clearTimeout: (t) => { if (extra.realTimers) clearTimeout(t); },
     setInterval: () => 0, clearInterval() {},
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
