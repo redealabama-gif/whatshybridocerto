@@ -1,0 +1,5 @@
+• suggestion-metodo3-papel.test.js
+  ✓ IA-42: MÉTODO 3 pede a próxima mensagem do dono da conta, com "Eu"/"Contato"
+  ✓ IA-42: resposta do MÉTODO 3 que repete o rótulo ("Eu: ...") aparece sem ele
+
+  2 passou, 0 falhou (2 no total)

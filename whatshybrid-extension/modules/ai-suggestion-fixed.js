@@ -1063,6 +1063,15 @@
     await generateSuggestion();
   }
 
+  // IA-42 — prompt do MÉTODO 3 (/api/v1/ai/complete), o mesmo papel do backend.
+  const METODO3_SYSTEM_PROMPT = 'Você escreve a próxima mensagem que o dono deste WhatsApp vai enviar nesta conversa, em nome dele (primeira pessoa). '
+    + 'As linhas "Eu:" são dele; "Contato:" são da outra pessoa. Descubra pela conversa quem é quem — ele pode estar atendendo um cliente, '
+    + 'comprando de um fornecedor, falando com colega, amigo, família ou parceiro(a) — e responda ao que o contato disse por último, '
+    + 'no mesmo tom, registro e tamanho das mensagens dele. Não invente preço, valor, prazo, fidelidade, garantia, estoque, status de pedido '
+    + 'nem fatos que não estejam escritos na conversa: se faltar, diga que vai confirmar — nunca suponha um valor ou uma regra '
+    + '("sai por R$ ...", "não tem fidelidade"). Sem frases de atendimento genéricas ("Em que posso ser útil?", "Estou à disposição", '
+    + '"Posso ajudar com mais alguma informação?"). Responda só com o texto da mensagem, sem "Eu:", em português.';
+
   // IA-39 — motivo legível da falha da IA do servidor (MÉTODO 0/3).
   function describeBackendFailure(e) {
     if (!e) return null;
@@ -1350,13 +1359,22 @@
       // um objeto { messages } como 1º argumento (body malformado → sempre falhava).
       if (!suggestion && window.BackendClient?.isConnected?.() && window.BackendClient.ai?.complete) {
         try {
+          // IA-42: mesmo papel do backend — a próxima mensagem do DONO da conta
+          // (ele pode ser o vendedor, o cliente, um colega, amigo ou parente).
+          // Antes: "Você é um atendente humano..." e a conversa como
+          // "Atendente:"/"Cliente:" — a sugestão saía com voz de loja.
+          const ownerTranscript = messages
+            .filter((m) => safeText(m?.content) && (m.role === 'user' || m.role === 'assistant'))
+            .map((m) => `${m.role === 'assistant' ? 'Eu' : 'Contato'}: ${safeText(m.content)}`)
+            .join('\n');
           const result = await window.BackendClient.ai.complete([
-            { role: 'system', content: 'Você é um atendente humano, atencioso e profissional. Leia a conversa INTEIRA, entenda o que o cliente quis dizer e responda de forma completa e calorosa (não seca, sem soar robótico) — geralmente 2 a 4 frases. Responda em português.' },
-            { role: 'user', content: `Conversa recente:\n${transcript}\n\nResponda à ÚLTIMA mensagem do cliente de forma humana e coerente.` },
+            { role: 'system', content: METODO3_SYSTEM_PROMPT },
+            { role: 'user', content: `Conversa (as linhas "Eu:" são do dono da conta):\n${ownerTranscript}\n\nEscreva a próxima mensagem dele.` },
           ], { temperature: 0.7, maxTokens: 320 });
-          const text = result?.text || result?.content;
-          if (text && String(text).trim()) {
-            suggestion = String(text).trim();
+          // IA-42: o modelo às vezes repete o rótulo da conversa ("Eu: ...").
+          const text = String(result?.text || result?.content || '').trim().replace(/^(eu|dono( da conta)?)\s*:\s*/i, '');
+          if (text) {
+            suggestion = text;
             tierUsed = 'tier_3_backend_complete';
             log('✅ Sugestão via BackendClient.complete (LLM real)');
           }
