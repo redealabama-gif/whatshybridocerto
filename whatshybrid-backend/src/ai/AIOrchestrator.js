@@ -1271,8 +1271,15 @@ class AIOrchestrator {
         [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
       );
       if (!row) return null;
+      // IA-57: correções do operador também são indexadas. A tabela é criada sob
+      // demanda — consulta à parte para não anular a assinatura quando não existe.
+      let ml = '';
+      try {
+        const l = db.get('SELECT COUNT(*) AS n, MAX(updated_at) AS m FROM learned_examples WHERE workspace_id = ?', [this.tenantId]);
+        ml = `${l?.n || 0}:${l?.m || ''}`;
+      } catch (_) { /* sem correções ainda */ }
       // IA-50: mk — o TXT importado (extraNotes) também é indexado.
-      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}|${row.mk || ''}`;
+      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}|${row.mk || ''}|${ml}`;
     } catch (_) {
       return null;
     }
@@ -1414,6 +1421,19 @@ class AIOrchestrator {
         docs.push({ id: `note:${i}`, content: para, metadata: { source: 'Documento importado', type: 'note' } });
       });
     } catch (e) { logger.debug?.(`[Orchestrator] index notes: ${e.message}`); }
+
+    // ── IA-57: correções do operador (Editar + Aprovar na sugestão) ─────
+    // Só a busca por palavra-chave as via: "Tem onde deixar o carro?" não
+    // achava a correção de "Vocês têm estacionamento?" e o modelo inventava.
+    try {
+      LearnedExamplesStore.loadForRanking(db, this.tenantId, 200).forEach((ex, i) => {
+        docs.push({
+          id: `learned:${i}`,
+          content: `Resposta preferida pelo operador — quando o cliente disser "${ex.input}", responda assim: "${ex.output}"`,
+          metadata: { source: 'Correção do operador', type: 'learned' },
+        });
+      });
+    } catch (e) { logger.debug?.(`[Orchestrator] index learned: ${e.message}`); }
 
     // Sem nada treinado: marca a assinatura e sai (não mexe no índice).
     if (docs.length === 0) { this._knowledgeSig = sig; return; }

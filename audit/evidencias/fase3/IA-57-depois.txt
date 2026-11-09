@@ -1,0 +1,6 @@
+    ✓ a correção entra no índice semântico (17 ms)
+    ✓ nova correção reindexa (a assinatura do conhecimento muda) (2 ms)
+    ✓ entram no índice semântico (9 ms)
+    ✓ são encontrados pela busca por palavra-chave (3 ms)
+    ✓ trocar o TXT reindexa (a assinatura do conhecimento muda) (1 ms)
+Tests:       5 passed, 5 total
