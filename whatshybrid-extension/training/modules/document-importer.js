@@ -212,10 +212,16 @@ class DocumentImporter {
    * Normaliza FAQ extraída
    */
   normalizeFaq(item) {
+    const q = item.pergunta || item.question || item.q || '';
+    const a = item.resposta || item.answer || item.a || '';
     return {
       id: Date.now() + Math.random(),
-      q: item.pergunta || item.question || item.q || '',
-      a: item.resposta || item.answer || item.a || '',
+      q,
+      a,
+      // IA-45: sem question/answer a FAQ importada aparecia na tela, mas o sync
+      // com o backend e o Autopilot (que só leem esses campos) a descartavam.
+      question: q,
+      answer: a,
       keywords: (item.keywords || item.tags || '').split(',').map(k => k.trim()).filter(k => k)
     };
   }
@@ -232,10 +238,14 @@ class DocumentImporter {
     
     let match;
     while ((match = qaPattern.exec(text)) !== null) {
+      // IA-45: question/answer são os campos que o sync (/training/sync) e o
+      // Autopilot leem; q/a continuam para a tela de treinamento.
       items.push({
         id: Date.now() + Math.random(),
         q: match[1].trim(),
         a: match[2].trim(),
+        question: match[1].trim(),
+        answer: match[2].trim(),
         keywords: []
       });
     }

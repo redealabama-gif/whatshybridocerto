@@ -83,3 +83,15 @@ describe('IA-10 — falha no meio do sync', () => {
     expect(faqsOf(B).map((f) => f.question)).toEqual(['Qual o horário?']); // a antiga continua lá
   });
 });
+
+describe('IA-45 — FAQ importada de planilha chega ao banco', () => {
+  // O importador da tela de treinamento (document-importer.js) gravava FAQs
+  // como { q, a }; o sync só lia question/answer e descartava todas em silêncio
+  // (HTTP 200, faqs=0). Dados já salvos assim no navegador precisam entrar.
+  test('FAQ no formato { q, a } é gravada', async () => {
+    const res = await sync(B, { faqs: [OWN, { id: 1794260810048.123, q: 'Vocês parcelam no cartão?', a: 'Sim, em até 6x sem juros.', keywords: [] }] });
+    expect(res.status).toBe(200);
+    expect(res.body.synced.faqs).toBe(2);
+    expect(faqsOf(B).map((f) => f.question)).toEqual(['Qual o horário?', 'Vocês parcelam no cartão?']);
+  });
+});

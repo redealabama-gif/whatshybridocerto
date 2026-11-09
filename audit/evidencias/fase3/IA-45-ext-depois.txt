@@ -1,0 +1,5 @@
+  ✓ IA-45: FAQ importada de CSV tem question e answer (campos que o sync e o Autopilot leem)
+  ✓ IA-45: FAQ importada de TXT (P:/R:) tem question e answer
+  ✓ IA-45: o Autopilot encontra FAQ já salva no formato antigo { q, a }
+
+  3 passou, 0 falhou (3 no total)
