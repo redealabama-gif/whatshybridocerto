@@ -301,24 +301,7 @@ class AIOrchestrator {
         // Aquece o índice semântico antes da 1ª busca (init() popula, mas a
         // registry/worker não esperam o init() → as primeiras mensagens buscavam
         // num índice vazio, com recall semântico frio). Espera limitada.
-        await this._ensureIndexed();
-        const searchResult = await this.hybridSearch.search(message, 5);
-        const rawResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
-        // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
-        // { content, source, score }. O search() devolve { docId, score(fusão ~0.02),
-        // document:{content}, metadata } — SEM content no topo e com score abaixo do
-        // minScore (0.3) do builder. Sem esta normalização os resultados semânticos
-        // não renderizavam no prompt mesmo com o índice populado. Score fixo 0.5:
-        // passa o filtro, fica abaixo da info do negócio (0.95) e de matches exatos
-        // fortes — só preenche as vagas quando o caminho de palavra-chave é fraco/vazio
-        // (o caso da pergunta parafraseada, exatamente o que queremos cobrir).
-        knowledgeResults = rawResults
-          .map((r) => ({
-            content: r?.document?.content || r?.content || '',
-            source: r?.metadata?.source || r?.document?.metadata?.source || 'Base de conhecimento',
-            score: 0.5,
-          }))
-          .filter((r) => r.content);
+        knowledgeResults = await this._searchKnowledge(message);
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
 
       // ── 3b. v9.7.x — Conhecimento treinado pelo usuário (FAQs / produtos /
@@ -1198,6 +1181,42 @@ class AIOrchestrator {
    * @returns {string|null} assinatura, ou null se indisponível
    * @private
    */
+  /**
+   * Busca no índice semântico/híbrido e normaliza para o prompt.
+   * @private
+   */
+  async _searchKnowledge(message) {
+    await this._ensureIndexed();
+    // IA-51: a fusão RRF soma 1/(k+posição) das duas buscas. Num catálogo pequeno
+    // TODO documento entra na lista semântica, então qualquer acerto por palavra
+    // ("custo" num produto) passava à frente do 1º colocado semântico que não
+    // repete a palavra ("remarcar" × "Remarcações") — a pergunta feita com outras
+    // palavras, que o índice semântico existe para cobrir. Pede mais resultados e
+    // ordena pela MELHOR posição em qualquer das buscas (empate: fusão), para que
+    // o 1º de cada busca chegue ao prompt.
+    const searchResult = await this.hybridSearch.search(message, 15);
+    const bestRank = (r) => Math.min(r?.bm25Rank || Infinity, r?.semanticRank || Infinity);
+    const rawResults = (Array.isArray(searchResult?.results) ? searchResult.results : [])
+      .slice()
+      .sort((a, b) => (bestRank(a) - bestRank(b)) || ((b?.score || 0) - (a?.score || 0)))
+      .slice(0, 5);
+    // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
+    // { content, source, score }. O search() devolve { docId, score(fusão ~0.02),
+    // document:{content}, metadata } — SEM content no topo e com score abaixo do
+    // minScore (0.3) do builder. Sem esta normalização os resultados semânticos
+    // não renderizavam no prompt mesmo com o índice populado. Score fixo 0.5:
+    // passa o filtro, fica abaixo da info do negócio (0.95) e de matches exatos
+    // fortes — só preenche as vagas quando o caminho de palavra-chave é fraco/vazio
+    // (o caso da pergunta parafraseada, exatamente o que queremos cobrir).
+    return rawResults
+      .map((r) => ({
+        content: r?.document?.content || r?.content || '',
+        source: r?.metadata?.source || r?.document?.metadata?.source || 'Base de conhecimento',
+        score: 0.5,
+      }))
+      .filter((r) => r.content);
+  }
+
   /**
    * IA-50: parágrafos importados de TXT na tela de treinamento. Ficam em
    * workspace_knowledge.data.extraNotes ("--- arquivo.txt ---" + parágrafos
