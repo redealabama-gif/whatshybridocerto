@@ -1,0 +1,32 @@
+  ✗ IA-48: clicar numa FAQ abre a edição com o botão Excluir
+      a FAQ não foi encontrada pelo id do card
++ actual - expected
+
++ null
+- 1794260810048.6543
+
+  ✗ IA-48: Excluir apaga a FAQ clicada
+      Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
++   1794260810048.6543,
+    1
+  ]
+
+  ✗ IA-48: clicar num produto abre a edição
+      o produto não foi encontrado pelo id do card
++ actual - expected
+
++ null
+- 1794260811000
+
+  ✗ IA-48: clicar num exemplo abre a edição
+      o exemplo não foi encontrado pelo id do card
++ actual - expected
+
++ null
+- 1794260812000
+
+
+  0 passou, 4 falhou (4 no total)

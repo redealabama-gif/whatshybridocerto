@@ -790,10 +790,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteExample');
 
     if (id) {
-      const example = this.examples.find(e => e.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const example = this.examples.find(e => String(e.id) === String(id));
       if (!example) return;
 
-      this.currentEditId = id;
+      this.currentEditId = example.id;
       titleEl.textContent = 'Editar Exemplo';
       deleteBtn.style.display = 'block';
 
@@ -882,10 +883,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteFaq');
 
     if (id) {
-      const faq = this.faqs.find(f => f.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const faq = this.faqs.find(f => String(f.id) === String(id));
       if (!faq) return;
 
-      this.currentEditId = id;
+      this.currentEditId = faq.id;
       titleEl.textContent = 'Editar FAQ';
       deleteBtn.style.display = 'block';
 
@@ -1047,10 +1049,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteProduct');
 
     if (id) {
-      const product = this.products.find(p => p.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const product = this.products.find(p => String(p.id) === String(id));
       if (!product) return;
 
-      this.currentEditId = id;
+      this.currentEditId = product.id;
       titleEl.textContent = 'Editar Produto';
       deleteBtn.style.display = 'block';
 
