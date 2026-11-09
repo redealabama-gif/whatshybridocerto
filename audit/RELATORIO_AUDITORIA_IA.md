@@ -420,6 +420,7 @@ Todas as saídas estão em `audit/evidencias/fase2/`:
 | IA-02 | ✅ | 00ddf06 | `ext/tests/unit/autopilot-faq-guard.test.js` | 0/2 → 2/2 |
 | IA-03 | ✅ | f38d2e0 | `be/tests/unit/intent-classifier-regex.spec.js` + `autopilot-guard-factual.spec.js`; `ext/tests/unit/confidence-greeting.test.js` | 3/15 → 15/15; 1/2 → 2/2 |
 | IA-04 | ✅ | b196b34 | `be/tests/integration/kill-switch.routes.spec.js`; `ext/tests/unit/autopilot-kill-switch.test.js` | 1/6 → 6/6; 0/3 → 4/4 |
+| IA-04 (deploy) | ✅ depois do merge (11.8) | 4fd2642 | `be/tests/unit/deploy-killswitch-key.spec.js`; controle em `kill-switch.routes.spec.js` | 0/3 → 3/3; `docker compose config`: chave ausente no container → presente |
 | IA-05 | ✅ | 918aee0 | `ext/tests/unit/autopilot-multi-tab.test.js` | 2 envios (1/2) → 1 envio (3/3) |
 | IA-06 | ✅ | 943611d | `ext/tests/unit/suggestion-context-dom.test.js` | 1 mensagem (1/6) → 6/6 |
 | IA-07 | ✅ | 60f2ac7 | `be/tests/unit/safety-filter-business-pii.spec.js` | 3/5 → 5/5 |
@@ -535,3 +536,10 @@ Logs em `audit/evidencias/baseline-depois/`. Os bundles foram gerados com `npm r
 - **Commits do backend:** feitos sem o hook do repositório (`--no-verify`), por decisão sua, para o diff ficar mínimo. O `eslint` foi rodado à mão: 0 erros e os mesmos avisos de antes, arquivo por arquivo.
 - **DOM real:** as correções de contexto usam `[data-id]` e ícones de entrega, validados no harness com o formato do seu diagnóstico. A sugestão tenta primeiro a Store do WhatsApp pela ponte da página. Confirmar no seu WhatsApp com o comando da seção 9 continua recomendado.
 - **Modelo real:** o GPT/Groq real não foi chamado. Está provado o que chega ao modelo; a qualidade do texto gerado pelo modelo real é NÃO VERIFICADA.
+
+### 11.8 Ajuste depois do merge (PR #313): chave do kill switch no deploy Docker
+
+- **Lacuna:** IA-04 passou a recusar, em produção, a chave padrão `CHANGE_ME_IN_PRODUCTION` (`be/src/routes/admin-killswitch.js:34-38`); sem `ADMIN_KILL_SWITCH_KEY`, `POST /api/v1/admin/kill-switch/set` responde 503 (`:160-162`). O `docker-compose.yml` só entrega ao container as variáveis que lista, e essa não estava na lista. Com `.env` de teste contendo a chave, `docker compose config` mostrava o backend em `NODE_ENV=production` **sem** ela (`audit/evidencias/fase2/IA-04-deploy-compose-antes.txt`): no deploy Docker não havia como ligar o kill switch.
+- **Correção (4fd2642):** o compose repassa `ADMIN_KILL_SWITCH_KEY=${ADMIN_KILL_SWITCH_KEY:-}` ao backend (sem valor padrão); os dois `.env.example` documentam a variável vazia; o `install.sh` gera uma chave aleatória no `.env` novo.
+- **Prova:** `be/tests/unit/deploy-killswitch-key.spec.js` 0/3 → 3/3 (`IA-04-deploy-antes.txt`, `IA-04-deploy-depois.txt`). O compose real entrega a chave ao container; o trecho do `install.sh` que cria o `.env` foi executado numa pasta temporária e a chave gerada (64 hex) chega ao backend (`IA-04-deploy-compose-depois.txt`). Controle: em produção, com a chave configurada, o admin liga o kill switch e `/process` responde 503 sem chamar o orquestrador (`kill-switch.routes.spec.js`, 7/7).
+- **Servidor que já existe:** o `install.sh` só gera o `.env` novo. Num `.env` existente, acrescente `ADMIN_KILL_SWITCH_KEY=` com o valor de `openssl rand -hex 32` e rode `./deploy/scripts/deploy.sh`. Sem isso, o kill switch segue respondendo 503 "ADMIN_KILL_SWITCH_KEY não configurada".
