@@ -1,0 +1,4 @@
+• autopilot-confirm-sent.test.js
+  ✓ IA-19: DOM atual (sem .message-out) → envio confirmado pelo ícone, sem esperar 6 s
+
+  1 passou, 0 falhou (1 no total)

@@ -1675,6 +1675,15 @@
     while (Date.now() - start < timeoutMs) {
       const lastOut = document.querySelector('.message-out:last-child');
       if (lastOut && hasAnyStatusIcon(lastOut)) return true;
+      // IA-19 — DOM atual: sem .message-out; a última mensagem é a última raiz
+      // [data-id] da conversa (um data-id dentro de outro é citação).
+      const roots = document.querySelectorAll('#main [data-id]');
+      for (let i = roots.length - 1; i >= 0; i--) {
+        const el = roots[i];
+        if (el.parentElement && el.parentElement.closest && el.parentElement.closest('[data-id]')) continue;
+        if (hasAnyStatusIcon(el)) return true;
+        break;
+      }
       await sleep(200);
     }
     return false;
