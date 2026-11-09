@@ -1300,18 +1300,33 @@ class AIOrchestrator {
 
     // ── Produtos ────────────────────────────────────────────────────
     try {
+      // IA-47: preço e estoque também no documento semântico. Ele entra no prompt
+      // com nota fixa 0,5 e tirava do top-3 a cópia COM preço da busca por
+      // palavra-chave → o modelo respondia "R$ XXX". Mesmo texto daquela busca.
       const products = db.all(
-        `SELECT id, name, description, short_description, sku, category
+        `SELECT id, name, description, short_description, sku, category, price, currency, stock, stock_status
            FROM products WHERE workspace_id = ? AND is_active = 1
           ORDER BY updated_at DESC LIMIT 300`,
         [this.tenantId]
       ) || [];
       for (const p of products) {
+        let stockLine = '';
+        if (Number.isFinite(p.stock) && p.stock !== null) {
+          stockLine = p.stock > 0
+            ? `\nEstoque: ${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} disponível${p.stock === 1 ? '' : 'eis'}`
+            : `\nEstoque: ESGOTADO — não oferecer este produto até reposição`;
+        } else if (p.stock_status) {
+          stockLine = `\nDisponibilidade: ${p.stock_status}`;
+        }
         docs.push({
           id: `product:${p.id}`,
           content: `Produto: ${p.name}${p.sku ? ` (SKU ${p.sku})` : ''}` +
+                   (Number.isFinite(p.price) && p.price > 0
+                      ? ` — ${p.currency || 'BRL'} ${Number(p.price).toFixed(2)}`
+                      : '') +
                    (p.short_description ? `\nResumo: ${p.short_description}` : '') +
-                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : ''),
+                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : '') +
+                   stockLine,
           metadata: { source: `Catálogo${p.category ? ` / ${p.category}` : ''}`, type: 'product' },
         });
       }
