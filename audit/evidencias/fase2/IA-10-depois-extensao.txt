@@ -1,0 +1,5 @@
+• training-sync-sw.test.js
+  ✓ IA-10: backend responde 200 com success:false → NÃO diz "sincronizado"
+  ✓ IA-10 (controle): backend confirma (success:true) → "sincronizado"
+
+  2 passou, 0 falhou (2 no total)

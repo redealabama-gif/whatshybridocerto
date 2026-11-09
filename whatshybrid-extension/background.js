@@ -513,7 +513,9 @@ async function handleSyncTrainingData(message, sender, sendResponse) {
     let body = null;
     try { body = await response.json(); } catch (_) { /* sem body */ }
 
-    if (response.ok) {
+    // IA-10: só é "sincronizado" se o backend confirmar — um 200 com
+    // success:false (falha ao gravar) aparecia como sucesso.
+    if (response.ok && body?.success !== false) {
       sendResponse({
         success: true,
         synced: 'backend',
@@ -527,7 +529,9 @@ async function handleSyncTrainingData(message, sender, sendResponse) {
         success: false,
         synced: 'local',
         status: response.status,
-        error: body?.message || `Backend retornou ${response.status}`,
+        error: body?.message || (Array.isArray(body?.errors) && body.errors.length
+          ? `Falha ao gravar no servidor: ${body.errors.join('; ')}`
+          : `Backend retornou ${response.status}`),
       });
     }
   } catch (e) {
