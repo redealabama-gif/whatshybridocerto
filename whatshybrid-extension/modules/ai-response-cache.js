@@ -160,12 +160,14 @@
      * Gera chave a partir de contexto de análise
      */
     generateKeyFromContext(context) {
+      // IA-15 — o chat entra na chave: a resposta personalizada de um cliente
+      // ("Oi Maria, seu pedido…") não pode ser servida a outro.
       return this.generateKey(
         context.intent || 'general',
         context.entities || [],
         context.sentiment || 0,
         context.category || ''
-      );
+      ) + `|${context.chatId || ''}`;
     }
 
     // ============================================

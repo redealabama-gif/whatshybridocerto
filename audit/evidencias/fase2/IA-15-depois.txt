@@ -1,0 +1,6 @@
+• ai-response-cache-chat.test.js
+  ✓ IA-15: resposta cacheada para o cliente A NÃO é servida ao cliente B
+  ✓ IA-15 (controle): no mesmo chat o cache continua funcionando
+  ✓ IA-15: o CopilotEngine passa o chat para o cache (get e set)
+
+  3 passou, 0 falhou (3 no total)

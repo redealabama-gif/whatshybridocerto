@@ -1465,7 +1465,8 @@ Diretrizes:
           intent: analysis.intent?.id,
           entities: analysis.entities,
           sentiment: analysis.sentiment?.score,
-          category: analysis.category
+          category: analysis.category,
+          chatId // IA-15
         });
         
         if (cached) {
@@ -1638,7 +1639,8 @@ Diretrizes:
             intent: analysis.intent?.id,
             entities: analysis.entities,
             sentiment: analysis.sentiment?.score,
-            category: analysis.category
+            category: analysis.category,
+            chatId // IA-15
           },
           response,
           confidence

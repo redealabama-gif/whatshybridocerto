@@ -1,0 +1,23 @@
+• ai-response-cache-chat.test.js
+  ✗ IA-15: resposta cacheada para o cliente A NÃO é servida ao cliente B
+      servido ao cliente B: Oi Maria! Seu pedido 1234 saiu para entrega hoje.
++ actual - expected
+
++ {
++   cacheKey: 'order_status|pedido|0|pedidos',
++   confidence: 0.9,
++   fromCache: true,
++   hitCount: 1,
++   originalResponse: 'Oi Maria! Seu pedido 1234 saiu para entrega hoje.',
++   response: 'Oi Maria! Seu pedido 1234 saiu para entrega hoje.'
++ }
+- null
+
+  ✓ IA-15 (controle): no mesmo chat o cache continua funcionando
+  ✗ IA-15: o CopilotEngine passa o chat para o cache (get e set)
+      chamada sem chatId: analysis.originalMessage || '', {
+          intent: analysis.intent?.id,
+          entities: analysis.entities,
+        
+
+  1 passou, 2 falhou (3 no total)
