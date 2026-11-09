@@ -194,9 +194,12 @@
           console.warn(`[KnowledgeBase] ⚠️ IDB ${Math.round(bytesInUse / 1024)}KB — comprimindo antes de salvar`);
           const { _rawImports, _debugHistory, ...slim } = this.knowledge;
           this.knowledge = slim;
-          await _storage.set(STORAGE_KEY, JSON.stringify(slim));   // P6
+          await _storage.set(STORAGE_KEY, slim);   // P6
         } else {
-          await _storage.set(STORAGE_KEY, payload);                // P6
+          // IA-46: grava OBJETO. Como texto (JSON.stringify), a tela de
+          // treinamento lia zero FAQs/produtos e o knowledge-sync-manager
+          // espalhava cada caractere como uma chave da base.
+          await _storage.set(STORAGE_KEY, JSON.parse(payload));     // P6
         }
 
         console.log('[KnowledgeBase] Conhecimento salvo');
@@ -222,7 +225,7 @@
               lastUpdated: Date.now(),
               version: this.knowledge.version
             };
-            await _storage.set(STORAGE_KEY, JSON.stringify(minimal)); // P6
+            await _storage.set(STORAGE_KEY, minimal); // P6 (IA-46: objeto)
           } catch (_) {}
         } else {
           console.error('[KnowledgeBase] Erro ao salvar:', error);
@@ -1377,6 +1380,47 @@
   }
 
   // Exporta globalmente
+  /**
+   * IA-46: o que vem do servidor só PREENCHE o que falta na base local; nunca
+   * substitui. /api/v1/knowledge(/sync) devolve workspace_knowledge.data, que o
+   * /training/sync sobrescreve só com os dados do negócio e o POST /knowledge/sync
+   * acumula por união (FAQ apagada continua lá). Substituir a base local por isso
+   * apagava FAQs e produtos (o Autopilot ficava sem nada), desfazia edições feitas
+   * com o WhatsApp fechado e trazia de volta o que foi apagado. Quem edita a base é
+   * a tela de treinamento (e o painel); o servidor guarda cópia — num aparelho novo
+   * (base vazia) ela é restaurada.
+   * @returns {Object|null} base mesclada, ou null se nada mudou / resposta inválida
+   */
+  function fillMissingFromServer(local, server) {
+    const asObject = (v) => {
+      if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return null; } }
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    };
+    const srv = asObject(server);
+    if (!srv) return null;
+    const base = asObject(local) || {};
+    const isEmpty = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+    const out = { ...base };
+    let changed = false;
+    for (const key of Object.keys(defaultKnowledge)) {
+      const sv = srv[key];
+      const lv = base[key];
+      if (isEmpty(sv)) continue;
+      if (Array.isArray(sv) || typeof sv !== 'object') {
+        if (isEmpty(lv)) { out[key] = sv; changed = true; }
+        continue;
+      }
+      if (!lv || typeof lv !== 'object' || Array.isArray(lv)) { out[key] = sv; changed = true; continue; }
+      const merged = { ...lv };
+      for (const k of Object.keys(sv)) {
+        if (isEmpty(lv[k]) && !isEmpty(sv[k])) { merged[k] = sv[k]; changed = true; }
+      }
+      out[key] = merged;
+    }
+    return changed ? sanitizeObject(out) : null;
+  }
+  KnowledgeBase.fillMissingFromServer = fillMissingFromServer;
+
   window.KnowledgeBase = KnowledgeBase;
 
   // ============================================
@@ -1439,7 +1483,9 @@
       try {
         const result = await window.BackendClient.get('/api/v1/knowledge', {});
         if (result?.success && result.knowledge) {
-          await window.knowledgeBase?.saveKnowledge?.(result.knowledge);
+          // IA-46: preenche só o que falta (antes: substituía a base local inteira).
+          const merged = fillMissingFromServer(await _storage.get(STORAGE_KEY), result.knowledge);
+          if (merged) await window.knowledgeBase?.saveKnowledge?.(merged);
           await this.clearPendingSync();
           return true;
         }

@@ -241,7 +241,12 @@ class TrainingApp {
 
       // Carregar knowledge base (FAQs, produtos, business)
       const kbData = await chrome.storage.local.get('whl_knowledge_base');
-      const kb = kbData.whl_knowledge_base || {};
+      let kb = kbData.whl_knowledge_base || {};
+      // IA-46: versões anteriores do knowledge-base.js gravavam a base como texto;
+      // sem isto a tela abria com zero FAQs/produtos (e o próximo salvar apagava tudo).
+      if (typeof kb === 'string') {
+        try { kb = JSON.parse(kb); } catch (_) { kb = {}; }
+      }
 
       this.faqs = kb.faqs || kb.faq || [];
       this.products = kb.products || [];
