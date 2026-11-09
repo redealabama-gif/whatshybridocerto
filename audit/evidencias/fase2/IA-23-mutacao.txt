@@ -1,0 +1,5 @@
+# Mutação: tenant aceito do corpo da requisição (bug antigo simulado)
+    ✓ A e B (mesmo chatId) → cada um no seu workspace (50 ms)
+    ✕ workspace/tenant no corpo da requisição é ignorado (7 ms)
+    ✓ mesma conversa, clientes diferentes → chaves de cache diferentes (6 ms)
+Tests:       1 failed, 2 passed, 3 total
