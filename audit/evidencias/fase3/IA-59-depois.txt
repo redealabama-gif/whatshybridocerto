@@ -1,0 +1,6 @@
+  ✓ IA-59: base local vazia → a tela restaura do servidor (antes de qualquer salvar)
+  ✓ IA-59: a tela abre antes de o BackendClient terminar de ler a sessão → espera e restaura
+  ✓ IA-59: FAQ criada enquanto a restauração espera → fica junto, e o envio ao servidor leva as duas
+  ✓ IA-59 (controle): com treino local, a tela não consulta o servidor nem troca nada
+
+  4 passou, 0 falhou (4 no total)

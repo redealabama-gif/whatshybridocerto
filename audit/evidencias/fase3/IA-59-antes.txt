@@ -1,0 +1,30 @@
+  ✗ IA-59: base local vazia → a tela restaura do servidor (antes de qualquer salvar)
+      a tela abriu sem as FAQs do servidor
++ actual - expected
+
++ []
+- [
+-   'Vocês parcelam no cartão?'
+- ]
+
+  ✗ IA-59: a tela abre antes de o BackendClient terminar de ler a sessão → espera e restaura
+      Expected values to be strictly deep-equal:
++ actual - expected
+
++ []
+- [
+-   'Vocês parcelam no cartão?'
+- ]
+
+  ✗ IA-59: FAQ criada enquanto a restauração espera → fica junto, e o envio ao servidor leva as duas
+      Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    'Tem estacionamento?',
+-   'Vocês parcelam no cartão?'
+  ]
+
+  ✓ IA-59 (controle): com treino local, a tela não consulta o servidor nem troca nada
+
+  1 passou, 3 falhou (4 no total)

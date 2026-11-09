@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T23:27:43.939Z",
+  "generatedAt": "2026-11-09T23:49:06.386Z",
   "passos": [
     {
       "passo": "FAQ pela interface",
@@ -43,23 +43,23 @@
     }
   ],
   "sugestao1": {
-    "painel": "🤖\nSugestão de IA\n✕\nO clareamento dental custa R$ 650,00 e nós parcelamos em até 6x sem juros no cartão. Se você tiver interesse, posso agendar uma sessão para você!\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+    "painel": "🤖\nSugestão de IA\n✕\nO clareamento dental custa R$ 650,00 e sim, parcelamos em até 6x sem juros no cartão. Tem interesse em agendar uma sessão?\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
     "model": "gpt-4o-mini",
     "status": 200,
-    "resposta": "O clareamento dental custa R$ 650,00 e nós parcelamos em até 6x sem juros no cartão. Se você tiver interesse, posso agendar uma sessão para você!",
+    "resposta": "O clareamento dental custa R$ 650,00 e sim, parcelamos em até 6x sem juros no cartão. Tem interesse em agendar uma sessão?",
     "noPrompt": {
       "preco650": true,
       "parcela6x": true,
-      "limpeza180": true,
+      "limpeza180": false,
       "negocio": true
     },
     "conhecimento": "# Relevant Knowledge\n\n[INFORMAÇÃO IMPORTANTE DA EMPRESA - Fonte 1] (Informações do Negócio) [relevância: 95%]\nEmpresa: Clínica Sorriso Fácil\nSegmento: Odontologia\nSobre: Clínica odontológica no Centro\nHorário de atendimento: Seg a sex 8h–18h; sáb 8h–12h\n\n[INFORMAÇÃO IMPORTANTE DA EMPRESA - Fonte 2] (FAQ / general) [relevância: 50%]\nPergunta: Vocês parcelam no cartão?\nResposta: Sim, parcelamos em até 6x sem juros no cartão.\n\n[INFORMAÇÃO IMPORTANTE DA EMPRESA - Fonte 3] (Catálogo) [relevância: 50%]\nProduto: Clareamento dental — BRL 650.00\nDescrição: Clareamento no consultório, sessão de 1 hora\nDisponibilidade: available\n\n"
   },
   "sugestao2": {
-    "painel": "🤖\nSugestão de IA\n✕\nRemarcações são gratuitas se avisadas com pelo menos 24 horas de antecedência. Se não der pra avisar e precisar remarcar em cima da hora, tem uma taxa de R$ 50,00, que é descontada na próxima consulta. E sim, atendemos no sábado das 8h às 12h! Quer que eu reserve um horário?\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
+    "painel": "🤖\nSugestão de IA\n✕\nSe você precisar remarcar, não tem custo, desde que avise com pelo menos 24 horas de antecedência. E sim, atendemos no sábado, das 8h às 12h! Quer que eu reserve um horário?\n✏️ Editar ❌ Reprovar ✅ Aprovar\nEditar ajusta aqui mesmo · Aprovar envia ao chat · Reprovar descarta",
     "model": "gpt-4o-mini",
     "status": 200,
-    "resposta": "Remarcações são gratuitas se avisadas com pelo menos 24 horas de antecedência. Se não der pra avisar e precisar remarcar em cima da hora, tem uma taxa de R$ 50,00, que é descontada na próxima consulta. E sim, atendemos no sábado das 8h às 12h! Quer que eu reserve um horário?",
+    "resposta": "Se você precisar remarcar, não tem custo, desde que avise com pelo menos 24 horas de antecedência. E sim, atendemos no sábado, das 8h às 12h! Quer que eu reserve um horário?",
     "noPrompt": {
       "txtRemarcacao24h": true,
       "txtTaxa50": true,
@@ -337,99 +337,99 @@
       "evento": "abre WhatsApp"
     },
     {
-      "t": 214,
+      "t": 222,
       "evento": "storage whl_knowledge_base ← (object) faq=0 produtos=0 negócio=false chaves=10"
     },
     {
-      "t": 3243,
+      "t": 3268,
       "evento": "abre treinamento"
     },
     {
-      "t": 4192,
+      "t": 4196,
       "evento": "storage whl_knowledge_base ← (object) faq=1 produtos=0 negócio=false chaves=11"
     },
     {
-      "t": 4908,
+      "t": 4895,
       "evento": "storage whl_knowledge_base ← (object) faq=1 produtos=1 negócio=false chaves=11"
     },
     {
-      "t": 6057,
+      "t": 6028,
       "evento": "storage whl_knowledge_base ← (object) faq=1 produtos=1 negócio=true chaves=11"
     },
     {
-      "t": 6107,
+      "t": 6080,
       "evento": "storage whl_knowledge_base ← (object) faq=3 produtos=1 negócio=true chaves=11"
     },
     {
-      "t": 8644,
+      "t": 8626,
       "evento": "storage whl_knowledge_base ← (object) faq=3 produtos=2 negócio=true chaves=11"
     },
     {
-      "t": 11146,
+      "t": 11123,
       "evento": "storage whl_knowledge_base ← (object) faq=3 produtos=2 negócio=true chaves=11"
     },
     {
-      "t": 13645,
+      "t": 13620,
       "evento": "fim do cadastro"
     },
     {
-      "t": 17661,
+      "t": 17634,
       "evento": "foto: depois do cadastro"
     },
     {
-      "t": 17713,
+      "t": 17675,
       "evento": "clica 🤖"
     },
     {
-      "t": 37748,
+      "t": 37707,
       "evento": "foto: depois da sugestão 1"
     },
     {
-      "t": 38449,
+      "t": 38405,
       "evento": "storage whl_knowledge_base ← (object) faq=2 produtos=2 negócio=true chaves=11"
     },
     {
-      "t": 38451,
+      "t": 38407,
       "evento": "apagou FAQ"
     },
     {
-      "t": 53462,
+      "t": 53417,
       "evento": "foto: 15 s depois de apagar a FAQ"
     },
     {
-      "t": 53468,
+      "t": 53423,
       "evento": "fechou WhatsApp"
     },
     {
-      "t": 53804,
+      "t": 53759,
       "evento": "storage whl_knowledge_base ← (object) faq=3 produtos=2 negócio=true chaves=11"
     },
     {
-      "t": 58815,
+      "t": 58769,
       "evento": "foto: WhatsApp fechado, FAQ nova salva"
     },
     {
-      "t": 58815,
+      "t": 58769,
       "evento": "reabre WhatsApp"
     },
     {
-      "t": 75061,
+      "t": 75042,
       "evento": "foto: 16 s depois de reabrir o WhatsApp"
     },
     {
-      "t": 75093,
+      "t": 75075,
       "evento": "clica 🤖"
     },
     {
-      "t": 95122,
+      "t": 95104,
       "evento": "foto: depois da sugestão 2"
     },
     {
-      "t": 95122,
+      "t": 95104,
       "evento": "reabre treinamento"
     },
     {
-      "t": 101267,
+      "t": 101253,
       "evento": "foto: treinamento reaberto (+6 s)"
     }
   ],
