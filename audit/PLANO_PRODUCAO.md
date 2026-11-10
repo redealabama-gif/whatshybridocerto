@@ -42,9 +42,9 @@ Prioridade: **P0** impede lançar · **P1** corrigir antes de escalar vendas ·
 | TRN-05 | Treinamento abria sempre "Offline" com a conta conectada | ✅ | `treino-3b…treino-4*.txt` |
 | TRN-06 | "Precisão 80%" sem dado nenhum: era a nota média dos exemplos | ✅ | `treino-3b…treino-4*.txt` |
 | PROD-05 | Atrás do Caddy **todos os clientes tinham o mesmo IP**: 5 senhas erradas de quaisquer clientes em 15 min bloqueavam o login de **todos**. O Caddy mandava "IP:porta" (`{remote}`) | ✅ | `tests/integration/login-limit-per-client.spec.js`; `limite-login-antes/depois.txt` |
-| TRN-04 | 👍 no WhatsApp pode regravar a lista de exemplos com uma cópia antiga e apagar o que foi criado na tela de Treinamento (mesma falha do TRN-03, entre abas) | 🔍 | a provar com teste |
-| PROD-06 | "Entrar com Google" nunca aparece: a CSP bloqueia `accounts.google.com/gsi/client` (erro no console do login e do cadastro) | 🔍 | console do navegador; `src/server.js` (helmetForPortal) |
-| PROD-07 | Login e cadastro pedem um arquivo que dá 404 (visto no console) | 🔍 | identificar qual |
+| TRN-04 | Com o WhatsApp aberto, gravações do aprendizado nele **apagavam exemplos criados no Treinamento** (e salvar no Treinamento apagava os do WhatsApp) | ✅ | `audit/harness/exemplos-entre-abas.js`; `abas-0-antes.txt` → `abas-1-depois.txt` |
+| PROD-06 | "Entrar com Google" nunca aparecia: a CSP bloqueava `accounts.google.com/gsi/client` | ✅ | `site-6…site-7*.txt` (login com conta Google real: ⚠️ precisa do Client ID do dono) |
+| PROD-07 | Ícone do site: `favicon.svg` e `apple-touch-icon` davam 404; 9 páginas sem ícone | ✅ | `site-8-prod07-icone.txt` |
 
 ---
 
@@ -86,7 +86,7 @@ Critério de pronto: tabela por tela com cada controle e o resultado, prints em
 | Página inicial | cada botão/link, seção de preços igual aos planos reais, cupom de saída (EXIT50) | 🔍 |
 | Termos, privacidade, ajuda, documentação da API | abrem, sem link quebrado, conteúdo coerente com o produto | 🔍 |
 | Versão celular | cadastro, login, painel e página inicial em 390 px | 🔍 |
-| Erros no console e arquivos 404 | nenhuma página com erro | 🔍 (PROD-06, PROD-07) |
+| Erros no console e arquivos 404 | nenhuma página com erro | ✅ PROD-06/07; documentação da API usa `swagger-ui-dist@5` da CDN jsdelivr (bloqueada aqui — ⚠️ NÃO VERIFICADO; fixar versão) |
 | Pixels/analytics | disparam só com consentimento (ver Fase 11) | 🔍 |
 
 ## Fase 3 — Conta e acesso (P0)
