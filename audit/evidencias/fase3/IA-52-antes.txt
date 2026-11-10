@@ -1,0 +1,6 @@
+    ✕ training/sync e depois few-shot/sync (lista em texto, como o WhatsApp envia) → 1 exemplo (57 ms)
+    ✕ training/sync e depois examples/sync (o que o service worker chama) → 1 exemplo (12 ms)
+    ✓ few-shot/sync repetido não duplica (9 ms)
+    Received array:  [{"id": "1794263120901", "input": "Tem horário no sábado?"}, {"id": "1794263120901.0", "input": "Tem horário no sábado?"}]
+    Received array:  [{"id": "1794263120901", "input": "Tem horário no sábado?"}, {"id": "1794263120901.0", "input": "Tem horário no sábado?"}]
+Tests:       2 failed, 1 passed, 3 total

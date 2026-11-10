@@ -762,9 +762,12 @@
       let bestConfidence = 0;
       
       for (const faq of faqs) {
-        if (!faq.question || !faq.answer) continue;
+        // IA-45: FAQs importadas pela tela de treinamento ficaram salvas como { q, a }.
+        const question = faq && (faq.question || faq.q);
+        const answer = faq && (faq.answer || faq.a);
+        if (!question || !answer) continue;
         
-        const questionWords = faq.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const questionWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
         
         if (questionWords.length === 0) continue;
         
@@ -778,8 +781,8 @@
         if (confidence > bestConfidence) {
           bestConfidence = confidence;
           bestMatch = {
-            question: faq.question,
-            answer: faq.answer,
+            question,
+            answer,
             confidence
           };
         }

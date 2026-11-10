@@ -1,0 +1,10 @@
+PASS tests/integration/knowledge-index-price.spec.js
+  IA-47 — documento de produto do índice semântico
+    ✓ leva o preço (17 ms)
+    ✓ leva o estoque esgotado (para a IA não oferecer o que acabou) (2 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.853 s, estimated 1 s
+Ran all test suites matching /tests\/integration\/knowledge-index-price.spec.js/i.

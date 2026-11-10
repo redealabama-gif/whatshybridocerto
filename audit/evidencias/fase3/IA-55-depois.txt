@@ -1,0 +1,6 @@
+[Autopilot] ✋ Kill switch ativado - operações abortadas
+[Autopilot] ⏹️ Parado
+[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada
+[Autopilot] ✋ Operação abortada antes de enviar mensagem
+  ✓ IA-55: clicar em Parar enquanto a IA gera a resposta → nada é enviado
+  1 passou, 0 falhou (1 no total)

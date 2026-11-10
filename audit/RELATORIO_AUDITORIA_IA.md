@@ -600,3 +600,116 @@ Chaves: a da OpenAI responde e tem crédito (HTTP 200). A primeira da Groq foi d
 - `CostLoggerService`/`metrics.js` não têm preço para os modelos novos da Groq (custo registrado aproximado).
 - NÃO VERIFICADO: o servidor de produção do usuário (versão em execução, estado do `ai-worker`, chaves no `.env`) — não acessível daqui.
 - Pendências anteriores sem mudança: IA-17, IA-18, remoções da seção 5 e P3.
+
+## 13. Verificação de aceitação com IA real — Autopilot, treinamento e aprendizado (2026-11-09)
+
+Pedido do usuário depois do PR #314: "Você tem certeza? Eu posso confiar? Faça a verificação completa do que ainda falta." Resposta honesta na época: não havia como garantir — o Autopilot, o treinamento e o aprendizado nunca tinham sido exercitados de ponta a ponta com a IA real. Esta seção é essa verificação.
+
+Método: extensão REAL no Chromium + backend real + modelo real (OpenAI `gpt-4o-mini`; a chave nova da Groq responde, mas o limite de 8.000 tokens/min não aguenta a rodada), WhatsApp Web simulado (página com o DOM atual) e dados sintéticos de uma clínica. Chaves autorizadas pelo usuário, guardadas fora do repositório. Roteiros: `audit/harness/autopilot-real.js` (V1), `training-ui-real.js` (V2), `learning-ui-real.js` (V3), `real-sampling.js` (amostras). Cada defeito encontrado virou um commit com teste de regressão que falhava antes e passa depois.
+
+### 13.1 Achados
+
+| ID | Prior. | Achado | Prova (antes) |
+|---|---|---|---|
+| IA-44 | P0 | O Autopilot abria a conversa da mensagem clicando num link `web.whatsapp.com/send?phone=…`, que **recarrega o WhatsApp Web**: a fila se perdia e o Autopilot voltava desligado. O abridor bom do `content.js` existia, mas não era exportado | V1: navegação registrada; `fase3/ext-autopilot-open-chat-antes.txt` |
+| IA-45 | P1 | FAQ importada por CSV/XLSX/TXT ficava como `{q, a}`; o sync com o servidor e o Autopilot só liam `question/answer` → aparecia na tela, mas o banco ficava com 1 de 3 FAQs e o Autopilot enxergava 1 de 3 | `fase3/IA-45-*-antes.txt` |
+| IA-46 | P0 | A **base de treinamento local era apagada**: 3 s depois de abrir o WhatsApp Web, `knowledge-base.js` substituía a base pelo que o servidor devolvia (só os dados do negócio). O outro sincronizador trocava a lista local pela cópia antiga do servidor (FAQ nova sumia, apagada voltava) e a base gravada como texto virava **433 chaves de lixo**. A tela de treinamento reaberta mostrava zero FAQs — e o próximo salvar apagava tudo no servidor | linha do tempo real: base com 3 FAQs → 1 s depois do `/training/sync` → só o negócio; `fase3/IA-46-ext-antes.txt` (1/7) |
+| IA-47 | P1 | Com embeddings ativos, o produto chegava ao modelo **sem preço**: o índice semântico não tinha preço/estoque e a cópia com preço ficava fora das 3 fontes do prompt → "O clareamento custa **R$ XXX**" | prompt real registrado; `fase3/IA-47-antes.txt` |
+| IA-48 | P1 | Na tela de treinamento, clicar numa FAQ/produto/exemplo **não abria nada** (id número × texto do HTML): impossível corrigir ou apagar um item errado | V2: botão Excluir nunca aparece; `fase3/IA-48-antes.txt` (0/4) |
+| IA-49 | P1 | Planilha brasileira importava **preço 0**: cabeçalho "Preço"/"Descrição" com acento, CSV do Excel separado por ";" (nem reconhecido) e célula em R$ ("R$ 1.250,00" → NaN) | `fase3/IA-49-antes.txt` (1/4) |
+| IA-50 | P1 | TXT importado ("parágrafos anexados ao conhecimento") **nunca chegava ao prompt**. Com a política "taxa de R$ 50,00 sem aviso de 24 h", a IA respondeu "Se precisar remarcar, **não tem custo**" | V2 real; `fase3/IA-50-antes.txt` (0/3) |
+| IA-51 | P1 | A fusão das buscas (RRF) **enterrava o 1º colocado da busca semântica**: em catálogo pequeno qualquer acerto por palavra passava à frente. A política do TXT era a 1ª semântica e a 5ª da fusão (atrás de clareamento e parcelamento) | sonda com embeddings reais; `fase3/IA-51-antes.txt` |
+| IA-52 | P2 | **Exemplo de treinamento duplicava**: `/training/sync` gravava o id como "1794263120901" e `/ai/few-shot/sync` como "1794263120901.0"; 1 cadastrado → 2 na tela e no banco | sonda real; `fase3/IA-52-antes.txt` (1/3) |
+| IA-53 | P1 | O Autopilot no WhatsApp aberto **não via o treino novo** até recarregar a página; uma cópia aberta antes (painel lateral), ao salvar, gravava por cima e **apagava o treino feito depois** | `fase3/IA-53-antes.txt` (0/2) |
+| IA-54 | P0 | **O aprendizado com 👍/👎 nunca chegou ao servidor**: o painel mandava o feedback com `chatId` nulo (`window.Store` não existe no mundo isolado) e o backend respondia 400 a tudo — editar, aprovar, reprovar | V3 real: **7 de 7 feedbacks com HTTP 400**, nada gravado |
+| IA-55 | P0 | **"Parar" não cancelava a resposta em andamento**: `stopAutopilot()` zerava o controlador e as checagens antes de enviar davam `undefined` → a resposta saía para o cliente segundos depois de "Parado". (Era a causa da falha intermitente "2 !== 1" da suíte) | `fase3/IA-55-antes.txt`; suíte 2 de 4 rodadas com falha |
+| IA-56 | P1 | O que a IA aprendia com as aprovações **não era salvo** (pipeline sem o id do cliente → `FOREIGN KEY constraint failed`, 7× no log) e sumia a cada reinício; com a fila (worker), o processo que gera a resposta nunca via o que foi aprovado; o exemplo ia ao prompt com a pergunta embaralhada ("a avalia consulta de dura o quanto tempo") | V3 real; `fase3/IA-56-antes.txt` (0/3) |
+| IA-57 | P2 | A correção do operador só voltava se o cliente repetisse as **mesmas palavras**: "Tem onde deixar o carro?" não achava a correção de "Vocês têm estacionamento?" e o modelo inventou "é só seguir reto" | V3 real; `fase3/IA-57-antes.txt` (0/2) |
+| IA-58 | P1 | Sem informação na base, o modelo **inventava fatos da empresa**: "Sim, temos estacionamento disponível", "a consulta dura 30 a 45 minutos", "aceitamos cartão… até 12 vezes" — 9 de 9 amostras | `fase3/IA-58-amostras.md` |
+| IA-59 | P0 | Tela de treinamento com a base local vazia (aparelho novo, ou base já apagada pela IA-46 antes da correção) abria em branco e o primeiro "salvar" **apagava o treinamento do servidor** (o `/training/sync` substitui tudo). Existe `GET /api/v1/training/sync`, mas a extensão nunca o usava | `fase3/IA-59-antes.txt` (1/4) |
+
+### 13.2 Achado × commit × teste
+
+| ID | Commit | Teste de regressão | Antes → depois |
+|---|---|---|---|
+| IA-44 | fa69037 | `ext/tests/unit/autopilot-open-chat.test.js`, `content-open-chat-export.test.js` | 1/2 → 2/2; 0/2 → 2/2 |
+| IA-45 | bd5f780 | `ext/tests/unit/training-faq-fields.test.js`; `be/tests/integration/training-sync.routes.spec.js` | 0/3 → 3/3; falha → passa |
+| IA-46 | 4e4e83e | `ext/tests/unit/kb-sync-preserva-base.test.js` | 1/7 → 7/7 |
+| IA-47 | a707e3f | `be/tests/integration/knowledge-index-price.spec.js` | 0/2 → 2/2 |
+| IA-48 | ce94f10 | `ext/tests/unit/training-edit-modal.test.js` | 0/4 → 4/4 |
+| IA-49 | 88fea83 | `ext/tests/unit/training-import-planilha.test.js` | 1/4 → 4/4 |
+| IA-50 | b998595 | `be/tests/integration/knowledge-notes-txt.spec.js` | 0/3 → 3/3 |
+| IA-51 | 99b080c | `be/tests/unit/knowledge-search-order.spec.js` (números reais da sonda) | 1/2 → 2/2 |
+| IA-52 | 1f99396 | `be/tests/integration/few-shot-sync-dup.routes.spec.js` | 1/3 → 3/3 |
+| IA-53 | f5c29b1 | `ext/tests/unit/kb-memoria-atualiza.test.js` | 0/2 → 2/2 |
+| IA-54 | a1aa305 | `ext/tests/unit/suggestion-feedback-chatid.test.js` | 0/2 → 2/2 |
+| IA-55 | 81817e8 | `ext/tests/unit/autopilot-stop-inflight.test.js` | 0/1 → 1/1; suíte estável (5 rodadas seguidas) |
+| IA-56 | c353856 | `be/tests/integration/learning-pipeline-tenant.spec.js` | 0/3 → 3/3 |
+| IA-57 | 235f70d | `be/tests/integration/knowledge-learned-index.spec.js` | 0/2 → 2/2 |
+| IA-58 | 7c08c18 | `be/tests/unit/prompt-fatos-empresa.spec.js` + amostras reais | 0/1 → 1/1; inventados 9/9 → 5/9 |
+| IA-59 | 04bd9e3 | `ext/tests/unit/training-restaura-servidor.test.js` + navegador real | 1/4 → 4/4 |
+| roteiros | 6ed4391 | `audit/harness/{autopilot,training-ui,learning-ui}-real.js` | — |
+
+### 13.3 Antes × depois pela tela real (IA real)
+
+| Verificação | Antes | Depois (todas as correções) |
+|---|---|---|
+| V2 — FAQs importadas que chegam ao banco / que o Autopilot usa | 1 de 3 / 1 de 3 | 3 de 3 / 3 de 3 |
+| V2 — base local 1 s depois de importar | apagada (só o negócio) | intacta em todas as 7 fotografias (fechar/reabrir WhatsApp, apagar, reabrir a tela) |
+| V2 — "Quanto custa o clareamento? Vocês parcelam?" | "custa **R$ XXX** e sim, parcelamos" (parcelamento inventado: a FAQ não tinha chegado) | "O clareamento dental custa **R$ 650,00** e nós parcelamos em até **6x sem juros**" |
+| V2 — "Se eu remarcar, tem custo? Atendem sábado?" (política no TXT) | "Se precisar remarcar, **não tem custo**" | "gratuitas com **24 horas** de antecedência… em cima da hora, taxa de **R$ 50,00**… sábado das 8h às 12h" |
+| V2 — clicar numa FAQ / Excluir | nada abre | abre, exclui, some da base local e do banco e não volta |
+| V2 — XLSX com "Preço" em R$ | preço 0 (teste) | 650 |
+| V2 — 1 exemplo cadastrado | 2 na tela e no banco | 1 |
+| Base local apagada (estrago antigo) e tela de treinamento reaberta | tela vazia; o 1º salvar apagaria o servidor | restaura do servidor em segundo plano: FAQ e produto (R$ 650) voltam à tela e à base local |
+| V3 — feedbacks do painel aceitos pelo servidor | 0 de 7 (HTTP 400) | 7 de 7 (HTTP 200) |
+| V3 — correção ("Rua das Flores, 120") usada quando perguntam de outro jeito | não (modelo inventou) | sim: "Temos sim! Estacionamento conveniado na Rua das Flores, 120…" |
+| V3 — 5 aprovações da mesma pergunta | nada gravado | padrão graduado **salvo no banco**; a 6ª resposta segue o exemplo (com a pergunta real) |
+| V3 — "Vocês têm estacionamento?" sem treino | "Sim, temos estacionamento disponível" | "Preciso verificar essa informação. Vou confirmar e já te falo!" |
+| V1 — Autopilot, 13 cenários | (depois do IA-44) | sem regressão: FAQ enviada com o texto exato; preço, sem base, reclamação e conversa pessoal → revisão; grupo ignorado; conversa fechada não recarrega; 2 abas = 1 envio; kill switch bloqueia |
+
+Evidência: `fase3/60-autopilot-real.*`, `61-treinamento-tela-real.json`, `62-aprendizado-tela-real.json`, `IA-44…IA-58-*`.
+
+### 13.4 Tabela final
+
+**Funciona** (verificado com a IA real pela tela, ou por teste de regressão onde indicado):
+
+- Sugestão de resposta usando FAQ, produto com preço e estoque, dados do negócio, TXT importado, exemplos e correções do operador — inclusive com a pergunta feita com outras palavras.
+- Treinamento: cadastro pela tela, importação CSV/XLSX/TXT (planilha brasileira), edição e exclusão, sincronização tela ⇄ WhatsApp Web ⇄ servidor sem perder, reverter ou duplicar; tela com base local vazia restaura do servidor.
+- Aprendizado: Editar+Aprovar vira correção imediata; 5 aprovações graduam um exemplo que fica salvo no banco; Reprovar é registrado.
+- Autopilot: só envia sozinho FAQ encontrada, resposta rápida, saudação ou produto encontrado; o resto vai para revisão; respeita kill switch e grupos; 2 abas = 1 envio; não recarrega o WhatsApp; **Parar cancela a resposta em andamento** (teste); usa o treino novo sem recarregar a página (teste).
+
+**Não funciona ou funciona com limite** (com prova):
+
+- Sem informação na base, o `gpt-4o-mini` ainda afirma fato da empresa às vezes (5 de 9 amostras depois do IA-58: duração da consulta, cartão/parcelamento). O que resolve é cadastrar a informação. O Autopilot não envia sozinho fora das categorias acima; a sugestão passa pelo operador.
+- A guarda do Autopilot no servidor conta como "base" os dados do negócio e os 5 resultados semânticos, que vêm sempre (a busca semântica não tem limiar de relevância) → para conta treinada, "sem base" quase nunca dispara. Hoje quem segura é o filtro da extensão.
+- O Autopilot responde sozinho o cumprimento de uma conversa pessoal (V1/S08: "Boa noite! Tudo certo, e você?").
+- Pergunta de preço de produto cadastrado vai para revisão (V1/S03: o filtro local exige >75% das palavras do nome do produto).
+- O aprendizado por aprovação agrupa só perguntas com as mesmas palavras; uma resposta inventada que o operador aprova 5 vezes vira "exemplo comprovado".
+- Exemplos já duplicados antes do IA-52 continuam (apagar pela tela, agora possível pelo IA-48).
+- A restauração da IA-59 traz o estoque como situação ("disponível"/"esgotado"), não o número — a rota `GET /api/v1/training/sync` não devolve o estoque numérico.
+
+**Não verificado:**
+
+- WhatsApp Web real (DOM e Store reais, envio real): só simulado. Roteiro seguro: `audit/ROTEIRO_TESTE_WHATSAPP_REAL.md`.
+- Produção com a fila (Redis + `ai-worker` em processo separado): o aprendizado entre processos foi verificado por teste de integração (IA-56), não no compose real.
+- Painel lateral como editor da base (só teste unitário, IA-53).
+- Groq como provedor principal; modelo maior que o `gpt-4o-mini`; volume (catálogos grandes, carga); outros idiomas.
+
+### 13.5 Decisões que dependem de você
+
+1. Conversas pessoais: o Autopilot deve responder cumprimentos de amigos/família? (hoje sim; dá para usar a lista de bloqueio ou restringir saudação automática).
+2. Preço de produto cadastrado: continuar indo para revisão ou permitir envio automático?
+3. Modelo: `OpenAIProvider` fixa `gpt-4o-mini` e ignora `AI_DEFAULT_MODEL`; um modelo maior inventa menos, com custo bem maior.
+4. Limiar de relevância na busca semântica e guarda "sem base" por relevância (muda comportamento; precisa calibrar com dados reais).
+5. Limpeza dos exemplos duplicados que já existem no banco.
+6. Pendências anteriores sem mudança: IA-17, IA-18, remoções da seção 5 e P3.
+
+### 13.6 Testes e o que fazer para colocar em uso
+
+Testes no estado final: backend 225/225 (43 suítes), zero-dep 11/11, cobertura 9/9, ESLint 0 erros (86 avisos, nenhum nas linhas alteradas), typecheck e sintaxe ok; extensão 144/144 (sem a falha intermitente em 6 rodadas seguidas), canário de seletores 10/10, bundles em sincronia, manifest MV3.
+
+1. Deploy do backend (IA-45, IA-47, IA-50, IA-51, IA-52, IA-56, IA-57, IA-58).
+2. Atualizar e recarregar a extensão (`dist/` refeito; tela de treinamento: IA-46, IA-48, IA-49, IA-59).
+3. Antes de salvar qualquer coisa na tela de treinamento, abrir a tela e conferir se as FAQs e os produtos aparecem (se a base local tinha sido apagada, a IA-59 restaura do servidor em alguns segundos). Quem já importou FAQs por planilha: depois disso, salvar qualquer item — o sync reenvia as FAQs, agora aceitas.
+4. Testar com o roteiro `audit/ROTEIRO_TESTE_WHATSAPP_REAL.md` antes de ligar o Autopilot para clientes.

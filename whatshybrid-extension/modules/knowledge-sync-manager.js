@@ -174,6 +174,11 @@
         if (!data[key]) continue;
 
         const isKB = key === CONFIG.STORAGE_KEYS.KB;
+        // IA-46: base gravada como texto por versões anteriores — o servidor
+        // mesclava caractere por caractere.
+        if (isKB && typeof data[key] === 'string') {
+          try { data[key] = JSON.parse(data[key]); } catch (_) { continue; }
+        }
 
         const endpoint = isKB
           ? '/api/v1/knowledge/sync'
@@ -191,7 +196,12 @@
         // Atualizar cache local com a versão do servidor (evita drift)
         if (response.success) {
           if (isKB && response.knowledge) {
-            await chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.KB]: response.knowledge });
+            // IA-46: a resposta é a UNIÃO do servidor (inclui o que foi apagado
+            // aqui) — gravá-la por cima trazia de volta FAQ apagada. Só preenche
+            // o que falta na base local.
+            const fresh = await chrome.storage.local.get(CONFIG.STORAGE_KEYS.KB);
+            const merged = window.KnowledgeBase?.fillMissingFromServer?.(fresh[CONFIG.STORAGE_KEYS.KB], response.knowledge);
+            if (merged) await chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.KB]: merged });
           } else if (!isKB && Array.isArray(response.examples)) {
             await chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.FSL]: response.examples });
           }
@@ -289,7 +299,14 @@
       const localData = await chrome.storage.local.get(key);
       let merged;
 
-      if (Array.isArray(backendData)) {
+      if (key === CONFIG.STORAGE_KEYS.KB) {
+        // IA-46: base de conhecimento — o servidor só preenche o que falta. Antes
+        // ({...local, ...servidor}) a lista antiga do servidor substituía a local
+        // (FAQ nova sumia, editada voltava) e, com a base local em texto, cada
+        // caractere virava uma chave.
+        merged = window.KnowledgeBase?.fillMissingFromServer?.(localData[key], backendData);
+        if (!merged) return;
+      } else if (Array.isArray(backendData)) {
         // Para arrays (exemplos, FAQs, etc.), mesclar por ID
         const local = Array.isArray(localData[key]) ? localData[key] : [];
         const localMap = new Map(local.map(item => [item.id || item.key, item]));

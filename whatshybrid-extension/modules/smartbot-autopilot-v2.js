@@ -422,15 +422,10 @@
       } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
     }
     
-    // Método 3: Via URL (fallback)
-    try {
-      const link = document.createElement('a');
-      link.href = `https://web.whatsapp.com/send?phone=${cleanPhone}`;
-      link.click();
-      await sleep(2000);
-      return true;
-    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
-    
+    // IA-44: sem "Método 3" por URL. Clicar em https://web.whatsapp.com/send?phone=…
+    // recarrega o WhatsApp Web inteiro: a fila em memória se perde e o Autopilot
+    // volta desligado. Sem conseguir abrir, ensureChatActive tenta de novo e,
+    // por fim, manda para revisão humana (open_failed).
     return false;
   }
 
@@ -903,13 +898,19 @@
 
     let nextDelayOverride = null;
     const item = state.queue.shift();
+    // IA-55: o controlador DESTA execução. stopAutopilot() aborta e zera
+    // state.abortController — perguntar state.abortController?.signal.aborted
+    // depois disso dava undefined e a resposta em andamento era enviada mesmo
+    // com o Autopilot parado.
+    const runAbort = state.abortController;
+    const aborted = () => !state.running || !!runAbort?.signal.aborted;
 
     try {
       if (!item || !item.id) return;
       if (state.processed.has(item.id)) return;
 
       // PEND-MED-009: Verificar abort antes de processar
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada - item não processado');
         return;
       }
@@ -1025,7 +1026,7 @@
       }
 
       // PEND-MED-009: Verificar abort antes de gerar resposta
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada após abrir chat');
         return;
       }
@@ -1159,7 +1160,7 @@
       }
 
       // PEND-MED-009: Verificar abort antes de enviar
-      if (state.abortController?.signal.aborted) {
+      if (aborted()) {
         console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
         return;
       }
@@ -1174,6 +1175,12 @@
         state.queue.unshift(item);
         nextDelayOverride = 1200;
         emitRuntimeEvent('skipped', { reason: 'chat_changed_before_send', chatId: item.chatId });
+        return;
+      }
+
+      // IA-55: reabrir o chat pode levar segundos — confere de novo antes de digitar.
+      if (aborted()) {
+        console.log('[Autopilot] ✋ Operação abortada antes de enviar mensagem');
         return;
       }
 

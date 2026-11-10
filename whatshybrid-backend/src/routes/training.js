@@ -127,8 +127,10 @@ router.post('/sync',
         db.run('DELETE FROM faqs WHERE workspace_id = ?', [workspaceId]);
         for (const f of faqs) {
           if (!f || typeof f !== 'object') continue;
-          const question = (f.question || '').toString().slice(0, 1000);
-          const answer   = (f.answer   || '').toString().slice(0, 5000);
+          // IA-45: o importador da extensão gravava FAQs como { q, a } — aceitar
+          // os dois formatos (antes elas eram descartadas em silêncio).
+          const question = (f.question || f.q || '').toString().slice(0, 1000);
+          const answer   = (f.answer   || f.a || '').toString().slice(0, 5000);
           if (!question || !answer) continue;
 
           db.run(

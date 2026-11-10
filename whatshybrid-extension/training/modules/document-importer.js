@@ -100,7 +100,7 @@ class DocumentImporter {
     const rows = rawRows.map(row => {
       const normalized = {};
       for (const [k, v] of Object.entries(row)) {
-        const key = String(k).trim().toLowerCase();
+        const key = this.normalizeHeader(k); // IA-49: "Preço" → "preco"
         normalized[key] = typeof v === 'string' ? v.trim() : v;
       }
       return normalized;
@@ -136,7 +136,10 @@ class DocumentImporter {
       return { type: 'empty', items: [] };
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    // IA-49: o Excel em português salva CSV separado por ";"; cabeçalho sem
+    // acento ("Preço" → "preco") para casar com os campos lidos abaixo.
+    const delimiter = lines[0].split(';').length > lines[0].split(',').length ? ';' : ',';
+    const headers = this.parseCSVLine(lines[0], delimiter).map(h => this.normalizeHeader(h));
     const items = [];
 
     // Detectar tipo de CSV
@@ -144,7 +147,7 @@ class DocumentImporter {
     const isFaqs = headers.some(h => ['pergunta', 'question', 'resposta', 'answer'].includes(h));
 
     for (let i = 1; i < lines.length; i++) {
-      const values = this.parseCSVLine(lines[i]);
+      const values = this.parseCSVLine(lines[i], delimiter);
       if (values.length < headers.length) continue;
 
       const item = {};
@@ -171,7 +174,7 @@ class DocumentImporter {
   /**
    * Parse de linha CSV considerando aspas
    */
-  parseCSVLine(line) {
+  parseCSVLine(line, delimiter = ',') {
     const result = [];
     let current = '';
     let inQuotes = false;
@@ -179,7 +182,7 @@ class DocumentImporter {
     for (let char of line) {
       if (char === '"') {
         inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
+      } else if (char === delimiter && !inQuotes) {
         result.push(current);
         current = '';
       } else {
@@ -192,6 +195,39 @@ class DocumentImporter {
   }
 
   /**
+   * IA-49: cabeçalho comparável — minúsculo, sem espaços nas pontas e sem
+   * acento ("Preço" → "preco", "Descrição" → "descricao").
+   */
+  normalizeHeader(h) {
+    return String(h).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /**
+   * IA-49: preço de planilha brasileira ou americana — "R$ 1.250,00",
+   * "1,250.50", "180,50", "650" ou número. parseFloat("R$ 650.00") era NaN e
+   * parseFloat("1.250,00") era 1.25. Separador seguido de 3 dígitos no fim é
+   * de milhar; com os dois, o último é o decimal.
+   */
+  parsePrice(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    let s = String(v || '').replace(/[^\d.,-]/g, '');
+    if (!s) return 0;
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    if (lastComma !== -1 && lastDot !== -1) {
+      const dec = lastComma > lastDot ? ',' : '.';
+      s = s.split(dec === ',' ? '.' : ',').join('').replace(dec, '.');
+    } else if (lastComma !== -1 || lastDot !== -1) {
+      const sep = lastComma !== -1 ? ',' : '.';
+      const parts = s.split(sep);
+      const thousands = parts.length > 2 || parts[parts.length - 1].length === 3;
+      s = thousands ? parts.join('') : parts.join('.');
+    }
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  /**
    * Normaliza produto extraído
    */
   normalizeProduct(item) {
@@ -199,8 +235,8 @@ class DocumentImporter {
       id: Date.now() + Math.random(),
       name: item.nome || item.name || item.produto || item.product || '',
       description: item.descricao || item.description || item.desc || '',
-      price: parseFloat(item.preco || item.price || item.valor || 0),
-      promoPrice: parseFloat(item.promo || item.promocao || item.promo_price || 0) || null,
+      price: this.parsePrice(item.preco || item.price || item.valor || 0),
+      promoPrice: this.parsePrice(item.promo || item.promocao || item.promo_price || 0) || null,
       category: item.categoria || item.category || item.cat || '',
       sku: item.sku || item.codigo || item.code || '',
       availability: item.disponibilidade || item.availability || 'available',
@@ -212,10 +248,16 @@ class DocumentImporter {
    * Normaliza FAQ extraída
    */
   normalizeFaq(item) {
+    const q = item.pergunta || item.question || item.q || '';
+    const a = item.resposta || item.answer || item.a || '';
     return {
       id: Date.now() + Math.random(),
-      q: item.pergunta || item.question || item.q || '',
-      a: item.resposta || item.answer || item.a || '',
+      q,
+      a,
+      // IA-45: sem question/answer a FAQ importada aparecia na tela, mas o sync
+      // com o backend e o Autopilot (que só leem esses campos) a descartavam.
+      question: q,
+      answer: a,
       keywords: (item.keywords || item.tags || '').split(',').map(k => k.trim()).filter(k => k)
     };
   }
@@ -232,10 +274,14 @@ class DocumentImporter {
     
     let match;
     while ((match = qaPattern.exec(text)) !== null) {
+      // IA-45: question/answer são os campos que o sync (/training/sync) e o
+      // Autopilot leem; q/a continuam para a tela de treinamento.
       items.push({
         id: Date.now() + Math.random(),
         q: match[1].trim(),
         a: match[2].trim(),
+        question: match[1].trim(),
+        answer: match[2].trim(),
         keywords: []
       });
     }

@@ -1,0 +1,9 @@
+  ✓ IA-46: abrir o WhatsApp depois do treino não apaga FAQs nem produtos (servidor só com dados do negócio)
+  ✓ IA-46: knowledge-base.js grava a base como objeto (a tela de treinamento lê objeto)
+  ✓ IA-46: base antiga gravada como texto não vira centenas de chaves ao abrir o WhatsApp
+  ✓ IA-46: FAQ criada/editada com o WhatsApp fechado não é desfeita pela cópia antiga do servidor
+  ✓ IA-46: FAQ apagada na tela não volta depois do envio ao servidor
+  ✓ IA-46 (controle): aparelho novo, base local vazia → recebe o que o servidor tem
+  ✓ IA-46: a tela de treinamento abre com as FAQs/produtos de uma base antiga gravada como texto
+
+  7 passou, 0 falhou (7 no total)

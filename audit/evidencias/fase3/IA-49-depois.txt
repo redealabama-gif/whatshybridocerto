@@ -1,0 +1,9 @@
+  ✓ IA-49: CSV com cabeçalho acentuado (Nome,Preço,Descrição) importa preço e descrição
+  ✓ IA-49: CSV do Excel em português (separado por ;) com preço "R$ 1.250,00"
+  ✓ IA-49: XLSX com "Preço" formatado como moeda importa o valor
+  ✓ IA-49 (controle): planilha simples sem acento continua igual
+  ✓ IA-45: FAQ importada de CSV tem question e answer (campos que o sync e o Autopilot leem)
+  ✓ IA-45: FAQ importada de TXT (P:/R:) tem question e answer
+  ✓ IA-45: o Autopilot encontra FAQ já salva no formato antigo { q, a }
+
+  7 passou, 0 falhou (7 no total)

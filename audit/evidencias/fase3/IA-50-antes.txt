@@ -1,0 +1,8 @@
+    ✕ entram no índice semântico (25 ms)
+    ✕ são encontrados pela busca por palavra-chave (5 ms)
+    ✕ trocar o TXT reindexa (a assinatura do conhecimento muda) (1 ms)
+    Received: undefined
+    Expected: true
+    Received: false
+    Expected: not "1|0|0|2026-11-09 22:16:16||"
+Tests:       3 failed, 3 total

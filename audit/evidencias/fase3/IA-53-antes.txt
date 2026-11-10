@@ -1,0 +1,20 @@
+  ✗ IA-53: FAQ salva na tela de treinamento chega à base do Autopilot sem recarregar o WhatsApp
+      o Autopilot continua com a base velha
++ actual - expected
+
+  [
+    1,
+-   2
+  ]
+
+  ✗ IA-53: outra cópia aberta (painel) não apaga, ao salvar, o treino feito depois que ela abriu
+      FAQ do treino apagada pelo painel: [1]
++ actual - expected
+
+  [
+    1,
+-   2
+  ]
+
+
+  0 passou, 2 falhou (2 no total)

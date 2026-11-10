@@ -93,7 +93,9 @@ class AIOrchestrator {
     this.aiRouter = (config.ai && Object.keys(config.ai).length > 0)
       ? new AIRouterService(config.ai)
       : AIRouterModule;
-    this.learningPipeline = new ValidatedLearningPipeline(config.learning || {}); // P3
+    // IA-56: com o id do cliente. Sem ele o pipeline usava "default" e o banco
+    // recusava salvar (FOREIGN KEY): o aprendizado sumia a cada reinício.
+    this.learningPipeline = new ValidatedLearningPipeline({ ...(config.learning || {}), tenantId: this.tenantId }); // P3
     this.commercialEngine = new CommercialIntelligenceEngine(config.commercial || {}); // v10
     this.qualityChecker = new ResponseQualityChecker(config.quality || {}); // v10
     this.behaviorAdapter = new ClientBehaviorAdapter(config.behavior || {}); // v10.1
@@ -301,24 +303,7 @@ class AIOrchestrator {
         // Aquece o índice semântico antes da 1ª busca (init() popula, mas a
         // registry/worker não esperam o init() → as primeiras mensagens buscavam
         // num índice vazio, com recall semântico frio). Espera limitada.
-        await this._ensureIndexed();
-        const searchResult = await this.hybridSearch.search(message, 5);
-        const rawResults = Array.isArray(searchResult?.results) ? searchResult.results : [];
-        // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
-        // { content, source, score }. O search() devolve { docId, score(fusão ~0.02),
-        // document:{content}, metadata } — SEM content no topo e com score abaixo do
-        // minScore (0.3) do builder. Sem esta normalização os resultados semânticos
-        // não renderizavam no prompt mesmo com o índice populado. Score fixo 0.5:
-        // passa o filtro, fica abaixo da info do negócio (0.95) e de matches exatos
-        // fortes — só preenche as vagas quando o caminho de palavra-chave é fraco/vazio
-        // (o caso da pergunta parafraseada, exatamente o que queremos cobrir).
-        knowledgeResults = rawResults
-          .map((r) => ({
-            content: r?.document?.content || r?.content || '',
-            source: r?.metadata?.source || r?.document?.metadata?.source || 'Base de conhecimento',
-            score: 0.5,
-          }))
-          .filter((r) => r.content);
+        knowledgeResults = await this._searchKnowledge(message);
       } catch (err) { logger.warn(`HybridSearch error: ${err.message}`); }
 
       // ── 3b. v9.7.x — Conhecimento treinado pelo usuário (FAQs / produtos /
@@ -397,6 +382,7 @@ class AIOrchestrator {
       // ── 6. Few-shot examples (P3) ───────────────────────────────────────────
       let fewShotExamples = [];
       try {
+        await this._maybeReloadLearning();
         fewShotExamples = this.learningPipeline.getTopGraduated(intentResult.intent, 3);
       } catch (err) { logger.warn(`getTopGraduated error: ${err.message}`); }
 
@@ -1008,6 +994,19 @@ class AIOrchestrator {
     return content;
   }
 
+  /**
+   * IA-56: com a fila (docker compose), a resposta sai do processo worker e o
+   * feedback chega ao processo do servidor; o worker só conhecia os padrões que
+   * existiam no banco quando subiu. Relê os padrões aprendidos a cada 60 s.
+   * @private
+   */
+  async _maybeReloadLearning(now = Date.now()) {
+    if (now - (this._learningLoadedAt || 0) < 60000) return;
+    this._learningLoadedAt = now;
+    if (typeof this.learningPipeline?._loadFromDB !== 'function') return;
+    try { await this.learningPipeline._loadFromDB(); } catch (e) { logger.debug?.(`[Orchestrator] reload learning: ${e.message}`); }
+  }
+
   recordFeedback(interactionId, feedback, opts = {}) {
     if (this.config.enableAnalytics) this.analytics.updateFeedback(interactionId, feedback);
 
@@ -1198,6 +1197,64 @@ class AIOrchestrator {
    * @returns {string|null} assinatura, ou null se indisponível
    * @private
    */
+  /**
+   * Busca no índice semântico/híbrido e normaliza para o prompt.
+   * @private
+   */
+  async _searchKnowledge(message) {
+    await this._ensureIndexed();
+    // IA-51: a fusão RRF soma 1/(k+posição) das duas buscas. Num catálogo pequeno
+    // TODO documento entra na lista semântica, então qualquer acerto por palavra
+    // ("custo" num produto) passava à frente do 1º colocado semântico que não
+    // repete a palavra ("remarcar" × "Remarcações") — a pergunta feita com outras
+    // palavras, que o índice semântico existe para cobrir. Pede mais resultados e
+    // ordena pela MELHOR posição em qualquer das buscas (empate: fusão), para que
+    // o 1º de cada busca chegue ao prompt.
+    const searchResult = await this.hybridSearch.search(message, 15);
+    const bestRank = (r) => Math.min(r?.bm25Rank || Infinity, r?.semanticRank || Infinity);
+    const rawResults = (Array.isArray(searchResult?.results) ? searchResult.results : [])
+      .slice()
+      .sort((a, b) => (bestRank(a) - bestRank(b)) || ((b?.score || 0) - (a?.score || 0)))
+      .slice(0, 5);
+    // Normaliza pro shape que o DynamicPromptBuilder.buildKnowledgeSection espera:
+    // { content, source, score }. O search() devolve { docId, score(fusão ~0.02),
+    // document:{content}, metadata } — SEM content no topo e com score abaixo do
+    // minScore (0.3) do builder. Sem esta normalização os resultados semânticos
+    // não renderizavam no prompt mesmo com o índice populado. Score fixo 0.5:
+    // passa o filtro, fica abaixo da info do negócio (0.95) e de matches exatos
+    // fortes — só preenche as vagas quando o caminho de palavra-chave é fraco/vazio
+    // (o caso da pergunta parafraseada, exatamente o que queremos cobrir).
+    return rawResults
+      .map((r) => ({
+        content: r?.document?.content || r?.content || '',
+        source: r?.metadata?.source || r?.document?.metadata?.source || 'Base de conhecimento',
+        score: 0.5,
+      }))
+      .filter((r) => r.content);
+  }
+
+  /**
+   * IA-50: parágrafos importados de TXT na tela de treinamento. Ficam em
+   * workspace_knowledge.data.extraNotes ("--- arquivo.txt ---" + parágrafos
+   * separados por linha em branco). A tela diz "anexados ao conhecimento", mas
+   * nada os lia: a IA inventava a política que estava no arquivo.
+   * @returns {string[]} parágrafos (sem o cabeçalho do arquivo)
+   * @private
+   */
+  _knowledgeNotes(db) {
+    const wk = db.get('SELECT data FROM workspace_knowledge WHERE workspace_id = ?', [this.tenantId]);
+    if (!wk?.data) return [];
+    let bi;
+    try { bi = JSON.parse(wk.data); } catch (_) { return []; }
+    const notes = typeof bi?.extraNotes === 'string' ? bi.extraNotes : '';
+    return notes
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/^---.*---[ \t]*$/gm, '').trim())
+      .filter((p) => p.length >= 20)
+      .map((p) => p.slice(0, 1200))
+      .slice(0, 100);
+  }
+
   _computeKnowledgeSignature() {
     try {
       const db = require('../utils/database');
@@ -1209,11 +1266,20 @@ class AIOrchestrator {
            (SELECT COUNT(*)        FROM training_examples WHERE workspace_id = ?)                   AS e,
            (SELECT MAX(updated_at) FROM faqs              WHERE workspace_id = ?)                   AS mf,
            (SELECT MAX(updated_at) FROM products          WHERE workspace_id = ?)                   AS mp,
-           (SELECT MAX(updated_at) FROM training_examples WHERE workspace_id = ?)                   AS me`,
-        [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
+           (SELECT MAX(updated_at) FROM training_examples WHERE workspace_id = ?)                   AS me,
+           (SELECT MAX(updated_at) FROM workspace_knowledge WHERE workspace_id = ?)                 AS mk`,
+        [this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId, this.tenantId]
       );
       if (!row) return null;
-      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}`;
+      // IA-57: correções do operador também são indexadas. A tabela é criada sob
+      // demanda — consulta à parte para não anular a assinatura quando não existe.
+      let ml = '';
+      try {
+        const l = db.get('SELECT COUNT(*) AS n, MAX(updated_at) AS m FROM learned_examples WHERE workspace_id = ?', [this.tenantId]);
+        ml = `${l?.n || 0}:${l?.m || ''}`;
+      } catch (_) { /* sem correções ainda */ }
+      // IA-50: mk — o TXT importado (extraNotes) também é indexado.
+      return `${row.f || 0}|${row.p || 0}|${row.e || 0}|${row.mf || ''}|${row.mp || ''}|${row.me || ''}|${row.mk || ''}|${ml}`;
     } catch (_) {
       return null;
     }
@@ -1300,18 +1366,33 @@ class AIOrchestrator {
 
     // ── Produtos ────────────────────────────────────────────────────
     try {
+      // IA-47: preço e estoque também no documento semântico. Ele entra no prompt
+      // com nota fixa 0,5 e tirava do top-3 a cópia COM preço da busca por
+      // palavra-chave → o modelo respondia "R$ XXX". Mesmo texto daquela busca.
       const products = db.all(
-        `SELECT id, name, description, short_description, sku, category
+        `SELECT id, name, description, short_description, sku, category, price, currency, stock, stock_status
            FROM products WHERE workspace_id = ? AND is_active = 1
           ORDER BY updated_at DESC LIMIT 300`,
         [this.tenantId]
       ) || [];
       for (const p of products) {
+        let stockLine = '';
+        if (Number.isFinite(p.stock) && p.stock !== null) {
+          stockLine = p.stock > 0
+            ? `\nEstoque: ${p.stock} ${p.stock === 1 ? 'unidade' : 'unidades'} disponível${p.stock === 1 ? '' : 'eis'}`
+            : `\nEstoque: ESGOTADO — não oferecer este produto até reposição`;
+        } else if (p.stock_status) {
+          stockLine = `\nDisponibilidade: ${p.stock_status}`;
+        }
         docs.push({
           id: `product:${p.id}`,
           content: `Produto: ${p.name}${p.sku ? ` (SKU ${p.sku})` : ''}` +
+                   (Number.isFinite(p.price) && p.price > 0
+                      ? ` — ${p.currency || 'BRL'} ${Number(p.price).toFixed(2)}`
+                      : '') +
                    (p.short_description ? `\nResumo: ${p.short_description}` : '') +
-                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : ''),
+                   (p.description ? `\nDescrição: ${String(p.description).slice(0, 600)}` : '') +
+                   stockLine,
           metadata: { source: `Catálogo${p.category ? ` / ${p.category}` : ''}`, type: 'product' },
         });
       }
@@ -1333,6 +1414,26 @@ class AIOrchestrator {
         });
       }
     } catch (e) { logger.debug?.(`[Orchestrator] index examples: ${e.message}`); }
+
+    // ── IA-50: textos importados de TXT (businessInfo.extraNotes) ──────
+    try {
+      this._knowledgeNotes(db).forEach((para, i) => {
+        docs.push({ id: `note:${i}`, content: para, metadata: { source: 'Documento importado', type: 'note' } });
+      });
+    } catch (e) { logger.debug?.(`[Orchestrator] index notes: ${e.message}`); }
+
+    // ── IA-57: correções do operador (Editar + Aprovar na sugestão) ─────
+    // Só a busca por palavra-chave as via: "Tem onde deixar o carro?" não
+    // achava a correção de "Vocês têm estacionamento?" e o modelo inventava.
+    try {
+      LearnedExamplesStore.loadForRanking(db, this.tenantId, 200).forEach((ex, i) => {
+        docs.push({
+          id: `learned:${i}`,
+          content: `Resposta preferida pelo operador — quando o cliente disser "${ex.input}", responda assim: "${ex.output}"`,
+          metadata: { source: 'Correção do operador', type: 'learned' },
+        });
+      });
+    } catch (e) { logger.debug?.(`[Orchestrator] index learned: ${e.message}`); }
 
     // Sem nada treinado: marca a assinatura e sai (não mexe no índice).
     if (docs.length === 0) { this._knowledgeSig = sig; return; }
@@ -1529,10 +1630,17 @@ class AIOrchestrator {
       }
     } catch (e) { logger.debug?.(`[Orchestrator] Learned examples query failed: ${e.message}`); }
 
+    // ── IA-50: textos importados de TXT (businessInfo.extraNotes) ──────
+    try {
+      for (const para of this._knowledgeNotes(db)) {
+        candidates.push({ type: 'note', content: para, source: 'Documento importado', fields: [{ text: para, weight: 0.8 }] });
+      }
+    } catch (e) { logger.debug?.(`[Orchestrator] Notes query failed: ${e.message}`); }
+
     // Ranqueia FAQs/produtos/exemplos JUNTOS (IDF compartilhada) e aplica
     // limites por tipo, mantendo a ordenação global por relevância.
-    const CAPS = { faq: 3, product: 2, example: 3 };
-    const counts = { faq: 0, product: 0, example: 0 };
+    const CAPS = { faq: 3, product: 2, example: 3, note: 2 };
+    const counts = { faq: 0, product: 0, example: 0, note: 0 };
     let ranked = [];
     try {
       ranked = LocalKnowledgeRanker.rankDocuments(text, candidates) || [];

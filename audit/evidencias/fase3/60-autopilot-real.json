@@ -1,0 +1,1009 @@
+{
+  "generatedAt": "2026-11-09T23:35:33.337Z",
+  "backend": "http://127.0.0.1:3000",
+  "trainingSync": {
+    "success": true,
+    "synced": {
+      "examples": 0,
+      "faqs": 3,
+      "products": 2,
+      "businessInfo": true
+    }
+  },
+  "killSwitch": {
+    "set": 200,
+    "reset": 200
+  },
+  "results": [
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "copilot_disabled"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 0,
+      "copilot": false,
+      "id": "S01_conta_nova",
+      "desc": "Conta nova (confiança 0, modo copiloto desligado) — FAQ coberta",
+      "msg": "Qual o horário de funcionamento de vocês?",
+      "chatId": "55119010000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119010000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119010000001@c.us",
+        "[Autopilot] ⏸️ Modo copiloto desativado",
+        "[Autopilot] ⏭️ Pulando mensagem: copilot_disabled"
+      ]
+    },
+    {
+      "sent": [
+        "Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h."
+      ],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:auto-responded"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S02_faq",
+      "desc": "Conta madura — pergunta coberta por FAQ",
+      "msg": "Qual o horário de funcionamento de vocês?",
+      "chatId": "55119020000001@c.us",
+      "calls": [
+        {
+          "scenario": "S02_faq",
+          "tab": null,
+          "path": "/api/v2/ai/process",
+          "status": 200,
+          "request": {
+            "message": "Qual o horário de funcionamento de vocês?",
+            "historyCount": 2
+          },
+          "response": {
+            "success": true,
+            "response": "Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h. Tem alguma outra dúvida ou algo que eu possa te ajudar?",
+            "intent": "information",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "primaryReason": null,
+              "riskTier": "low",
+              "minConfidence": 70
+            }
+          }
+        }
+      ],
+      "navegacoes": 0,
+      "logs": [
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 55119020000001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada | quality=100 | goal=gerar_interesse",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada",
+        "[ConfidenceSystem] Dados salvos (schema v2)",
+        "[ConfidenceSystem] Auto-send registrado. Total: 1"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "complex_conversation"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S03_produto",
+      "desc": "Conta madura — preço de produto cadastrado",
+      "msg": "Quanto custa o clareamento?",
+      "chatId": "55119030000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119030000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119030000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "complex_conversation"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S04_sem_base",
+      "desc": "Conta madura — pergunta sem base",
+      "msg": "Vocês atendem em domicílio?",
+      "chatId": "55119040000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119040000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119040000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "complex_conversation"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S05_preco_sem_base",
+      "desc": "Conta madura — preço de serviço NÃO cadastrado",
+      "msg": "Quanto custa um implante?",
+      "chatId": "55119050000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119050000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119050000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "complex_conversation"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S06_reclamacao",
+      "desc": "Conta madura — reclamação e cancelamento",
+      "msg": "Oi, quero cancelar minha consulta, o atendimento foi péssimo",
+      "chatId": "55119060000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119060000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119060000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "complex_conversation"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 1,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S07_pessoal",
+      "desc": "Conta madura — conversa pessoal tensa",
+      "msg": "Melhor a gente não se falar hoje",
+      "chatId": "55119070000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado",
+        "[Autopilot] 📩 Nova mensagem na fila: 55119070000001@c.us",
+        "[Autopilot] 🔄 Processando: 55119070000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: false, reason: complex_conversation}",
+        "[Autopilot] ⏭️ Pulando mensagem: complex_conversation"
+      ]
+    },
+    {
+      "sent": [
+        "Boa noite! Tudo certo, e você? Como estão as coisas?"
+      ],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:auto-responded"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S08_cumprimento_pessoal",
+      "desc": "Conta madura — cumprimento de um amigo (conversa pessoal)",
+      "msg": "Boa noite! Tudo bem?",
+      "chatId": "55119080000001@c.us",
+      "calls": [
+        {
+          "scenario": "S08_cumprimento_pessoal",
+          "tab": null,
+          "path": "/api/v2/ai/process",
+          "status": 200,
+          "request": {
+            "message": "Boa noite! Tudo bem?",
+            "historyCount": 2
+          },
+          "response": {
+            "success": true,
+            "response": "Boa noite! Tudo certo, e você? Como estão as coisas?",
+            "intent": "greeting",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "primaryReason": null,
+              "riskTier": "low",
+              "minConfidence": 70
+            }
+          }
+        }
+      ],
+      "navegacoes": 0,
+      "logs": [
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 55119080000001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada | quality=80 | goal=gerar_interesse",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada",
+        "[ConfidenceSystem] Dados salvos (schema v2)",
+        "[ConfidenceSystem] Auto-send registrado. Total: 1"
+      ]
+    },
+    {
+      "sent": [
+        "Bom dia! Como posso ajudar você hoje?"
+      ],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:auto-responded"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 1,
+        "repliedConfirmed": 1,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 1,
+        "totalSentConfirmed": 1,
+        "totalSkipped": 0,
+        "totalErrors": 0,
+        "responsesThisHour": 1
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S09_cumprimento_cliente",
+      "desc": "Conta madura — cumprimento de cliente",
+      "msg": "Bom dia!",
+      "chatId": "55119090000001@c.us",
+      "calls": [
+        {
+          "scenario": "S09_cumprimento_cliente",
+          "tab": null,
+          "path": "/api/v2/ai/process",
+          "status": 200,
+          "request": {
+            "message": "Bom dia!",
+            "historyCount": 2
+          },
+          "response": {
+            "success": true,
+            "response": "Bom dia! Como posso ajudar você hoje?",
+            "intent": "greeting",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "primaryReason": null,
+              "riskTier": "low",
+              "minConfidence": 70
+            }
+          }
+        }
+      ],
+      "navegacoes": 0,
+      "logs": [
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 55119090000001@c.us",
+        "[Autopilot] ✅ [MOTOR: ORCHESTRATOR] Resposta gerada | quality=80 | goal=gerar_interesse",
+        "[Autopilot] ⌨️ Digitando com fallback manual...",
+        "[Autopilot] ✅ Mensagem enviada",
+        "[ConfidenceSystem] Dados salvos (schema v2)",
+        "[ConfidenceSystem] Auto-send registrado. Total: 1"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        }
+      ],
+      "stats": {
+        "received": 0,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 1,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S10_grupo",
+      "desc": "Conta madura — mensagem em grupo",
+      "msg": "Qual o horário de funcionamento?",
+      "chatId": "120363000000000001@g.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "NAVEGOU https://web.whatsapp.com/",
+        "[ConfidenceSystem] ✅ EventBus listeners attached (feedback growth wired)",
+        "[ConfidenceSystem] ✅ Módulo carregado e inicializado",
+        "[Autopilot v7.5.0] ✅ Módulo carregado com blacklist",
+        "[ConfidenceSystem] Nível atualizado: beginner → autonomous",
+        "[Autopilot] ▶️ Iniciado"
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        },
+        {
+          "e": "autopilot:suggestion-only",
+          "reason": "open_failed"
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 0,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 1,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": true,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 1,
+        "totalErrors": 0,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S13_outra_conversa",
+      "desc": "Conta madura — FAQ chega numa conversa que NÃO está aberta (sem o abridor do content.js nesta página)",
+      "msg": "Qual o horário de funcionamento de vocês?",
+      "chatId": "55119130000001@c.us",
+      "calls": [],
+      "navegacoes": 0,
+      "logs": [
+        "[Autopilot] 🔄 Processando: 55119130000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: faq_match, confidence: 100, answer: Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.}",
+        "[Autopilot] 🔄 Processando: 55119130000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: faq_match, confidence: 100, answer: Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.}",
+        "[Autopilot] 🔄 Processando: 55119130000001@c.us",
+        "[Autopilot] 🎯 Decisão do ConfidenceSystem: {canSend: true, reason: faq_match, confidence: 100, answer: Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.}"
+      ]
+    },
+    {
+      "id": "S11_duas_abas",
+      "desc": "Conta madura — duas abas abertas, mesma mensagem (FAQ)",
+      "msg": "Vocês aceitam convênio?",
+      "sent": [
+        "Aceitamos Amil Dental, OdontoPrev e SulAmérica Odonto."
+      ],
+      "tabs": [
+        {
+          "tab": 1,
+          "sent": [
+            "Aceitamos Amil Dental, OdontoPrev e SulAmérica Odonto."
+          ],
+          "events": [
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "confidence:level-changed",
+              "score": 96
+            },
+            {
+              "e": "autopilot:auto-responded"
+            }
+          ]
+        },
+        {
+          "tab": 2,
+          "sent": [],
+          "events": [
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "knowledge-base:updated"
+            },
+            {
+              "e": "confidence:level-changed",
+              "score": 96
+            }
+          ]
+        }
+      ],
+      "calls": [
+        {
+          "scenario": "S11_duas_abas",
+          "tab": "aba1",
+          "path": "/api/v2/ai/process",
+          "status": 200,
+          "request": {
+            "message": "Vocês aceitam convênio?",
+            "historyCount": 2
+          },
+          "response": {
+            "success": true,
+            "response": "Sim, aceitamos convênios como Amil Dental, OdontoPrev e SulAmérica Odonto. Se precisar de mais informações ou tiver outras dúvidas, estou por aqui!",
+            "intent": "question",
+            "autopilot": {
+              "allowAutoSend": true,
+              "escalate": false,
+              "reasons": [],
+              "primaryReason": null,
+              "riskTier": "normal",
+              "minConfidence": 85
+            }
+          }
+        }
+      ]
+    },
+    {
+      "sent": [],
+      "events": [
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "knowledge-base:updated"
+        },
+        {
+          "e": "confidence:level-changed",
+          "score": 96
+        }
+      ],
+      "stats": {
+        "received": 1,
+        "replied": 0,
+        "repliedConfirmed": 0,
+        "failed": 1,
+        "skippedLowConfidence": 0,
+        "skippedEscalated": 0,
+        "skippedGroups": 0,
+        "skippedBlacklisted": 0,
+        "skippedNoText": 0,
+        "skippedWorkingHours": 0,
+        "skippedRateLimit": 0,
+        "isRunning": false,
+        "isPaused": false,
+        "pendingChats": 0,
+        "totalSent": 0,
+        "totalSentConfirmed": 0,
+        "totalSkipped": 0,
+        "totalErrors": 1,
+        "responsesThisHour": 0
+      },
+      "score": 96,
+      "copilot": true,
+      "id": "S12_kill_switch",
+      "desc": "Conta madura — kill switch \"ai\" ligado pelo admin",
+      "msg": "Qual o horário de funcionamento de vocês?",
+      "chatId": "55119120000001@c.us",
+      "calls": [
+        {
+          "scenario": "S12_kill_switch",
+          "tab": null,
+          "path": "/api/v2/ai/process",
+          "status": 503,
+          "request": {
+            "message": "Qual o horário de funcionamento de vocês?",
+            "historyCount": 2
+          },
+          "response": {
+            "success": false,
+            "error": "kill_switch"
+          }
+        }
+      ],
+      "logs": [
+        "[Autopilot] 🚀 [MOTOR: ORCHESTRATOR] Gerando resposta para: 55119120000001@c.us",
+        "[Autopilot] ❌ ai.process falhou: Recurso desativado temporariamente pelo administrador.",
+        "[Autopilot] ✋ Kill switch do backend — parando (sem fallback local)",
+        "[Autopilot] ❌ Erro: Error: Recurso desativado temporariamente pelo administrador.\n    at Object.process (<anonymous>:29:40)\n    at async generateResponse (<anonymous>:1494:24)\n    at async processQueue (<anonymous>:1042:9)",
+        "[Autopilot] ✋ Kill switch ativado - operações abortadas",
+        "[Autopilot] ⏹️ Parado"
+      ],
+      "running": false
+    }
+  ]
+}

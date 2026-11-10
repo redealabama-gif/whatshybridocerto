@@ -241,11 +241,26 @@ class TrainingApp {
 
       // Carregar knowledge base (FAQs, produtos, business)
       const kbData = await chrome.storage.local.get('whl_knowledge_base');
-      const kb = kbData.whl_knowledge_base || {};
+      let kb = kbData.whl_knowledge_base || {};
+      // IA-46: versões anteriores do knowledge-base.js gravavam a base como texto;
+      // sem isto a tela abria com zero FAQs/produtos (e o próximo salvar apagava tudo).
+      if (typeof kb === 'string') {
+        try { kb = JSON.parse(kb); } catch (_) { kb = {}; }
+      }
 
       this.faqs = kb.faqs || kb.faq || [];
       this.products = kb.products || [];
       this.businessInfo = kb.businessInfo || kb.business || {};
+
+      // IA-59: base local vazia (aparelho novo, ou apagada pelo defeito da IA-46
+      // antes da correção) → restaura do servidor ANTES de qualquer salvar. Sem
+      // isto a tela abria vazia e o primeiro "salvar" mandava listas vazias ao
+      // /training/sync, que apaga e regrava tudo do cliente no servidor.
+      // Em segundo plano: a tela não pode travar esperando a sessão/servidor; o
+      // envio ao servidor (_scheduleBackendSync) espera esta restauração terminar.
+      if (!this.faqs.length && !this.products.length && !this.examples.length) {
+        this._restorePromise = this._restoreFromServer();
+      }
 
       this.updateStats();
 
@@ -258,6 +273,68 @@ class TrainingApp {
     } catch (error) {
       console.error('[TrainingApp] Erro ao carregar dados:', error);
       this.showToast('Erro ao carregar dados', 'error');
+    }
+  }
+
+  /**
+   * IA-59: traz FAQs, produtos, exemplos e dados do negócio de
+   * GET /api/v1/training/sync para a base local (que o Autopilot e a tela usam).
+   * Só é chamada com a base local vazia; não envia nada ao servidor.
+   * @returns {Promise<boolean>} true se restaurou algo
+   */
+  async _restoreFromServer() {
+    try {
+      const bc = window.BackendClient;
+      if (!bc || typeof bc.get !== 'function') return false;
+      // O BackendClient lê a sessão do storage (e testa o servidor) de forma
+      // assíncrona: a tela costuma carregar antes. Espera até 6 s.
+      for (let i = 0; i < 30 && !bc.isConnected?.(); i++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      if (!bc.isConnected?.()) return false;
+      const data = await bc.get('/api/v1/training/sync');
+      if (!data || typeof data !== 'object') return false;
+      const faqs = Array.isArray(data.faqs) ? data.faqs : [];
+      const products = Array.isArray(data.products) ? data.products : [];
+      const examples = Array.isArray(data.examples) ? data.examples : [];
+      if (!faqs.length && !products.length && !examples.length) return false;
+      const list = (v) => {
+        if (Array.isArray(v)) return v;
+        try { const parsed = JSON.parse(v || '[]'); return Array.isArray(parsed) ? parsed : []; } catch (_) { return []; }
+      };
+      // Junta com o que o usuário criou enquanto a restauração esperava o servidor.
+      const juntar = (doServidor, locais) => {
+        const ids = new Set(doServidor.map(x => String(x.id)));
+        return [...doServidor, ...(locais || []).filter(x => !ids.has(String(x.id)))];
+      };
+      this.faqs = juntar(faqs.map(f => ({
+        id: f.id, q: f.question, a: f.answer, question: f.question, answer: f.answer,
+        category: f.category || 'general', keywords: list(f.keywords)
+      })), this.faqs);
+      this.products = juntar(products.map(p => ({
+        id: p.id, name: p.name, description: p.description || '', shortDescription: p.short_description || '',
+        sku: p.sku || '', category: p.category || '', price: Number(p.price) || 0, currency: p.currency || 'BRL',
+        availability: p.stock_status || 'available', tags: list(p.tags)
+      })), this.products);
+      this.examples = juntar(examples.map(e => ({
+        id: e.id, input: e.input, user: e.input, output: e.output, response: e.output,
+        intent: e.intent || null, category: e.category || 'geral', tags: list(e.tags), usageCount: e.usage_count || 0
+      })), this.examples);
+      const bi = data.businessInfo;
+      if (bi && typeof bi === 'object' && !Object.keys(this.businessInfo || {}).length) {
+        const CAMPOS = ['name', 'segment', 'description', 'hours', 'responseTime', 'phone', 'email', 'paymentMethods',
+          'deliveryPolicy', 'freeShipping', 'returnPolicy', 'customInstructions', 'extraNotes'];
+        this.businessInfo = Object.fromEntries(CAMPOS.filter(k => bi[k] !== undefined).map(k => [k, bi[k]]));
+      }
+      await this.saveKnowledgeBase();
+      await this.saveExamples();
+      this.renderAll();
+      this.updateStats();
+      this.showToast(`Treinamento restaurado do servidor: ${this.faqs.length} FAQs, ${this.products.length} produtos, ${this.examples.length} exemplos`, 'success');
+      return true;
+    } catch (error) {
+      console.warn('[TrainingApp] Restaurar do servidor falhou:', error?.message);
+      return false;
     }
   }
 
@@ -785,10 +862,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteExample');
 
     if (id) {
-      const example = this.examples.find(e => e.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const example = this.examples.find(e => String(e.id) === String(id));
       if (!example) return;
 
-      this.currentEditId = id;
+      this.currentEditId = example.id;
       titleEl.textContent = 'Editar Exemplo';
       deleteBtn.style.display = 'block';
 
@@ -877,10 +955,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteFaq');
 
     if (id) {
-      const faq = this.faqs.find(f => f.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const faq = this.faqs.find(f => String(f.id) === String(id));
       if (!faq) return;
 
-      this.currentEditId = id;
+      this.currentEditId = faq.id;
       titleEl.textContent = 'Editar FAQ';
       deleteBtn.style.display = 'block';
 
@@ -1042,10 +1121,11 @@ class TrainingApp {
     const deleteBtn = document.getElementById('btnDeleteProduct');
 
     if (id) {
-      const product = this.products.find(p => p.id === id);
+      // IA-48: o id vem do card como TEXTO; os itens têm id numérico (Date.now()).
+      const product = this.products.find(p => String(p.id) === String(id));
       if (!product) return;
 
-      this.currentEditId = id;
+      this.currentEditId = product.id;
       titleEl.textContent = 'Editar Produto';
       deleteBtn.style.display = 'block';
 
@@ -2237,6 +2317,9 @@ class TrainingApp {
     this._syncDebounceTimer = setTimeout(async () => {
       this._syncDebounceTimer = null;
       try {
+        // IA-59: nunca enviar antes de a restauração do servidor terminar — o
+        // /training/sync substitui tudo e uma lista parcial apagaria o resto.
+        if (this._restorePromise) await this._restorePromise.catch(() => {});
         const response = await chrome.runtime.sendMessage({
           type: 'SYNC_TRAINING_DATA',
           data: {

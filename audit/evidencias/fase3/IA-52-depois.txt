@@ -1,0 +1,4 @@
+    ✓ training/sync e depois few-shot/sync (lista em texto, como o WhatsApp envia) → 1 exemplo (86 ms)
+    ✓ training/sync e depois examples/sync (o que o service worker chama) → 1 exemplo (12 ms)
+    ✓ few-shot/sync repetido não duplica (10 ms)
+Tests:       3 passed, 3 total

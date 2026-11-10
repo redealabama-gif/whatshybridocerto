@@ -1,0 +1,5 @@
+• autopilot-open-chat.test.js
+  ✓ IA-44: mensagem em outra conversa, sem window.Store (mundo isolado real) → nunca recarrega o WhatsApp por link /send?phone
+  ✓ IA-44 (controle): com o abridor do content.js exportado → abre o chat por ele e responde no chat certo
+
+  2 passou, 0 falhou (2 no total)

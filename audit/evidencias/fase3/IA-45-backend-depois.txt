@@ -1,0 +1,12 @@
+    ✓ B sincroniza a própria FAQ + uma com o mesmo id de A → as duas ficam em B (70 ms)
+    ✓ B envia só o conjunto local de A → B não fica zerado (11 ms)
+  IA-10 — falha no meio do sync
+    ✓ erro num INSERT → nada é apagado (transação) e a resposta NÃO é 2xx (16 ms)
+  IA-45 — FAQ importada de planilha chega ao banco
+    ✓ FAQ no formato { q, a } é gravada (6 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        0.877 s, estimated 2 s
+Ran all test suites matching /tests\/integration\/training-sync.routes.spec.js/i.

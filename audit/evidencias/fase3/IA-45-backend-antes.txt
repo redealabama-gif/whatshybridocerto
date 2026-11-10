@@ -1,0 +1,25 @@
+  IA-45 — FAQ importada de planilha chega ao banco
+    ✕ FAQ no formato { q, a } é gravada (6 ms)
+
+  ● IA-45 — FAQ importada de planilha chega ao banco › FAQ no formato { q, a } é gravada
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      92 |     const res = await sync(B, { faqs: [OWN, { id: 1794260810048.123, q: 'Vocês parcelam no cartão?', a: 'Sim, em até 6x sem juros.', keywords: [] }] });
+      93 |     expect(res.status).toBe(200);
+    > 94 |     expect(res.body.synced.faqs).toBe(2);
+         |                                  ^
+      95 |     expect(faqsOf(B).map((f) => f.question)).toEqual(['Qual o horário?', 'Vocês parcelam no cartão?']);
+      96 |   });
+      97 | });
+
+      at Object.toBe (tests/integration/training-sync.routes.spec.js:94:34)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        1.252 s
+Ran all test suites matching /tests\/integration\/training-sync.routes.spec.js/i.

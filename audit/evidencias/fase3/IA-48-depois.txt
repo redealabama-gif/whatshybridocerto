@@ -1,0 +1,6 @@
+  ✓ IA-48: clicar numa FAQ abre a edição com o botão Excluir
+  ✓ IA-48: Excluir apaga a FAQ clicada
+  ✓ IA-48: clicar num produto abre a edição
+  ✓ IA-48: clicar num exemplo abre a edição
+
+  4 passou, 0 falhou (4 no total)

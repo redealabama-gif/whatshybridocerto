@@ -502,9 +502,13 @@ router.post('/few-shot/sync', authenticate, asyncHandler(async (req, res) => {
     if (!input || !output) { skipped++; continue; }
 
     try {
+      // IA-52: id como TEXTO, igual ao /training/sync. Como número ele ia ao
+      // SQLite como REAL ("1794263120901.0"): não achava o exemplo gravado pelo
+      // training/sync ("1794263120901") e inseria outra cópia.
+      const exId = (ex.id !== undefined && ex.id !== null && String(ex.id).trim()) ? String(ex.id).trim() : uuidv4();
       const existing = db.get(
         'SELECT id FROM training_examples WHERE id = ? AND workspace_id = ?',
-        [ex.id, workspaceId]
+        [exId, workspaceId]
       );
 
       if (!existing) {
@@ -513,7 +517,7 @@ router.post('/few-shot/sync', authenticate, asyncHandler(async (req, res) => {
           (id, workspace_id, user_id, input, output, context, category, tags, usage_count, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
         `, [
-          ex.id || uuidv4(),
+          exId,
           workspaceId,
           userId,
           input,

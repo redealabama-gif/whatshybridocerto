@@ -1,0 +1,74 @@
+
+[S01_conta_nova] Conta nova (confiança 0, modo copiloto desligado) — FAQ coberta
+  msg: "Qual o horário de funcionamento de vocês?"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:copilot_disabled
+  backend: não chamado
+
+[S02_faq] Conta madura — pergunta coberta por FAQ
+  msg: "Qual o horário de funcionamento de vocês?"
+  ENVIADO: "Atendemos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h."
+  backend: HTTP 200 intent=information guarda={"allow":true,"tier":"low","min":70,"reasons":[]} hist=2
+
+[S03_produto] Conta madura — preço de produto cadastrado
+  msg: "Quanto custa o clareamento?"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:complex_conversation
+  backend: não chamado
+
+[S04_sem_base] Conta madura — pergunta sem base
+  msg: "Vocês atendem em domicílio?"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:complex_conversation
+  backend: não chamado
+
+[S05_preco_sem_base] Conta madura — preço de serviço NÃO cadastrado
+  msg: "Quanto custa um implante?"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:complex_conversation
+  backend: não chamado
+
+[S06_reclamacao] Conta madura — reclamação e cancelamento
+  msg: "Oi, quero cancelar minha consulta, o atendimento foi péssimo"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:complex_conversation
+  backend: não chamado
+
+[S07_pessoal] Conta madura — conversa pessoal tensa
+  msg: "Melhor a gente não se falar hoje"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:complex_conversation
+  backend: não chamado
+
+[S08_cumprimento_pessoal] Conta madura — cumprimento de um amigo (conversa pessoal)
+  msg: "Boa noite! Tudo bem?"
+  ENVIADO: "Boa noite! Tudo certo, e você? Como estão as coisas?"
+  backend: HTTP 200 intent=greeting guarda={"allow":true,"tier":"low","min":70,"reasons":[]} hist=2
+
+[S09_cumprimento_cliente] Conta madura — cumprimento de cliente
+  msg: "Bom dia!"
+  ENVIADO: "Bom dia! Como posso ajudar você hoje?"
+  backend: HTTP 200 intent=greeting guarda={"allow":true,"tier":"low","min":70,"reasons":[]} hist=2
+
+[S10_grupo] Conta madura — mensagem em grupo
+  msg: "Qual o horário de funcionamento?"
+  ENVIADO: não
+  backend: não chamado
+
+[S13_outra_conversa] Conta madura — FAQ chega numa conversa que NÃO está aberta (sem o abridor do content.js nesta página)
+  msg: "Qual o horário de funcionamento de vocês?"
+  ENVIADO: não
+  eventos: autopilot:suggestion-only:open_failed
+  backend: não chamado
+
+[S11_duas_abas] Conta madura — duas abas abertas, mesma mensagem (FAQ)
+  msg: "Vocês aceitam convênio?"
+  ENVIADO: "Aceitamos Amil Dental, OdontoPrev e SulAmérica Odonto."
+  backend: HTTP 200 intent=question guarda={"allow":true,"tier":"normal","min":85,"reasons":[]} hist=2
+
+[S12_kill_switch] Conta madura — kill switch "ai" ligado pelo admin
+  msg: "Qual o horário de funcionamento de vocês?"
+  ENVIADO: não
+  backend: HTTP 503 intent=undefined guarda=undefined hist=2
+
+kill switch: set=200 reset=200; treinamento: {"examples":0,"faqs":3,"products":2,"businessInfo":true}

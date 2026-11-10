@@ -3,9 +3,12 @@
  * (modules/smartbot-autopilot-v2.js) em Node — mesma técnica do
  * autopilot-multi-chat.test.js, parametrizável por teste:
  *
- *   makeEnv({ process, canAutoSendSmart })
+ *   makeEnv({ process, canAutoSendSmart, noStore, openChatByPhone })
  *     process(chatId, text, opts)  → o que BackendClient.ai.process devolve
  *     canAutoSendSmart(message)    → decisão do ConfidenceSystem
+ *     noStore                      → sem window.Store, como no mundo isolado
+ *                                    real da extensão (IA-44)
+ *     openChatByPhone(phone)       → simula o abridor exportado pelo content.js
  *
  * O nome começa com "_" para o run-all.js não tratá-lo como arquivo de teste.
  */
@@ -21,6 +24,7 @@ function makeEnv(opts = {}) {
     runtimeEvents: [],   // eventos WHL_AUTOPILOT_EVENT
     runtimeMessages: [], // tudo que foi para chrome.runtime.sendMessage
     backendCalls: [],    // chamadas a BackendClient.ai.process
+    navigations: [],     // IA-44: links clicados (ex.: /send?phone=…) — recarregam o WhatsApp
   };
 
   const inputEl = { focus() {}, dispatchEvent() {}, textContent: '' };
@@ -32,7 +36,7 @@ function makeEnv(opts = {}) {
   const document = {
     getElementById: () => null,
     querySelectorAll: () => [],
-    createElement: () => ({ href: '', click() {} }),
+    createElement: () => ({ href: '', click() { stateRef.navigations.push(this.href); } }),
     querySelector: (sel) => {
       const s = String(sel);
       if (s.includes('data-id')) {
@@ -72,10 +76,13 @@ function makeEnv(opts = {}) {
   window.EventBus = new Proxy(ebBase, { get: (t, p) => (p in t ? t[p] : () => {}) });
   window.WHL_EVENTS = {};
 
-  window.Store = {
-    Chat: { find: async (id) => ({ id: String(id) }) },
-    Cmd: { openChatAt: async (chat) => { const id = String(chat && chat.id || ''); if (id) stateRef.activeChat = id; } },
-  };
+  if (!opts.noStore) {
+    window.Store = {
+      Chat: { find: async (id) => ({ id: String(id) }) },
+      Cmd: { openChatAt: async (chat) => { const id = String(chat && chat.id || ''); if (id) stateRef.activeChat = id; } },
+    };
+  }
+  if (typeof opts.openChatByPhone === 'function') window.openChatByPhone = (phone) => opts.openChatByPhone(phone, stateRef);
 
   window.HumanTyping = {
     type: async (_input, text) => { stateRef.lastTyped = String(text); },

@@ -1,0 +1,18 @@
+  ✗ IA-49: CSV com cabeçalho acentuado (Nome,Preço,Descrição) importa preço e descrição
+      Expected values to be strictly equal:
+
+0 !== 650
+
+  ✗ IA-49: CSV do Excel em português (separado por ;) com preço "R$ 1.250,00"
+      tipo detectado: data
+
+'data' !== 'products'
+
+  ✗ IA-49: XLSX com "Preço" formatado como moeda importa o valor
+      Expected values to be strictly equal:
+
+0 !== 650
+
+  ✓ IA-49 (controle): planilha simples sem acento continua igual
+
+  1 passou, 3 falhou (4 no total)

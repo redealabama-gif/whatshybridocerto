@@ -88,7 +88,9 @@ function buildClosingReminder(language = 'pt-BR') {
       '# Antes de responder',
       '- Releia as últimas mensagens: quem pediu o quê e quem está esperando o quê. Você é o dono da conta escrevendo para este contato.',
       '- Responda ao que o contato disse por último, como o dono responderia nesta relação. Se a conversa não for atendimento a um cliente da empresa dele, ignore as diretrizes comerciais e de atendimento acima.',
-      '- Preço, prazo, fidelidade, garantia, estoque, status de pedido, opinião sobre empresas: só afirme o que estiver na conversa ou na base de conhecimento. Se não estiver, diga que vai confirmar — nunca suponha ("não tem fidelidade", "costuma ser rápido") nem deixe lacuna ("R$ XXX", "[valor]").',
+      // IA-58: a lista antiga só citava preço/prazo/fidelidade… e o modelo inventava
+      // o resto ("temos estacionamento", "dura 30 a 45 minutos", "parcela em 12x").
+      '- Fatos da empresa ou do serviço (preço, prazo, horário, endereço, estacionamento, duração, forma de pagamento e parcelamento, fidelidade, garantia, estoque, status de pedido, regras e políticas) e opinião sobre empresas: só afirme o que estiver na conversa ou na base de conhecimento. Se não estiver, não afirme nem negue: diga que vai confirmar — nunca suponha ("temos estacionamento", "dura uns 40 minutos", "não tem fidelidade", "costuma ser rápido") nem deixe lacuna ("R$ XXX", "[valor]").',
       '- Termine quando o assunto terminar, sem fecho genérico ("se precisar de algo", "estou à disposição", "qualquer dúvida me avisa").',
       '- Responda só com o texto da mensagem.',
     ].join('\n');
