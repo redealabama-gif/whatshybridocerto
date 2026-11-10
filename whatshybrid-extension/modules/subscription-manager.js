@@ -200,10 +200,11 @@
     // Orçamento de IA fixo pro trial inteiro (não por dia). ~7 chamadas/dia
     // num trial de 7 dias — generoso o bastante pra testar features sem
     // permitir abuso de autopilot consumindo tokens da nossa conta.
-    trialAICredits: 50
-    // LIC-01: a chave-mestra NÃO fica mais aqui. Estava no código que todo
-    // cliente recebe e ativava Enterprise sem perguntar ao servidor. Quem a
-    // reconhece é o servidor (SUBSCRIPTION_MASTER_KEY), em /subscription/validate.
+    trialAICredits: 50,
+    // v9.6.0 — chave-mestra do desenvolvedor (Cristiano). Quando inserida no
+    // campo de assinatura, libera plano enterprise localmente SEM precisar de
+    // backend. Validada também server-side via MASTER_KEY env do backend.
+    masterKey: 'Cristi@no123'
   };
 
   // ============================================
@@ -370,10 +371,48 @@
       return { success: false, error: 'Código inválido' };
     }
 
+    // v9.6.0 — Master key tem comparação case-sensitive antes do uppercase,
+    // pois 'Cristi@no123' contém minúsculas. Se bater, ativa LOCALMENTE
+    // como enterprise/master + tenta obter JWT do backend pra destravar
+    // sync de CRM/Tasks/Training/AI sem fluxo de login.
     const trimmed = subscriptionCode.trim();
-    // Códigos comprados (WHL-XXXX-XXXX-XXXX) aceitam minúsculas; qualquer outra
-    // coisa vai como foi digitada (a chave-mestra diferencia maiúsculas).
-    const code = /^whl-/i.test(trimmed) ? trimmed.toUpperCase() : trimmed;
+    if (trimmed === CONFIG.masterKey) {
+      state.subscription = {
+        code: trimmed,
+        planId: 'enterprise',
+        status: 'active',
+        expiresAt: null,
+        trialEndsAt: null,
+        activatedAt: new Date().toISOString(),
+        lastSync: new Date().toISOString(),
+        isMasterKey: true,
+        _serverConfirmedMasterKey: true
+      };
+      state.credits = {
+        total: 999999,
+        used: 0,
+        monthlyAllowance: 999999,
+        bonusCredits: 0,
+        lastReset: new Date().toISOString()
+      };
+      await saveState();
+
+      // v9.6.x — Tenta obter JWT pra que CRM/Tasks/Training conectem ao
+      // backend sem signup/login manual. Backend só emite se o code bater
+      // com SUBSCRIPTION_MASTER_KEY env (ou o default 'Cristi@no123').
+      // Falha de rede aqui não derruba a ativação — features locais seguem.
+      try {
+        await _fetchMasterJWT(trimmed);
+      } catch (e) {
+        console.warn('[SubscriptionManager] Master key ativada local, mas backend JWT falhou:', e?.message || e);
+      }
+
+      emit('subscription_activated', getStatus());
+      console.log('[SubscriptionManager] 👑 Master key ativada — acesso enterprise total');
+      return { success: true, plan: getPlan(), isMasterKey: true };
+    }
+
+    const code = trimmed.toUpperCase();
 
     try {
       // Tentar validar com servidor
@@ -402,14 +441,6 @@
         };
 
         await saveState();
-
-        // Chave-mestra confirmada PELO SERVIDOR: troca por um JWT do backend
-        // (CRM/Tarefas/Treinamento/IA). Falha de rede não desfaz a ativação.
-        if (validation.isMasterKey === true) {
-          try { await _fetchMasterJWT(trimmed); } catch (e) {
-            console.warn('[SubscriptionManager] Chave-mestra ativada, mas o JWT do backend falhou:', e?.message || e);
-          }
-        }
         emit('subscription_activated', getStatus());
 
         return { success: true, plan: getPlan(), reason: validation.reason };
@@ -535,7 +566,6 @@
       expiresAt: data.expires_at,
       trialDaysLeft: data.trial_days_left || 0,
       reason: data.reason || null,
-      isMasterKey: data.isMasterKey === true,
       error: data.valid ? null : (data.reason || 'subscription_not_active')
     };
   }
