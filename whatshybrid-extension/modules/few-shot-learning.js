@@ -202,8 +202,10 @@
      */
     async save() {
       try {
+        const json = JSON.stringify(this.examples);
+        this._lastSavedJson = json; // TRN-04: reconhece o próprio eco no onChanged
         await chrome.storage.local.set({
-          [STORAGE_KEY]: JSON.stringify(this.examples)
+          [STORAGE_KEY]: json
         });
         if (WHL_DEBUG) console.log('[FewShotLearning] Exemplos salvos');
         return true;
@@ -885,6 +887,25 @@
     window.fewShotLearning.init().then(() => {
       console.log('[FewShotLearning] ✅ Módulo carregado e inicializado');
     });
+
+    // TRN-04: a lista em memória acompanha o que outras páginas gravam (tela de
+    // Treinamento, outra aba). Sem isto o WhatsApp aberto antes não via os
+    // exemplos novos e, na próxima gravação dele (correção de sugestão,
+    // aprendizado automático, Copiloto, contagem de uso), regravava a lista
+    // velha — apagando os exemplos criados depois no Treinamento.
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local' || !changes[STORAGE_KEY]) return;
+        const fsl = window.fewShotLearning;
+        let v = changes[STORAGE_KEY].newValue;
+        if (typeof v === 'string' && v === fsl._lastSavedJson) return; // eco da própria gravação
+        if (v === undefined) v = [];
+        if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return; } }
+        if (!Array.isArray(v)) return;
+        fsl.examples = v.map((ex) => sanitizeTrainingExample(ex)).filter((ex) => ex !== null);
+        fsl.initialized = true;
+      });
+    } catch (error) { try { globalThis.WHLLogger?.debug?.('[Suppressed]', error); } catch (_) {} }
   }
 
 })();

@@ -160,6 +160,7 @@ class TrainingApp {
     console.log('[TrainingApp] Inicializando...');
 
     await this.loadAllData();
+    this._watchExamplesFromOtherPages();
     this.setupEventListeners();
     this.renderAll();
     this._checkConnection();
@@ -369,7 +370,9 @@ class TrainingApp {
 
   async saveExamples() {
     try {
-      await chrome.storage.local.set({ whl_few_shot_examples: JSON.stringify(this.examples) });
+      const json = JSON.stringify(this.examples);
+      this._lastSavedExamplesJson = json; // TRN-04: reconhece o próprio eco no onChanged
+      await chrome.storage.local.set({ whl_few_shot_examples: json });
     } catch (error) {
       this._handleStorageError('exemplos', error);
     }
@@ -1463,6 +1466,25 @@ class TrainingApp {
       modal.classList.remove('active');
     }
     this.currentEditId = null;
+  }
+
+  // TRN-04: exemplos gravados por outra página (o WhatsApp aberto: correção de
+  // sugestão, aprendizado automático, Copiloto) entram na lista desta tela.
+  // Sem isto o próximo salvar daqui regravava a lista velha e os apagava.
+  _watchExamplesFromOtherPages() {
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local' || !changes.whl_few_shot_examples) return;
+        let v = changes.whl_few_shot_examples.newValue;
+        if (typeof v === 'string' && v === this._lastSavedExamplesJson) return; // eco da própria gravação
+        if (v === undefined) v = [];
+        if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return; } }
+        if (!Array.isArray(v)) return;
+        this.examples = v;
+        this.renderExamples();
+        this.updateStats();
+      });
+    } catch (_) { /* página sem chrome.storage (testes) */ }
   }
 
   // TRN-05: o indicador abria sempre "Offline" e só mudava depois de uma
