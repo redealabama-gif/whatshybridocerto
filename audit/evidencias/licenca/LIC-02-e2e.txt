@@ -1,0 +1,23 @@
+{
+ "A_entra": true,
+ "A_usa": {
+  "ok": true,
+  "conectado": true
+ },
+ "B_entra": true,
+ "A_depois_do_B": {
+  "ok": false,
+  "erro": "SESSION_REPLACED",
+  "conectado": false
+ },
+ "B_usa": {
+  "ok": true,
+  "conectado": true
+ },
+ "A_entra_de_novo": true,
+ "B_depois": {
+  "ok": false,
+  "erro": "SESSION_REPLACED",
+  "conectado": false
+ }
+}

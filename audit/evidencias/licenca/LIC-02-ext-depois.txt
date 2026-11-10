@@ -1,0 +1,4 @@
+  ✓ LIC-02: o login da extensão se identifica como extensão
+  ✓ LIC-02: derrubada por login em outro computador → sai, avisa e não trava
+  2 passou, 0 falhou (2 no total)
+exit=0

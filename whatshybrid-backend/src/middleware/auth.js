@@ -91,6 +91,20 @@ async function getUserByIdAsync(userId) {
  * Verify JWT token
  * v7.9.13: Usa cache e busca async para evitar bloquear event loop
  */
+// LIC-02 — sessão atual da extensão por usuário (atualizada no login deste
+// processo; o banco é a fonte quando o token não está em cache).
+const currentExtensionSession = new Map();
+function noteExtensionSession(userId, sid) {
+  currentExtensionSession.set(userId, sid);
+}
+function sessionReplaced(res) {
+  return res.status(401).json({
+    error: 'Unauthorized',
+    code: 'SESSION_REPLACED',
+    message: 'Sua conta foi conectada em outro computador'
+  });
+}
+
 async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -107,15 +121,33 @@ async function authenticate(req, res, next) {
     // Verificar cache primeiro
     const cached = sessionCache.get(token);
     if (cached && Date.now() - cached.timestamp < SESSION_CACHE_TTL) {
+      if (cached.sid) {
+        const now = currentExtensionSession.get(cached.user.id);
+        if (now && now !== cached.sid) {
+          sessionCache.delete(token);
+          return sessionReplaced(res);
+        }
+      }
       req.user = cached.user;
       req.userId = cached.user.id;
       req.workspaceId = cached.user.workspace_id;
       return next();
     }
     
-    const decoded = /** @type {{ userId: string, jti?: string }} */ (
+    const decoded = /** @type {{ userId: string, jti?: string, sid?: string }} */ (
       jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] })
     );
+
+    // LIC-02: token de uma sessão da extensão substituída por login em outro computador.
+    if (decoded.sid) {
+      let current = decoded.sid;
+      try {
+        const row = db.get('SELECT extension_session_id FROM users WHERE id = ?', [decoded.userId]);
+        current = row ? row.extension_session_id : null;
+      } catch (_) { /* coluna ausente (migração pendente) → não bloqueia */ }
+      if (current !== decoded.sid) return sessionReplaced(res);
+      noteExtensionSession(decoded.userId, current);
+    }
 
     // CORREÇÃO: Get user from database de forma assíncrona
     const user = await getUserByIdAsync(decoded.userId);
@@ -135,7 +167,7 @@ async function authenticate(req, res, next) {
     }
 
     // Atualizar cache
-    _setSessionCache(token, { user, timestamp: Date.now() });
+    _setSessionCache(token, { user, timestamp: Date.now(), sid: decoded.sid || null });
 
     req.user = user;
     req.userId = user.id;
@@ -306,6 +338,7 @@ function apiKeyAuth(req, res, next) {
 
 module.exports = {
   authenticate,
+  noteExtensionSession, // LIC-02
   optionalAuth,
   authorize,
   requireAdmin,
