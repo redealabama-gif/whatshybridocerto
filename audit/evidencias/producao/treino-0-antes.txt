@@ -1,0 +1,14 @@
+FALHOU  busca "horario" digitada na aba Simulação mostra resultado — aba=simulation FAQs visíveis=[] exemplos visíveis=[]
+PASSOU  busca "cartão" na aba FAQs filtra — ["Vocês aceitam cartão? Aceitamos cartão de crédito em até 6x."]
+FALHOU  busca sem acento ("cartao") acha "cartão" — []
+FALHOU  ao voltar para FAQs a busca continua valendo — busca="cartão" FAQs visíveis=["Qual o horário de funcionamento? Segunda a sexta, das 8h às 18h.","Vocês aceitam cartão? Aceitamos cartão de crédito em até 6x."]
+FALHOU  produtos sem "cartão" ficam de fora enquanto a busca está preenchida — produtos visíveis=["Clareamento dental Disponível Sessão de 1 hora no consultório. R$ 650.00","Limpeza Disponível Limpeza completa com polimento. R$ 180.00"]
+PASSOU  busca "limpeza" na aba Produtos filtra — ["Limpeza Disponível Limpeza completa com polimento. R$ 180.00"]
+PASSOU  limpar a busca mostra tudo de novo — produtos=2 FAQs=2
+FALHOU  aprovar a resposta na simulação já vira exemplo (lista e servidor), sem outro botão — exemplos 2→2, na lista=false, no servidor=false; botão "Sincronizar respostas aprovadas": {"existe":true,"desabilitado":true,"visivel":true}
+FALHOU  não existe botão duplicado de sincronizar na simulação — botão "Sincronizar respostas aprovadas": {"existe":true,"desabilitado":true,"visivel":true}
+FALHOU  aprovar na simulação não apaga os exemplos já cadastrados — gravados no navegador=["Vocês atendem aos domingos?"] perdidos=["Tem horário no sábado?","Qual o endereço?"]
+INFO    botão "Sincronizar respostas aprovadas" depois de aprovar: {"desabilitado":true,"opacidade":"1","cursor":"pointer"}; clicado → aviso="", exemplos na tela=2, exemplo no servidor=false
+PASSOU  nenhum erro de script na página — []
+
+4 de 11 passaram

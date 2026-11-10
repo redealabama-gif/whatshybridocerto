@@ -1867,18 +1867,20 @@ class TrainingApp {
       const userInput = message.userInput || this._previousUserContent(message.id) || '';
       if (!userInput) return;
 
-      // 1) Few-shot learning local (e sincroniza pro backend via knowledge-sync-manager).
-      if (kind !== 'rejected' && window.fewShotLearning?.addExample) {
-        window.fewShotLearning.addExample({
+      // 1) Vira exemplo do treinamento: lista "Exemplos", whl_few_shot_examples
+      //    (o que o Autopilot lê) e servidor. TRN-03: antes gravava por
+      //    window.fewShotLearning, que nesta página guarda a lista do momento em
+      //    que a tela abriu (vazia numa conta nova) e a regravava inteira — os
+      //    exemplos cadastrados na tela sumiam do navegador. Aqui só o
+      //    TrainingApp grava essa lista.
+      if (kind !== 'rejected') {
+        this._promoteToExample({
           input: userInput,
           output: message.content,
-          category: 'training',
-          intent: 'user_simulation',
-          quality: message.edited ? 10 : 9,
           edited: !!message.edited,
-          source: message.edited ? 'training_edited' : 'training_approved',
-          tags: ['training', 'user_sim', kind, ...(message.edited ? ['edited'] : [])]
-        }).catch(() => {});
+          quality: message.edited ? 10 : 9,
+          tags: ['simulacao', 'aprovado', ...(message.edited ? ['editado'] : [])]
+        }).catch((e) => console.warn('[TrainingApp] Falha ao salvar exemplo aprovado:', e));
       }
 
       // 2) Event bus → ConfidenceSystem + ai-feedback-system.
@@ -1902,6 +1904,39 @@ class TrainingApp {
     } catch (e) {
       console.warn('[TrainingApp] Falha ao registrar amostra supervisionada:', e);
     }
+  }
+
+  // Resposta aprovada (ou editada) na simulação → exemplo do treinamento, salvo
+  // no navegador e sincronizado com o servidor como os criados na aba Exemplos.
+  async _promoteToExample(s) {
+    if (!s || !s.input || !s.output) return false;
+    const dup = this.examples.some(
+      (e) => (e.input || e.user) === s.input && (e.output || e.response) === s.output
+    );
+    if (dup) return false;
+    const now = Date.now();
+    const quality = s.quality || 9;
+    this.examples.push({
+      id: now,
+      category: 'simulacao',
+      input: s.input,
+      user: s.input,
+      output: s.output,
+      response: s.output,
+      intent: null,
+      quality,
+      edited: !!s.edited,
+      tags: s.tags || ['simulacao', 'aprovado'],
+      createdAt: now,
+      updatedAt: now,
+      usageCount: 0,
+      score: quality / 10,
+    });
+    await this.saveExamples();
+    this._scheduleBackendSync('simulationApproved');
+    this.renderExamples();
+    this.updateStats();
+    return true;
   }
 
   _previousUserContent(messageId) {
