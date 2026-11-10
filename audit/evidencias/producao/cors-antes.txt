@@ -1,0 +1,90 @@
+  PROD-01 — cadastro e login do próprio site
+    ✕ "Começar trial grátis": cadastro pelo site aberto em www. cria a conta (10 ms)
+    ✕ "Entrar": login pelo site aberto em www. funciona (3 ms)
+    ✕ senha errada responde 401 com mensagem (não 500) (3 ms)
+    ✕ site de fora continua bloqueado — 403 com motivo, sem liberar CORS (3 ms)
+    ✓ (controle) a extensão — outra origem, liberada na lista — continua com CORS (15 ms)
+
+  ● PROD-01 — cadastro e login do próprio site › "Começar trial grátis": cadastro pelo site aberto em www. cria a conta
+
+    expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "status": 201,
+    +   "status": 500,
+      }
+
+      119 |       body: { email, password: SENHA, name: 'Cliente', company: 'Loja', plan: 'pro' },
+      120 |     });
+    > 121 |     expect({ status: r.status, message: r.body && r.body.message }).toMatchObject({ status: 201 });
+          |                                                                     ^
+      122 |   });
+      123 |
+      124 |   test('"Entrar": login pelo site aberto em www. funciona', async () => {
+
+
+  ● PROD-01 — cadastro e login do próprio site › "Entrar": login pelo site aberto em www. funciona
+
+    expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "status": 200,
+    +   "status": 500,
+      }
+
+      124 |   test('"Entrar": login pelo site aberto em www. funciona', async () => {
+      125 |     const r = await pedir('POST', '/api/v1/auth/login', { origin: `https://${SITE}`, body: { email, password: SENHA } });
+    > 126 |     expect({ status: r.status, message: r.body && r.body.message }).toMatchObject({ status: 200 });
+          |                                                                     ^
+      127 |     expect(r.body.accessToken).toBeTruthy();
+      128 |   });
+      129 |
+
+
+  ● PROD-01 — cadastro e login do próprio site › senha errada responde 401 com mensagem (não 500)
+
+    expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "status": 401,
+    +   "status": 500,
+      }
+
+      130 |   test('senha errada responde 401 com mensagem (não 500)', async () => {
+      131 |     const r = await pedir('POST', '/api/v1/auth/login', { origin: `https://${SITE}`, body: { email, password: 'errada-123456' } });
+    > 132 |     expect({ status: r.status, message: r.body && r.body.message }).toMatchObject({ status: 401 });
+          |                                                                     ^
+      133 |   });
+      134 |
+      135 |   test('site de fora continua bloqueado — 403 com motivo, sem liberar CORS', async () => {
+
+
+  ● PROD-01 — cadastro e login do próprio site › site de fora continua bloqueado — 403 com motivo, sem liberar CORS
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 403
+    Received: 500
+
+      138 |       body: { email, password: SENHA },
+      139 |     });
+    > 140 |     expect(r.status).toBe(403);
+          |                      ^
+      141 |     expect(r.body && r.body.code).toBe('CORS_ORIGIN_NOT_ALLOWED');
+      142 |     expect(r.headers['access-control-allow-origin']).toBeUndefined();
+      143 |   });
+
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 1 passed, 5 total
+Snapshots:   0 total
+Time:        0.912 s, estimated 2 s

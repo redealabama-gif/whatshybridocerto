@@ -246,10 +246,22 @@ app.use((req, res, next) => {
 });
 
 // CORS
-app.use(cors({
+// PROD-01: pedidos do próprio site (mesma origem do servidor) passam sempre. O
+// navegador manda o cabeçalho Origin também no POST da mesma origem; se o
+// endereço do site não estivesse EXATAMENTE em CORS_ORIGIN (www., http/https,
+// CORS_ORIGIN personalizado), cadastro e login respondiam 500 "error". Usa só o
+// Host do pedido — um site de fora não consegue falsificá-lo no navegador.
+const corsMiddleware = cors({
   origin: config.cors.origin,
   credentials: true
-}));
+});
+function isSameOrigin(req) {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (!origin || !host) return false;
+  try { return new URL(origin).host === String(host).trim(); } catch (_) { return false; }
+}
+app.use((req, res, next) => (isSameOrigin(req) ? next() : corsMiddleware(req, res, next)));
 
 // Compression
 app.use(compression());
