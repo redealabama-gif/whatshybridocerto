@@ -1,0 +1,5 @@
+  ✓ IA-60: computador novo recebe a confiança que estava no servidor
+  ✓ IA-60: o que muda na confiança vai para o servidor
+  ✓ IA-60: computador novo com a sessão ainda carregando não apaga a confiança do servidor
+  ✓ IA-60 (controle): navegador com mais histórico que o servidor mantém o seu e o envia
+  4 passou, 0 falhou (4 no total)
