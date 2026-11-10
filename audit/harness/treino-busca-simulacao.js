@@ -184,6 +184,8 @@ async function http(method, url, body, token) {
       exemplosDepois === exemplosAntes + 1 && naLista && noServidor,
       `exemplos ${exemplosAntes}→${exemplosDepois}, na lista=${naLista}, no servidor=${noServidor}; ${detalheSim}`);
     registrar('não existe botão duplicado de sincronizar na simulação', !botaoExtra.existe || !botaoExtra.visivel, detalheSim);
+    const contador = await tr.evaluate(() => document.getElementById('approvedCount')?.textContent || null);
+    registrar('"Resumo da sessão" conta a resposta aprovada', contador === '1', `aprovadas=${contador}`);
     // Nada pode sumir: os exemplos cadastrados antes continuam gravados (é o que o Autopilot lê).
     const gravados = await sw.evaluate(async () => {
       const r = await chrome.storage.local.get('whl_few_shot_examples');

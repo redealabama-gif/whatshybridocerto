@@ -1547,7 +1547,6 @@ class TrainingApp {
       });
     }
 
-    document.getElementById('btnSaveApproved')?.addEventListener('click', () => this.saveApprovedResponses());
     document.getElementById('btnQuickTest')?.addEventListener('click', () => this.runQuickTest());
 
     document.getElementById('quickTestInput')?.addEventListener('keypress', (e) => {
@@ -1611,7 +1610,7 @@ class TrainingApp {
     };
 
     // Mantém um histórico local + alimenta o state.conversation que o
-    // saveApprovedResponses/edit/reject já espera.
+    // aprovar/editar/rejeitar já espera.
     this._userSimHistory = this._userSimHistory || [];
     this._userSimHistory.push({ id: userMsgId, role: 'user', content: userText });
     this._userSimHistory.push(aiMsg);
@@ -2031,14 +2030,6 @@ class TrainingApp {
 
   updateCurationSection() {
     if (!this.simulation) return;
-
-    const state = this.simulation.getState();
-
-    const btnSave = document.getElementById('btnSaveApproved');
-    if (btnSave) {
-      btnSave.disabled = state.approvedResponses.length === 0;
-    }
-
     this.updateCurationStats();
   }
 
@@ -2052,59 +2043,6 @@ class TrainingApp {
 
     if (approvedEl) approvedEl.textContent = state.approvedResponses?.length || 0;
     if (rejectedEl) rejectedEl.textContent = state.rejectedResponses?.length || 0;
-  }
-
-  async saveApprovedResponses() {
-    if (!this.simulation) return;
-
-    try {
-      const result = await this.simulation.saveForLearning();
-
-      // v9.X — propaga as aprovações pro BACKEND no mesmo clique. Antes só
-      // gravava no few-shot local (saveForLearning); o autopilot/sugestão (que
-      // leem o treinamento do backend) só enxergavam as respostas aprovadas
-      // depois de um clique manual no "Sincronizar" geral. Agora cada aprovação
-      // vira um exemplo first-class e entra no mesmo sync das abas (debounce 2s).
-      const samples = Array.isArray(result.samples) ? result.samples : [];
-      let merged = 0;
-      for (const s of samples) {
-        if (!s || !s.input || !s.output) continue;
-        const dup = this.examples.some(
-          (e) => (e.input || e.user) === s.input && (e.output || e.response) === s.output
-        );
-        if (dup) continue;
-        const now = Date.now();
-        this.examples.push({
-          id: now + Math.floor(Math.random() * 1000),
-          category: s.category || 'simulacao',
-          input: s.input,
-          user: s.input,
-          output: s.output,
-          response: s.output,
-          intent: s.intent || null,
-          quality: s.quality || 9,
-          tags: ['simulacao', 'aprovado', ...(s.edited ? ['editado'] : [])],
-          createdAt: now,
-          updatedAt: now,
-          usageCount: 0,
-          score: (s.quality || 9) / 10,
-        });
-        merged++;
-      }
-
-      if (merged > 0) {
-        await this.saveExamples();
-        this._scheduleBackendSync('saveApprovedResponses');
-        this.renderExamples?.();
-      }
-
-      const synced = merged > 0 ? ' (sincronizando com a IA…)' : '';
-      this.showToast(result.message + synced, result.saved > 0 ? 'success' : 'warning');
-      this.updateStats();
-    } catch (error) {
-      console.error('[TrainingApp] Erro ao salvar:', error);
-      this.showToast('Erro ao salvar respostas', 'error');
-    }
   }
 
   async runQuickTest() {
