@@ -87,7 +87,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/futuristic.css">
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="js/vendor/lucide.min.js" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .signup-page {
@@ -437,7 +437,7 @@
   </div>
 
   <!-- ── Step 1: Account ── -->
-  <form class="step-form active" id="form-step-1">
+  <form class="step-form active" id="form-step-1" method="post">
     <div class="step-header">
       <h2>Vamos começar</h2>
       <p class="text-muted">Crie sua conta. Leva 30 segundos.</p>
@@ -518,7 +518,7 @@
   </form>
 
   <!-- ── Step 2: Plan ── -->
-  <form class="step-form" id="form-step-2">
+  <form class="step-form" id="form-step-2" method="post">
     <div class="step-header">
       <h2>Escolha seu plano</h2>
       <p class="text-muted">Você só é cobrado ao fim do trial. Pode mudar a qualquer momento.</p>
@@ -569,7 +569,7 @@
   </form>
 
   <!-- ── Step 3: Checkout placeholder ── -->
-  <form class="step-form" id="form-step-3">
+  <form class="step-form" id="form-step-3" method="post">
     <div class="step-header">
       <h2>Confirmação</h2>
       <p class="text-muted">Revise e ative seu trial.</p>

@@ -183,7 +183,7 @@
   <script src="js/sentry-browser.js" defer></script>
 
   <!-- Defer não-crítico -->
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="js/vendor/lucide.min.js" defer></script>
   <style>
     /* ── Page-specific (estende landing-revamp.css) ──────────────── */
     .hero {
@@ -3391,7 +3391,7 @@
   // Lucide icons — guard: se o CDN não carregar, `lucide` fica undefined e um
   // ReferenceError aqui mataria todo o resto do script (toggle, FAQ, etc.).
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
-    lucide.createIcons();
+    window.lucide && lucide.createIcons();
   }
 
   // Pricing toggle Mensal/Anual (preserva contratos JS)

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/futuristic.css">
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/vendor/lucide.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .auth-page {
@@ -174,7 +174,7 @@
     <div class="auth-divider">ou</div>
   </div>
 
-  <form id="login-form" novalidate>
+  <form id="login-form" method="post" novalidate>
     <div class="input-group" data-field="email">
       <label class="input-label" for="email" data-i18n="form.email">Email</label>
       <div class="input-with-icon">
@@ -221,7 +221,7 @@
 <script src="js/i18n-frontend.js" defer></script>
 <script src="js/datetime.js" defer></script>
 <script>
-  lucide.createIcons();
+  window.lucide && lucide.createIcons();
 
   // Already logged in? Redirect.
   if (api.isAuthenticated()) {
@@ -238,7 +238,7 @@
       input.type = 'password';
       icon.setAttribute('data-lucide', 'eye');
     }
-    lucide.createIcons();
+    window.lucide && lucide.createIcons();
   }
 
   const form = document.getElementById('login-form');

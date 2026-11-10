@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/futuristic.css">
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/vendor/lucide.min.js"></script>
   <style>
     /* Layout: sidebar + content */
     .portal {
@@ -245,7 +245,7 @@
         Visão Geral
       </button>
       <button class="tab-btn" data-tab="extension" role="tab" aria-selected="false" aria-controls="tab-extension">
-        <i data-lucide="chrome" aria-hidden="true"></i>
+        <i data-lucide="puzzle" aria-hidden="true"></i>
         Extensão Chrome
       </button>
       <button class="tab-btn" data-tab="tokens" role="tab" aria-selected="false" aria-controls="tab-tokens">
@@ -285,7 +285,7 @@
           <p id="trial-banner-text">Carregando informações da conta...</p>
         </div>
         <a href="#" class="btn btn-cyan" onclick="switchTab('extension'); return false;">
-          <i data-lucide="chrome" style="width:18px;height:18px;"></i>
+          <i data-lucide="puzzle" style="width:18px;height:18px;"></i>
           Instalar extensão
         </a>
       </div>
@@ -421,7 +421,7 @@
           <p class="text-muted mb-4">Adicione a extensão ao seu navegador. Funciona no Chrome, Edge e Brave.</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <a href="#" class="btn btn-primary btn-large" id="install-extension-btn">
-              <i data-lucide="chrome" style="width:20px;height:20px;"></i>
+              <i data-lucide="puzzle" style="width:20px;height:20px;"></i>
               Instalar agora
             </a>
           </div>
@@ -692,7 +692,7 @@
   }
 </script>
 <script>
-  lucide.createIcons();
+  window.lucide && lucide.createIcons();
 
   // Auth gate
   if (!api.isAuthenticated()) {
