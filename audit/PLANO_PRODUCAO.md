@@ -41,7 +41,7 @@ Prioridade: **P0** impede lançar · **P1** corrigir antes de escalar vendas ·
 | TRN-03 | **Aprovar resposta na Simulação apagava os exemplos do navegador** (de onde o Autopilot lê) | ✅ | `treino-0-antes.txt` ("perdidos") → `treino-1*.txt` |
 | TRN-05 | Treinamento abria sempre "Offline" com a conta conectada | ✅ | `treino-3b…treino-4*.txt` |
 | TRN-06 | "Precisão 80%" sem dado nenhum: era a nota média dos exemplos | ✅ | `treino-3b…treino-4*.txt` |
-| PROD-05 | Atrás do Caddy **todos os clientes têm o mesmo IP**: 5 senhas erradas de quaisquer clientes em 15 min bloqueiam o login de **todos**. O Caddy ainda manda "IP:porta" (`{remote}`), o que anularia o limite | 🔧 | código-fonte do Caddy 2.11.9 (`replacer.go`: `{remote}` = `RemoteAddr`) e teste do Express |
+| PROD-05 | Atrás do Caddy **todos os clientes tinham o mesmo IP**: 5 senhas erradas de quaisquer clientes em 15 min bloqueavam o login de **todos**. O Caddy mandava "IP:porta" (`{remote}`) | ✅ | `tests/integration/login-limit-per-client.spec.js`; `limite-login-antes/depois.txt` |
 | TRN-04 | 👍 no WhatsApp pode regravar a lista de exemplos com uma cópia antiga e apagar o que foi criado na tela de Treinamento (mesma falha do TRN-03, entre abas) | 🔍 | a provar com teste |
 | PROD-06 | "Entrar com Google" nunca aparece: a CSP bloqueia `accounts.google.com/gsi/client` (erro no console do login e do cadastro) | 🔍 | console do navegador; `src/server.js` (helmetForPortal) |
 | PROD-07 | Login e cadastro pedem um arquivo que dá 404 (visto no console) | 🔍 | identificar qual |
@@ -98,7 +98,7 @@ Critério de pronto: tabela por tela com cada controle e o resultado, prints em
 | Recuperar senha (token, validade, uso único) | 🔍 |
 | 2FA (ativar, entrar, desativar, códigos de recuperação) | 🔍 |
 | Sessão única da extensão (LIC-02) | ✔️ (PR #316) |
-| Limite de tentativas de login por cliente (não global) | 🔧 PROD-05 |
+| Limite de tentativas de login por cliente (não global) | ✅ PROD-05 |
 | Excluir conta (LGPD) | 🔍 |
 
 ## Fase 4 — Planos: o que o site promete × o que é liberado (P0, pedido do dono)
