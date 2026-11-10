@@ -1,0 +1,5 @@
+  ✓ LIC-01: a chave-mestra fixa não libera nada sem o servidor confirmar
+  ✓ LIC-01: a chave-mestra não está no código da extensão
+  ✓ LIC-01 (controle): servidor configurado reconhece a chave-mestra → ativa
+  ✓ LIC-01 (controle): código comprado digitado em minúsculas continua funcionando
+  4 passou, 0 falhou (4 no total)
