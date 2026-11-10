@@ -1,0 +1,6 @@
+  ✗ UI-01: com o módulo de tarefas carregado, "Tarefas" não é dado como indisponível
+      {"status":"disabled","reason":"Tasks não carregado"}
+  ✗ UI-01: "Analytics" (módulo que não existe no WhatsApp Web) não gera aviso
+      analytics: {"status":"disabled","reason":"Analytics não carregado"}
+
+  0 passou, 2 falhou (2 no total)
