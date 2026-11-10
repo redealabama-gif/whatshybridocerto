@@ -415,7 +415,7 @@ class TrainingApp {
 
     // Search
     document.getElementById('searchInput').addEventListener('input', (e) => {
-      this.handleSearch(e.target.value);
+      this.handleSearch(e.target.value, { autoSwitch: true });
     });
 
     // Header buttons
@@ -562,6 +562,7 @@ class TrainingApp {
   }
 
   renderExamples() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const grid = document.getElementById('examplesGrid');
     const empty = document.getElementById('emptyExamples');
 
@@ -618,6 +619,7 @@ class TrainingApp {
   }
 
   renderFaqs() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const list = document.getElementById('faqsList');
     const empty = document.getElementById('emptyFaqs');
 
@@ -656,6 +658,7 @@ class TrainingApp {
   }
 
   renderProducts() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const grid = document.getElementById('productsGrid');
     const empty = document.getElementById('emptyProducts');
 
@@ -1273,32 +1276,78 @@ class TrainingApp {
   // SEARCH
   // ============================================
 
-  handleSearch(query) {
-    const q = query.toLowerCase().trim();
+  // TRN-01: a busca do topo vale para Exemplos, FAQs e Produtos — sem
+  // diferenciar acento nem maiúscula, com várias palavras em qualquer ordem — e
+  // continua valendo ao trocar de aba ou ao salvar/excluir. Antes: na aba que
+  // abre primeiro (Simulação) não mostrava nada, "cartao" não achava "cartão" e
+  // trocar de aba voltava a lista inteira com a busca ainda escrita.
+  _normalizeSearch(v) {
+    return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
 
-    const filteredExamples = this.examples.filter(ex =>
-      (ex.input || '').toLowerCase().includes(q) ||
-      (ex.output || '').toLowerCase().includes(q) ||
-      (ex.category || '').toLowerCase().includes(q) ||
-      (ex.tags || []).some(t => t.toLowerCase().includes(q))
-    );
+  _searchText(kind, item) {
+    const many = (v) => (Array.isArray(v) ? v : (v === undefined || v === null || v === '' ? [] : [v]));
+    const campos = kind === 'examples'
+      ? [item.input, item.user, item.output, item.response, item.category, ...many(item.tags)]
+      : kind === 'faqs'
+        ? [item.q, item.question, item.a, item.answer, item.category, ...many(item.keywords)]
+        : [item.name, item.description, item.shortDescription, item.category, item.sku, ...many(item.tags)];
+    return this._normalizeSearch(campos.filter((c) => c !== undefined && c !== null).join(' \n '));
+  }
 
-    const filteredFaqs = this.faqs.filter(faq =>
-      (faq.q || faq.question || '').toLowerCase().includes(q) ||
-      (faq.a || faq.answer || '').toLowerCase().includes(q) ||
-      (faq.keywords || []).some(k => k.includes(q))
-    );
+  handleSearch(query, { autoSwitch = false } = {}) {
+    this.searchQuery = String(query ?? '');
+    const termos = this._normalizeSearch(this.searchQuery).split(/\s+/).filter(Boolean);
+    const filtrar = (kind, itens) => (termos.length
+      ? (itens || []).filter((it) => { const t = this._searchText(kind, it); return termos.every((w) => t.includes(w)); })
+      : (itens || []));
 
-    const filteredProducts = this.products.filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q) ||
-      (p.sku || '').toLowerCase().includes(q)
-    );
+    const filteredExamples = filtrar('examples', this.examples);
+    const filteredFaqs = filtrar('faqs', this.faqs);
+    const filteredProducts = filtrar('products', this.products);
 
     this.renderFilteredExamples(filteredExamples);
     this.renderFilteredFaqs(filteredFaqs);
     this.renderFilteredProducts(filteredProducts);
+    this._updateSearchCounts(termos.length
+      ? { examples: filteredExamples.length, faqs: filteredFaqs.length, products: filteredProducts.length }
+      : null);
+
+    // Digitando numa aba sem lista (Simulação, Negócio, Importar), mostra a
+    // primeira aba que tem resultado.
+    if (autoSwitch && termos.length) {
+      const ativa = document.querySelector('.tab-btn.active')?.dataset.tab;
+      if (!['examples', 'faqs', 'products'].includes(ativa)) {
+        const comResultado = [['examples', filteredExamples], ['faqs', filteredFaqs], ['products', filteredProducts]]
+          .find(([, lista]) => lista.length);
+        this.switchTab(comResultado ? comResultado[0] : 'examples');
+      }
+    }
+  }
+
+  // Quantos resultados cada aba tem enquanto há busca (some sem busca).
+  _updateSearchCounts(contagens) {
+    ['examples', 'faqs', 'products'].forEach((aba) => {
+      const btn = document.querySelector(`.tab-btn[data-tab="${aba}"]`);
+      if (!btn) return;
+      let badge = btn.querySelector('.search-count');
+      if (!contagens) { if (badge) badge.remove(); return; }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'search-count';
+        btn.appendChild(badge);
+      }
+      badge.textContent = String(contagens[aba]);
+      badge.classList.toggle('zero', contagens[aba] === 0);
+    });
+  }
+
+  // Desenha a lista com os itens filtrados (as funções render* desenham this.<lista>).
+  _renderFiltered(lista, itens, render) {
+    const original = this[lista];
+    this[lista] = itens;
+    this._inFilteredRender = true;
+    try { render(); } finally { this[lista] = original; this._inFilteredRender = false; }
   }
 
   renderFilteredExamples(examples) {
@@ -1311,41 +1360,33 @@ class TrainingApp {
       if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.examples;
-    this.examples = examples;
-    this.renderExamples();
-    this.examples = original;
+    this._renderFiltered('examples', examples, () => this.renderExamples());
   }
 
   renderFilteredFaqs(faqs) {
     const list = document.getElementById('faqsList');
+    const empty = document.getElementById('emptyFaqs');
     if (!list) return;
 
     if (faqs.length === 0 && this.faqs.length > 0) {
       list.innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhuma FAQ encontrada para esta busca</p>';
+      if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.faqs;
-    this.faqs = faqs;
-    this.renderFaqs();
-    this.faqs = original;
+    this._renderFiltered('faqs', faqs, () => this.renderFaqs());
   }
 
   renderFilteredProducts(products) {
     const grid = document.getElementById('productsGrid');
+    const empty = document.getElementById('emptyProducts');
     if (!grid) return;
 
     if (products.length === 0 && this.products.length > 0) {
       grid.innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhum produto encontrado para esta busca</p>';
+      if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.products;
-    this.products = products;
-    this.renderProducts();
-    this.products = original;
+    this._renderFiltered('products', products, () => this.renderProducts());
   }
 
   // ============================================

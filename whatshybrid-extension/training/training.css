@@ -252,6 +252,28 @@ body {
     color: white;
 }
 
+/* Resultados da busca do topo em cada aba (TRN-01) */
+.tab-btn .search-count {
+    min-width: 20px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.tab-btn .search-count.zero {
+    background: rgba(107, 114, 128, 0.2);
+    color: var(--text-muted);
+}
+
+.tab-btn.active .search-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
 /* ===== MAIN CONTENT ===== */
 .main-content {
     flex: 1;
