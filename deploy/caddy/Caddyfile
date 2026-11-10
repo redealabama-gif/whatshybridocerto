@@ -60,8 +60,10 @@
     reverse_proxy backend:3000 {
         # WebSocket upgrade (Socket.IO)
         header_up Host {host}
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
+        # Só o IP do cliente: {remote} é IP:porta, e cada conexão viraria um
+        # "cliente" novo no limite de tentativas do backend (PROD-05).
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
 
         # Timeouts (servidor lento não trava o cliente).

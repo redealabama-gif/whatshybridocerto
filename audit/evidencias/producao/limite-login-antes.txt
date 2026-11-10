@@ -1,0 +1,46 @@
+  PROD-05 — limite de tentativas de login por cliente
+    ✕ 5 senhas erradas do cliente A não bloqueiam o login do cliente B (27 ms)
+    ✓ o cliente A continua limitado (o limite não sumiu) (3 ms)
+    ✕ o Caddy repassa só o IP do cliente (sem a porta) (2 ms)
+
+  ● PROD-05 — limite de tentativas de login por cliente › 5 senhas erradas do cliente A não bloqueiam o login do cliente B
+
+    expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "status": 200,
+    +   "status": 429,
+      }
+
+      45 |     }
+      46 |     const b = await login('198.51.100.20', emailB, SENHA);
+    > 47 |     expect({ status: b.status, message: b.body && b.body.message }).toMatchObject({ status: 200 });
+         |                                                                     ^
+      48 |   });
+      49 |
+      50 |   test('o cliente A continua limitado (o limite não sumiu)', async () => {
+
+
+  ● PROD-05 — limite de tentativas de login por cliente › o Caddy repassa só o IP do cliente (sem a porta)
+
+    expect(received).toMatch(expected)
+
+    Expected pattern: /\{remote_host\}|\{client_ip\}/
+    Received string:  "        header_up X-Real-IP {remote}"
+
+      58 |     expect(linhas.length).toBeGreaterThan(0);
+      59 |     // {remote} = IP:porta (RemoteAddr) — cada conexão viraria um "cliente" novo
+    > 60 |     for (const l of linhas) expect(l).toMatch(/\{remote_host\}|\{client_ip\}/);
+         |                                       ^
+      61 |   });
+      62 | });
+      63 |
+
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 1 passed, 3 total
+Snapshots:   0 total
+Time:        1.471 s

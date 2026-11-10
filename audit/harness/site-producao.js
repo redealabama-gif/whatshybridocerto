@@ -3,6 +3,9 @@
 //   node audit/harness/site-producao.js http://127.0.0.1:3000 <dir-de-prints>
 // Use 127.0.0.1 (e não localhost): é um endereço que NÃO está na lista de CORS,
 // como acontece em produção quando o cliente abre o site por www. ou outro nome.
+// O roteiro faz vários logins: suba o backend com AUTH_RATE_LIMIT_MAX alto
+// (AUTH_RATE_LIMIT_MAX=100000 bash audit/harness/start-backend.sh ...), senão a
+// proteção contra tentativas repetidas bloqueia a partir da 2ª rodada.
 // Sai com código 1 se alguma verificação falhar.
 const fs = require('fs');
 const path = require('path');

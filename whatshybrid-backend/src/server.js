@@ -104,6 +104,21 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 
+// PROD-05: em produção o backend fica atrás do Caddy. Sem isto o Express via o
+// IP do Caddy em TODO pedido: o limite de tentativas de login (5 erros a cada
+// 15 min, por IP) valia para o site inteiro — 5 senhas erradas de quaisquer
+// clientes bloqueavam o login de todos. O X-Forwarded-For só é aceito quando
+// quem conecta é um endereço interno (o Caddy na rede do Docker); com o backend
+// exposto direto na internet ninguém falsifica o IP por esse cabeçalho.
+// TRUST_PROXY troca o padrão (número de proxies, true/false ou lista de redes).
+const TRUST_PROXY = process.env.TRUST_PROXY;
+app.set('trust proxy',
+  !TRUST_PROXY ? 'loopback, linklocal, uniquelocal'
+    : /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY)
+    : TRUST_PROXY === 'true' ? true
+    : TRUST_PROXY === 'false' ? false
+    : TRUST_PROXY);
+
 // ── v9.0.0: Sentry error tracking (no-op se SENTRY_DSN ausente) ──
 const sentry = require('./observability/sentry');
 sentry.init(app);
