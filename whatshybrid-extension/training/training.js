@@ -1261,9 +1261,15 @@ class TrainingApp {
     document.getElementById('statFaqs').textContent = this.faqs.length;
     document.getElementById('statProducts').textContent = this.products.length;
 
+    // TRN-06: é a média das notas (1 a 10) que o dono dá aos exemplos — não a
+    // precisão da IA. O rótulo dizia "Precisão" e uma conta nova já mostrava 80%
+    // (nota padrão 8). Sem exemplos mostra "—".
+    const avgEl = document.getElementById('statAccuracy');
     if (this.examples.length > 0) {
-      const avgQuality = this.examples.reduce((sum, ex) => sum + (ex.quality || 8), 0) / this.examples.length;
-      document.getElementById('statAccuracy').textContent = `${Math.round(avgQuality * 10)}%`;
+      const avgQuality = this.examples.reduce((sum, ex) => sum + (Number(ex.quality) || 8), 0) / this.examples.length;
+      avgEl.textContent = `${(Math.round(avgQuality * 10) / 10).toString().replace('.', ',')}/10`;
+    } else {
+      avgEl.textContent = '—';
     }
 
     chrome.storage.local.get('whl_ai_auto_learner').then(data => {
