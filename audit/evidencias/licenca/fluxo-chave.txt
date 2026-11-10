@@ -1,0 +1,22 @@
+Fluxo da chave de acesso — servidor real em ambiente de teste (audit/harness/licenca-fluxo.js)
+"Computador A" e "computador B" = mesmo navegador/idioma, identificador de instalação diferente (X-WHL-Device),
+exatamente o que a extensão envia.
+
+1 cadastro: 201
+2 pagamento confirmado (manual-confirm, plano pro): 200 {"activated":true,"subscription_code":"WHL-D73V-RRU7-H6N6"}
+3 código gerado: WHL-D73V-RRU7-H6N6 (unused)
+4 computador A ativa: 200 true pro
+5 computador B, mesma chave: 423 CODE_IN_USE_ELSEWHERE "Este código já está em uso em outro dispositivo..."
+6 computador A de novo: 200 true
+7 sincronização do B: 423 CODE_IN_USE_ELSEWHERE
+8 login por e-mail/senha no A / no B: 200 200          <- sem limite de aparelhos
+9 IA no A / IA no B ao mesmo tempo: 200 200          <- a IA funciona nos dois
+10 validação do B só com o login (sem código): 200 true pro
+11 dono desvincula a chave; B ativa: 200 200 true
+12 A depois disso: 423 CODE_IN_USE_ELSEWHERE
+13 chave-mestra no servidor com NODE_ENV de desenvolvimento: 200 enterprise
+   (em produção sem SUBSCRIPTION_MASTER_KEY o servidor recusa — routes/subscription.js:66-71)
+
+Conclusão: a CHAVE DE ACESSO fica presa a um aparelho (o dono troca pelo painel, "desvincular").
+O LOGIN por e-mail/senha — que é o que a IA, o treinamento e a sincronização usam — não tem limite:
+a mesma conta funciona em vários computadores ao mesmo tempo.
