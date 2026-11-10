@@ -347,6 +347,10 @@
       padding: 12px 0;
       border-bottom: 1px solid var(--border);
     }
+    /* PROD-04: o display:flex acima anulava o atributo hidden — as linhas de cupom,
+       "1º mês" e "a partir do 2º mês" (com valores fixos do Starter) apareciam
+       para todo mundo, sem cupom e em qualquer plano. */
+    .summary-row[hidden] { display: none; }
     .summary-row.total { border-bottom: 0; font-size: 1.2rem; font-weight: 700; }
 
     .input-with-icon { position: relative; }
