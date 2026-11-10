@@ -214,14 +214,17 @@ const helmetForPortal = helmet({
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
         CRISP_SRC, // chat do dashboard (l.js + settings)
+        // PROD-06: "Entrar com Google" (login e cadastro) — sem isto a CSP
+        // bloqueava o script do Google e o botão nunca aparecia.
+        "https://accounts.google.com/gsi/client",
       ],
       workerSrc: ["'self'", "blob:", "data:", CRISP_SRC], // Spline cria workers de blob:/data:
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC, "https://accounts.google.com/gsi/style"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:", CRISP_SRC],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       mediaSrc: ["'self'", CRISP_SRC], // sons de notificação do chat
       connectSrc: ["'self'", "https:", "wss:", "blob:"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", CRISP_SRC],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", CRISP_SRC, "https://accounts.google.com/gsi/"],
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],

@@ -189,6 +189,45 @@ async function cadastroAteResumo(p, { plano, cupom = false }) {
     await ctx.close();
   }
 
+  // 10. "Entrar com Google" aparece no login e no cadastro quando o servidor tem
+  //     GOOGLE_OAUTH_CLIENT_ID (o backend de teste precisa subir com ele)
+  {
+    const cfg = await fetch(`${B}/api/v1/auth/google/config`).then((r) => r.json()).catch(() => ({}));
+    if (!cfg.clientId) {
+      console.log('INFO    "Entrar com Google" não testado: suba o backend com GOOGLE_OAUTH_CLIENT_ID');
+    } else {
+      const { ctx, p } = await novaPagina(br);
+      const estado = {};
+      for (const pagina of ['login.html', 'signup.html']) {
+        await p.goto(`${B}/${pagina}`);
+        const visivel = await p.waitForFunction(() => {
+          const w = document.getElementById('google-signin-wrap');
+          return w && getComputedStyle(w).display !== 'none';
+        }, null, { timeout: 12000 }).then(() => true).catch(() => false);
+        estado[pagina] = { botao: visivel, scriptDoGoogle: await p.evaluate(() => !!(window.google && window.google.accounts && window.google.accounts.id)) };
+      }
+      registrar('"Entrar com Google" aparece no login e no cadastro', Object.values(estado).every((e) => e.botao), JSON.stringify(estado));
+      await ctx.close();
+    }
+  }
+
+  // 11. Ícone do site: toda página declara um e nenhum ícone dá 404
+  {
+    const { ctx, p } = await novaPagina(br);
+    const problemas = [];
+    for (const pagina of ['index.html', 'signup.html', 'login.html', 'dashboard.html', 'forgot-password.html', 'reset-password.html', 'privacy.html', 'terms.html', 'help.html', 'api-docs.html']) {
+      await p.goto(`${B}/${pagina}`, { waitUntil: 'domcontentloaded' });
+      const icones = await p.evaluate(() => [...document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]')].map((l) => l.href));
+      if (!icones.length) problemas.push(`${pagina}: sem ícone (o navegador pede /favicon.ico → 404)`);
+      for (const href of icones) {
+        const st = await fetch(href).then((r) => r.status).catch(() => 0);
+        if (st !== 200) problemas.push(`${pagina}: ${href.replace(B, '')} → ${st}`);
+      }
+    }
+    registrar('ícone do site em todas as páginas, sem 404', problemas.length === 0, problemas.length ? JSON.stringify(problemas) : 'ok');
+    await ctx.close();
+  }
+
   await br.close();
   const falhas = resultados.filter((r) => !r.ok);
   console.log(`\n${resultados.length - falhas.length} de ${resultados.length} passaram`);
