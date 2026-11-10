@@ -162,7 +162,7 @@ class TrainingApp {
     await this.loadAllData();
     this.setupEventListeners();
     this.renderAll();
-    this.updateConnectionStatus();
+    this._checkConnection();
     this.initSimulation();
 
     // v9.X — Indicador "Sincronizado há X min" no header. Atualiza a cada
@@ -1457,6 +1457,18 @@ class TrainingApp {
       modal.classList.remove('active');
     }
     this.currentEditId = null;
+  }
+
+  // TRN-05: o indicador abria sempre "Offline" e só mudava depois de uma
+  // sincronização, mesmo com a conta conectada. Fica em "Conectando..." até a
+  // sessão carregar (o BackendClient lê o storage de forma assíncrona) e então
+  // mostra o estado real.
+  async _checkConnection() {
+    const bc = window.BackendClient;
+    for (let i = 0; i < 30 && bc && !bc.isConnected?.(); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    this.updateConnectionStatus(!!(bc && bc.isConnected?.()));
   }
 
   updateConnectionStatus(connected = false) {

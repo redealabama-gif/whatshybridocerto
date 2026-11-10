@@ -79,6 +79,17 @@ async function http(method, url, body, token) {
   await tr.waitForFunction(() => typeof app !== 'undefined' && app, null, { timeout: 15000 });
   await tr.waitForTimeout(1500);
 
+  // ── 0) Cabeçalho ao abrir (conta nova, conectada) ─────────────────────────
+  {
+    const status = await tr.waitForFunction(() => {
+      const t = document.querySelector('#connectionStatus .status-text')?.textContent || '';
+      return t && !/Conectando/.test(t) ? t : null;
+    }, null, { timeout: 10000 }).then((h) => h.jsonValue()).catch(() => null);
+    registrar('ao abrir, o indicador mostra "Conectado" (a conta está conectada)', status === 'Conectado', `indicador=${JSON.stringify(status)}`);
+    const nota = await tr.evaluate(() => [document.getElementById('statAccuracy')?.textContent, document.getElementById('statAccuracy')?.nextElementSibling?.textContent]);
+    registrar('sem exemplos, não mostra nota/precisão inventada', !/\d/.test(nota[0] || ''), `valor=${JSON.stringify(nota[0])} rótulo=${JSON.stringify(nota[1])}`);
+  }
+
   // ── Cadastro pela tela ─────────────────────────────────────────────────────
   for (const f of FAQS) {
     await tr.click('[data-tab="faqs"]'); await tr.click('#btnAddFaq');
@@ -95,6 +106,10 @@ async function http(method, url, body, token) {
     await tr.click('[data-tab="examples"]'); await tr.click('#btnAddExample');
     await tr.fill('#exampleInput', e.in); await tr.fill('#exampleOutput', e.out); await tr.click('#btnSaveExample');
     await tr.waitForTimeout(300);
+  }
+  {
+    const nota = await tr.evaluate(() => [document.getElementById('statAccuracy')?.textContent, document.getElementById('statAccuracy')?.nextElementSibling?.textContent]);
+    registrar('com 2 exemplos nota 8, o indicador diz o que é (nota média 8/10)', nota[0] === '8/10' && /nota/i.test(nota[1] || ''), `valor=${JSON.stringify(nota[0])} rótulo=${JSON.stringify(nota[1])}`);
   }
   // volta para a aba que abre primeiro
   await tr.click('[data-tab="simulation"]');
