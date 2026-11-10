@@ -1,0 +1,6 @@
+  ✗ LIC-02: o login da extensão se identifica como extensão
+      Expected values to be strictly equal:
+  ✗ LIC-02: derrubada por login em outro computador → sai, avisa e não trava
+      travou (3000 ms)
+  0 passou, 2 falhou (2 no total)
+exit=1

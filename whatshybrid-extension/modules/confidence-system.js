@@ -265,6 +265,10 @@
 
         this.initialized = true;
 
+        // IA-60: traz/guarda a confiança no servidor (por usuário). Em segundo
+        // plano: a sessão do BackendClient carrega de forma assíncrona.
+        this._reconcilePromise = this._reconcileWithServer();
+
         // v9.5.7: Auto-wire to feedback events. Until now, sendConfidenceFeedback had ZERO
         // callers — the 40-point feedback component of the score was always 0, making the
         // autopilot threshold (85) unreachable through legitimate use. Now we listen to the
@@ -307,6 +311,61 @@
     }
 
     /**
+     * IA-60: a confiança (pontuação que libera o envio automático, modo
+     * copiloto e limite) ficava só no navegador: computador novo, navegador
+     * reinstalado ou dados apagados → 0 e o Autopilot travado até o cliente
+     * aprovar dezenas de sugestões de novo. Guarda no servidor
+     * (/api/v1/sync/autopilot_confidence) e, ao abrir, fica com o estado que
+     * tiver MAIS histórico (servidor ou navegador).
+     */
+    _historyOf(state) {
+      const m = state && state.metrics;
+      if (!m || typeof m !== 'object') return 0;
+      return Object.values(m).reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
+    }
+
+    async _reconcileWithServer() {
+      const bc = typeof window !== 'undefined' ? window.BackendClient : null;
+      if (!bc || typeof bc.get !== 'function' || typeof bc.post !== 'function') return false;
+      this._reconciling = true;
+      try {
+        for (let i = 0; i < 50 && !bc.isConnected?.(); i++) {
+          await new Promise(resolve => setTimeout(resolve, 200)); // sessão ainda carregando (até 10 s)
+        }
+        if (!bc.isConnected?.()) return false;
+        const res = await bc.get('/api/v1/sync/autopilot_confidence/download');
+        let srv = res && res.data;
+        if (typeof srv === 'string') { try { srv = JSON.parse(srv); } catch (_) { srv = null; } }
+        if (srv && typeof srv === 'object' && this._historyOf(srv) > this._historyOf(this)) {
+          const v = this._validateSchema(srv).fixed;
+          this.metrics = { ...this.metrics, ...v.metrics };
+          this.score = v.score;
+          this.level = v.level;
+          this.copilotEnabled = v.copilotEnabled;
+          this.threshold = v.threshold;
+          console.log('[ConfidenceSystem] Confiança restaurada do servidor:', { score: this.score });
+        }
+        this._serverReconciled = true;
+        await this.save(); // grava no navegador e envia o estado escolhido
+        return true;
+      } catch (error) {
+        console.warn('[ConfidenceSystem] Sincronizar confiança com o servidor falhou:', error?.message);
+        return false;
+      } finally {
+        this._reconciling = false;
+      }
+    }
+
+    _pushToServer(data) {
+      try {
+        const bc = typeof window !== 'undefined' ? window.BackendClient : null;
+        if (!bc?.isConnected?.() || typeof bc.post !== 'function') return;
+        bc.post('/api/v1/sync/autopilot_confidence', { data, lastSync: 0, timestamp: Date.now() })
+          .catch(err => console.warn('[ConfidenceSystem] Envio da confiança falhou:', err?.message));
+      } catch (_) { /* melhor esforço */ }
+    }
+
+    /**
      * Salva dados no storage com schema version
      */
     async save() {
@@ -327,6 +386,14 @@
         });
 
         console.log('[ConfidenceSystem] Dados salvos (schema v' + SCHEMA_VERSION + ')');
+
+        // IA-60: só envia depois de comparar com o servidor — senão o estado
+        // zerado de um computador novo apagaria a confiança acumulada.
+        if (this._serverReconciled) {
+          this._pushToServer(data);
+        } else if (this.initialized && !this._reconciling) {
+          this._reconcilePromise = this._reconcileWithServer();
+        }
         return true;
       } catch (error) {
         console.error('[ConfidenceSystem] Erro ao salvar:', error);

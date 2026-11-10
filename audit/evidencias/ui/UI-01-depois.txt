@@ -1,0 +1,4 @@
+  ✓ UI-01: com o módulo de tarefas carregado, "Tarefas" não é dado como indisponível
+  ✓ UI-01: "Analytics" (módulo que não existe no WhatsApp Web) não gera aviso
+
+  2 passou, 0 falhou (2 no total)

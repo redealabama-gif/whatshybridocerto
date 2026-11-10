@@ -1,0 +1,8 @@
+  ✗ LIC-01: a chave-mestra fixa não libera nada sem o servidor confirmar
+      ativou sem o servidor: {"success":true,"plan":{"id":"enterprise","name":"Enterprise","price":249.9,"color":"#f59e0b","icon":"👑","features":{"maxContacts":-1,"maxChatsPerDay":-1,"maxCampaigns":-1,"maxFlows":-1,"maxTeamMembers":-1,"aiCredits":2000,"smartReplies":true,"copilot":true,"autopilot":true,"analytics":"full","exportFormats":["csv","xlsx","json","pdf"],"bulkMessages":true,"customLabels":true,"apiAccess":true,"prioritySupport":true,"recover":true,"crm":"full","whiteLabel":true,"training":true,"maxTemplates":-1,"maxKanbanBoards":-1,"maxScheduledActive":-1,"backupsPerWeek":-1},"limits":{"messagesPerDay":-1,"mediaPerDay":-1,"exportsPerDay":-1,"aiRepliesPerDay":-1,"bulkContactsPerDay":-1}},"isMasterKey":true}
+  ✗ LIC-01: a chave-mestra não está no código da extensão
+      a chave continua no código entregue ao cliente
+  ✗ LIC-01 (controle): servidor configurado reconhece a chave-mestra → ativa
+      {"success":false,"error":"HTTP 401"}
+  ✓ LIC-01 (controle): código comprado digitado em minúsculas continua funcionando
+  1 passou, 3 falhou (4 no total)

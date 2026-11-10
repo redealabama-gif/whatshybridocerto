@@ -193,7 +193,6 @@
                             ✕
                         </button>
                     </div>
-                    <button class="top-panel-action" data-action="toggle" title="Minimizar (oculta painel superior + lateral)">🗕</button>
                 </div>
             </div>
         `;

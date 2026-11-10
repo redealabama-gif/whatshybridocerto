@@ -596,7 +596,9 @@
         // exponencial = ~7 segundos perdidos antes de mostrar erro ao usuário.
         if (error.status &&
             error.status >= 400 && error.status < 500 &&
-            error.status !== 401 &&  // 401 já refresh-handled acima
+            // LIC-02: 401 NÃO é repetido aqui — a renovação já foi tentada acima.
+            // Antes a condição o excluía e cada 401 voltava 3x (com espera e nova
+            // tentativa de renovação), segurando a extensão travada.
             error.status !== 408 &&  // request timeout — pode ser transitório
             error.status !== 429) {  // rate limit — backend pediu retry
           throw error;
@@ -656,7 +658,9 @@
   }
 
   async function login(email, password) {
-    const data = await post('/api/v1/auth/login', { email, password });
+    // LIC-02: identifica o login como da extensão — o servidor mantém UMA sessão
+    // de extensão por conta (entrar em outro computador derruba esta).
+    const data = await post('/api/v1/auth/login', { email, password, client: 'extension' });
 
     // v9.3.3 BUG FIX: se o usuário tem 2FA ativado, backend retorna
     //   { requires_totp: true, pre_auth_token: '...' }
@@ -693,6 +697,7 @@
   // v9.3.3: completa login após 2FA
   async function loginTotp(preAuthToken, code) {
     const data = await post('/api/v1/auth/login/totp', {
+      client: 'extension', // LIC-02
       pre_auth_token: preAuthToken,
       code,
     });
@@ -754,7 +759,9 @@
 
     _refreshPromise = (async () => {
       try {
-        const data = await post('/api/v1/auth/refresh', { refreshToken: state.refreshToken });
+        // _isRetry: um 401 aqui não pode disparar outra renovação — ela ficaria
+        // esperando por esta mesma (a chamada travava).
+        const data = await request('/api/v1/auth/refresh', { method: 'POST', body: { refreshToken: state.refreshToken }, _isRetry: true });
         state.accessToken = data.accessToken;
         state.refreshToken = data.refreshToken;
         await saveState();
@@ -774,8 +781,13 @@
         // Antes UI ficava acreditando que estava conectada e ações
         // futuras falhavam silenciosamente até user perceber.
         try {
+          // LIC-02: a conta entrou pela extensão em outro computador.
+          const replaced = error?.code === 'SESSION_REPLACED';
           if (window.EventBus) {
-            window.EventBus.emit('backend:disconnected', { reason: 'refresh_failed' });
+            window.EventBus.emit('backend:disconnected', { reason: replaced ? 'session_replaced' : 'refresh_failed' });
+          }
+          if (replaced && window.NotificationsModule?.toast) {
+            window.NotificationsModule.toast('Sua conta foi conectada em outro computador. Entre de novo para usar aqui.', 'warning', 8000);
           }
           // Também desconecta socket pra parar de tentar reconectar com token velho
           disconnectSocket();

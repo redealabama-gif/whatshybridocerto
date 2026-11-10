@@ -1,0 +1,1 @@
+envio A: 200 | A baixa: 200 {"schemaVersion":2,"score":92,"metrics":{"feedbackGood":50,"totalInteractions":58},"copilotEnabled":true,"threshold":85} | outro cliente baixa: 200 null

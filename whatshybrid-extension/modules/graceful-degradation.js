@@ -79,17 +79,13 @@
       critical: false,
       fallbackMessage: 'Resposta Rápida indisponível'
     },
-    'analytics': {
-      name: 'Analytics',
-      selectors: [],
-      dependencies: ['Analytics'],
-      critical: false,
-      fallbackMessage: 'Analytics indisponível'
-    },
+    // UI-01: não há módulo "Analytics" no WhatsApp Web, e o de tarefas se
+    // publica como window.TasksModule. Procurar window.Analytics/window.Tasks
+    // mostrava sempre o aviso "Analytics, Tarefas indisponíveis".
     'tasks': {
       name: 'Tarefas',
       selectors: [],
-      dependencies: ['Tasks'],
+      dependencies: ['TasksModule'],
       critical: false,
       fallbackMessage: 'Tarefas indisponíveis'
     }

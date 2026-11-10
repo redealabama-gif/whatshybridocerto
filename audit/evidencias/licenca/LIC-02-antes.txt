@@ -1,0 +1,8 @@
+    ✕ entrar no computador B derruba a extensão do computador A na hora (799 ms)
+    ✕ o computador A não volta renovando o token, e isso não derruba o B (733 ms)
+    ✓ o painel do site não derruba a extensão nem é derrubado por ela (1077 ms)
+    Expected: 401
+    Received: 200
+    Expected: 401
+    Received: 200
+Tests:       2 failed, 1 passed, 3 total

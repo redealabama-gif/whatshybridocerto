@@ -98,7 +98,21 @@ async function fireSignupCapi({
 }
 
 // Generate tokens
-function generateTokens(userId) {
+/**
+ * LIC-02 — sessão única da extensão. O login feito pela extensão
+ * (body.client === 'extension') cria um identificador de sessão novo; os tokens
+ * da sessão anterior (outro computador) passam a ser recusados. Não apaga
+ * refresh tokens: isso dispararia a detecção de "token reutilizado", que
+ * revoga todas as sessões da conta.
+ */
+function startExtensionSession(userId) {
+  const sid = crypto.randomBytes(16).toString('hex');
+  db.run('UPDATE users SET extension_session_id = ? WHERE id = ?', [sid, userId]);
+  require('../middleware/auth').noteExtensionSession(userId, sid);
+  return sid;
+}
+
+function generateTokens(userId, sid = null) {
   // SECURITY FIX: 'jti' (JWT ID) único por token. Sem ele, dois refresh tokens
   // gerados no MESMO segundo (login + refresh imediato, ou refresh em sequência)
   // saíam BYTE-IDÊNTICOS — os claims iat/exp têm resolução de 1s e o payload era
@@ -106,13 +120,13 @@ function generateTokens(userId) {
   // hash no banco, e a detecção de reuso NUNCA disparava (token velho continuava
   // válido). O jti aleatório garante que todo token é único e a rotação funciona.
   const accessToken = jwt.sign(
-    { userId, jti: crypto.randomBytes(16).toString('hex') },
+    { userId, jti: crypto.randomBytes(16).toString('hex'), ...(sid ? { sid } : {}) },
     config.jwt.secret,
     { expiresIn: /** @type {any} */ (config.jwt.expiresIn) }
   );
 
   const refreshToken = jwt.sign(
-    { userId, type: 'refresh', jti: crypto.randomBytes(16).toString('hex') },
+    { userId, type: 'refresh', jti: crypto.randomBytes(16).toString('hex'), ...(sid ? { sid } : {}) },
     config.jwt.secret,
     { expiresIn: /** @type {any} */ (config.jwt.refreshExpiresIn) }
   );
@@ -504,7 +518,7 @@ router.post('/login',
     } catch (_) {}
 
     // Generate tokens
-    const tokens = generateTokens(user.id);
+    const tokens = generateTokens(user.id, req.body?.client === 'extension' ? startExtensionSession(user.id) : null);
 
     // Get workspace info
     const workspace = db.get(
@@ -579,7 +593,7 @@ router.post('/login/totp',
       throw new AppError(req.t ? req.t('errors.totp_invalid') : 'Código TOTP inválido', 401);
     }
 
-    const tokens = generateTokens(user.id);
+    const tokens = generateTokens(user.id, req.body?.client === 'extension' ? startExtensionSession(user.id) : null);
     const workspace = db.get(
       'SELECT id, name, plan FROM workspaces WHERE id = ?',
       [user.workspace_id]
@@ -637,6 +651,14 @@ router.post('/refresh',
 
     if (decoded.type !== 'refresh') {
       throw new AppError('Invalid token type', 400);
+    }
+
+    // LIC-02: sessão da extensão substituída por um login em outro computador.
+    if (decoded.sid) {
+      const current = db.get('SELECT extension_session_id FROM users WHERE id = ?', [decoded.userId]);
+      if (!current || current.extension_session_id !== decoded.sid) {
+        throw new AppError('Sua conta foi conectada em outro computador', 401, 'SESSION_REPLACED');
+      }
     }
 
     // v8.5.0 — usa hash do token no DB (não armazena plano)
@@ -734,7 +756,7 @@ router.post('/refresh',
     db.run('DELETE FROM refresh_tokens WHERE id = ?', [storedToken.id]);
 
     // Generate new tokens (que JÁ insere hash via generateTokens)
-    const tokens = generateTokens(decoded.userId);
+    const tokens = generateTokens(decoded.userId, decoded.sid || null);
 
     res.json({
       message: 'Token refreshed',
