@@ -135,6 +135,14 @@ Status: 🔍
 
 ## Fase 6 — IA em produção (P0/P1, pedido do dono)
 
+**Tokens × preço** — ✅ fechado em
+`audit/evidencias/producao/tokens-economia.md`: o saldo É debitado a cada
+sugestão (idempotente, grava modelo/tokens); cada sugestão gasta ~1.700–2.100
+tokens (medido), logo 50k ≈ 26 e 500k ≈ 263 sugestões/mês (o comentário antigo
+"250/2.500" estava 10× otimista — corrigido). Custo gpt-4o-mini: Starter
+~R$ 0,05, Pro ~R$ 0,54/mês → **margem > 99%, é lucro**. Não precisa reduzir
+tokens por custo; dá até para aumentar a cota do Starter (decisão do dono 🔒).
+
 **Chaves sob carga** (muitos clientes numa chave OpenAI/Groq):
 - A chave não "cai" por uso; o que acontece é **limite por minuto** (429) e
   **crédito acabando** (a conta para até recarregar). Groq desta conta: 8.000
@@ -155,16 +163,7 @@ Status: 🔍
   simultâneos → nenhum cliente fica sem resposta sem aviso; nada de bloqueio em
   cascata.
 
-**Tokens × preço** (Starter 50 mil tokens por R$ 49,90; Pro 500 mil por
-R$ 99,90):
-- Conferir se o saldo é **descontado de verdade** a cada sugestão (já se viu
-  "tokens=0" num rastreio).
-- Medir tokens por sugestão (o prompt tem ~2 mil tokens sozinho → 50 mil tokens ≈
-  20 sugestões no Starter).
-- Calcular custo real (gpt-4o-mini, Groq) e margem por plano e propor a cota
-  certa.
-
-Status: 🔍
+Status (tokens): ✅ · Status (chaves sob carga): 🔧 em andamento
 
 ## Fase 7 — Painel do cliente no site (P0, pedido do dono)
 
