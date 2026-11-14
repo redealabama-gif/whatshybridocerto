@@ -45,6 +45,8 @@ Prioridade: **P0** impede lançar · **P1** corrigir antes de escalar vendas ·
 | TRN-04 | Com o WhatsApp aberto, gravações do aprendizado nele **apagavam exemplos criados no Treinamento** (e salvar no Treinamento apagava os do WhatsApp) | ✅ | `audit/harness/exemplos-entre-abas.js`; `abas-0-antes.txt` → `abas-1-depois.txt` |
 | PROD-06 | "Entrar com Google" nunca aparecia: a CSP bloqueava `accounts.google.com/gsi/client` | ✅ | `site-6…site-7*.txt` (login com conta Google real: ⚠️ precisa do Client ID do dono) |
 | PROD-07 | Ícone do site: `favicon.svg` e `apple-touch-icon` davam 404; 9 páginas sem ícone | ✅ | `site-8-prod07-icone.txt` |
+| PLN-01 | Pacote avulso de tokens ("não expiram", diz o site) **sumia na renovação mensal** | ✅ | `tokens-pacote-antes/depois.txt`; `migrations/023` |
+| PLN-02 | Site vendia plano "Anual -20%" que **não existe** na cobrança | ✅ | `pln02-antes.txt` → `site-9-pln02-anual.txt` |
 
 ---
 
@@ -103,14 +105,17 @@ Critério de pronto: tabela por tela com cada controle e o resultado, prints em
 
 ## Fase 4 — Planos: o que o site promete × o que é liberado (P0, pedido do dono)
 
-- Comparar, item a item: textos da página inicial e do cadastro, `PLANS` da
-  extensão (`modules/subscription-manager.js`), limites do servidor (contatos do
-  CRM, tarefas, disparos, tokens de IA, equipe) e o que a extensão de fato
-  bloqueia. Ex.: "CRM até mil contatos e 200 tarefas" — existe o limite? onde?
-- Cada divergência: corrigir o texto ou o limite (decisão do dono 🔒 quando for
-  regra de negócio).
+Comparação item a item fechada em
+`audit/evidencias/producao/planos-comparacao.md`: preços, tokens (50k/500k),
+pacotes avulsos (R$ 19, e "não expiram" — PLN-01), CRM 50/1.000/ilimitado,
+tarefas 50/200/ilimitado, disparo 5/500/2.000 por dia, Autopilot e Treinamento
+a partir do Starter, EXIT50 e o anual inexistente (PLN-02): tudo confere no
+servidor e na extensão. Anotados (P2, sem promessa quebrada): "Conversas
+ilimitadas" do Pro é um limite que não é aplicado nos planos menores; o Free
+ganha um pouco a mais do que o anunciado; `LicenseService.js` é código morto
+com números divergentes; "Equipe" não tem teto.
 
-Status: 🔍
+Status: ✅ (pendências P2 anotadas acima)
 
 ## Fase 5 — Cobrança (P0, pedido do dono)
 
