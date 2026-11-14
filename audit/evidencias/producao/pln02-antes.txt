@@ -1,0 +1,14 @@
+PASSOU  resumo Pro sem cupom — ["Plano Pro","Preço R$ 99,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+PASSOU  "Começar trial grátis" leva ao painel — url=/dashboard.html aviso="" erros=[]
+PASSOU  resumo Pro com EXIT50 — ["Plano Pro","Preço cheio R$ 99,90/mês","Cupom aplicado EXIT50 -50% no 1º mês","1º mês R$ 49,95","A partir do 2º mês R$ 99,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+PASSOU  senha errada mostra o motivo — url=/login.html aviso="Credenciais inválidas"
+PASSOU  "Entrar" leva ao painel — url=/dashboard.html aviso=""
+PASSOU  ícones do painel aparecem — todos desenhados (url=/dashboard.html)
+PASSOU  login com o script de ícones fora do ar — url=/dashboard.html
+PASSOU  senha fora da URL mesmo com o script quebrado — url=/login.html
+PASSOU  cursor normal (sem bolinha) — {"signup.html":"auto","login.html":"auto","index.html":"auto"}
+PASSOU  "Entrar com Google" aparece no login e no cadastro — {"login.html":{"botao":true,"scriptDoGoogle":true},"signup.html":{"botao":true,"scriptDoGoogle":true}}
+PASSOU  ícone do site em todas as páginas, sem 404 — ok
+FALHOU  página inicial não anuncia plano anual (só existe cobrança mensal) — {"anual":true,"valores":["0","49,90","99,90"]}
+
+11 de 12 passaram

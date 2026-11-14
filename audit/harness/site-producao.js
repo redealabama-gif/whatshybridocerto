@@ -228,6 +228,22 @@ async function cadastroAteResumo(p, { plano, cupom = false }) {
     await ctx.close();
   }
 
+  // 12. A página inicial não vende plano anual: a cobrança (cadastro e
+  //     MercadoPago) é só mensal — anunciar "Anual -20%" seria promessa falsa.
+  {
+    const { ctx, p } = await novaPagina(br);
+    await p.goto(`${B}/index.html`, { waitUntil: 'domcontentloaded' });
+    const precos = await p.evaluate(() => {
+      const sec = document.getElementById('pricing');
+      const texto = sec ? sec.innerText.replace(/\s+/g, ' ') : '';
+      // \b: "manual" contém "anual" — só a palavra inteira conta
+      return { anual: /\banual\b|\/\s*ano\b|por ano|Economize/i.test(texto), valores: [...(sec || document).querySelectorAll('.plan-price-value')].map((el) => el.textContent.trim()) };
+    });
+    registrar('página inicial não anuncia plano anual (só existe cobrança mensal)',
+      !precos.anual && precos.valores.join(',') === '0,49,90,99,90', JSON.stringify(precos));
+    await ctx.close();
+  }
+
   await br.close();
   const falhas = resultados.filter((r) => !r.ok);
   console.log(`\n${resultados.length - falhas.length} de ${resultados.length} passaram`);

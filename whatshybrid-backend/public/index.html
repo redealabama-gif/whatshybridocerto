@@ -2962,11 +2962,6 @@
     <span class="section-eyebrow">Planos</span>
     <h2 class="mb-4">Investimento que se <span class="text-gradient">paga sozinho</span></h2>
     <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
-
-    <div class="pricing-toggle" id="pricing-toggle-wrapper">
-      <button class="active" data-period="monthly">Mensal</button>
-      <button data-period="yearly">Anual <span style="color: var(--brand-cyan); font-size: 0.75rem; margin-left: 4px;">-20%</span></button>
-    </div>
   </div>
 
   <div class="pricing-grid">
@@ -2976,7 +2971,7 @@
       <h3>Free</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="0" data-yearly="0">0</span>
+        <span class="plan-price-value">0</span>
         <span class="plan-price-period">/mês</span>
       </div>
       <p class="plan-tagline">Pra conhecer a plataforma</p>
@@ -3026,10 +3021,9 @@
       <h3>Starter</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="49,90" data-yearly="39,92">49,90</span>
+        <span class="plan-price-value">49,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
-      <span class="plan-savings">Economize R$ 119,76 / ano</span>
       <p class="plan-tagline">Pra começar a vender com IA</p>
       <ul class="plan-features">
         <li class="feat-incl"><i data-lucide="check"></i>Tudo do Free&nbsp;<span class="feat-incl-extra">— com limites bem maiores</span></li>
@@ -3069,10 +3063,9 @@
       <h3>Pro</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value" data-monthly="99,90" data-yearly="79,92">99,90</span>
+        <span class="plan-price-value">99,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
-      <span class="plan-savings">Economize R$ 239,76 / ano</span>
       <p class="plan-tagline">Pra escalar o atendimento</p>
       <ul class="plan-features">
         <li class="feat-incl"><i data-lucide="check"></i>Tudo do Starter&nbsp;<span class="feat-incl-extra">— sem limites de uso</span></li>
@@ -3394,23 +3387,6 @@
     window.lucide && lucide.createIcons();
   }
 
-  // Pricing toggle Mensal/Anual (preserva contratos JS)
-  const toggle = document.getElementById('pricing-toggle-wrapper');
-  if (toggle) {
-    toggle.addEventListener('click', e => {
-      const btn = e.target.closest('button');
-      if (!btn || !toggle.contains(btn)) return;
-      const period = btn.dataset.period;
-      toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.plan-price-value').forEach(el => {
-        const v = el.dataset[period];
-        if (v != null) el.textContent = v;
-      });
-      document.querySelectorAll('.plan-price-period').forEach(el => {
-        el.textContent = period === 'yearly' ? '/mês (anual)' : '/mês';
-      });
-    });
-  }
 
   // FAQ accordion
   document.querySelectorAll('.faq-question').forEach(btn => {
