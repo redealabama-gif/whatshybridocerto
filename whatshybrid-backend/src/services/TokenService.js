@@ -29,8 +29,15 @@ const logger = require('../utils/logger');
 // 50k tokens vendidos ≈ $0.40 custo real → markup ~10x sobre tokens premium
 const PLAN_TOKENS = {
   free:       0,           // sem IA no plano free
-  starter:    50_000,      // 50k tokens/mês (cobre ~250 mensagens médias)
-  pro:        500_000,     // 500k tokens/mês (cobre ~2500 mensagens médias)
+  // Medição real (audit/evidencias/producao/tokens-prompt-medido.json): uma
+  // sugestão pelo orquestrador gasta ~1.6k–2.1k tokens (prompt do sistema +
+  // conhecimento + conversa; resposta ≤ max_tokens). Ou seja ~25 sugestões no
+  // Starter e ~260 no Pro — NÃO "250/2500 mensagens" como dizia o comentário
+  // antigo. O site vende "50.000 tokens" (sem prometer nº de mensagens), então
+  // não há promessa quebrada; mas o custo de IA desses tokens é baixo
+  // (gpt-4o-mini: 50k ≈ R$0,05; 500k ≈ R$0,54), logo a margem é folgada.
+  starter:    50_000,      // ~25 sugestões/mês
+  pro:        500_000,     // ~260 sugestões/mês
   enterprise: 999_000_000, // efetivamente ilimitado (usado por master workspaces internos)
 };
 

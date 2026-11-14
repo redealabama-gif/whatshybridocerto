@@ -1,0 +1,11 @@
+{
+  "medido_em": "2026-11-14T20:15:10.197Z",
+  "mensagens_no_prompt": 2,
+  "system_chars": 6450,
+  "total_chars": 6494,
+  "tokens_estimados_4ch": 1624,
+  "tokens_estimados_3_5ch": 1856,
+  "max_tokens_pedido": 400,
+  "model": "gpt-4o-mini",
+  "debito_observado_por_sugestao_fake": 180
+}
