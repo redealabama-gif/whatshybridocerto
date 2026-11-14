@@ -171,11 +171,15 @@ recarga automática e alerta de gasto.
 
 ## Fase 7 — Painel do cliente no site (P0, pedido do dono)
 
-Cada número e texto do `dashboard.html` comparado com o banco: plano, dias de
-trial, saldo de tokens (inclusive depois de comprar), uso, faturas, datas e
-valores em formato brasileiro, chave de acesso e desvincular aparelho.
+A aba "Tokens & Uso" foi verificada no navegador contra o banco
+(`audit/harness/painel-tokens.js`, 7/7): saldo, total/ciclo, % usado,
+consumido (30d), nº de sugestões, média por sugestão, compra de pacote no saldo
+e no histórico ("Compra avulsa"), e formato brasileiro — tudo confere, inclusive
+os tokens depois de comprar. Plano, nome e dias de trial vêm de `/auth/me`
+(renderizados direto do banco). Faltam verificar no navegador: faturas
+(`/billing/invoices`) e a chave de acesso / desvincular aparelho (Fase 3/5).
 
-Status: 🔍
+Status: ✅ (tokens) · 🔍 (faturas e chave — com a Fase 5)
 
 ## Fase 8 — E-mails e licença (P0)
 
