@@ -1,0 +1,12 @@
+{"level":"info","message":"[DB] Driver: SQLite (better-sqlite3)","timestamp":"2026-11-14T20:23:24.883Z"}
+{"level":"info","message":"[DB:SQLite] Initialized at /tmp/claude-0/-home-user-whatshybridocerto/72e47177-f704-5d90-8fe5-3d76c9cff9c7/scratchpad/prod-be/audit.db (WAL mode)","timestamp":"2026-11-14T20:23:24.887Z"}
+{"level":"info","message":"[Tokens] +50000 (topup) for ws=0d440a0a-dea1-4ab8-b186-b2614ecd3820, new balance=549640","timestamp":"2026-11-14T20:23:24.888Z"}
+PASSOU  saldo na tela = saldo do banco — tela=549640 api=549640 banco=549640
+PASSOU  total do ciclo e % usado conferem — sub="de 550.000 tokens neste ciclo (0% usado)" total_banco=550000 pct=0
+PASSOU  tokens consumidos (30d) na tela = banco — tela=360 api=360 banco=360
+PASSOU  nº de sugestões (30d) na tela = banco — tela=2 api=2 banco=2
+PASSOU  média de tokens por sugestão confere — tela=180 esperado=180
+PASSOU  compra de pacote reflete no saldo e no histórico — tokens_purchased=50000 saldoTela=549640 historico_tem_compra=true
+PASSOU  saldo formatado em pt-BR (ponto de milhar) — mostrado="549.640"
+
+7 de 7 passaram
