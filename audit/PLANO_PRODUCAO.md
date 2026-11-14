@@ -163,7 +163,11 @@ tokens por custo; dá até para aumentar a cota do Starter (decisão do dono �
   simultâneos → nenhum cliente fica sem resposta sem aviso; nada de bloqueio em
   cascata.
 
-Status (tokens): ✅ · Status (chaves sob carga): 🔧 em andamento
+Status (tokens): ✅ · Status (chaves sob carga): ✅ analisado +
+Retry-After (IA-61) implementado — `audit/evidencias/producao/chaves-ia-sob-carga.md`.
+Já existe: fallback multi-provedor, circuit breaker, fila Redis, cota por
+cliente, cache e alertas. Falta (🔒 conta do dono): subir o tier da OpenAI,
+recarga automática e alerta de gasto.
 
 ## Fase 7 — Painel do cliente no site (P0, pedido do dono)
 
