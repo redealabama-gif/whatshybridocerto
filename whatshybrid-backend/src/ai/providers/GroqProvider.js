@@ -95,6 +95,10 @@ class GroqProvider extends BaseProvider {
           const error = await res.json().catch(() => ({}));
           const err = new Error(error.error?.message || `HTTP ${res.status}`);
           err.status = res.status;
+          // IA-61: preserva Retry-After (segundos ou data HTTP) do provedor para o
+          // AIRouter esperar o tempo indicado em vez de um cooldown fixo de 1h.
+          const ra = res.headers.get('retry-after');
+          if (ra) err.retryAfter = ra;
           throw err;
         }
 

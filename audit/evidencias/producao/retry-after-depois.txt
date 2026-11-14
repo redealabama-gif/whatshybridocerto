@@ -1,0 +1,9 @@
+PASS tests/unit/airouter-retry-after.spec.js
+    ✓ 429 sem Retry-After → cooldown 1h (padrão mantido) (42 ms)
+    ✓ 429 com Retry-After: 20 → cooldown 20s
+    ✓ Retry-After acima de 1h é limitado a 1h
+    ✓ Retry-After 0 vira o mínimo de 1s (não cooldown zero)
+    ✓ Retry-After como data HTTP futura → espera até a data (1 ms)
+    ✓ Retry-After inválido cai no padrão de 1h (1 ms)
+    ✓ _parseRetryAfter: segundos, nulo e inválido
+Tests:       7 passed, 7 total
