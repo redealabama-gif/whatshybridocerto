@@ -1,0 +1,10 @@
+  PLN-01 — pacote de tokens comprado não expira
+    ✓ sobra do pacote passa para o mês seguinte; sobra da cota do plano não (10 ms)
+    ✓ pacote usado em parte: só o que restou dele passa (3 ms)
+    ✓ renovação repetida (mesmo pagamento) não soma de novo (2 ms)
+    ✓ (controle) sem pacote, a renovação dá só a cota do plano (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        1.486 s, estimated 2 s

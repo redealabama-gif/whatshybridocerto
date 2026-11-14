@@ -132,15 +132,17 @@ class TokenService {
         }
       }
 
-      // Atualiza saldo
+      // Atualiza saldo. PLN-01: tokens comprados (topup) também entram em
+      // tokens_purchased — a parte do saldo que não expira na renovação.
       db.run(
         `UPDATE workspace_credits
          SET tokens_total = tokens_total + ?,
+             tokens_purchased = tokens_purchased + ?,
              last_topup_at = CURRENT_TIMESTAMP,
              low_balance_warned_at = NULL,    -- reseta o aviso de saldo baixo
              updated_at = CURRENT_TIMESTAMP
          WHERE workspace_id = ?`,
-        [amount, workspaceId]
+        [amount, type === 'topup' ? amount : 0, workspaceId]
       );
 
       // Recalcula saldo
@@ -209,27 +211,43 @@ class TokenService {
       // efetivamente grava o grant.
       this.ensureRow(workspaceId);
 
-      // Zera consumo, define total para o grant (não acumula sobras do mês anterior)
+      // PLN-01: a sobra da cota do plano não acumula, mas o que foi COMPRADO e
+      // ainda não foi usado continua ("pacotes avulsos não expiram", promessa do
+      // site). O consumo gasta primeiro a cota do plano: a parte comprada que
+      // resta é o menor valor entre o comprado e o saldo atual.
+      const atual = db.get(
+        `SELECT tokens_total, tokens_used, tokens_purchased FROM workspace_credits WHERE workspace_id = ?`,
+        [workspaceId]
+      );
+      const saldoAtual = Math.max(0, (atual?.tokens_total || 0) - (atual?.tokens_used || 0));
+      const compradoRestante = Math.min(Math.max(0, atual?.tokens_purchased || 0), saldoAtual);
+      const novoTotal = grant + compradoRestante;
+
+      // Zera consumo; total = cota do plano + o que resta do que foi comprado
       db.run(
         `UPDATE workspace_credits
          SET tokens_total = ?,
              tokens_used = 0,
+             tokens_purchased = ?,
              last_topup_at = CURRENT_TIMESTAMP,
              low_balance_warned_at = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE workspace_id = ?`,
-        [grant, workspaceId]
+        [novoTotal, compradoRestante, workspaceId]
       );
 
       db.run(
         `INSERT INTO token_transactions
           (id, workspace_id, type, amount, balance_after, invoice_id, description)
          VALUES (?, ?, 'plan_renewal', ?, ?, ?, ?)`,
-        [uuidv4(), workspaceId, grant, grant, opts.invoice_id || null, `Renovação mensal: ${plan}`]
+        [uuidv4(), workspaceId, grant, novoTotal, opts.invoice_id || null,
+          compradoRestante > 0
+            ? `Renovação mensal: ${plan} (+${compradoRestante} tokens comprados mantidos)`
+            : `Renovação mensal: ${plan}`]
       );
 
-      logger.info(`[Tokens] Renewal for ws=${workspaceId} plan=${plan}: ${grant} tokens`);
-      return { balance_after: grant };
+      logger.info(`[Tokens] Renewal for ws=${workspaceId} plan=${plan}: ${grant} tokens + ${compradoRestante} comprados`);
+      return { balance_after: novoTotal };
     });
     // v9.4.6 BUG #125 CRÍTICO: removido `()` de `db.transaction(...)()` — chamada dupla.
     // O driver sqlite-driver.js já invoca `wrapped()` internamente. Adicionar `()`
