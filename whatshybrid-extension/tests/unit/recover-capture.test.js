@@ -682,27 +682,76 @@ test('WA-02: imagem apagada também é baixada', async () => {
   assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/foto.enc'));
 });
 
-test('WA-02: se o WhatsApp recusar o par type×mimetype, tenta de novo sem o `type`', async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-02b — MEDIDO no WhatsApp do dono (15/11/2026) com o WAMediaProbe, em 5
+// tipos de mídia reais:
+//   {type, mimetype}            -> OK em ptt, image, sticker e document
+//   {mimetype}  (sem `type`)    -> "webMediaType is invalid: undefined" SEMPRE
+//   {type}      (como era antes)-> "Unexpected mimetype application/octet-stream"
+//   {type:'document', mimetype} -> OK em tudo que o servidor ainda servia
+// Conclusão medida: `type` é OBRIGATÓRIO. A 2ª tentativa que o código fazia
+// (sem `type`) era morta — nunca poderia dar certo. O fallback que funciona é
+// type:'document', que o WhatsApp não confere contra o mimetype.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Imita o WhatsApp real medido: exige `type`; com 'document' não compara o par. */
+function downloadManagerComoOWhatsAppReal({ recusaTypeReal = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    async downloadAndMaybeDecrypt(args) {
+      calls.push(args);
+      if (!args.type) throw new Error('webMediaType is invalid: undefined');
+      if (args.type !== 'document' && (!args.mimetype || recusaTypeReal)) {
+        throw new Error(`Unexpected mimetype application/octet-stream for media type ${args.type}`);
+      }
+      const f = FILES[args.directPath];
+      if (!f || !args.mediaKey) throw Object.assign(new Error('mmsDownload: 404'), { status: 404 });
+      const u8 = new Uint8Array(f.bytes);
+      return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+    },
+  };
+}
+
+test('WA-02b: nenhuma tentativa pode ir sem `type` (o WhatsApp recusa com "webMediaType is invalid")', async () => {
+  const dm = downloadManagerComoOWhatsAppReal({ recusaTypeReal: true });
+  const audio = makeMediaMsg('ptt', '/v/t62/audio.enc');
+  const { coll, mediaReady } = await bootHooks({ preloaded: [audio], downloadManager: dm });
+  coll.revoke(audio);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'o áudio se perdeu: a 2ª tentativa foi sem `type`, que o WhatsApp real sempre recusa');
+  assert.ok(dm.calls.length > 1, 'não houve 2ª tentativa');
+  assert.ok(dm.calls.every((c) => c.type), 'alguma tentativa foi SEM `type`');
+});
+
+test('WA-02b: recusado o par type×mimetype, a 2ª tentativa usa type:"document" com o mimetype real', async () => {
+  const dm = downloadManagerComoOWhatsAppReal({ recusaTypeReal: true });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc');
+  const { coll, mediaReady } = await bootHooks({ preloaded: [img], downloadManager: dm });
+  coll.revoke(img);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'a imagem se perdeu — faltou o fallback type:"document"');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/foto.enc'));
+  assert.strictEqual(dm.calls.length, 2, `esperava 2 tentativas, houve ${dm.calls.length}`);
+  assert.strictEqual(dm.calls[0].type, 'image', '1ª tentativa manda o type real');
+  assert.strictEqual(dm.calls[1].type, 'document', '2ª tentativa precisa ser type:"document"');
+  assert.strictEqual(dm.calls[1].mimetype, FILES['/v/t62/foto.enc'].mime, 'o fallback foi sem o mimetype real');
+});
+
+test('WA-02b (controle): 404 do servidor (mídia já expirada) não vira repetição', async () => {
   const calls = [];
   const dm = {
     calls,
     async downloadAndMaybeDecrypt(args) {
       calls.push(args);
-      // recusa SEMPRE que `type` vier junto — só aceita o pedido sem ele
-      if (args.type) throw new Error('Unexpected mimetype application/octet-stream for media type ' + args.type);
-      const f = FILES[args.directPath];
-      const u8 = new Uint8Array(f.bytes);
-      return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+      throw Object.assign(new Error('mmsDownload: 404'), { status: 404 });
     },
   };
-  const audio = makeMediaMsg('ptt', '/v/t62/audio.enc');
-  const { coll, mediaReady } = await bootHooks({ preloaded: [audio], downloadManager: dm });
-  coll.revoke(audio);
-  const ready = await waitFor(() => mediaReady()[0]);
-  assert.ok(ready, 'não tentou de novo sem o `type` — a mídia se perdeu');
-  assert.strictEqual(calls.length, 2, `esperava 2 tentativas, houve ${calls.length}`);
-  assert.ok(calls[0].type, '1ª tentativa deveria mandar o type');
-  assert.ok(!calls[1].type, '2ª tentativa deveria ser SEM o type');
+  const video = makeMediaMsg('video', '/v/t62/video.enc');
+  const { coll } = await bootHooks({ preloaded: [video], downloadManager: dm });
+  coll.revoke(video);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.strictEqual(calls.length, 1, `404 do servidor não deve ser repetido; houve ${calls.length}`);
 });
 
 test('WA-02 (controle): erro que não é de mimetype NÃO vira repetição', async () => {

@@ -1561,13 +1561,20 @@ window.whl_hooks_main = () => {
 
         // 2) Download + decriptação pelo módulo do WhatsApp.
         //
-        // WA-02: o WhatsApp confere o mimetype do que baixou contra o `type`
-        // pedido. Como não mandávamos `mimetype`, ele usava o genérico que o
-        // servidor devolve (application/octet-stream) e recusava:
+        // WA-02/WA-02b: o WhatsApp confere o mimetype do que baixou contra o
+        // `type` pedido. Sem `mimetype` ele usa o genérico do servidor e recusa:
         //   "Unexpected mimetype application/octet-stream for media type ptt"
         // Resultado: áudio e imagem APAGADOS não eram salvos pelo Recover.
-        // Mandamos o mimetype real da mensagem; se ainda assim ele reclamar do
-        // par type×mimetype, tentamos de novo sem o `type` (aí ele não compara).
+        //
+        // As duas tentativas abaixo foram MEDIDAS no WhatsApp real (15/11/2026,
+        // scripts/wa-media-probe.js) em ptt, image, video, document e sticker:
+        //   {type, mimetype}            OK em ptt, image, sticker, document
+        //   {mimetype} (sem `type`)     "webMediaType is invalid: undefined" SEMPRE
+        //   {type} sozinho              "Unexpected mimetype ..." (o bug original)
+        //   {type:'document', mimetype} OK em tudo que o servidor ainda servia
+        // Por isso `type` vai SEMPRE (mandar sem ele é tentativa morta) e o
+        // fallback é type:'document', que o WhatsApp não confere contra o
+        // mimetype — serve também quando a mensagem em cache perdeu o `type`.
         if (f.directPath && f.mediaKey) {
             const mod = tryRequireModule('WAWebDownloadManager');
             const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
@@ -1584,18 +1591,19 @@ window.whl_hooks_main = () => {
                     ...extras
                 });
                 const tentativas = [
-                    { type: f.type, mimetype: mime || undefined },  // com o mimetype real
-                    { mimetype: mime || undefined },                 // sem `type`: não compara o par
+                    { type: f.type, mimetype: mime || undefined },      // o par real
+                    { type: 'document', mimetype: mime || undefined },  // 'document' não é conferido
                 ];
                 for (const extras of tentativas) {
                     try {
                         const url = await midiaParaDataUrl(await baixar(extras), mime);
                         if (url) return url;
                     } catch (e) {
-                        const msg = (e && (e.message || e.status)) || '';
+                        const msg = String((e && (e.message || e.status)) || '');
                         console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', msg);
-                        // só vale repetir quando a recusa foi do par type×mimetype
-                        if (!/mimetype/i.test(String(msg))) break;
+                        // 403/404 é o servidor do WhatsApp já sem o arquivo (mídia
+                        // antiga expira). Nenhum parâmetro resolve: parar aqui.
+                        if (/\b40[34]\b|mmsDownload/i.test(msg)) break;
                     }
                 }
             }
