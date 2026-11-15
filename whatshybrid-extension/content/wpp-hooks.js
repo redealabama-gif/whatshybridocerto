@@ -1906,8 +1906,11 @@ window.whl_hooks_main = () => {
         // FIX PEND-MED-005: Mark media for potential download
         const hasMediaUrl = !!(msg.deprecatedMms3Url || msg.directPath || msg.url);
         const canDownload = !!(mediaFields && mediaFields.directPath && mediaFields.mediaKey);
-        // O que veio embutido na mensagem é a miniatura quando dá para baixar o original.
-        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg && canDownload);
+        // WA-03: o que vem embutido na mensagem é SEMPRE a miniatura — e não
+        // deixa de ser porque o WhatsApp não expôs como baixar o original.
+        // Marcar errado fazia o painel oferecer "Baixar" prometendo o arquivo e
+        // entregar 4 KB, e fazia o applyMediaUpdate recusar o original depois.
+        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg);
         const needsDownload = !prevFullMedia && isMediaMsg && (canDownload || hasMediaUrl) && (!mediaData || mediaIsThumbnail);
         if (prevFullMedia) mediaData = prevFullMedia;
 

@@ -769,3 +769,30 @@ test('WA-02 (controle): erro que não é de mimetype NÃO vira repetição', asy
   await new Promise((r) => setTimeout(r, 300));
   assert.strictEqual(calls.length, 1, `404 não deve ser repetido; houve ${calls.length} tentativas`);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-03 (lado da captura) — a miniatura embutida na mensagem é miniatura mesmo
+// quando o WhatsApp não expõe como baixar o original. Marcar como "arquivo
+// completo" fazia o painel prometer o original e entregar 4 KB.
+// ─────────────────────────────────────────────────────────────────────────────
+test('WA-03: miniatura de mensagem sem mediaKey é marcada como miniatura', async () => {
+  const dm = fakeDownloadManager();
+  const { coll, records } = await bootHooks({ downloadManager: dm });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc', { caption: 'sem chave' });
+  // mensagem em que o WhatsApp não expõe como baixar o original: sobra a
+  // miniatura que veio no corpo
+  delete img.directPath;
+  delete img.mediaKey;
+  delete img.mediaKeyTimestamp;
+  coll.add(img);
+  await new Promise((r) => setTimeout(r, 50));
+  coll.revoke(img);
+  const r = records()[0];
+  assert.ok(r, 'imagem apagada não registrada');
+  assert.ok(String(r.mediaData).startsWith('/9j/'), 'o guardado deveria ser a miniatura do corpo');
+  assert.strictEqual(
+    r.mediaIsThumbnail,
+    true,
+    'miniatura marcada como arquivo original: o painel promete o original, entrega 4 KB, e o original nunca mais substitui'
+  );
+});
