@@ -1,0 +1,13 @@
+=== ANTES (política sem Recover/Extrator e negando rastreamento) ===
+    ✕ descreve a captura de mensagens apagadas e editadas (Recover) (4 ms)
+    ✕ descreve a extração de contatos e de membros de grupos (1 ms)
+    ✕ não afirma que NÃO há rastreamento de terceiros (o site carrega GA e Meta Pixel) (4 ms)
+    ✓ continua cobrindo o básico da LGPD (direitos, retenção, compartilhamento, encarregado) (2 ms)
+Tests:       3 failed, 1 passed, 4 total
+
+=== DEPOIS ===
+    ✓ descreve a captura de mensagens apagadas e editadas (Recover) (2 ms)
+    ✓ descreve a extração de contatos e de membros de grupos
+    ✓ não afirma que NÃO há rastreamento de terceiros (o site carrega GA e Meta Pixel) (3 ms)
+    ✓ continua cobrindo o básico da LGPD (direitos, retenção, compartilhamento, encarregado) (1 ms)
+Tests:       4 passed, 4 total
