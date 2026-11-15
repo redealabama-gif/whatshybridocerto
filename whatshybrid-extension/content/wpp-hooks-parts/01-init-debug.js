@@ -1560,27 +1560,44 @@ window.whl_hooks_main = () => {
         } catch (_) { /* tenta o próximo */ }
 
         // 2) Download + decriptação pelo módulo do WhatsApp.
+        //
+        // WA-02: o WhatsApp confere o mimetype do que baixou contra o `type`
+        // pedido. Como não mandávamos `mimetype`, ele usava o genérico que o
+        // servidor devolve (application/octet-stream) e recusava:
+        //   "Unexpected mimetype application/octet-stream for media type ptt"
+        // Resultado: áudio e imagem APAGADOS não eram salvos pelo Recover.
+        // Mandamos o mimetype real da mensagem; se ainda assim ele reclamar do
+        // par type×mimetype, tentamos de novo sem o `type` (aí ele não compara).
         if (f.directPath && f.mediaKey) {
-            try {
-                const mod = tryRequireModule('WAWebDownloadManager');
-                const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
-                if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
-                    const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
-                    const buf = await dm.downloadAndMaybeDecrypt({
-                        directPath: f.directPath,
-                        encFilehash: f.encFilehash,
-                        filehash: f.filehash,
-                        mediaKey: f.mediaKey,
-                        mediaKeyTimestamp: f.mediaKeyTimestamp,
-                        type: f.type,
-                        signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
-                        downloadQpl: noopQpl
-                    });
-                    const url = await midiaParaDataUrl(buf, mime);
-                    if (url) return url;
+            const mod = tryRequireModule('WAWebDownloadManager');
+            const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
+            if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
+                const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
+                const baixar = (extras) => dm.downloadAndMaybeDecrypt({
+                    directPath: f.directPath,
+                    encFilehash: f.encFilehash,
+                    filehash: f.filehash,
+                    mediaKey: f.mediaKey,
+                    mediaKeyTimestamp: f.mediaKeyTimestamp,
+                    signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
+                    downloadQpl: noopQpl,
+                    ...extras
+                });
+                const tentativas = [
+                    { type: f.type, mimetype: mime || undefined },  // com o mimetype real
+                    { mimetype: mime || undefined },                 // sem `type`: não compara o par
+                ];
+                for (const extras of tentativas) {
+                    try {
+                        const url = await midiaParaDataUrl(await baixar(extras), mime);
+                        if (url) return url;
+                    } catch (e) {
+                        const msg = (e && (e.message || e.status)) || '';
+                        console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', msg);
+                        // só vale repetir quando a recusa foi do par type×mimetype
+                        if (!/mimetype/i.test(String(msg))) break;
+                    }
                 }
-            } catch (e) {
-                console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', e && (e.status || e.message));
             }
         }
 

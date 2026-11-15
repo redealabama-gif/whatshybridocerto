@@ -1,0 +1,13 @@
+=== ANTES da correção (WA-02) ===
+  ✗ WA-02: áudio apagado é baixado — o mimetype real vai junto no pedido
+  ✗ WA-02: imagem apagada também é baixada
+  ✗ WA-02: se o WhatsApp recusar o par type×mimetype, tenta de novo sem o `type`
+  ✓ WA-02 (controle): erro que não é de mimetype NÃO vira repetição
+  25 passou, 3 falhou (28 no total)
+
+=== DEPOIS ===
+  ✓ WA-02: áudio apagado é baixado — o mimetype real vai junto no pedido
+  ✓ WA-02: imagem apagada também é baixada
+  ✓ WA-02: se o WhatsApp recusar o par type×mimetype, tenta de novo sem o `type`
+  ✓ WA-02 (controle): erro que não é de mimetype NÃO vira repetição
+  28 passou, 0 falhou (28 no total)
