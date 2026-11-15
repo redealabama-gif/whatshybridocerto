@@ -95,15 +95,19 @@ Evidências: `site-9-pln02-anual.txt`, `site-paginas.txt`, prints em scratch.
 
 ## Fase 3 — Conta e acesso (P0)
 
+`tests/integration/conta-fluxos.spec.js` (9/9, banco e rotas reais; suíte do
+backend 49 suítes / 256 testes verdes — a mensagem do commit 59b3843 escreveu
+"265" por engano, o número certo é 256):
+
 | Item | Status |
 |---|---|
-| Cadastro cria conta, workspace e trial de 7 dias corretos (datas) | 🔍 |
-| E-mail de boas-vindas (conteúdo, links) | 🔍 (⚠️ envio real depende do SendGrid) |
-| Recuperar senha (token, validade, uso único) | 🔍 |
-| 2FA (ativar, entrar, desativar, códigos de recuperação) | 🔍 |
-| Sessão única da extensão (LIC-02) | ✔️ (PR #316) |
-| Limite de tentativas de login por cliente (não global) | ✅ PROD-05 |
-| Excluir conta (LGPD) | 🔍 |
+| Cadastro cria conta, workspace e trial de 7 dias exatos | ✅ |
+| E-mail de boas-vindas monta (dry-run; envio real = SendGrid 🔒) | ✅ |
+| Recuperar senha ponta a ponta: token com hash, troca, antiga inválida, uso único, expirado recusado, e-mail inexistente não é revelado | ✅ |
+| 2FA: ativar com TOTP real, login em 2 passos (sem sessão antes do código), desativar exige senha + código | ✅ |
+| Sessão única da extensão (LIC-02) | ✅ (PR #316) |
+| Limite de tentativas por cliente (PROD-05) | ✅ |
+| Excluir conta (LGPD) | ✅ rotas e rotina de purga têm testes (`lgpd-me`, `lgpd-retention-purge`); tela da ajuda explica |
 
 ## Fase 4 — Planos: o que o site promete × o que é liberado (P0, pedido do dono)
 
@@ -190,13 +194,18 @@ Status: ✅ (tokens) · 🔍 (faturas e chave — com a Fase 5)
 
 ## Fase 8 — E-mails e licença (P0)
 
-- Cada e-mail (boas-vindas, senha, pagamento confirmado com a chave, falha de
-  pagamento, fim do trial): conteúdo, links, remetente.
-- 🔒 SendGrid: chave, domínio autenticado (SPF/DKIM) — sem isso os e-mails caem
-  no spam ou nem saem (sem chave o servidor só simula o envio).
-- 🔒 **Chave-mestra da extensão** (`modules/subscription-manager.js`): mantida a
-  pedido do dono para testes; **remover antes do lançamento**.
-  `SUBSCRIPTION_MASTER_KEY` no servidor de produção vazia.
+- Modelos montam e disparam nos eventos certos: boas-vindas (cadastro),
+  redefinir senha (link 1h), **pagamento confirmado com a chave WHL-… e o
+  passo a passo de ativação**, trial expirado/dunning (cron testado), saldo
+  baixo de tokens (`tokens.low_balance` → e-mail). Tudo em dry-run aqui.
+- 🔒 Envio real: SENDGRID_API_KEY + domínio autenticado (SPF/DKIM). Sem a
+  chave, produção loga alerta crítico avisando.
+- Licença: chave gerada no pagamento (webhook testado), presa a 1 aparelho,
+  desvincular pelo painel (fluxo verificado em `evidencias/licenca/`).
+- 🔒 **Chave-mestra da extensão: remover antes do go-live** (mantida a pedido
+  do dono para testes). `SUBSCRIPTION_MASTER_KEY` vazio em produção.
+
+Status: ✅ (dry-run) · 🔒 envio real e chave-mestra no go-live
 
 ## Fase 9 — Infraestrutura (P0/P1)
 
