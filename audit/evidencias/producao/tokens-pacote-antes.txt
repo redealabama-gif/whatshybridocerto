@@ -1,0 +1,74 @@
+  PLN-01 — pacote de tokens comprado não expira
+    ✕ sobra do pacote passa para o mês seguinte; sobra da cota do plano não (11 ms)
+    ✕ pacote usado em parte: só o que restou dele passa (1 ms)
+    ✕ renovação repetida (mesmo pagamento) não soma de novo (3 ms)
+    ✕ (controle) sem pacote, a renovação dá só a cota do plano
+
+  ● PLN-01 — pacote de tokens comprado não expira › sobra do pacote passa para o mês seguinte; sobra da cota do plano não
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 60000
+    Received: 50000
+
+      42 |     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-2' });
+      43 |     // nova cota (50.000) + o pacote inteiro (10.000); a sobra do plano (30.000) não acumula
+    > 44 |     expect(saldo()).toBe(60_000);
+         |                     ^
+      45 |   });
+      46 |
+      47 |   test('pacote usado em parte: só o que restou dele passa', () => {
+
+
+  ● PLN-01 — pacote de tokens comprado não expira › pacote usado em parte: só o que restou dele passa
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      47 |   test('pacote usado em parte: só o que restou dele passa', () => {
+      48 |     // mês 2: 50.000 do plano + 10.000 comprados. Usa 55.000 → 5.000 do pacote foram usados
+    > 49 |     expect(tokenService.consume(ws, 55_000).allowed).toBe(true);
+         |                                                      ^
+      50 |     expect(saldo()).toBe(5_000);
+      51 |
+      52 |     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-3' });
+
+
+  ● PLN-01 — pacote de tokens comprado não expira › renovação repetida (mesmo pagamento) não soma de novo
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 55000
+    Received: 50000
+
+      56 |   test('renovação repetida (mesmo pagamento) não soma de novo', () => {
+      57 |     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-3' });
+    > 58 |     expect(saldo()).toBe(55_000);
+         |                     ^
+      59 |   });
+      60 |
+      61 |   test('(controle) sem pacote, a renovação dá só a cota do plano', () => {
+
+
+  ● PLN-01 — pacote de tokens comprado não expira › (controle) sem pacote, a renovação dá só a cota do plano
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      60 |
+      61 |   test('(controle) sem pacote, a renovação dá só a cota do plano', () => {
+    > 62 |     expect(tokenService.consume(ws, 55_000).allowed).toBe(true);
+         |                                                      ^
+      63 |     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-4' });
+      64 |     expect(saldo()).toBe(50_000);
+      65 |   });
+
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 4 total
+Snapshots:   0 total
+Time:        1.498 s, estimated 2 s

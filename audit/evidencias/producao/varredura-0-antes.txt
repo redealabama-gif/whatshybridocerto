@@ -1,0 +1,25 @@
+ATENÇÃO sidepanel (abertura)
+         · falhou: tests/ai-copilot-tests.js net::ERR_FILE_NOT_FOUND
+         · console: Failed to load resource: net::ERR_FILE_NOT_FOUND
+         · falhou: tests/regression-tests.js net::ERR_FILE_NOT_FOUND
+         · falhou: lib/socket.io.min.js net::ERR_FILE_NOT_FOUND
+OK      sidepanel/principal — 13 botões, 2 campos
+OK      sidepanel/extrator — 6 botões, 3 campos
+ATENÇÃO sidepanel/recover — 10 botões, 5 campos
+         · console: Unchecked runtime.lastError: Cannot access contents of url "chrome-extension://fijlkcfibfbabkaogjjpjejigdifekfm/sidepanel.html". Extension manifest must request permission to acces
+OK      sidepanel/config — 8 botões, 7 campos
+OK      sidepanel/backup — 5 botões, 11 campos
+OK      sidepanel/crm — 17 botões, 0 campos
+OK      sidepanel/tasks — 5 botões, 0 campos
+OK      sidepanel/ai — 3 botões, 4 campos
+OK      sidepanel/autopilot — 3 botões, 4 campos
+OK      sidepanel/backend — 7 botões, 1 campos
+OK      sidepanel/team — 4 botões, 4 campos
+OK      sidepanel/groups — 6 botões, 1 campos
+OK      sidepanel/quickreplies — 1 botões, 0 campos
+ATENÇÃO sidepanel/sapl — 4 botões, 0 campos
+         · console: Unchecked runtime.lastError: Cannot access contents of url "chrome-extension://fijlkcfibfbabkaogjjpjejigdifekfm/sidepanel.html". Extension manifest must request permission to acces
+OK      popup — 6 botões, 0 campos
+OK      crm/crm.html — 2 botões, 1 campos
+
+14 de 17 telas abrem limpas

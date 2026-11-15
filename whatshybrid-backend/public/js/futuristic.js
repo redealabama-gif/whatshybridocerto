@@ -97,16 +97,21 @@ window.api = {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (r.status === 401) {
+    let data;
+    try { data = await r.json(); } catch { data = null; }
+
+    // PROD-02: 401 só é "sessão expirada" em pedido autenticado. No login e no
+    // cadastro (sem token) o 401 é "senha incorreta" e precisa aparecer — antes
+    // a página recarregava sem dizer nada.
+    if (r.status === 401 && token && !/^\/api\/v1\/auth\/(login|signup|register)/.test(path)) {
       this.logout();
       throw new Error('Sessão expirada — faça login de novo');
     }
 
-    let data;
-    try { data = await r.json(); } catch { data = null; }
-
     if (!r.ok) {
-      const msg = data?.error || data?.message || `${r.status} ${r.statusText}`;
+      // PROD-02: a mensagem legível vem em `message`; `error` costuma ser um
+      // código ("error", "Unauthorized") — antes o usuário via "Erro: error".
+      const msg = data?.message || data?.error || `${r.status} ${r.statusText}`;
       throw new Error(msg);
     }
     return data;

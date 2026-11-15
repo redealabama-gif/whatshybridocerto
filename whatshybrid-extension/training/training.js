@@ -160,9 +160,10 @@ class TrainingApp {
     console.log('[TrainingApp] Inicializando...');
 
     await this.loadAllData();
+    this._watchExamplesFromOtherPages();
     this.setupEventListeners();
     this.renderAll();
-    this.updateConnectionStatus();
+    this._checkConnection();
     this.initSimulation();
 
     // v9.X — Indicador "Sincronizado há X min" no header. Atualiza a cada
@@ -369,7 +370,9 @@ class TrainingApp {
 
   async saveExamples() {
     try {
-      await chrome.storage.local.set({ whl_few_shot_examples: JSON.stringify(this.examples) });
+      const json = JSON.stringify(this.examples);
+      this._lastSavedExamplesJson = json; // TRN-04: reconhece o próprio eco no onChanged
+      await chrome.storage.local.set({ whl_few_shot_examples: json });
     } catch (error) {
       this._handleStorageError('exemplos', error);
     }
@@ -415,7 +418,7 @@ class TrainingApp {
 
     // Search
     document.getElementById('searchInput').addEventListener('input', (e) => {
-      this.handleSearch(e.target.value);
+      this.handleSearch(e.target.value, { autoSwitch: true });
     });
 
     // Header buttons
@@ -562,6 +565,7 @@ class TrainingApp {
   }
 
   renderExamples() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const grid = document.getElementById('examplesGrid');
     const empty = document.getElementById('emptyExamples');
 
@@ -618,6 +622,7 @@ class TrainingApp {
   }
 
   renderFaqs() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const list = document.getElementById('faqsList');
     const empty = document.getElementById('emptyFaqs');
 
@@ -656,6 +661,7 @@ class TrainingApp {
   }
 
   renderProducts() {
+    if (this.searchQuery && !this._inFilteredRender) return this.handleSearch(this.searchQuery);
     const grid = document.getElementById('productsGrid');
     const empty = document.getElementById('emptyProducts');
 
@@ -1258,9 +1264,15 @@ class TrainingApp {
     document.getElementById('statFaqs').textContent = this.faqs.length;
     document.getElementById('statProducts').textContent = this.products.length;
 
+    // TRN-06: é a média das notas (1 a 10) que o dono dá aos exemplos — não a
+    // precisão da IA. O rótulo dizia "Precisão" e uma conta nova já mostrava 80%
+    // (nota padrão 8). Sem exemplos mostra "—".
+    const avgEl = document.getElementById('statAccuracy');
     if (this.examples.length > 0) {
-      const avgQuality = this.examples.reduce((sum, ex) => sum + (ex.quality || 8), 0) / this.examples.length;
-      document.getElementById('statAccuracy').textContent = `${Math.round(avgQuality * 10)}%`;
+      const avgQuality = this.examples.reduce((sum, ex) => sum + (Number(ex.quality) || 8), 0) / this.examples.length;
+      avgEl.textContent = `${(Math.round(avgQuality * 10) / 10).toString().replace('.', ',')}/10`;
+    } else {
+      avgEl.textContent = '—';
     }
 
     chrome.storage.local.get('whl_ai_auto_learner').then(data => {
@@ -1273,32 +1285,78 @@ class TrainingApp {
   // SEARCH
   // ============================================
 
-  handleSearch(query) {
-    const q = query.toLowerCase().trim();
+  // TRN-01: a busca do topo vale para Exemplos, FAQs e Produtos — sem
+  // diferenciar acento nem maiúscula, com várias palavras em qualquer ordem — e
+  // continua valendo ao trocar de aba ou ao salvar/excluir. Antes: na aba que
+  // abre primeiro (Simulação) não mostrava nada, "cartao" não achava "cartão" e
+  // trocar de aba voltava a lista inteira com a busca ainda escrita.
+  _normalizeSearch(v) {
+    return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
 
-    const filteredExamples = this.examples.filter(ex =>
-      (ex.input || '').toLowerCase().includes(q) ||
-      (ex.output || '').toLowerCase().includes(q) ||
-      (ex.category || '').toLowerCase().includes(q) ||
-      (ex.tags || []).some(t => t.toLowerCase().includes(q))
-    );
+  _searchText(kind, item) {
+    const many = (v) => (Array.isArray(v) ? v : (v === undefined || v === null || v === '' ? [] : [v]));
+    const campos = kind === 'examples'
+      ? [item.input, item.user, item.output, item.response, item.category, ...many(item.tags)]
+      : kind === 'faqs'
+        ? [item.q, item.question, item.a, item.answer, item.category, ...many(item.keywords)]
+        : [item.name, item.description, item.shortDescription, item.category, item.sku, ...many(item.tags)];
+    return this._normalizeSearch(campos.filter((c) => c !== undefined && c !== null).join(' \n '));
+  }
 
-    const filteredFaqs = this.faqs.filter(faq =>
-      (faq.q || faq.question || '').toLowerCase().includes(q) ||
-      (faq.a || faq.answer || '').toLowerCase().includes(q) ||
-      (faq.keywords || []).some(k => k.includes(q))
-    );
+  handleSearch(query, { autoSwitch = false } = {}) {
+    this.searchQuery = String(query ?? '');
+    const termos = this._normalizeSearch(this.searchQuery).split(/\s+/).filter(Boolean);
+    const filtrar = (kind, itens) => (termos.length
+      ? (itens || []).filter((it) => { const t = this._searchText(kind, it); return termos.every((w) => t.includes(w)); })
+      : (itens || []));
 
-    const filteredProducts = this.products.filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q) ||
-      (p.sku || '').toLowerCase().includes(q)
-    );
+    const filteredExamples = filtrar('examples', this.examples);
+    const filteredFaqs = filtrar('faqs', this.faqs);
+    const filteredProducts = filtrar('products', this.products);
 
     this.renderFilteredExamples(filteredExamples);
     this.renderFilteredFaqs(filteredFaqs);
     this.renderFilteredProducts(filteredProducts);
+    this._updateSearchCounts(termos.length
+      ? { examples: filteredExamples.length, faqs: filteredFaqs.length, products: filteredProducts.length }
+      : null);
+
+    // Digitando numa aba sem lista (Simulação, Negócio, Importar), mostra a
+    // primeira aba que tem resultado.
+    if (autoSwitch && termos.length) {
+      const ativa = document.querySelector('.tab-btn.active')?.dataset.tab;
+      if (!['examples', 'faqs', 'products'].includes(ativa)) {
+        const comResultado = [['examples', filteredExamples], ['faqs', filteredFaqs], ['products', filteredProducts]]
+          .find(([, lista]) => lista.length);
+        this.switchTab(comResultado ? comResultado[0] : 'examples');
+      }
+    }
+  }
+
+  // Quantos resultados cada aba tem enquanto há busca (some sem busca).
+  _updateSearchCounts(contagens) {
+    ['examples', 'faqs', 'products'].forEach((aba) => {
+      const btn = document.querySelector(`.tab-btn[data-tab="${aba}"]`);
+      if (!btn) return;
+      let badge = btn.querySelector('.search-count');
+      if (!contagens) { if (badge) badge.remove(); return; }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'search-count';
+        btn.appendChild(badge);
+      }
+      badge.textContent = String(contagens[aba]);
+      badge.classList.toggle('zero', contagens[aba] === 0);
+    });
+  }
+
+  // Desenha a lista com os itens filtrados (as funções render* desenham this.<lista>).
+  _renderFiltered(lista, itens, render) {
+    const original = this[lista];
+    this[lista] = itens;
+    this._inFilteredRender = true;
+    try { render(); } finally { this[lista] = original; this._inFilteredRender = false; }
   }
 
   renderFilteredExamples(examples) {
@@ -1311,41 +1369,33 @@ class TrainingApp {
       if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.examples;
-    this.examples = examples;
-    this.renderExamples();
-    this.examples = original;
+    this._renderFiltered('examples', examples, () => this.renderExamples());
   }
 
   renderFilteredFaqs(faqs) {
     const list = document.getElementById('faqsList');
+    const empty = document.getElementById('emptyFaqs');
     if (!list) return;
 
     if (faqs.length === 0 && this.faqs.length > 0) {
       list.innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhuma FAQ encontrada para esta busca</p>';
+      if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.faqs;
-    this.faqs = faqs;
-    this.renderFaqs();
-    this.faqs = original;
+    this._renderFiltered('faqs', faqs, () => this.renderFaqs());
   }
 
   renderFilteredProducts(products) {
     const grid = document.getElementById('productsGrid');
+    const empty = document.getElementById('emptyProducts');
     if (!grid) return;
 
     if (products.length === 0 && this.products.length > 0) {
       grid.innerHTML = '<p style="padding: 20px; color: var(--text-muted);">Nenhum produto encontrado para esta busca</p>';
+      if (empty) empty.style.display = 'none';
       return;
     }
-
-    const original = this.products;
-    this.products = products;
-    this.renderProducts();
-    this.products = original;
+    this._renderFiltered('products', products, () => this.renderProducts());
   }
 
   // ============================================
@@ -1416,6 +1466,37 @@ class TrainingApp {
       modal.classList.remove('active');
     }
     this.currentEditId = null;
+  }
+
+  // TRN-04: exemplos gravados por outra página (o WhatsApp aberto: correção de
+  // sugestão, aprendizado automático, Copiloto) entram na lista desta tela.
+  // Sem isto o próximo salvar daqui regravava a lista velha e os apagava.
+  _watchExamplesFromOtherPages() {
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local' || !changes.whl_few_shot_examples) return;
+        let v = changes.whl_few_shot_examples.newValue;
+        if (typeof v === 'string' && v === this._lastSavedExamplesJson) return; // eco da própria gravação
+        if (v === undefined) v = [];
+        if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return; } }
+        if (!Array.isArray(v)) return;
+        this.examples = v;
+        this.renderExamples();
+        this.updateStats();
+      });
+    } catch (_) { /* página sem chrome.storage (testes) */ }
+  }
+
+  // TRN-05: o indicador abria sempre "Offline" e só mudava depois de uma
+  // sincronização, mesmo com a conta conectada. Fica em "Conectando..." até a
+  // sessão carregar (o BackendClient lê o storage de forma assíncrona) e então
+  // mostra o estado real.
+  async _checkConnection() {
+    const bc = window.BackendClient;
+    for (let i = 0; i < 30 && bc && !bc.isConnected?.(); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    this.updateConnectionStatus(!!(bc && bc.isConnected?.()));
   }
 
   updateConnectionStatus(connected = false) {
@@ -1547,7 +1628,6 @@ class TrainingApp {
       });
     }
 
-    document.getElementById('btnSaveApproved')?.addEventListener('click', () => this.saveApprovedResponses());
     document.getElementById('btnQuickTest')?.addEventListener('click', () => this.runQuickTest());
 
     document.getElementById('quickTestInput')?.addEventListener('keypress', (e) => {
@@ -1611,7 +1691,7 @@ class TrainingApp {
     };
 
     // Mantém um histórico local + alimenta o state.conversation que o
-    // saveApprovedResponses/edit/reject já espera.
+    // aprovar/editar/rejeitar já espera.
     this._userSimHistory = this._userSimHistory || [];
     this._userSimHistory.push({ id: userMsgId, role: 'user', content: userText });
     this._userSimHistory.push(aiMsg);
@@ -1867,18 +1947,20 @@ class TrainingApp {
       const userInput = message.userInput || this._previousUserContent(message.id) || '';
       if (!userInput) return;
 
-      // 1) Few-shot learning local (e sincroniza pro backend via knowledge-sync-manager).
-      if (kind !== 'rejected' && window.fewShotLearning?.addExample) {
-        window.fewShotLearning.addExample({
+      // 1) Vira exemplo do treinamento: lista "Exemplos", whl_few_shot_examples
+      //    (o que o Autopilot lê) e servidor. TRN-03: antes gravava por
+      //    window.fewShotLearning, que nesta página guarda a lista do momento em
+      //    que a tela abriu (vazia numa conta nova) e a regravava inteira — os
+      //    exemplos cadastrados na tela sumiam do navegador. Aqui só o
+      //    TrainingApp grava essa lista.
+      if (kind !== 'rejected') {
+        this._promoteToExample({
           input: userInput,
           output: message.content,
-          category: 'training',
-          intent: 'user_simulation',
-          quality: message.edited ? 10 : 9,
           edited: !!message.edited,
-          source: message.edited ? 'training_edited' : 'training_approved',
-          tags: ['training', 'user_sim', kind, ...(message.edited ? ['edited'] : [])]
-        }).catch(() => {});
+          quality: message.edited ? 10 : 9,
+          tags: ['simulacao', 'aprovado', ...(message.edited ? ['editado'] : [])]
+        }).catch((e) => console.warn('[TrainingApp] Falha ao salvar exemplo aprovado:', e));
       }
 
       // 2) Event bus → ConfidenceSystem + ai-feedback-system.
@@ -1902,6 +1984,39 @@ class TrainingApp {
     } catch (e) {
       console.warn('[TrainingApp] Falha ao registrar amostra supervisionada:', e);
     }
+  }
+
+  // Resposta aprovada (ou editada) na simulação → exemplo do treinamento, salvo
+  // no navegador e sincronizado com o servidor como os criados na aba Exemplos.
+  async _promoteToExample(s) {
+    if (!s || !s.input || !s.output) return false;
+    const dup = this.examples.some(
+      (e) => (e.input || e.user) === s.input && (e.output || e.response) === s.output
+    );
+    if (dup) return false;
+    const now = Date.now();
+    const quality = s.quality || 9;
+    this.examples.push({
+      id: now,
+      category: 'simulacao',
+      input: s.input,
+      user: s.input,
+      output: s.output,
+      response: s.output,
+      intent: null,
+      quality,
+      edited: !!s.edited,
+      tags: s.tags || ['simulacao', 'aprovado'],
+      createdAt: now,
+      updatedAt: now,
+      usageCount: 0,
+      score: quality / 10,
+    });
+    await this.saveExamples();
+    this._scheduleBackendSync('simulationApproved');
+    this.renderExamples();
+    this.updateStats();
+    return true;
   }
 
   _previousUserContent(messageId) {
@@ -1996,14 +2111,6 @@ class TrainingApp {
 
   updateCurationSection() {
     if (!this.simulation) return;
-
-    const state = this.simulation.getState();
-
-    const btnSave = document.getElementById('btnSaveApproved');
-    if (btnSave) {
-      btnSave.disabled = state.approvedResponses.length === 0;
-    }
-
     this.updateCurationStats();
   }
 
@@ -2017,59 +2124,6 @@ class TrainingApp {
 
     if (approvedEl) approvedEl.textContent = state.approvedResponses?.length || 0;
     if (rejectedEl) rejectedEl.textContent = state.rejectedResponses?.length || 0;
-  }
-
-  async saveApprovedResponses() {
-    if (!this.simulation) return;
-
-    try {
-      const result = await this.simulation.saveForLearning();
-
-      // v9.X — propaga as aprovações pro BACKEND no mesmo clique. Antes só
-      // gravava no few-shot local (saveForLearning); o autopilot/sugestão (que
-      // leem o treinamento do backend) só enxergavam as respostas aprovadas
-      // depois de um clique manual no "Sincronizar" geral. Agora cada aprovação
-      // vira um exemplo first-class e entra no mesmo sync das abas (debounce 2s).
-      const samples = Array.isArray(result.samples) ? result.samples : [];
-      let merged = 0;
-      for (const s of samples) {
-        if (!s || !s.input || !s.output) continue;
-        const dup = this.examples.some(
-          (e) => (e.input || e.user) === s.input && (e.output || e.response) === s.output
-        );
-        if (dup) continue;
-        const now = Date.now();
-        this.examples.push({
-          id: now + Math.floor(Math.random() * 1000),
-          category: s.category || 'simulacao',
-          input: s.input,
-          user: s.input,
-          output: s.output,
-          response: s.output,
-          intent: s.intent || null,
-          quality: s.quality || 9,
-          tags: ['simulacao', 'aprovado', ...(s.edited ? ['editado'] : [])],
-          createdAt: now,
-          updatedAt: now,
-          usageCount: 0,
-          score: (s.quality || 9) / 10,
-        });
-        merged++;
-      }
-
-      if (merged > 0) {
-        await this.saveExamples();
-        this._scheduleBackendSync('saveApprovedResponses');
-        this.renderExamples?.();
-      }
-
-      const synced = merged > 0 ? ' (sincronizando com a IA…)' : '';
-      this.showToast(result.message + synced, result.saved > 0 ? 'success' : 'warning');
-      this.updateStats();
-    } catch (error) {
-      console.error('[TrainingApp] Erro ao salvar:', error);
-      this.showToast('Erro ao salvar respostas', 'error');
-    }
   }
 
   async runQuickTest() {

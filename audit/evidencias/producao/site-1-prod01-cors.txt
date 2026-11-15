@@ -1,0 +1,11 @@
+FALHOU  resumo Pro sem cupom — ["Plano Pro","Preço R$ 99,90/mês","Cupom aplicado EXIT50 -50% no 1º mês","1º mês R$ 24,95","A partir do 2º mês R$ 49,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+PASSOU  "Começar trial grátis" leva ao painel — url=/dashboard.html aviso="" erros=[]
+PASSOU  resumo Pro com EXIT50 — ["Plano Pro","Preço cheio R$ 99,90/mês","Cupom aplicado EXIT50 -50% no 1º mês","1º mês R$ 49,95","A partir do 2º mês R$ 99,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+FALHOU  senha errada mostra o motivo — url=/login.html aviso=""
+PASSOU  "Entrar" leva ao painel — url=/dashboard.html aviso=""
+FALHOU  ícones do painel aparecem — sem desenho: ["chrome"]
+FALHOU  login com o script de ícones fora do ar — url=/login.html?email=login-1794285101025%40example.com&password=Cliente%23Teste2026
+FALHOU  senha fora da URL mesmo com o script quebrado — url=/login.html?email=login-1794285101025%40example.com&password=Cliente%23Teste2026
+FALHOU  cursor normal (sem bolinha) — {"signup.html":"none","login.html":"none","index.html":"auto"}
+
+3 de 9 passaram

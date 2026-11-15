@@ -1,0 +1,6 @@
+PASSOU  cadastro com nome/empresa maliciosos é aceito ou recusado sem erro de servidor — status=201
+PASSOU  nenhum script do atacante executou no painel — xssNome=false xssEmpresa=false alertas=[]
+PASSOU  payload não vira elemento vivo no DOM (fica como texto) — elementoInjetado=false imgInjetada=false nome="<img" empresa="<script>window.__xss_empresa=1</script><b id="xss-empresa">L"
+PASSOU  entrar pelo login com esses dados também não executa script — {"xss":false,"injetado":false,"url":"/dashboard.html"} alertas=[]
+
+4 de 4 verificações de XSS passaram

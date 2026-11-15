@@ -104,6 +104,21 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 
+// PROD-05: em produção o backend fica atrás do Caddy. Sem isto o Express via o
+// IP do Caddy em TODO pedido: o limite de tentativas de login (5 erros a cada
+// 15 min, por IP) valia para o site inteiro — 5 senhas erradas de quaisquer
+// clientes bloqueavam o login de todos. O X-Forwarded-For só é aceito quando
+// quem conecta é um endereço interno (o Caddy na rede do Docker); com o backend
+// exposto direto na internet ninguém falsifica o IP por esse cabeçalho.
+// TRUST_PROXY troca o padrão (número de proxies, true/false ou lista de redes).
+const TRUST_PROXY = process.env.TRUST_PROXY;
+app.set('trust proxy',
+  !TRUST_PROXY ? 'loopback, linklocal, uniquelocal'
+    : /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY)
+    : TRUST_PROXY === 'true' ? true
+    : TRUST_PROXY === 'false' ? false
+    : TRUST_PROXY);
+
 // ── v9.0.0: Sentry error tracking (no-op se SENTRY_DSN ausente) ──
 const sentry = require('./observability/sentry');
 sentry.init(app);
@@ -199,14 +214,17 @@ const helmetForPortal = helmet({
         "https://browser.sentry-cdn.com",
         "https://js.stripe.com",
         CRISP_SRC, // chat do dashboard (l.js + settings)
+        // PROD-06: "Entrar com Google" (login e cadastro) — sem isto a CSP
+        // bloqueava o script do Google e o botão nunca aparecia.
+        "https://accounts.google.com/gsi/client",
       ],
       workerSrc: ["'self'", "blob:", "data:", CRISP_SRC], // Spline cria workers de blob:/data:
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC, "https://accounts.google.com/gsi/style"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:", CRISP_SRC],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       mediaSrc: ["'self'", CRISP_SRC], // sons de notificação do chat
       connectSrc: ["'self'", "https:", "wss:", "blob:"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", CRISP_SRC],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", CRISP_SRC, "https://accounts.google.com/gsi/"],
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -246,10 +264,22 @@ app.use((req, res, next) => {
 });
 
 // CORS
-app.use(cors({
+// PROD-01: pedidos do próprio site (mesma origem do servidor) passam sempre. O
+// navegador manda o cabeçalho Origin também no POST da mesma origem; se o
+// endereço do site não estivesse EXATAMENTE em CORS_ORIGIN (www., http/https,
+// CORS_ORIGIN personalizado), cadastro e login respondiam 500 "error". Usa só o
+// Host do pedido — um site de fora não consegue falsificá-lo no navegador.
+const corsMiddleware = cors({
   origin: config.cors.origin,
   credentials: true
-}));
+});
+function isSameOrigin(req) {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (!origin || !host) return false;
+  try { return new URL(origin).host === String(host).trim(); } catch (_) { return false; }
+}
+app.use((req, res, next) => (isSameOrigin(req) ? next() : corsMiddleware(req, res, next)));
 
 // Compression
 app.use(compression());

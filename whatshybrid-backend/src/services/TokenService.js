@@ -29,8 +29,15 @@ const logger = require('../utils/logger');
 // 50k tokens vendidos ≈ $0.40 custo real → markup ~10x sobre tokens premium
 const PLAN_TOKENS = {
   free:       0,           // sem IA no plano free
-  starter:    50_000,      // 50k tokens/mês (cobre ~250 mensagens médias)
-  pro:        500_000,     // 500k tokens/mês (cobre ~2500 mensagens médias)
+  // Medição real (audit/evidencias/producao/tokens-prompt-medido.json): uma
+  // sugestão pelo orquestrador gasta ~1.6k–2.1k tokens (prompt do sistema +
+  // conhecimento + conversa; resposta ≤ max_tokens). Ou seja ~25 sugestões no
+  // Starter e ~260 no Pro — NÃO "250/2500 mensagens" como dizia o comentário
+  // antigo. O site vende "50.000 tokens" (sem prometer nº de mensagens), então
+  // não há promessa quebrada; mas o custo de IA desses tokens é baixo
+  // (gpt-4o-mini: 50k ≈ R$0,05; 500k ≈ R$0,54), logo a margem é folgada.
+  starter:    50_000,      // ~25 sugestões/mês
+  pro:        500_000,     // ~260 sugestões/mês
   enterprise: 999_000_000, // efetivamente ilimitado (usado por master workspaces internos)
 };
 
@@ -132,15 +139,17 @@ class TokenService {
         }
       }
 
-      // Atualiza saldo
+      // Atualiza saldo. PLN-01: tokens comprados (topup) também entram em
+      // tokens_purchased — a parte do saldo que não expira na renovação.
       db.run(
         `UPDATE workspace_credits
          SET tokens_total = tokens_total + ?,
+             tokens_purchased = tokens_purchased + ?,
              last_topup_at = CURRENT_TIMESTAMP,
              low_balance_warned_at = NULL,    -- reseta o aviso de saldo baixo
              updated_at = CURRENT_TIMESTAMP
          WHERE workspace_id = ?`,
-        [amount, workspaceId]
+        [amount, type === 'topup' ? amount : 0, workspaceId]
       );
 
       // Recalcula saldo
@@ -209,27 +218,43 @@ class TokenService {
       // efetivamente grava o grant.
       this.ensureRow(workspaceId);
 
-      // Zera consumo, define total para o grant (não acumula sobras do mês anterior)
+      // PLN-01: a sobra da cota do plano não acumula, mas o que foi COMPRADO e
+      // ainda não foi usado continua ("pacotes avulsos não expiram", promessa do
+      // site). O consumo gasta primeiro a cota do plano: a parte comprada que
+      // resta é o menor valor entre o comprado e o saldo atual.
+      const atual = db.get(
+        `SELECT tokens_total, tokens_used, tokens_purchased FROM workspace_credits WHERE workspace_id = ?`,
+        [workspaceId]
+      );
+      const saldoAtual = Math.max(0, (atual?.tokens_total || 0) - (atual?.tokens_used || 0));
+      const compradoRestante = Math.min(Math.max(0, atual?.tokens_purchased || 0), saldoAtual);
+      const novoTotal = grant + compradoRestante;
+
+      // Zera consumo; total = cota do plano + o que resta do que foi comprado
       db.run(
         `UPDATE workspace_credits
          SET tokens_total = ?,
              tokens_used = 0,
+             tokens_purchased = ?,
              last_topup_at = CURRENT_TIMESTAMP,
              low_balance_warned_at = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE workspace_id = ?`,
-        [grant, workspaceId]
+        [novoTotal, compradoRestante, workspaceId]
       );
 
       db.run(
         `INSERT INTO token_transactions
           (id, workspace_id, type, amount, balance_after, invoice_id, description)
          VALUES (?, ?, 'plan_renewal', ?, ?, ?, ?)`,
-        [uuidv4(), workspaceId, grant, grant, opts.invoice_id || null, `Renovação mensal: ${plan}`]
+        [uuidv4(), workspaceId, grant, novoTotal, opts.invoice_id || null,
+          compradoRestante > 0
+            ? `Renovação mensal: ${plan} (+${compradoRestante} tokens comprados mantidos)`
+            : `Renovação mensal: ${plan}`]
       );
 
-      logger.info(`[Tokens] Renewal for ws=${workspaceId} plan=${plan}: ${grant} tokens`);
-      return { balance_after: grant };
+      logger.info(`[Tokens] Renewal for ws=${workspaceId} plan=${plan}: ${grant} tokens + ${compradoRestante} comprados`);
+      return { balance_after: novoTotal };
     });
     // v9.4.6 BUG #125 CRÍTICO: removido `()` de `db.transaction(...)()` — chamada dupla.
     // O driver sqlite-driver.js já invoca `wrapped()` internamente. Adicionar `()`

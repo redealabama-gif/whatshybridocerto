@@ -20,10 +20,34 @@
   // pra :3001, ERR_CONNECTION_REFUSED em loop, e a extensão ficava presa
   // numa URL morta. Pra setup com hosts redundantes em produção, sobrescreva
   // WHL_ENDPOINTS.BACKEND_FALLBACKS antes deste módulo carregar.
+  // LGP-01: o padrão era SEMPRE http://localhost:3000 (com um "TODO: trocar
+  // antes de publicar"). Instalada pela Chrome Web Store sem configurar nada, a
+  // extensão apontava para a máquina do PRÓPRIO cliente — onde não há servidor
+  // nenhum — e tudo (login, IA, sincronização) falhava em silêncio.
+  //
+  // Agora o padrão depende de COMO a extensão foi instalada:
+  //   - pela Chrome Web Store (o manifesto ganha `update_url`) → servidor de
+  //     produção, que o dono pode trocar com WHL_BACKEND_PRODUCTION antes de
+  //     publicar, ou o cliente nas Configurações → Servidor;
+  //   - carregada sem compactar (desenvolvimento) → localhost, como antes.
+  const PRODUCTION_BACKEND = ROOT.WHL_BACKEND_PRODUCTION || 'https://api.whatshybrid.com.br';
+  const DEV_BACKEND = 'http://localhost:3000';
+
+  function instaladaPelaLoja() {
+    try {
+      return !!(typeof chrome !== 'undefined' && chrome.runtime
+        && typeof chrome.runtime.getManifest === 'function'
+        && chrome.runtime.getManifest().update_url);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  const BASE = instaladaPelaLoja() ? PRODUCTION_BACKEND : DEV_BACKEND;
+
   const DEFAULTS = {
-    // TODO: trocar antes de publicar a extensão pra clientes
-    BACKEND_DEFAULT: 'http://localhost:3000',
-    BACKEND_FALLBACKS: ['http://localhost:3000'],
+    BACKEND_DEFAULT: BASE,
+    BACKEND_FALLBACKS: [BASE],
     OLLAMA_CHAT: 'http://localhost:11434/api/chat'
   };
 

@@ -1,0 +1,17 @@
+PASSOU  ao abrir, o indicador mostra "Conectado" (a conta está conectada) — indicador="Conectado"
+PASSOU  sem exemplos, não mostra nota/precisão inventada — valor="—" rótulo="Nota média dos exemplos"
+PASSOU  com 2 exemplos nota 8, o indicador diz o que é (nota média 8/10) — valor="8/10" rótulo="Nota média dos exemplos"
+PASSOU  busca "horario" digitada na aba Simulação mostra resultado — aba=examples FAQs visíveis=[] exemplos visíveis=["GERAL 8/10 Tem horário no sábado? Tem sim! Sábado das 8h às 12h. 📊 0x 🕒 agora"]
+PASSOU  busca "cartão" na aba FAQs filtra — ["Vocês aceitam cartão? Aceitamos cartão de crédito em até 6x."]
+PASSOU  busca sem acento ("cartao") acha "cartão" — ["Vocês aceitam cartão? Aceitamos cartão de crédito em até 6x."]
+PASSOU  ao voltar para FAQs a busca continua valendo — busca="cartão" FAQs visíveis=["Vocês aceitam cartão? Aceitamos cartão de crédito em até 6x."]
+PASSOU  produtos sem "cartão" ficam de fora enquanto a busca está preenchida — produtos visíveis=[]
+PASSOU  busca "limpeza" na aba Produtos filtra — ["Limpeza Disponível Limpeza completa com polimento. R$ 180.00"]
+PASSOU  limpar a busca mostra tudo de novo — produtos=2 FAQs=2
+PASSOU  aprovar a resposta na simulação já vira exemplo (lista e servidor), sem outro botão — exemplos 2→3, na lista=true, no servidor=true; botão "Sincronizar respostas aprovadas": {"existe":false}
+PASSOU  não existe botão duplicado de sincronizar na simulação — botão "Sincronizar respostas aprovadas": {"existe":false}
+PASSOU  "Resumo da sessão" conta a resposta aprovada — aprovadas=1
+PASSOU  aprovar na simulação não apaga os exemplos já cadastrados — gravados no navegador=["Tem horário no sábado?","Qual o endereço?","Vocês atendem aos domingos?"] perdidos=[]
+PASSOU  nenhum erro de script na página — []
+
+15 de 15 passaram

@@ -1,0 +1,5 @@
+PASSOU  gravação do aprendizado no WhatsApp não apaga o exemplo criado depois no Treinamento — memória do WhatsApp antes=["Vocês abrem no sábado? Qual o horário?","Vocês fazem entrega no sábado?"]; gravados antes=["Vocês abrem no sábado? Qual o horário?","Vocês fazem entrega no sábado?"] depois=["Vocês abrem no sábado? Qual o horário?","Vocês fazem entrega no sábado?","Qual o prazo de entrega?"]
+PASSOU  o WhatsApp já enxerga o exemplo criado no Treinamento (sem recarregar) — memória do WhatsApp=["Vocês abrem no sábado? Qual o horário?","Vocês fazem entrega no sábado?"]
+FALHOU  salvar no Treinamento não apaga o exemplo gravado pelo WhatsApp — gravados=["Vocês abrem no sábado? Qual o horário?","Vocês fazem entrega no sábado?","Aceitam PIX?"]
+
+2 de 3 passaram

@@ -51,9 +51,9 @@
                 <span class="stat-value" id="statProducts">0</span>
                 <span class="stat-label">Produtos</span>
             </div>
-            <div class="stat-item highlight">
-                <span class="stat-value" id="statAccuracy">0%</span>
-                <span class="stat-label">Precisão</span>
+            <div class="stat-item highlight" title="Média das notas (1 a 10) que você deu aos seus exemplos">
+                <span class="stat-value" id="statAccuracy">—</span>
+                <span class="stat-label">Nota média dos exemplos</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value" id="statAutoLearn">0</span>
@@ -131,12 +131,9 @@
                 <div class="curation-section" id="curationSection">
                     <div class="curation-header">
                         <h3>📊 Resumo da sessão</h3>
-                        <p>Aceitar / Editar / Rejeitar cada resposta alimenta o aprendizado em tempo real.</p>
+                        <p>Aprovar ou editar uma resposta já a salva como exemplo e sincroniza com a IA. Rejeitar ensina o que evitar.</p>
                     </div>
                     <div class="curation-actions">
-                        <button class="btn btn-primary" id="btnSaveApproved" disabled>
-                            💾 Sincronizar respostas aprovadas
-                        </button>
                         <span class="curation-stats">
                             <span id="approvedCount">0</span> aprovadas |
                             <span id="rejectedCount">0</span> rejeitadas

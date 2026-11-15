@@ -1,0 +1,11 @@
+FALHOU  resumo Pro sem cupom — ["Plano Pro","Preço R$ 99,90/mês","Cupom aplicado EXIT50 -50% no 1º mês","1º mês R$ 24,95","A partir do 2º mês R$ 49,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+PASSOU  "Começar trial grátis" leva ao painel — url=/dashboard.html aviso="" erros=[]
+PASSOU  resumo Pro com EXIT50 — ["Plano Pro","Preço cheio R$ 99,90/mês","Cupom aplicado EXIT50 -50% no 1º mês","1º mês R$ 49,95","A partir do 2º mês R$ 99,90/mês","Trial 7 dias grátis","Total agora R$ 0,00"]
+PASSOU  senha errada mostra o motivo — url=/login.html aviso="Credenciais inválidas"
+PASSOU  "Entrar" leva ao painel — url=/dashboard.html aviso=""
+PASSOU  ícones do painel aparecem — todos desenhados (url=/dashboard.html)
+PASSOU  login com o script de ícones fora do ar — url=/dashboard.html
+PASSOU  senha fora da URL mesmo com o script quebrado — url=/login.html
+FALHOU  cursor normal (sem bolinha) — {"signup.html":"none","login.html":"none","index.html":"auto"}
+
+7 de 9 passaram

@@ -1,0 +1,11 @@
+  PROD-01 — cadastro e login do próprio site
+    ✓ "Começar trial grátis": cadastro pelo site aberto em www. cria a conta (431 ms)
+    ✓ "Entrar": login pelo site aberto em www. funciona (381 ms)
+    ✓ senha errada responde 401 com mensagem (não 500) (369 ms)
+    ✓ site de fora continua bloqueado — 403 com motivo, sem liberar CORS (4 ms)
+    ✓ (controle) a extensão — outra origem, liberada na lista — continua com CORS (4 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        2.008 s

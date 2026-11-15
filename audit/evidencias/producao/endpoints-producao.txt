@@ -1,0 +1,16 @@
+=== ANTES (BACKEND_DEFAULT sempre localhost) ===
++ actual - expected
+
++ 'http://localhost:3000'
+- 'https://api.meudominio.com.br'
+       ^
+
+
+  1 passou, 2 falhou (3 no total)
+
+=== DEPOIS ===
+  ✓ LGP-01: instalada pela Chrome Web Store NÃO aponta para localhost
+  ✓ LGP-01: carregada sem compactar (desenvolvimento) continua no localhost
+  ✓ LGP-01: o dono troca o servidor de produção com WHL_BACKEND_PRODUCTION
+
+  3 passou, 0 falhou (3 no total)

@@ -1,0 +1,9 @@
+  PROD-05 — limite de tentativas de login por cliente
+    ✓ 5 senhas erradas do cliente A não bloqueiam o login do cliente B (429 ms)
+    ✓ o cliente A continua limitado (o limite não sumiu) (5 ms)
+    ✓ o Caddy repassa só o IP do cliente (sem a porta) (2 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        1.788 s, estimated 2 s

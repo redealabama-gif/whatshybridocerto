@@ -212,9 +212,21 @@ services:
       - DB_PATH=/app/data/whatshybrid.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
+      # INF-01: idade máxima do batimento antes de marcar unhealthy
+      - WORKER_HEARTBEAT_MAX_AGE_MS=${WORKER_HEARTBEAT_MAX_AGE_MS:-90000}
     volumes:
       - db_data:/app/data
       - logs_data:/app/logs
+    # INF-01: o worker era o ÚNICO serviço sem healthcheck. Travado (event loop
+    # preso ou Redis caído com o processo vivo), ninguém percebia: a fila parava
+    # e as sugestões estouravam o tempo limite na extensão. Ele grava um
+    # batimento no Redis a cada 15 s e este check reclama se envelhecer.
+    healthcheck:
+      test: ["CMD", "node", "scripts/ai-worker-health.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       redis:
         condition: service_healthy

@@ -93,6 +93,17 @@ class AIRouterService {
   /**
    * Classifica erros para ação inteligente (auth/rate_limit/server/timeout/unknown)
    */
+  // IA-61: Retry-After vem como número de segundos ("20") ou data HTTP
+  // ("Wed, 21 Oct 2026 07:28:00 GMT"). Retorna ms a esperar, ou null se inválido.
+  _parseRetryAfter(value) {
+    if (value == null) return null;
+    const secs = Number(value);
+    if (Number.isFinite(secs)) return secs >= 0 ? secs * 1000 : null;
+    const when = Date.parse(String(value));
+    if (!Number.isNaN(when)) return Math.max(0, when - Date.now());
+    return null;
+  }
+
   classifyError(error, providerName) {
     const status = this._getErrorStatus(error);
     const msg = String(error?.message || '').toLowerCase();
@@ -108,7 +119,15 @@ class AIRouterService {
       return { type: 'auth', action: 'cooldown', durationMs, provider: providerName };
     }
     if (status === 429 || msg.includes('rate limit') || msg.includes('quota')) {
-      return { type: 'rate_limit', action: 'cooldown', durationMs: 60 * 60 * 1000, provider: providerName };
+      // IA-61: respeita Retry-After do provedor (segundos ou data HTTP), limitado
+      // a [1s, 1h]. Sem o cabeçalho, mantém o padrão de 1h. Antes era SEMPRE 1h,
+      // mesmo quando o provedor pedia só alguns segundos — o provedor ficava fora
+      // por muito mais tempo que o necessário.
+      const retryMs = this._parseRetryAfter(error && error.retryAfter);
+      const durationMs = retryMs != null
+        ? Math.min(Math.max(retryMs, 1000), 60 * 60 * 1000)
+        : 60 * 60 * 1000;
+      return { type: 'rate_limit', action: 'cooldown', durationMs, provider: providerName, retryAfter: error && error.retryAfter };
     }
     if (status && Number(status) >= 500) {
       return { type: 'server', action: 'cooldown', durationMs: 30 * 1000, provider: providerName };

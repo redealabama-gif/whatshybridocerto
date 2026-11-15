@@ -1,0 +1,27 @@
+=== ANTES (git stash) ===
+
+=== AIRouter Retry-After (IA-61) ===
+
+{"level":"info","message":"[AIRouter] ✅ OpenAI provider configured","timestamp":"2026-11-14T20:17:49.170Z"}
+{"level":"info","message":"[AIRouter] Total providers: 1","timestamp":"2026-11-14T20:17:49.170Z"}
+{"level":"info","message":"[AIRouter] ✅ Initialized with strategy:","detail":"balanced","timestamp":"2026-11-14T20:17:49.170Z"}
+  ✓ 429 sem Retry-After → cooldown 1h (padrão mantido)
+  ✗ 429 com Retry-After: 20 → cooldown 20s
+    Expected values to be strictly equal:
+
+3600000 !== 20000
+
+  ✓ Retry-After acima de 1h é limitado a 1h
+  ✗ Retry-After 0 vira o mínimo de 1s (não cooldown zero)
+    Expected values to be strictly equal:
+
+3600000 !== 1000
+
+  ✗ Retry-After como data HTTP futura → espera até a data
+    durationMs=3600000
+  ✓ Retry-After inválido cai no padrão de 1h
+  ✗ _parseRetryAfter: segundos, data e inválido
+    router._parseRetryAfter is not a function
+
+3 passou, 4 falhou
+

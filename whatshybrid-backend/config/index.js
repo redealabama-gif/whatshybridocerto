@@ -100,7 +100,13 @@ module.exports = {
         }
         // web.whatsapp.com aparece como Origin em alguns fetches de content script.
         if (origin === 'https://web.whatsapp.com') return callback(null, true);
-        return callback(new Error(`CORS bloqueado para origin: ${origin}`));
+        // PROD-01: 403 com mensagem clara (antes virava 500 "error").
+        const err = new Error(`Origem não permitida: ${origin}`);
+        err.statusCode = 403;
+        err.status = 'forbidden';
+        err.code = 'CORS_ORIGIN_NOT_ALLOWED';
+        err.isOperational = true;
+        return callback(err);
       };
     })(),
     credentials: true
