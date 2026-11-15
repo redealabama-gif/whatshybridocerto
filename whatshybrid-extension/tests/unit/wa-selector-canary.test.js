@@ -70,11 +70,13 @@ test('_diffSelectors: pega primary divergente, fallback divergente e chave falta
 test('checkOne: DEGRADED quando só um fallback casa; BROKEN quando nada casa', () => {
   const original = global.document;
   try {
-    // "DOM" onde só '#main' existe
-    global.document = { querySelector: (sel) => (sel === '#main' ? {} : null) };
-    const r1 = canary.checkOne('MAIN_CHAT'); // primary não casa, mas '#main' é fallback
+    // "DOM" onde só um FALLBACK de MAIN_CHAT existe (WA-01: o primary virou
+    // '#main', então o fallback usado aqui é 'div[role="main"]')
+    const umFallback = canary.SELECTORS.MAIN_CHAT.fallbacks[0];
+    global.document = { querySelector: (sel) => (sel === umFallback ? {} : null) };
+    const r1 = canary.checkOne('MAIN_CHAT'); // primary não casa, mas o fallback sim
     assert.strictEqual(r1.status, 'DEGRADED');
-    assert.strictEqual(r1.matched, '#main');
+    assert.strictEqual(r1.matched, umFallback);
     const r2 = canary.checkOne('CONNECTION_STATUS'); // nada casa
     assert.strictEqual(r2.status, 'BROKEN');
   } finally {

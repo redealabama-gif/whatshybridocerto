@@ -1,0 +1,34 @@
+WA-01 — canário de seletores rodado pelo DONO no WhatsApp Web real (console)
+
+ANTES (7 PASS · 1 DEGRADED · 2 BROKEN):
+  MAIN_CHAT          ⚠️ DEGRADED  fallback '#main'   (primary 'div[data-tab="1"]' não existe mais)
+  MESSAGE_INPUT      ✅ PASS
+  SEND_BUTTON        ✅ PASS
+  CHAT_LIST          ✅ PASS
+  CHAT_ITEM          ✅ PASS
+  MESSAGE_LIST       ✅ PASS
+  MESSAGE_ITEM       ❌ BROKEN    (primary 'div[data-id^="true_"]' — o WhatsApp
+                                  atual põe só o id da mensagem no data-id)
+  CHAT_HEADER        ✅ PASS
+  CONTACT_NAME       ✅ PASS
+  CONNECTION_STATUS  ❌ BROKEN    (primary 'span[data-testid="status"]' não existe mais)
+
+IMPACTO: esses seletores alimentam SÓ o monitoramento (anti-break-system →
+tela SAPL). A extração real de mensagens usa outros seletores
+('[data-testid="msg-container"]', role="row") e estava funcionando — a captura
+do Recover rodou normalmente na mesma sessão. Ou seja: o alarme é que estava
+quebrado, não o produto. Mas é justamente ele que deveria avisar quando o
+WhatsApp mudar, então estava inútil.
+
+DEPOIS (corrigido a partir dos seletores que o código que funciona já usa):
+  MAIN_CHAT          primary '#main'            (era fallback e é o que casa)
+  MESSAGE_ITEM       primary 'div[role="row"]'  (+ '[data-testid="msg-container"]')
+  CONNECTION_STATUS  primary '#pane-side'       (mesma checagem de checkConnected
+                                                 em chatbackup/content.js: lista
+                                                 lateral na tela = sessão ativa)
+
+Guard de drift (modo CI) reclamou da cópia embutida no canário até eu
+sincronizar — funcionou como devia. Depois: ✅ 10 seletores em sincronia.
+Testes da extensão: 159/159.
+
+A CONFERIR no WhatsApp real: rodar WACanary.run() de novo e esperar 10 PASS.

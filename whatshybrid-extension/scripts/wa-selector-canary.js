@@ -48,8 +48,8 @@
   // ──────────────────────────────────────────────────────────────────────────
   const SELECTORS = {
     MAIN_CHAT: {
-      primary: 'div[data-tab="1"]',
-      fallbacks: ['#main', 'div[role="main"]', 'div._1hI5g', 'div.two._1jJ70'],
+      primary: '#main',
+      fallbacks: ['div[role="main"]', 'div[data-tab="1"]', 'div._1hI5g'],
       description: 'Container principal do chat',
     },
     MESSAGE_INPUT: {
@@ -89,8 +89,8 @@
       description: 'Lista de mensagens do chat',
     },
     MESSAGE_ITEM: {
-      primary: 'div[data-id^="true_"] , div[data-id^="false_"]',
-      fallbacks: ['div.message-in, div.message-out', 'div[class*="message"]', 'div._1gux_'],
+      primary: 'div[role="row"]',
+      fallbacks: ['[data-testid="msg-container"]', 'div[data-id]', 'div.message-in, div.message-out'],
       description: 'Mensagem individual',
     },
     CHAT_HEADER: {
@@ -108,9 +108,9 @@
       description: 'Nome do contato no header',
     },
     CONNECTION_STATUS: {
-      primary: 'span[data-testid="status"]',
-      fallbacks: ['span[title*="clique aqui"]', 'span[title*="click here"]', 'div._2dDmN'],
-      description: 'Status de conexão WhatsApp',
+      primary: '#pane-side',
+      fallbacks: ['div[aria-label="Lista de conversas"]', 'div[data-testid="chat-list"]', 'span[data-testid="status"]'],
+      description: 'Sessão do WhatsApp ativa (lista lateral na tela)',
     },
   };
 
