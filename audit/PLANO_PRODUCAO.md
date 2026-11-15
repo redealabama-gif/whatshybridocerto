@@ -131,7 +131,12 @@ Status: ✅ (pendências P2 anotadas acima)
 - ⚠️ cobrança real exige credenciais do MercadoPago (🔒); aqui: modo teste e
   webhooks simulados com assinatura válida.
 
-Status: 🔍
+Status: ✅ (fluxo, cupom, webhook, idempotência, estorno, trial→past_due,
+dunning, e-mail da chave — tudo testado, ver
+`audit/evidencias/producao/pagamento-fluxo.md`) · ⚠️ cobrança real e envio de
+e-mail dependem das credenciais do dono (MercadoPago, SendGrid) — go-live.
+Importante p/ o dono: o cadastro **não** cobra no ato; o trial começa sem
+cartão e a cobrança só ocorre quando o cliente configura o pagamento no painel.
 
 ## Fase 6 — IA em produção (P0/P1, pedido do dono)
 
