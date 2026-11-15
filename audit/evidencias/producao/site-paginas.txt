@@ -1,0 +1,13 @@
+PASSOU  links internos das 10 páginas (9 únicos) sem 404 — todos respondem
+PASSOU  termos e privacidade têm conteúdo de verdade — ok (>1500 caracteres cada)
+PASSOU  ajuda: todos os cartões "Ler guia" abrem um guia com conteúdo — {"total":9,"mortos":[]}
+PASSOU  ajuda: guia de tokens diz o consumo REAL (~1.800/sugestão, não 750) — {"certo":true,"errado750":false}
+PASSOU  "esqueci minha senha" confirma o envio — tela="Recuperar senha Enviaremos um link de redefinição para seu email Link enviado! Se este email estiver cadastrado, você receberá um link de re"
+PASSOU  redefinir com token inválido mostra erro claro — tela="Link inválido ou expirado
+
+Solicite um novo link em recuperar senha."
+PASSOU  celular 390px: sem rolagem horizontal (início, cadastro, login, painel) — ok
+PASSOU  celular: cadastro completo chega ao painel — url=/dashboard.html
+PASSOU  nenhuma página com erro de console (fora CDNs bloqueadas aqui) — ok
+
+9 de 9 verificações do site passaram
