@@ -220,13 +220,16 @@ Status: ✅ (dry-run) · 🔒 envio real e chave-mestra no go-live
 
 ## Fase 10 — Segurança (P0/P1)
 
-- Segredos fortes e fora do git; `.env` de produção.
-- CORS/CSP (PROD-01, PROD-06), limites de tentativa (PROD-05).
-- Rotas de administração e kill switch protegidas.
-- Dependências com falha conhecida (`npm audit` no backend e na extensão).
-- XSS nos campos que aparecem em tela (nome, mensagens, notas do CRM).
-- Isolamento entre clientes (um cliente não vê dado de outro) — já há testes;
-  conferir as rotas novas.
+Resumo completo em `audit/evidencias/producao/seguranca.md`. Verificado:
+segredos fora do git (só `.env.example`); placeholders recusados em produção;
+rotas de administração e kill switch recusando sem credencial (401); CORS e
+CSP; limite de tentativas por cliente; isolamento entre clientes; senha e 2FA;
+**XSS** (nome/empresa maliciosos não executam nada — 4/4 no navegador);
+dependências (extensão 0 vulnerabilidades; backend com `qs` corrigido —
+SEG-01). Risco aceito: `uuid` aninhado em `node-cron@3`/`gaxios` (usa só v4;
+subir node-cron é mudança que quebra → P2).
+
+Status: ✅ · 🔒 go-live: segredos fortes no `.env`, chave-mestra removida
 
 ## Fase 11 — LGPD, termos e Chrome Web Store (P0)
 
