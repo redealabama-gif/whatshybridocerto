@@ -229,11 +229,38 @@ function startWorkers() {
   }
 
   logger.info('[AIWorker] ✅ AI Worker iniciado com BullMQ');
+  startHeartbeat();
+}
+
+// ── INF-01: batimento de saúde ────────────────────────────────────────────────
+// O worker não tinha NENHUM sinal de vida: se travasse (event loop preso,
+// conexão com o Redis morta mas processo vivo), o Docker não percebia, a fila
+// parava e as sugestões estouravam o tempo limite na extensão (é o IA-43 visto
+// do lado do servidor). Agora grava um carimbo de tempo no Redis a cada 15 s; o
+// healthcheck do compose lê esse carimbo e reinicia o container se envelhecer.
+const HEARTBEAT_KEY = 'whl:ai-worker:heartbeat';
+const HEARTBEAT_MS = parseInt(process.env.WORKER_HEARTBEAT_MS, 10) || 15000;
+let heartbeatTimer = null;
+
+function startHeartbeat() {
+  const bater = async () => {
+    try {
+      // usa a conexão do BullMQ (ioredis) de qualquer uma das filas
+      const cliente = await Object.values(queues)[0].client;
+      await cliente.set(HEARTBEAT_KEY, String(Date.now()), 'EX', 120);
+    } catch (e) {
+      logger.warn(`[AIWorker] heartbeat falhou: ${e.message}`);
+    }
+  };
+  bater();
+  heartbeatTimer = setInterval(bater, HEARTBEAT_MS);
+  if (heartbeatTimer.unref) heartbeatTimer.unref();
 }
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────────
 async function shutdown() {
   logger.info('[AIWorker] Encerrando workers...');
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   await Promise.all(Object.values(workers).map(w => w.close()));
   await Promise.all(Object.values(queueEvents).map(qe => qe.close()));
   await Promise.all(Object.values(queues).map(q => q.close()));

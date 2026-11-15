@@ -1,0 +1,17 @@
+Healthcheck do ai-worker (INF-01) — scripts/ai-worker-health.js
+Rodado contra um Redis real (porta 16379).
+
+1. sem batimento (worker nunca subiu ou travou antes do 1º batimento):
+ai-worker unhealthy: sem batimento no Redis (worker nunca subiu ou travou)
+   exit=1
+2. batimento fresco (worker saudável):
+ai-worker ok (batimento há 0 s)
+   exit=0
+3. batimento de 5 min atrás (worker travado):
+ai-worker unhealthy: último batimento há 300 s (limite 90 s)
+   exit=1
+4. Redis fora do ar:
+ai-worker unhealthy: Redis inacessível (connect ECONNREFUSED 127.0.0.1:16379)
+   exit=1
+
+exit=0 → healthy; exit=1 → Docker marca unhealthy.
