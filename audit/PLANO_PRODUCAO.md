@@ -52,32 +52,32 @@ Prioridade: **P0** impede lançar · **P1** corrigir antes de escalar vendas ·
 
 ## Fase 1 — Extensão: varredura de todas as telas (P0)
 
-Para cada tela: abrir no Chromium com a extensão real, o WhatsApp simulado e o
-backend de teste; usar **cada** controle; anotar: funciona / não funciona
-(corrigir ou remover) / depende de WhatsApp real (⚠️, vai para o roteiro manual
-`audit/ROTEIRO_TESTE_WHATSAPP_REAL.md`).
+**Feita em duas passadas** (extensão real no Chromium + WhatsApp simulado +
+backend de teste):
 
-| Tela | O que verificar | Status |
+1. **Abertura** (`audit/harness/extensao-varredura.js`): as 14 telas do painel
+   lateral, o popup e a página de CRM abrem SEM erro de script, sem pedido
+   falho e com controles visíveis. Antes 14/17, depois **17/17**
+   (`varredura-0-antes.txt` → `varredura-1-depois.txt`).
+2. **Interações-chave** (`audit/harness/extensao-interacoes.js`): disparo gera
+   a fila com os números digitados; extrator responde; "ocultar online" chega
+   ao WhatsApp; config salva; exportar do backup responde; CRM salva contato
+   novo; tarefa criada aparece na lista; resposta rápida salva; Autopilot
+   mostra estado real; tela do servidor e popup renderizam. Antes 10/12,
+   depois **12/12** (`interacoes-0-antes.txt` → `interacoes-1-depois.txt`).
+
+Defeitos reais encontrados e corrigidos:
+
+| # | Problema | Status |
 |---|---|---|
-| Popup (`popup/popup.html`) | login, chave de acesso, plano mostrado, botões, links | 🔍 |
-| Painel lateral — Principal (disparo) | lista de números, importar CSV/planilha, mensagem com variáveis, imagem/áudio/arquivo, intervalo, iniciar/pausar/parar, fila, relatório | 🔍 |
-| Painel lateral — Extrator | extrair contatos/arquivados/bloqueados, exportar CSV | 🔍 |
-| Painel lateral — Grupos | listar grupos, extrair membros, exportar | 🔍 |
-| Painel lateral — Recover | mensagens apagadas/editadas, mídia, filtros, exportar | 🔍 |
-| Painel lateral — CRM | contatos, etapas do funil, arrastar, notas, tags, busca | 🔍 |
-| Painel lateral — Tarefas | criar, concluir, lembrete, busca/filtro | 🔍 |
-| Painel lateral — IA / Autopilot | ligar/desligar, modo copiloto, limite, horário, regras, kill switch | 🔍 |
-| Painel lateral — Respostas rápidas | criar, gatilho `/` no chat, editar, excluir | 🔍 |
-| Painel lateral — Equipe | convidar, papéis, limites do plano | 🔍 |
-| Painel lateral — Backup | exportar/importar dados | 🔍 |
-| Painel lateral — Configurações / Servidor / SAPL | cada opção salva e tem efeito | 🔍 |
-| Página CRM (`crm/crm.html`) | cada botão e campo | 🔍 |
-| Treinamento — 6 abas | Simulação, Exemplos, FAQs, Produtos, Negócio, Importar: cada campo/botão, Exportar, Sincronizar, Laboratório de teste | 🔧 (busca, simulação e topo prontos; resto a varrer) |
-| Dentro do WhatsApp | barra do topo, botão 🤖 e painel de sugestão, 👍/👎, Autopilot, banners do Recover | 🔍 (parte já coberta pelas fases de IA) |
-| Bloqueio por plano | o que cada plano libera aparece liberado e o resto bloqueado com mensagem clara | 🔍 (ligado à Fase 4) |
+| VAR-01 | Privacidade (ocultar online/digitando) e botões do SAPL rodavam na ABA ATIVA, não na do WhatsApp → falhavam em silêncio com outra aba em foco | ✅ |
+| VAR-02 | Toda abertura do painel logava 3 erros de arquivo inexistente (scripts de teste no sidepanel.html; socket.io no manifest/backend-client) | ✅ |
+| VAR-03 | **Todo comando do painel** (gerar tabela, extrair, exportar, iniciar) exigia a aba do WhatsApp EM FOCO — senão "Abra o WhatsApp Web" mesmo com ele aberto | ✅ |
 
-Critério de pronto: tabela por tela com cada controle e o resultado, prints em
-`audit/evidencias/producao/extensao/`.
+O que fica para o roteiro com WhatsApp REAL (⚠️ `audit/ROTEIRO_TESTE_WHATSAPP_REAL.md`):
+envio de disparo de verdade, extração de grupos com modal real, exportar
+conversa com chat aberto, barra do topo e sugestão 🤖 em conversas reais (já
+cobertas com IA real nas fases V1–V3), equipe com 2 contas.
 
 ## Fase 2 — Site (P0)
 
