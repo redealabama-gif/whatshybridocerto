@@ -83,13 +83,15 @@ cobertas com IA real nas fases V1–V3), equipe com 2 contas.
 
 | Item | O que verificar | Status |
 |---|---|---|
-| Cadastro → painel; login; senha errada | navegador real | ✅ (`audit/harness/site-producao.js`) |
-| Esqueci minha senha → e-mail → redefinir → entrar | ponta a ponta com o link do e-mail | 🔍 |
-| Página inicial | cada botão/link, seção de preços igual aos planos reais, cupom de saída (EXIT50) | 🔍 |
-| Termos, privacidade, ajuda, documentação da API | abrem, sem link quebrado, conteúdo coerente com o produto | 🔍 |
-| Versão celular | cadastro, login, painel e página inicial em 390 px | 🔍 |
-| Erros no console e arquivos 404 | nenhuma página com erro | ✅ PROD-06/07; documentação da API usa `swagger-ui-dist@5` da CDN jsdelivr (bloqueada aqui — ⚠️ NÃO VERIFICADO; fixar versão) |
-| Pixels/analytics | disparam só com consentimento (ver Fase 11) | 🔍 |
+| Cadastro → painel; login; senha errada; resumo de preço; cursor; ícones; Google; anual | `audit/harness/site-producao.js` (12/12) | ✅ |
+| Links internos das 10 páginas | nenhum 404 (`site-paginas.js`) | ✅ |
+| Termos, privacidade e ajuda | conteúdo real; os 9 guias da ajuda abrem; guia de tokens corrigido (dizia ~750/interação; real ~1.800) | ✅ |
+| Esqueci/redefinir senha (telas) | envio confirmado; token inválido → "Link inválido ou expirado" | ✅ (ponta a ponta com o link do e-mail: Fase 3) |
+| Celular 390px | sem rolagem horizontal; cadastro completo no celular chega ao painel | ✅ |
+| Erros de console | nenhum, fora CDNs bloqueadas AQUI (swagger via jsdelivr; sonda local do globo `cobe.js` documentada — o Docker baixa no build) | ✅ |
+| Documentação da API (swagger via CDN) | ⚠️ NÃO VERIFICADO aqui (CDN bloqueada); fixar versão do swagger-ui é P2 | ⚠️ |
+
+Evidências: `site-9-pln02-anual.txt`, `site-paginas.txt`, prints em scratch.
 
 ## Fase 3 — Conta e acesso (P0)
 
