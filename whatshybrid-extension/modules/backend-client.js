@@ -892,24 +892,15 @@
     if (socketIOUnavailable) return;
 
     try {
-      // Verifica se Socket.IO está disponível
+      // VAR-02: lib/socket.io.min.js nunca foi empacotado — a tentativa de
+      // carregar deixava um erro de rede no console em TODA abertura do painel.
+      // Sem a lib, fica no modo HTTP (o sync por fetch cobre tudo; só o "tempo
+      // real" fica desligado). Para reativar: empacotar a lib e carregá-la num
+      // <script> da página (aí `io` já existe aqui).
       if (typeof io === 'undefined') {
-        // Tenta carregar dinamicamente
-        loadSocketIO().then(() => {
-          if (typeof io !== 'undefined') {
-            initializeSocket();
-          } else {
-            socketIOUnavailable = true;
-            console.info('[BackendClient] Socket.IO indisponível — sync em modo HTTP (tempo real desligado)');
-            updateSocketUI(false, 'Tempo real indisponível');
-          }
-        }).catch(() => {
-          // Arquivo ausente do pacote: degrada em silêncio (1 log info) e
-          // não fica re-tentando. O sync por HTTP continua funcionando.
-          socketIOUnavailable = true;
-          console.info('[BackendClient] lib/socket.io.min.js ausente — sync em modo HTTP (tempo real desligado)');
-          updateSocketUI(false, 'Tempo real indisponível');
-        });
+        socketIOUnavailable = true;
+        console.info('[BackendClient] Socket.IO não empacotado — sync em modo HTTP (tempo real desligado)');
+        updateSocketUI(false, 'Tempo real indisponível');
         return;
       }
 
@@ -918,21 +909,6 @@
       console.error('[BackendClient] Socket connection failed:', error);
       updateSocketUI(false, 'Erro de conexão');
     }
-  }
-
-  async function loadSocketIO() {
-    return new Promise((resolve, reject) => {
-      if (typeof io !== 'undefined') {
-        resolve();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('lib/socket.io.min.js');
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('socket.io.min.js ausente'));
-      document.head.appendChild(script);
-    });
   }
 
   function initializeSocket() {

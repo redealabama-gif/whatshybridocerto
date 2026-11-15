@@ -1901,21 +1901,32 @@ function showView(viewName) {
     if (slider) slider.style.background = checked ? '#00a884' : '#ccc';
   }
 
-  function sendToTab(msg) {
+  // VAR-01: os controles de privacidade e do SAPL rodam NA ABA DO WHATSAPP.
+  // Antes usavam tabs[0] da janela ativa: com qualquer outra aba em foco (ou o
+  // painel aberto como aba), os botões falhavam em silêncio ("Cannot access
+  // contents of url ..."). Agora procuram a aba do web.whatsapp.com.
+  function whatsappTab() {
     return new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]?.id) return resolve(null);
-        chrome.tabs.sendMessage(tabs[0].id, msg, (r) => resolve(r));
+      chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }, (tabs) => {
+        const ativa = (tabs || []).find((t) => t.active) || (tabs || [])[0];
+        resolve(ativa || null);
       });
     });
   }
 
+  function sendToTab(msg) {
+    return whatsappTab().then((tab) => new Promise((resolve) => {
+      if (!tab?.id) return resolve(null);
+      chrome.tabs.sendMessage(tab.id, msg, (r) => { void chrome.runtime.lastError; resolve(r); });
+    }));
+  }
+
   function privacyShieldInit() {
     // Carregar estado inicial do localStorage da tab ativa
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]?.id) return;
+    whatsappTab().then((tab) => {
+      if (!tab?.id) return;
       chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
+        target: { tabId: tab.id },
         func: () => ({
           hideOnline: localStorage.getItem('whl_privacy_hide_online') === 'true',
           hideTyping: localStorage.getItem('whl_privacy_hide_typing') === 'true',
@@ -2024,11 +2035,12 @@ function showView(viewName) {
   }
 
   async function saplExecInTab(methodName, ...args) {
+    const tab = await whatsappTab(); // VAR-01
     return new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]?.id) return resolve(null);
+      {
+        if (!tab?.id) return resolve(null);
         chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
+          target: { tabId: tab.id },
           func: (method, methodArgs) => {
             if (!window.SAPL || typeof window.SAPL[method] !== 'function') return null;
             try {
@@ -2040,7 +2052,7 @@ function showView(viewName) {
           },
           args: [methodName, args]
         }, (results) => resolve(results?.[0]?.result ?? null));
-      });
+      }
     });
   }
 

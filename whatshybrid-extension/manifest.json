@@ -86,7 +86,6 @@
         "icons/128.png",
         "icons/16.png",
         "icons/48.png",
-        "lib/socket.io.min.js",
         "lib/xlsx.mini.min.js",
         "utils/google-sheets-export.js",
         "utils/storage.js",
