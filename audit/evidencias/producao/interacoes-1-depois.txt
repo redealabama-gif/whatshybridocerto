@@ -1,0 +1,14 @@
+PASSOU  disparo: "Gerar tabela" monta a fila com os 2 números — meta="2 contato(s) • posição: 1/2" linhas=2
+PASSOU  disparo: "Limpar" esvazia os campos — numeros depois=""
+PASSOU  extrator: comando chega ao WhatsApp mesmo sem a aba em foco (VAR-03) — antes="✅ Atualizado." depois="✅ Extraído."
+PASSOU  recover: "ocultar online" chega à aba do WhatsApp (VAR-01) — localStorage do WhatsApp="true"
+PASSOU  config: salvar grava em storage (chaves de config existem) — campo={"id":"sp_delay_min","valor":"7"} chaves=["whl_api_config","whl_backend_config"]
+PASSOU  backup: exportar responde (arquivo ou status claro ao usuário) — status="WhatsApp não conectado (faça login no QR Code) |  | Abra o WhatsApp Web (web.whatsapp.com) e faça login." (botão "📤 Exportar conversa atual")
+PASSOU  crm: novo contato abre formulário e salva — campos visíveis=["contact-phone","contact-name","contact-company"] noKanban=false noStorage=true
+PASSOU  tarefas: criar pela tela funciona e aparece na lista — botao="➕ Nova Tarefa" form=true {"naLista":true,"total":"1"}
+PASSOU  respostas rápidas: criar pela tela salva — botao="➕ Nova Resposta" form=true salvaNoStorage=true naTela=true
+PASSOU  autopilot: cartão de status mostra o estado real (não fica vazio) — {"texto":"Parado","detalhe":"Clique em Iniciar para começar","botoes":["▶️ Iniciar","Limpar","➕ Adicionar chat atual à lista"]} storageAntes=vazio
+PASSOU  servidor: tela mostra sessão conectada — texto="☁️ Integração com Backend Conecte-se ao servidor Vórtex Pro para sincronizar dados, usar IA avançada e acessar recursos "
+PASSOU  popup: renderiza versão, status e ações — botoes=7 texto="v9.6.6 STATUS Abra o WhatsApp Web 📊 CRM Kanban → 🚀 Abrir Painel 👥 Extrator V6 (Side Panel) 📱 Extrair Contatos 🧠 Rec"
+
+12 de 12 interações passaram

@@ -193,8 +193,12 @@ console.log('[SidePanel Router] 📦 Arquivo carregado pelo browser');
       const outgoing = { ...payload };
       delete outgoing._timeoutMs;
 
-      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-        const tab = (tabs || []).find(t => (t.url || '').includes('web.whatsapp.com'));
+      // VAR-03: antes só procurava o WhatsApp entre as abas ATIVAS — com o
+      // painel aberto e o foco em outra aba (ou outra janela), TODO comando
+      // falhava com "Abra o WhatsApp Web" mesmo com o WhatsApp aberto. Agora
+      // acha a aba do web.whatsapp.com onde estiver, preferindo a ativa.
+      chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }, (tabs) => {
+        const tab = (tabs || []).find(t => t.active) || (tabs || [])[0];
         if (!tab?.id) return safeReject(new Error('Abra o WhatsApp Web (web.whatsapp.com) e tente novamente.'));
         console.log('[SidePanel Router] 📤 Sending to tab:', tab.id, outgoing);
         chrome.tabs.sendMessage(tab.id, outgoing, (resp) => {
