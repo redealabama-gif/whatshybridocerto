@@ -236,13 +236,21 @@ Status: ✅ · 🔒 go-live: segredos fortes no `.env`, chave-mestra removida
 
 ## Fase 11 — LGPD, termos e Chrome Web Store (P0)
 
-- Política de privacidade e termos coerentes com o que a extensão coleta (lê
-  conversas do WhatsApp, envia para IA, guarda mensagens apagadas).
-- Consentimento de cookies antes de pixels (Meta/Google).
-- Exclusão de dados/conta e prazo de retenção (já há rotina de limpeza — conferir).
-- Chrome Web Store: permissões do `manifest.json` justificadas, descrição,
-  política de privacidade publicada, ícones/prints; risco de reprovação por
-  automação do WhatsApp — revisar textos 🔒.
+Detalhe em `audit/evidencias/producao/lgpd-webstore.md`.
+
+- **LGP-01 ✅** — a extensão instalada pela Web Store apontava para
+  `http://localhost:3000` (a máquina do próprio cliente): nada funcionava.
+  Agora usa servidor de produção https quando instalada pela loja.
+- **LGP-02 ✅** — a política de privacidade não mencionava o **Recover**
+  (mensagens que o remetente apagou, versão anterior de editadas) nem o
+  **Extrator** (contatos e membros de grupos), e afirmava que não havia
+  rastreamento de terceiros enquanto o site carrega GA e Meta Pixel.
+- Exportar dados, excluir conta e rotina de retenção: ✅ com testes.
+- Permissões do manifesto: todas justificáveis; `localhost` em
+  `host_permissions` é ⚠️ para a revisão da loja (decisão do dono).
+
+Status: ✅ · 🔒 go-live: confirmar o endereço da API, aviso de cookies (se usar
+pixels), avaliar tirar `localhost` do pacote publicado, montar a ficha da loja.
 
 ## Fase 12 — Go-live (o que só o dono pode fazer) 🔒
 
