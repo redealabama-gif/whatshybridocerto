@@ -1,0 +1,10 @@
+    ✓ cadastro cria conta com trial de 7 dias e dispara o e-mail de boas-vindas (445 ms)
+    ✓ recuperar senha: /forgot-password responde 200 e grava o token (hash) (8 ms)
+    ✓ e-mail inexistente também responde 200 (não revela quem tem conta) (5 ms)
+    ✓ redefinir com o token do link troca a senha; a antiga para de valer (1125 ms)
+    ✓ o mesmo link não redefine duas vezes (uso único) (9 ms)
+    ✓ token de reset expirado é recusado (6 ms)
+    ✓ 2FA: ativar com um código TOTP de verdade (16 ms)
+    ✓ com 2FA ligado o login vira 2 passos: senha → código → sessão (388 ms)
+    ✓ 2FA: desativar exige senha + código; depois o login volta ao simples (790 ms)
+Tests:       9 passed, 9 total
