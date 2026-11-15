@@ -209,14 +209,17 @@ Status: ✅ (dry-run) · 🔒 envio real e chave-mestra no go-live
 
 ## Fase 9 — Infraestrutura (P0/P1)
 
-- Produção usa **SQLite** (um servidor só). Ok para o lançamento, com backup.
-  Postgres está desligado de propósito (o código ainda tem partes síncronas).
-- Backup diário + **restauração testada** (`deploy/scripts/backup.sh`,
-  `restore.sh`, `npm run dr:drill`).
-- Caddy/TLS, redirecionamento www → domínio, cabeçalhos; `deploy.sh` e `health.sh`.
-- Redis (fila da IA, limites): o que acontece se cair.
-- Sentry e alertas chegando a alguém; uptime externo.
-- Capacidade: teste de carga (k6) no cadastro, login e IA.
+| Item | Verificação | Status |
+|---|---|---|
+| Banco de produção | **SQLite** (um servidor). Postgres fica desligado de propósito (driver async × código síncrono) | ✅ decidido |
+| Backup restaurável | `npm run dr:drill`: semeia → backup → destrói → restaura → `integrity_check: ok` e impressão digital idêntica (RPO=0) | ✅ |
+| compose | YAML válido; exige segredos explicitamente (não sobe com placeholder); 4 serviços, `restart: unless-stopped`, volumes persistentes | ✅ |
+| Healthchecks | caddy, backend, redis **e agora ai-worker** (INF-01 — era o único sem; fila travada passava despercebida) | ✅ |
+| Caddy/TLS | Let's Encrypt automático, HSTS 1 ano, cabeçalhos de segurança, `X-Forwarded-*` corretos (PROD-05) | ✅ |
+| Redis | healthcheck, AOF em volume; se cair, a IA degrada para HTTP e o worker fica unhealthy (visível) | ✅ |
+| Sentry e alertas | `SENTRY_DSN` opcional; alertManager para provedor fora, todos os provedores falhando, trial expirado, e-mail em dry-run | ✅ (ligar DSN é 🔒) |
+| Scripts de operação | `backup.sh`, `restore.sh`, `health.sh`, `deploy.sh`, `install.sh` | ✅ |
+| Teste de carga (k6) | ⚠️ NÃO VERIFICADO aqui (precisa de ambiente de verdade) — `tests/load/` tem os roteiros | ⚠️ |
 
 ## Fase 10 — Segurança (P0/P1)
 
