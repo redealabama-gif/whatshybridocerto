@@ -70,6 +70,7 @@ const ESPIAO = () => {
 
   let dialogos = 0;
   const mortos = [];
+  const sumiram = [];   // apareceram na coleta e sumiram antes do clique (modal fechado etc.)
   let total = 0;
   // Abrir ABA NOVA é reação: btnOpenCrmFullscreen usa chrome.tabs.create e
   // "Ver planos" usa window.open. Nenhum dos dois mexe na página atual, então
@@ -77,25 +78,38 @@ const ESPIAO = () => {
   let abasNovas = 0;
   ctx.on('page', () => { abasNovas++; });
 
-  async function varrer(page, rotulo) {
-    const alvos = await page.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        if (!el.offsetParent || r.width < 4 || r.height < 4) return;
-        if (el.disabled) return;                       // desabilitado é intencional
-        el.setAttribute('data-btn-i', String(i));
-        out.push({
-          i: String(i),
-          texto: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 42) || el.getAttribute('title') || el.id || '(sem texto)',
-          id: el.id || '', href: el.getAttribute('href') || '',
-        });
+  /** Marca os clicáveis na ordem do DOM. Idempotente: roda antes de cada clique. */
+  const MARCAR = () => {
+    let n = 0;
+    const out = [];
+    document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (!el.offsetParent || r.width < 4 || r.height < 4) return;
+      if (el.disabled) return;                       // desabilitado é intencional
+      const i = n++;
+      el.setAttribute('data-btn-i', String(i));
+      out.push({
+        i: String(i),
+        texto: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 42) || el.getAttribute('title') || el.id || '(sem texto)',
+        id: el.id || '', href: el.getAttribute('href') || '',
       });
-      return out;
     });
+    return out;
+  };
+
+  async function varrer(page, rotulo) {
+    const alvos = await page.evaluate(MARCAR);
 
     for (const a of alvos) {
       if (/^(mailto:|tel:|https?:)/i.test(a.href)) continue;   // sai do painel
+
+      // Re-marca antes de clicar: um clique anterior pode ter aberto ou
+      // fechado um modal, e aí o elemento deste índice não é mais o mesmo —
+      // ou nem existe. Sem isto, botão de modal que sumiu virava "morto".
+      const agora = await page.evaluate(MARCAR);
+      const atual = agora.find((x) => x.i === a.i);
+      if (!atual || atual.texto !== a.texto) { sumiram.push({ rotulo, ...a }); continue; }
+
       total++;
       let req = 0;
       const onReq = () => { req++; };
@@ -151,6 +165,8 @@ const ESPIAO = () => {
 
   console.log('\n' + '='.repeat(70));
   console.log(`clicáveis testados: ${total}`);
+  console.log(`sumiram antes do clique (modal fechado etc.): ${sumiram.length}`);
+  for (const x of sumiram) console.log(`   ${x.rotulo}  "${x.texto}"`);
   console.log(`MORTOS: ${mortos.length}`);
   for (const m of mortos) console.log(`   ${m.rotulo}  "${m.texto}"  id=${m.id}`);
   console.log('='.repeat(70));
