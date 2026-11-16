@@ -871,8 +871,9 @@
       // ✅ Manter o chatId original (necessário para abrir o chat e localizar a mensagem no WhatsApp)
       // (sem o sufixo @c.us / @g.us, algumas rotinas de navegação/download falham)
       chatId: data.chatId || data.chat || data.to || null,
-      from: extractPhone(data.from || data.author || data.sender),
-      to: extractPhone(data.to || data.chatId || data.chat),
+      // WA-04: ver resolverLados() — remetente e destinatário nunca podem sair
+      // iguais só porque um dos dois não veio.
+      ...resolverLados(data),
       body: data.body || data.text || data.caption || '',
       type: data.type || 'chat',           // 6.4-6.7: chat, image, video, audio, ptt, sticker, document
       action: data.action || data.kind || 'revoked',  // 6.1-6.3: revoked, deleted, edited
@@ -1219,6 +1220,50 @@
   // ============================================
   // 6.13-6.15 - EXTRAÇÃO DE TELEFONE (LEGACY)
   // ============================================
+  /**
+   * WA-04 — o histórico mostrava "559284891875 -> 559284891875" (o mesmo número
+   * dos dois lados) em mensagens que não eram da própria conta.
+   *
+   * O normalizador fazia:
+   *   from: extractPhone(data.from || data.author || data.sender)
+   *   to:   extractPhone(data.to   || data.chatId || data.chat)
+   *
+   * O caminho de captura pela tela (recover-visual-injector) manda
+   * `from: chatId, to: null` numa mensagem recebida. Com `to` nulo, a segunda
+   * linha caía no PRÓPRIO chatId — e os dois lados viravam o id do chat.
+   * Medido no aparelho do dono: o registro ruim tinha chatId como OBJETO
+   * ({_serialized, server:'lid', user}), enquanto os bons tinham como texto.
+   *
+   * A regra real é simples: em mensagem recebida o destinatário é a própria
+   * conta; em mensagem enviada, o remetente é a própria conta. O id do chat
+   * serve para o OUTRO lado, nunca para os dois.
+   */
+  function resolverLados(data) {
+    const vazio = (v) => !v || v === 'Desconhecido' || v === 'Número desconhecido';
+    const dono = getOwner();
+    const ehMinha = data.fromMe === true;
+    const doChat = extractPhone(data.chatId || data.chat);
+
+    let de = extractPhone(data.from || data.author || data.sender);
+    let para = extractPhone(data.to);
+
+    if (ehMinha) {
+      if (vazio(de) && dono) de = dono;
+      if (vazio(para) && !vazio(doChat)) para = doChat;
+    } else {
+      if (vazio(de) && !vazio(doChat)) de = doChat;
+      if (vazio(para) && dono) para = dono;
+    }
+
+    // Sobrou igual dos dois lados sem ser a conversa consigo mesmo: um deles
+    // está errado, e o lado da própria conta é o que se sabe com certeza.
+    if (!vazio(de) && de === para && dono && de !== dono) {
+      if (ehMinha) de = dono; else para = dono;
+    }
+
+    return { from: de, to: para };
+  }
+
   function extractPhone(value) {
     // Backward compatibility: use new extractPhoneNumber
     return extractPhoneNumber(value);
@@ -1524,34 +1569,69 @@
    * @param {string} chatId - Chat ID to open
    * @returns {Promise<boolean>} - true if chat was opened
    */
+  /** Normaliza um chatId que pode vir como string ou como objeto wid. */
+  function chatIdTexto(chatId) {
+    if (!chatId) return '';
+    if (typeof chatId === 'string') return chatId;
+    return String(chatId._serialized || chatId.id || '');
+  }
+
+  /**
+   * Procura um chat JÁ CARREGADO. Nunca cria.
+   *
+   * WA-05: aqui se usava `Store.Chat.find(chatId)`. No WhatsApp Web o `find`
+   * procura OU CRIA: com um id que a conta não tem — caso dos `@lid` guardados
+   * nos registros — ele consulta o servidor e o WhatsApp abre o aviso
+   * "O número +244 194828361906 não está no WhatsApp". Esse número nunca
+   * existiu: são os dígitos do @lid tratados como telefone. Por isso aqui só
+   * se faz consulta (`get` ou varredura dos modelos carregados).
+   */
+  function acharChatCarregado(chatId) {
+    const alvo = chatIdTexto(chatId);
+    if (!alvo) return null;
+    const col = window.Store?.Chat;
+    if (!col) return null;
+    try {
+      const c = typeof col.get === 'function' ? col.get(alvo) : null;
+      if (c) return c;
+    } catch (_) { /* coleção sem get */ }
+    try {
+      const modelos = typeof col.getModelsArray === 'function' ? col.getModelsArray() : [];
+      return (modelos || []).find((m) => chatIdTexto(m && m.id) === alvo) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function openChatById(chatId) {
     try {
-      // Method 1: Via Store.Cmd
-      if (window.Store?.Chat?.find && window.Store?.Cmd?.openChatAt) {
-        const chat = await window.Store.Chat.find(chatId);
-        if (chat) {
+      const alvo = chatIdTexto(chatId);
+      if (!alvo) return false;
+
+      const chat = acharChatCarregado(chatId);
+      if (chat) {
+        if (window.Store?.Cmd?.openChatAt) {
           await window.Store.Cmd.openChatAt(chat);
           return true;
         }
-      }
-      
-      // Method 2: Via Store.Chat
-      if (window.Store?.Chat?.find) {
-        const chat = await window.Store.Chat.find(chatId);
-        if (chat && window.Store.Cmd?.openChatBottom) {
+        if (window.Store?.Cmd?.openChatBottom) {
           await window.Store.Cmd.openChatBottom(chat);
           return true;
         }
       }
-      
-      // Method 3: Via DOM (find chat in list and click)
-      const chatListItem = document.querySelector(`[data-id="${chatId}"]`) ||
-                          document.querySelector(`[title*="${chatId.split('@')[0]}"]`);
-      if (chatListItem) {
-        chatListItem.click();
+
+      // DOM: o chat pode estar na lista sem o modelo acessível. O casamento por
+      // título só vale para id de telefone — com @lid os dígitos não são um
+      // número e casariam com a conversa errada.
+      let item = document.querySelector(`[data-id="${alvo}"]`);
+      if (!item && !/@lid$/i.test(alvo)) {
+        item = document.querySelector(`[title*="${alvo.split('@')[0]}"]`);
+      }
+      if (item) {
+        item.click();
         return true;
       }
-      
+
       return false;
     } catch (e) {
       console.error('[RecoverAdvanced] openChatById failed:', e);
@@ -3180,6 +3260,10 @@
     // Comparação de edições
     compareEdited,
     
+    // Abrir conversa (WA-05: consulta, nunca cria)
+    openChatById,
+    acharChatCarregado,
+
     // Mídia
     downloadMediaActive,
     downloadFullMedia, // BUG 1/5: Full-size media download (old method)
