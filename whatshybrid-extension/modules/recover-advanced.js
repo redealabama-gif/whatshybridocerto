@@ -1524,34 +1524,69 @@
    * @param {string} chatId - Chat ID to open
    * @returns {Promise<boolean>} - true if chat was opened
    */
+  /** Normaliza um chatId que pode vir como string ou como objeto wid. */
+  function chatIdTexto(chatId) {
+    if (!chatId) return '';
+    if (typeof chatId === 'string') return chatId;
+    return String(chatId._serialized || chatId.id || '');
+  }
+
+  /**
+   * Procura um chat JÁ CARREGADO. Nunca cria.
+   *
+   * WA-05: aqui se usava `Store.Chat.find(chatId)`. No WhatsApp Web o `find`
+   * procura OU CRIA: com um id que a conta não tem — caso dos `@lid` guardados
+   * nos registros — ele consulta o servidor e o WhatsApp abre o aviso
+   * "O número +244 194828361906 não está no WhatsApp". Esse número nunca
+   * existiu: são os dígitos do @lid tratados como telefone. Por isso aqui só
+   * se faz consulta (`get` ou varredura dos modelos carregados).
+   */
+  function acharChatCarregado(chatId) {
+    const alvo = chatIdTexto(chatId);
+    if (!alvo) return null;
+    const col = window.Store?.Chat;
+    if (!col) return null;
+    try {
+      const c = typeof col.get === 'function' ? col.get(alvo) : null;
+      if (c) return c;
+    } catch (_) { /* coleção sem get */ }
+    try {
+      const modelos = typeof col.getModelsArray === 'function' ? col.getModelsArray() : [];
+      return (modelos || []).find((m) => chatIdTexto(m && m.id) === alvo) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function openChatById(chatId) {
     try {
-      // Method 1: Via Store.Cmd
-      if (window.Store?.Chat?.find && window.Store?.Cmd?.openChatAt) {
-        const chat = await window.Store.Chat.find(chatId);
-        if (chat) {
+      const alvo = chatIdTexto(chatId);
+      if (!alvo) return false;
+
+      const chat = acharChatCarregado(chatId);
+      if (chat) {
+        if (window.Store?.Cmd?.openChatAt) {
           await window.Store.Cmd.openChatAt(chat);
           return true;
         }
-      }
-      
-      // Method 2: Via Store.Chat
-      if (window.Store?.Chat?.find) {
-        const chat = await window.Store.Chat.find(chatId);
-        if (chat && window.Store.Cmd?.openChatBottom) {
+        if (window.Store?.Cmd?.openChatBottom) {
           await window.Store.Cmd.openChatBottom(chat);
           return true;
         }
       }
-      
-      // Method 3: Via DOM (find chat in list and click)
-      const chatListItem = document.querySelector(`[data-id="${chatId}"]`) ||
-                          document.querySelector(`[title*="${chatId.split('@')[0]}"]`);
-      if (chatListItem) {
-        chatListItem.click();
+
+      // DOM: o chat pode estar na lista sem o modelo acessível. O casamento por
+      // título só vale para id de telefone — com @lid os dígitos não são um
+      // número e casariam com a conversa errada.
+      let item = document.querySelector(`[data-id="${alvo}"]`);
+      if (!item && !/@lid$/i.test(alvo)) {
+        item = document.querySelector(`[title*="${alvo.split('@')[0]}"]`);
+      }
+      if (item) {
+        item.click();
         return true;
       }
-      
+
       return false;
     } catch (e) {
       console.error('[RecoverAdvanced] openChatById failed:', e);
@@ -3180,6 +3215,10 @@
     // Comparação de edições
     compareEdited,
     
+    // Abrir conversa (WA-05: consulta, nunca cria)
+    openChatById,
+    acharChatCarregado,
+
     // Mídia
     downloadMediaActive,
     downloadFullMedia, // BUG 1/5: Full-size media download (old method)

@@ -2976,21 +2976,32 @@ function showView(viewName) {
               }
             }
 
+            // WA-05: só vale ir ao WhatsApp quando o registro é de mídia. Numa
+            // mensagem de TEXTO não há arquivo para buscar, e a tentativa abria
+            // a conversa pelo chatId guardado — com um @lid, o WhatsApp tratava
+            // os dígitos como telefone e mostrava "O número +244 ... não está no
+            // WhatsApp". Texto cai direto no download do conteúdo (P3).
+            const podeNavegar = window.WHL_RecoverMidia?.valeNavegarPorMidia
+              ? window.WHL_RecoverMidia.valeNavegarPorMidia(msg)
+              : true;
+
             // P1: Navegar até a mensagem no WhatsApp e clicar o botão de download
-            showToast('🔍 Localizando mensagem...', 'info');
+            if (podeNavegar) showToast('🔍 Localizando mensagem...', 'info');
 
             const chatId = msg?.chatId || msg?.chat || msg?.to || msg?.from || null;
-            const result = await sendToActiveTab({
-              action: 'downloadDeletedMessageMedia',
-              messageId: msg?.id,
-              chatId
-            });
+            const result = podeNavegar
+              ? await sendToActiveTab({
+                action: 'downloadDeletedMessageMedia',
+                messageId: msg?.id,
+                chatId
+              })
+              : null;
 
             if (result?.success) {
               showToast('✅ Download iniciado!', 'success');
             } else {
               // P2: Re-download via Store usando directPath (se disponível)
-              if (msg?.directPath || msg?.mediaKey || msg?.chatId) {
+              if (podeNavegar && (msg?.directPath || msg?.mediaKey || msg?.chatId)) {
                 showToast('🔄 Tentando re-download via Store...', 'info');
                 const reResult = await sendToActiveTab({
                   action: 'recoverRedownloadMedia',
