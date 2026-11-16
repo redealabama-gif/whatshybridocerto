@@ -112,12 +112,28 @@ const ESPIAO = () => {
     const conhecidos = new Set(pendentes.map((x) => x.chave));
     let giros = 0;
 
-    while (pendentes.length && giros++ < 400) {
+    while (pendentes.length && giros++ < 900) {
       const a = pendentes.shift();
 
       // Re-marca antes de clicar: o DOM pode ter mudado desde a coleta.
-      const agora = await page.evaluate(MARCAR);
-      if (!agora.some((x) => x.chave === a.chave)) { sumiram.push({ rotulo, ...a }); continue; }
+      let agora = await page.evaluate(MARCAR);
+      if (!agora.some((x) => x.chave === a.chave)) {
+        // Sumiu: quase sempre é item de modal que outro clique fechou. Se a
+        // gente sabe QUEM abriu esse modal, clica nele de novo e tenta uma vez.
+        // Sem isto, um seletor de etiqueta com 20 botões testava só o primeiro.
+        let voltou = false;
+        if (a.abridor && !a.jaRetentou) {
+          const selAb = `[data-btn-k="${a.abridor.replace(/"/g, '\\"')}"]`;
+          const temAbridor = agora.some((x) => x.chave === a.abridor);
+          if (temAbridor) {
+            await page.click(selAb, { timeout: 1200 }).catch(() => {});
+            await page.waitForTimeout(450);
+            agora = await page.evaluate(MARCAR);
+            voltou = agora.some((x) => x.chave === a.chave);
+          }
+        }
+        if (!voltou) { sumiram.push({ rotulo, ...a }); continue; }
+      }
 
       total++;
       let req = 0;
@@ -154,11 +170,13 @@ const ESPIAO = () => {
 
       // Apareceu coisa nova (modal)? Entra na frente da fila.
       const depois = await page.evaluate(MARCAR);
-      const novos = depois.filter((x) => !conhecidos.has(x.chave) && !/^(mailto:|tel:|https?:)/i.test(x.href));
+      const novos = depois
+        .filter((x) => !conhecidos.has(x.chave) && !/^(mailto:|tel:|https?:)/i.test(x.href))
+        .map((x) => ({ ...x, abridor: a.chave }));   // guarda quem revelou este botão
       for (const n of novos) conhecidos.add(n.chave);
       if (novos.length) pendentes.unshift(...novos);
     }
-    if (giros >= 400) console.log(`  (limite de 400 cliques atingido em ${rotulo})`);
+    if (giros >= 900) console.log(`  (limite de 900 cliques atingido em ${rotulo})`);
   }
 
   const sp = await ctx.newPage();
