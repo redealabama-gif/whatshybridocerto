@@ -871,8 +871,9 @@
       // ✅ Manter o chatId original (necessário para abrir o chat e localizar a mensagem no WhatsApp)
       // (sem o sufixo @c.us / @g.us, algumas rotinas de navegação/download falham)
       chatId: data.chatId || data.chat || data.to || null,
-      from: extractPhone(data.from || data.author || data.sender),
-      to: extractPhone(data.to || data.chatId || data.chat),
+      // WA-04: ver resolverLados() — remetente e destinatário nunca podem sair
+      // iguais só porque um dos dois não veio.
+      ...resolverLados(data),
       body: data.body || data.text || data.caption || '',
       type: data.type || 'chat',           // 6.4-6.7: chat, image, video, audio, ptt, sticker, document
       action: data.action || data.kind || 'revoked',  // 6.1-6.3: revoked, deleted, edited
@@ -1219,6 +1220,50 @@
   // ============================================
   // 6.13-6.15 - EXTRAÇÃO DE TELEFONE (LEGACY)
   // ============================================
+  /**
+   * WA-04 — o histórico mostrava "559284891875 -> 559284891875" (o mesmo número
+   * dos dois lados) em mensagens que não eram da própria conta.
+   *
+   * O normalizador fazia:
+   *   from: extractPhone(data.from || data.author || data.sender)
+   *   to:   extractPhone(data.to   || data.chatId || data.chat)
+   *
+   * O caminho de captura pela tela (recover-visual-injector) manda
+   * `from: chatId, to: null` numa mensagem recebida. Com `to` nulo, a segunda
+   * linha caía no PRÓPRIO chatId — e os dois lados viravam o id do chat.
+   * Medido no aparelho do dono: o registro ruim tinha chatId como OBJETO
+   * ({_serialized, server:'lid', user}), enquanto os bons tinham como texto.
+   *
+   * A regra real é simples: em mensagem recebida o destinatário é a própria
+   * conta; em mensagem enviada, o remetente é a própria conta. O id do chat
+   * serve para o OUTRO lado, nunca para os dois.
+   */
+  function resolverLados(data) {
+    const vazio = (v) => !v || v === 'Desconhecido' || v === 'Número desconhecido';
+    const dono = getOwner();
+    const ehMinha = data.fromMe === true;
+    const doChat = extractPhone(data.chatId || data.chat);
+
+    let de = extractPhone(data.from || data.author || data.sender);
+    let para = extractPhone(data.to);
+
+    if (ehMinha) {
+      if (vazio(de) && dono) de = dono;
+      if (vazio(para) && !vazio(doChat)) para = doChat;
+    } else {
+      if (vazio(de) && !vazio(doChat)) de = doChat;
+      if (vazio(para) && dono) para = dono;
+    }
+
+    // Sobrou igual dos dois lados sem ser a conversa consigo mesmo: um deles
+    // está errado, e o lado da própria conta é o que se sabe com certeza.
+    if (!vazio(de) && de === para && dono && de !== dono) {
+      if (ehMinha) de = dono; else para = dono;
+    }
+
+    return { from: de, to: para };
+  }
+
   function extractPhone(value) {
     // Backward compatibility: use new extractPhoneNumber
     return extractPhoneNumber(value);
