@@ -2634,23 +2634,14 @@ function showView(viewName) {
       .sort((a, b) => (Number(b?.timestamp) || 0) - (Number(a?.timestamp) || 0))
       .slice(0, MAX_RECOVER_RENDER);
     
-    // BUG FIX #7: ANTI-DUPLICAÇÃO - Usar Set para rastrear mensagens já renderizadas
-    // CODE REVIEW FIX: Use named constants for magic numbers
-    const DEDUP_BODY_LENGTH = 50; // Characters to use for deduplication key
-    const DEDUP_TIME_WINDOW_MS = 5000; // 5 seconds time window for deduplication
-    
-    const renderedSet = new Set();
-    const uniqueMessages = slice.filter(h => {
-      // Criar chave única baseada em: from + to + body (truncado) + timestamp (arredondado)
-      const key = `${h?.from || ''}_${h?.to || ''}_${(h?.body || '').substring(0, DEDUP_BODY_LENGTH)}_${Math.floor((h?.timestamp || 0) / DEDUP_TIME_WINDOW_MS)}`;
-      
-      if (renderedSet.has(key)) {
-        return false; // Duplicata, ignorar
-      }
-      
-      renderedSet.add(key);
-      return true;
-    });
+    // WA-06: a chave antiga era from+to+body+janela de 5s, sem o id nem o tipo.
+    // Um áudio e uma imagem apagados na mesma conversa no mesmo segundo (os
+    // dois sem legenda, porque mídia não tem texto) davam a MESMA chave, e a
+    // imagem era descartada aqui mesmo estando salva e inteira. Agora o id
+    // manda; a heurística só vale para registro sem id. Ver utils/recover-dedup.js.
+    const uniqueMessages = (window.WHL_RecoverDedup?.dedupRecoverHistory
+      ? window.WHL_RecoverDedup.dedupRecoverHistory(slice)
+      : slice);
     
     // Empty state
     if (uniqueMessages.length === 0) {
