@@ -78,21 +78,25 @@ const ESPIAO = () => {
   let abasNovas = 0;
   ctx.on('page', () => { abasNovas++; });
 
-  /** Marca os clicáveis na ordem do DOM. Idempotente: roda antes de cada clique. */
+  /**
+   * Marca os clicáveis com uma CHAVE ESTÁVEL, não com o índice na ordem do DOM.
+   * Com índice, abrir um modal deslocava todo mundo e 27 botões acabavam
+   * pulados por "mudou de texto" — 19% da tela sem verificação nenhuma.
+   * A chave é o id quando existe; senão, o texto mais a ordem entre os de
+   * mesmo texto. Isso sobrevive a elementos inseridos antes dele.
+   */
   const MARCAR = () => {
-    let n = 0;
+    const contagem = {};
     const out = [];
     document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el) => {
       const r = el.getBoundingClientRect();
       if (!el.offsetParent || r.width < 4 || r.height < 4) return;
       if (el.disabled) return;                       // desabilitado é intencional
-      const i = n++;
-      el.setAttribute('data-btn-i', String(i));
-      out.push({
-        i: String(i),
-        texto: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 42) || el.getAttribute('title') || el.id || '(sem texto)',
-        id: el.id || '', href: el.getAttribute('href') || '',
-      });
+      const texto = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 42)
+        || el.getAttribute('title') || el.id || '(sem texto)';
+      const chave = el.id ? 'id:' + el.id : (contagem[texto] = (contagem[texto] || 0) + 1, 'tx:' + texto + '::' + contagem[texto]);
+      el.setAttribute('data-btn-k', chave);
+      out.push({ chave, texto, id: el.id || '', href: el.getAttribute('href') || '' });
     });
     return out;
   };
@@ -107,8 +111,7 @@ const ESPIAO = () => {
       // fechado um modal, e aí o elemento deste índice não é mais o mesmo —
       // ou nem existe. Sem isto, botão de modal que sumiu virava "morto".
       const agora = await page.evaluate(MARCAR);
-      const atual = agora.find((x) => x.i === a.i);
-      if (!atual || atual.texto !== a.texto) { sumiram.push({ rotulo, ...a }); continue; }
+      if (!agora.some((x) => x.chave === a.chave)) { sumiram.push({ rotulo, ...a }); continue; }
 
       total++;
       let req = 0;
@@ -123,8 +126,9 @@ const ESPIAO = () => {
       await page.evaluate(ESPIAO);
       await page.evaluate(() => window.__btnReset && window.__btnReset());
       const antes = page.url();
-      try { await page.click(`[data-btn-i="${a.i}"]`, { timeout: 1200 }); }
-      catch (_) { await page.evaluate((i) => document.querySelector(`[data-btn-i="${i}"]`)?.click(), a.i).catch(() => {}); }
+      const sel = `[data-btn-k="${a.chave.replace(/"/g, '\\"')}"]`;
+      try { await page.click(sel, { timeout: 1200 }); }
+      catch (_) { await page.evaluate((q) => document.querySelector(q)?.click(), sel).catch(() => {}); }
       await page.waitForTimeout(500);
       page.off('request', onReq);
       page.off('filechooser', onFC);
@@ -140,7 +144,7 @@ const ESPIAO = () => {
         mortos.push({ rotulo, ...a });
         console.log(`  [MORTO] ${rotulo}  "${a.texto}"  id=${a.id}`);
       }
-      await page.evaluate((i) => document.querySelector(`[data-btn-i="${i}"]`)?.removeAttribute('data-btn-i'), a.i).catch(() => {});
+      await page.evaluate((q) => document.querySelector(q)?.removeAttribute('data-btn-k'), sel).catch(() => {});
     }
   }
 
