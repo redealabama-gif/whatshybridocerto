@@ -688,6 +688,55 @@ function notifyTrialsEnding() {
 /**
  * Run all jobs in sequence
  */
+
+/**
+ * Renova a cota mensal de quem paga ANUAL.
+ *
+ * No mensal cada pagamento dispara um webhook e o webhook renova a cota. No
+ * anual há UM pagamento só — sem este job, o cliente receberia a cota uma vez
+ * e ficaria 11 meses sem nada.
+ *
+ * A cota continua MENSAL: quem paga 12 meses não recebe 12x de uma vez. É isso
+ * que mantém o teto de custo por mês que sustenta a margem do plano.
+ *
+ * Idempotente por mês: o invoice_id "anual:<workspace>:<AAAA-MM>" faz o
+ * resetMonthlyForPlan ignorar a segunda chamada do mesmo mês, então rodar o
+ * cron duas vezes no mesmo dia não dá cota dobrada.
+ */
+function renovarCotaAnual() {
+  const tokenService = require('../services/TokenService');
+  const agora = new Date();
+  const competencia = `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`;
+  let renovados = 0;
+
+  try {
+    const assinantes = db.all(
+      `SELECT id, plan, annual_period_end
+         FROM workspaces
+        WHERE billing_cycle = 'annual'
+          AND plan IN ('starter', 'pro', 'business')
+          AND (subscription_status IS NULL OR subscription_status NOT IN ('canceled', 'cancelled'))`
+    ) || [];
+
+    for (const ws of assinantes) {
+      // Período anual vencido: não renova mais. A cobrança de renovação é
+      // tratada pelo fluxo normal de assinatura expirada.
+      if (ws.annual_period_end && new Date(ws.annual_period_end).getTime() < agora.getTime()) continue;
+      try {
+        tokenService.resetMonthlyForPlan(ws.id, ws.plan, { invoice_id: `anual:${ws.id}:${competencia}` });
+        renovados++;
+      } catch (err) {
+        logger.warn(`[BillingCron] cota anual falhou para ${ws.id}: ${err.message}`);
+      }
+    }
+    if (renovados) logger.info(`[BillingCron] Cota mensal renovada para ${renovados} assinante(s) anual(is) — ${competencia}`);
+  } catch (err) {
+    // Coluna pode não existir em banco antigo que ainda não migrou.
+    logger.debug(`[BillingCron] renovarCotaAnual pulado: ${err.message}`);
+  }
+  return renovados;
+}
+
 async function runAll() {
   const start = Date.now();
   logger.info('[BillingCron] Iniciando ciclo diário');
@@ -711,6 +760,9 @@ async function runAll() {
     const dunning = await processDunning();
     const suspended = suspendDelinquent();
     const endingSoon = notifyTrialsEnding();
+    // Anual paga uma vez, mas a cota é mensal: sem isto o cliente ficaria
+    // 11 meses sem respostas depois do primeiro mês.
+    const cotaAnual = renovarCotaAnual();
 
     // v9.0.0: drip campaigns + health score
     let dripResult = { processed: 0, sent: 0 };
@@ -854,4 +906,5 @@ function stop() {
   }
 }
 
-module.exports = { start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, processDunning, suspendDelinquent };
+module.exports = {
+  renovarCotaAnual, start, stop, runAll, processExpiredTrials, processExpiredSubscriptions, processDunning, suspendDelinquent };

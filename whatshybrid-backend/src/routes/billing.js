@@ -54,6 +54,9 @@ router.post('/create-checkout',
     if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
+    // 'annual' = paga 10 meses e leva 12, numa cobrança única. Qualquer outro
+    // valor vira mensal — nunca cobrar um ciclo que o cliente não escolheu.
+    const cycle = mpService.normalizarCiclo(req.body?.cycle);
 
     if (!mpService.isConfigured()) {
       return res.status(503).json({
@@ -81,6 +84,7 @@ router.post('/create-checkout',
         email: ws.email,
         name: ws.name,
         couponCode,
+        cycle,
       });
 
       // Salva intent de pagamento (auditoria). Inclui o cupom no metadata

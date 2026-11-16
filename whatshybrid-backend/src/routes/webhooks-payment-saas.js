@@ -660,10 +660,15 @@ async function handleMercadoPagoWebhook(req, res) {
 
   // 4. Extrai workspace_id e tipo do external_reference
   // Formatos:
-  //   - "workspaceId|plan"           (assinatura mensal)
-  //   - "tokenpkg|workspaceId|packageId"   (pacote avulso de tokens)
+  //   - "workspaceId|plan"                      (assinatura mensal)
+  //   - "workspaceId|plan|cycle:annual"         (assinatura anual, cobrança única)
+  //   - "workspaceId|plan|coupon:CODE"          (com cupom; pode somar cycle)
+  //   - "tokenpkg|workspaceId|packageId"        (pacote avulso de respostas)
   const ref = payment.external_reference || '';
   const parts = ref.split('|');
+  // Ciclo vem como segmento nomeado para não quebrar as referências antigas,
+  // que têm só workspace e plano.
+  const cicloDaCompra = parts.includes('cycle:annual') ? 'annual' : 'monthly';
 
   if (parts[0] === 'tokenpkg' && parts.length >= 3) {
     // ── Compra de pacote avulso de tokens ──
@@ -759,6 +764,26 @@ async function handleMercadoPagoWebhook(req, res) {
       amount: payment.transaction_amount,
       currency: payment.currency_id || 'BRL',
     });
+
+    // Ciclo anual: grava o ciclo e a data em que os 12 meses terminam. A cota
+    // NÃO vem toda de uma vez — o cron (renovarCotaAnual) libera mês a mês,
+    // senão o cliente gastaria 12 meses de IA em um e o teto de custo que
+    // sustenta a margem do plano seria furado.
+    if (cicloDaCompra === 'annual') {
+      try {
+        const fim = new Date();
+        fim.setUTCMonth(fim.getUTCMonth() + 12);
+        db.run(
+          `UPDATE workspaces
+              SET billing_cycle = 'annual', annual_period_end = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?`,
+          [fim.toISOString(), workspaceId]
+        );
+        logger.info(`[WebhookSaaS] Assinatura ANUAL ativada: ws=${workspaceId} plan=${plan} até ${fim.toISOString().slice(0, 10)}`);
+      } catch (e) {
+        logger.error('[WebhookSaaS] Falha ao gravar ciclo anual:', e.message);
+      }
+    }
 
     // v8.4.0 — concede tokens iniciais do plano
     try {
