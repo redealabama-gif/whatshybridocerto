@@ -4259,10 +4259,16 @@
 
   // DASH-01: a CSP manda `script-src-attr 'none'`, que bloqueia onerror inline.
   document.querySelectorAll('[data-hide-on-error]').forEach((el) => {
-    el.addEventListener('error', () => {
+    // Sem capture, e só quando o erro é do PRÓPRIO elemento. Um <video> tem
+    // vários <source>; o que não casa com o `media` falha sozinho e isso é
+    // normal. Com capture, esse erro de um source escondia o vídeo inteiro —
+    // era o comportamento do onerror antigo que precisava ser mantido: ele
+    // ficava no <video> e só dispara quando NENHUM source toca.
+    el.addEventListener('error', (ev) => {
+      if (ev.target !== el) return;
       el.style.display = 'none';
       el.parentElement?.classList.add('no-video');
-    }, true);
+    });
   });
 </script>
 

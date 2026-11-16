@@ -50,3 +50,27 @@ describe('DASH-02: nenhuma página chama /api/v1/users/me (é 404)', () => {
     expect(linhas).toEqual([]);
   });
 });
+
+/**
+ * Regressão da própria correção acima: ao trocar o onerror inline do vídeo da
+ * home por addEventListener, `capture: true` fazia o erro de UM <source> (o
+ * mobile, que não casa com o media query no desktop) esconder o vídeo inteiro.
+ * O onerror antigo ficava no <video> e só dispara quando nenhum source toca.
+ * Prova em navegador: audit/harness/home-video.js
+ */
+describe('index.html: o vídeo da home não pode ser escondido por um <source>', () => {
+  const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+  const bloco = (html.match(/data-hide-on-error[\s\S]*?addEventListener\('error'[\s\S]*?\n {2}\}\);/g) || []).pop();
+
+  test('o listener existe', () => {
+    expect(bloco).toBeDefined();
+  });
+
+  test('não usa capture (terceiro argumento true)', () => {
+    expect(bloco).not.toMatch(/\},\s*true\s*\)/);
+  });
+
+  test('só age quando o erro é do próprio elemento', () => {
+    expect(bloco).toMatch(/ev\.target !== el/);
+  });
+});
