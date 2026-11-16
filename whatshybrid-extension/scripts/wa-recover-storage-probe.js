@@ -1,22 +1,27 @@
 /**
- * WARecoverStorage — o que o Recover REALMENTE guardou de cada mídia apagada.
+ * WARecoverStorage — o que o Recover REALMENTE guardou de cada mensagem apagada.
  *
- * PARA QUE SERVE
- * Você viu a mensagem apagada no histórico, mas o download não funciona. Isso
- * tem duas causas possíveis e elas se resolvem de formas diferentes:
- *   (1) o registro existe SEM o arquivo  -> a captura falhou (bug WA-02)
- *   (2) o registro tem só a miniatura    -> captura parcial
- * Este script lê o armazenamento da extensão e diz qual dos dois é o seu caso.
+ * Responde duas perguntas de uma vez:
  *
- * COMO RODAR  (contexto da EXTENSÃO, não da página do WhatsApp)
- * 1. Abra o painel lateral da extensão (ícone do WhatsHybrid).
- * 2. Clique com o botão direito DENTRO do painel -> "Inspecionar".
- * 3. Na janela que abrir: Console -> cole este arquivo -> Enter.
+ * 1) MÍDIA — "aparece no histórico mas não baixa". O registro está sem arquivo,
+ *    com só a miniatura, ou completo?
+ *    CORREÇÃO (16/11/2026): a 1ª versão deste script olhava só a marca
+ *    `mediaIsThumbnail` e chamou de "arquivo completo" registros de 4 KB que
+ *    eram miniatura (imagem real do mesmo aparelho: 151 KB). Agora compara com
+ *    o `size` guardado na mensagem e usa um piso por tipo.
+ *
+ * 2) ORIGEM — "aparece 'meu número → meu número' em mensagem que não é minha".
+ *    Imprime from/to/chatId/fromMe e a origem do registro, para descobrir qual
+ *    caminho de captura está preenchendo errado.
+ *
+ * COMO RODAR (console do PAINEL da extensão, não da página do WhatsApp)
+ * 1. Abra o painel lateral do WhatsHybrid.
+ * 2. Botão direito DENTRO do painel -> "Inspecionar".
+ * 3. Console -> cole este arquivo -> Enter.
  * 4. Rode:  await WARecoverStorage.run()
- * 5. Copie o relatório e me manda.
  *
- * SEGURANCA: somente leitura. Não apaga nem altera nada. Não imprime o conteúdo
- * das mensagens — só tipo, tamanho e se o arquivo está lá.
+ * Somente leitura. Não apaga nem altera nada. Não imprime o conteúdo das
+ * mensagens — só tipo, tamanho, origem e os números (que o dono já vê na tela).
  */
 (function () {
     'use strict';
@@ -25,17 +30,30 @@
     const linhas = [];
     const P = (s) => { linhas.push(s); console.log(s); };
 
-    function temArquivo(v) {
-        return typeof v === 'string' && v.length > 50 && v !== '__HAS_MEDIA__';
-    }
+    // Piso abaixo do qual o que está guardado só pode ser miniatura.
+    const PISO_BYTES = { image: 20 * 1024, video: 40 * 1024, sticker: 8 * 1024, document: 20 * 1024, ptt: 3 * 1024, audio: 3 * 1024 };
 
-    function kb(v) {
-        return typeof v === 'string' ? Math.round((v.length * 3) / 4 / 1024) + ' KB' : '-';
-    }
+    const bytesDe = (v) => (typeof v === 'string' ? Math.round((v.replace(/^data:[^,]+,/, '').length * 3) / 4) : 0);
+    const kb = (v) => (typeof v === 'string' ? Math.round(bytesDe(v) / 1024) + ' KB' : '-');
+    const temArquivo = (v) => typeof v === 'string' && v.length > 50 && v !== '__HAS_MEDIA__';
+    const mimeDe = (v) => { const m = typeof v === 'string' ? v.match(/^data:([^;,]+)/) : null; return m ? m[1] : null; };
 
-    function mimeDe(v) {
-        const m = typeof v === 'string' ? v.match(/^data:([^;,]+)/) : null;
-        return m ? m[1] : null;
+    /** Classifica o registro usando a marca, o tamanho original e o piso por tipo. */
+    function classificar(m) {
+        const full = m.mediaData || m.mediaDataFull || null;
+        const prev = m.mediaDataPreview || m.thumbnail || null;
+        const marcadoThumb = !!m.isThumbnail || !!m.mediaIsThumbnail;
+        if (!temArquivo(full) && !temArquivo(prev)) return { v: 'SEM ARQUIVO', full, prev, motivo: 'nada guardado' };
+
+        const alvo = temArquivo(full) ? full : prev;
+        const bytes = bytesDe(alvo);
+        const piso = PISO_BYTES[String(m.type)] || 10 * 1024;
+        const original = typeof m.size === 'number' && m.size > 0 ? m.size : null;
+
+        if (marcadoThumb) return { v: 'SO MINIATURA', full, prev, motivo: 'marcado como miniatura' };
+        if (bytes < piso) return { v: 'SO MINIATURA', full, prev, motivo: `${Math.round(bytes / 1024)} KB < piso de ${Math.round(piso / 1024)} KB para "${m.type}"` };
+        if (original && bytes < original * 0.5) return { v: 'SO MINIATURA', full, prev, motivo: `${Math.round(bytes / 1024)} KB x ${Math.round(original / 1024)} KB do original` };
+        return { v: 'ARQUIVO OK', full, prev, motivo: original ? `${Math.round(bytes / 1024)} KB ~ ${Math.round(original / 1024)} KB do original` : `${Math.round(bytes / 1024)} KB` };
     }
 
     async function run() {
@@ -46,70 +64,67 @@
             P('BLOQUEIO: sem chrome.storage aqui. Você colou no console da PÁGINA do');
             P('           WhatsApp. Precisa ser no console do PAINEL da extensão');
             P('           (botão direito dentro do painel -> Inspecionar).');
-            P('===============================================');
             return linhas.join('\n');
         }
 
         const res = await new Promise((r) => chrome.storage.local.get([CHAVE], r));
         const hist = res && res[CHAVE];
-        if (!hist) {
-            P('nenhum registro em ' + CHAVE + ' (histórico do Recover vazio)');
-            P('===============================================');
-            return linhas.join('\n');
-        }
+        if (!hist) { P('histórico vazio (' + CHAVE + ' não existe)'); return linhas.join('\n'); }
 
-        // o histórico pode ser array de mensagens ou objeto indexado por id
         const itens = Array.isArray(hist) ? hist : Object.values(hist);
-        P('registros no histórico: ' + itens.length);
+        const mid = itens.filter((m) => m && ((m.type && m.type !== 'chat') || m.mimetype || m.mediaData || m.mediaDataPreview));
+        P('registros=' + itens.length + ' | de mídia=' + mid.length);
 
-        const comMidia = itens.filter((m) => m && (m.type && m.type !== 'chat' || m.mimetype || m.mediaData || m.mediaDataPreview));
-        P('registros que são de mídia: ' + comMidia.length);
         P('');
+        P('--- 1. MÍDIA: últimos ' + Math.min(15, mid.length) + ' registros ---');
+        for (const m of mid.slice(-15)) {
+            const c = classificar(m);
+            P('  [' + c.v + ']  ' + c.motivo);
+            P('      type=' + (m.type || '?') + ' mimetype=' + (m.mimetype || mimeDe(c.full) || '?')
+                + ' size_original=' + (m.size != null ? Math.round(m.size / 1024) + ' KB' : '?'));
+            P('      mediaData=' + (c.full ? kb(c.full) : 'null') + ' preview=' + (c.prev ? kb(c.prev) : 'null')
+                + ' marcaThumb=' + (!!m.isThumbnail || !!m.mediaIsThumbnail));
+            P('      mediaKey=' + (m.mediaKey ? 'sim' : 'NAO') + ' directPath=' + (m.directPath ? 'sim' : 'NAO'));
+        }
 
-        let semArquivo = 0;
-        let soMiniatura = 0;
-        let completos = 0;
+        let ok = 0, th = 0, sem = 0;
+        for (const m of mid) { const v = classificar(m).v; if (v === 'ARQUIVO OK') ok++; else if (v === 'SO MINIATURA') th++; else sem++; }
+        P('');
+        P('  resumo dos ' + mid.length + ': arquivo completo=' + ok + ' | só miniatura=' + th + ' | SEM arquivo=' + sem);
 
-        const recentes = comMidia.slice(-15);
-        P('--- últimos ' + recentes.length + ' registros de mídia ---');
-        for (const m of recentes) {
-            const full = m.mediaData || m.mediaDataFull || null;
-            const prev = m.mediaDataPreview || m.thumbnail || null;
-            const temFull = temArquivo(full);
-            const temPrev = temArquivo(prev);
-            const ehThumb = !!m.isThumbnail || !!m.mediaIsThumbnail;
-
-            let veredito;
-            if (temFull && !ehThumb) { veredito = 'ARQUIVO OK'; completos++; }
-            else if (temFull && ehThumb) { veredito = 'SO MINIATURA'; soMiniatura++; }
-            else if (temPrev) { veredito = 'SO MINIATURA (preview)'; soMiniatura++; }
-            else { veredito = 'SEM ARQUIVO  <-- download no histórico vai falhar'; semArquivo++; }
-
-            P('  [' + veredito + ']');
-            P('      type=' + (m.type || '?') + ' mimetype=' + (m.mimetype || mimeDe(full) || '?'));
-            P('      mediaData=' + (full ? kb(full) : 'null') + ' | preview=' + (prev ? kb(prev) : 'null'));
-            P('      mediaKey=' + (m.mediaKey ? 'sim' : 'NAO') + ' | directPath=' + (m.directPath ? 'sim' : 'NAO')
-                + '  (sem os dois, nem o servidor consegue buscar depois)');
-            P('      acao=' + (m.action || '?') + ' | quando=' + (m.timestamp ? new Date(Number(m.timestamp) > 1e12 ? Number(m.timestamp) : Number(m.timestamp) * 1000).toLocaleString('pt-BR') : '?'));
+        // ── 2. ORIGEM (WA-04) ────────────────────────────────────────────────
+        P('');
+        P('--- 2. ORIGEM: de quem veio cada registro (últimos 15) ---');
+        const iguais = [];
+        for (const m of itens.slice(-15)) {
+            if (!m) continue;
+            const mesmo = m.from && m.to && String(m.from) === String(m.to);
+            if (mesmo) iguais.push(m);
+            P('  ' + (mesmo ? '[MESMO NUMERO DOS 2 LADOS] ' : '') + String(m.from) + ' -> ' + String(m.to));
+            P('      acao=' + (m.action || '?') + ' type=' + (m.type || '?') + ' fromMe=' + m.fromMe
+                + ' chatId=' + JSON.stringify(m.chatId || null));
+            P('      origem=' + (m.source || m.extractedFrom || m.origin || '?')
+                + ' contentCaptured=' + m.contentCaptured
+                + ' quando=' + (m.timestamp ? new Date(Number(m.timestamp) > 1e12 ? Number(m.timestamp) : Number(m.timestamp) * 1000).toLocaleString('pt-BR') : '?'));
+        }
+        const todosIguais = itens.filter((m) => m && m.from && m.to && String(m.from) === String(m.to));
+        P('');
+        P('  registros com o mesmo número dos 2 lados: ' + todosIguais.length + ' de ' + itens.length);
+        if (todosIguais.length) {
+            const porOrigem = {};
+            todosIguais.forEach((m) => { const k = m.source || m.extractedFrom || m.origin || '?'; porOrigem[k] = (porOrigem[k] || 0) + 1; });
+            P('  por origem: ' + JSON.stringify(porOrigem));
+            const porAcao = {};
+            todosIguais.forEach((m) => { const k = m.action || '?'; porAcao[k] = (porAcao[k] || 0) + 1; });
+            P('  por ação: ' + JSON.stringify(porAcao));
         }
 
         P('');
-        P('--- resumo de TODOS os ' + comMidia.length + ' registros de mídia ---');
-        let tSem = 0, tThumb = 0, tOk = 0;
-        for (const m of comMidia) {
-            const full = m.mediaData || m.mediaDataFull || null;
-            const prev = m.mediaDataPreview || m.thumbnail || null;
-            const ehThumb = !!m.isThumbnail || !!m.mediaIsThumbnail;
-            if (temArquivo(full) && !ehThumb) tOk++;
-            else if (temArquivo(full) || temArquivo(prev)) tThumb++;
-            else tSem++;
-        }
-        P('  arquivo completo salvo : ' + tOk);
-        P('  só miniatura           : ' + tThumb);
-        P('  SEM arquivo nenhum     : ' + tSem);
-        P('');
-        P('LEITURA: se "SEM arquivo nenhum" for a maioria, o problema é a captura');
-        P('         (WA-02) e não o botão de baixar.');
+        P('LEITURA');
+        P('  "SEM arquivo" na maioria  => o problema é a captura da mídia (WA-02).');
+        P('  "só miniatura" na maioria => o original não chegou a ser baixado (WA-03).');
+        P('  "mesmo número dos 2 lados" => a origem do campo acima diz qual caminho');
+        P('                                de captura preencheu errado (WA-04).');
         P('===============================================');
 
         const txt = linhas.join('\n');
@@ -118,6 +133,6 @@
         return txt;
     }
 
-    window.WARecoverStorage = { run };
+    window.WARecoverStorage = { run, classificar };
     console.log('%c[WARecoverStorage] pronto. Rode:  await WARecoverStorage.run()', 'color:#25D366;font-weight:bold');
 })();

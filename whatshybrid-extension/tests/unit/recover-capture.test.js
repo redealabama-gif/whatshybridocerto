@@ -796,3 +796,49 @@ test('WA-03: miniatura de mensagem sem mediaKey é marcada como miniatura', asyn
     'miniatura marcada como arquivo original: o painel promete o original, entrega 4 KB, e o original nunca mais substitui'
   );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-04 (invariantes) — o dono viu no histórico entradas
+//   559284891875 → 559284891875  (o próprio número dos dois lados)
+// em mensagens que ele NÃO mandou para si mesmo.
+//
+// ATENÇÃO: estes dois casos NÃO são a correção do WA-04 — a causa ainda não foi
+// encontrada. Minha primeira hipótese (o @lid do remetente não resolve e a
+// varredura de extractPhoneNumber cai no campo `to`, que é a própria conta) foi
+// testada aqui e NÃO se confirma: um @lid de 15 dígitos passa na validação e
+// vira o remetente corretamente. Ficam como guarda do invariante enquanto o
+// caminho real é medido no aparelho do dono (wa-recover-storage-probe.js
+// agora imprime from/to/chatId/origem de cada registro).
+// ─────────────────────────────────────────────────────────────────────────────
+test('WA-04 (invariante): remetente @lid de grupo não vira "meu número → meu número"', async () => {
+  const GRUPO = '120363000000000000@g.us';
+  const { coll, records } = await bootHooks();
+  const id = '3EB0WA04LID000001';
+  const msg = {
+    id: { id, remote: GRUPO, fromMe: false, _serialized: `false_${GRUPO}_${id}` },
+    from: { _serialized: '199887766554433@lid', user: '199887766554433' },
+    author: { _serialized: '199887766554433@lid', user: '199887766554433' },
+    to: { _serialized: ME, user: ME.split('@')[0] },
+    body: 'Não to preparado para amanhã',
+    type: 'chat',
+    t: 1763230000,
+  };
+  coll.add(msg);
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r, 'mensagem apagada não registrada');
+  assert.notStrictEqual(
+    r.from,
+    r.to,
+    `o histórico mostrou "${r.from} → ${r.to}": a mensagem veio de grupo, não da própria conta`
+  );
+});
+
+test('WA-04 (controle): mensagem que o dono mandou mesmo continua com ele no remetente', async () => {
+  const { coll, records } = await bootHooks();
+  const msg = makeMsg('mensagem minha', { fromMe: true });
+  coll.add(msg);
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.strictEqual(r.from, ME.split('@')[0], 'perdeu o remetente de uma mensagem realmente minha');
+});
