@@ -1965,7 +1965,7 @@
           playsinline
           preload="metadata"
           aria-label="Demonstração do Vórtex Pro em ação"
-          onerror="this.style.display='none'; this.parentElement.classList.add('no-video');"
+          data-hide-on-error="1"
         >
           <source src="assets/hero-demo-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
           <source src="assets/hero-demo.mp4" type="video/mp4">
@@ -4256,6 +4256,14 @@
     loadRobot();
   }
 })();
+
+  // DASH-01: a CSP manda `script-src-attr 'none'`, que bloqueia onerror inline.
+  document.querySelectorAll('[data-hide-on-error]').forEach((el) => {
+    el.addEventListener('error', () => {
+      el.style.display = 'none';
+      el.parentElement?.classList.add('no-video');
+    }, true);
+  });
 </script>
 
 </body>

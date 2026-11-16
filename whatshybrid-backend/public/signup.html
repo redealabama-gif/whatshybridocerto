@@ -562,7 +562,7 @@
     </div>
 
     <div class="step-actions">
-      <button type="button" class="btn btn-ghost" onclick="goToStep(1)">
+      <button type="button" class="btn btn-ghost" data-goto-step="1">
         <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
         Voltar
       </button>
@@ -625,7 +625,7 @@
     </div>
 
     <div class="step-actions">
-      <button type="button" class="btn btn-ghost" onclick="goToStep(2)">
+      <button type="button" class="btn btn-ghost" data-goto-step="2">
         <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
         Voltar
       </button>
@@ -1048,6 +1048,12 @@
   }
 
   initGoogleSignIn();
+
+  // DASH-01: a CSP manda `script-src-attr 'none'`, que bloqueia onclick inline —
+  // os botões "Voltar" do cadastro ficavam mortos.
+  document.querySelectorAll('[data-goto-step]').forEach((b) => {
+    b.addEventListener('click', () => goToStep(Number(b.dataset.gotoStep)));
+  });
 </script>
 
 </body>
