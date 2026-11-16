@@ -51,7 +51,7 @@ router.post('/create-checkout',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 
@@ -347,7 +347,7 @@ router.post('/subscribe-recurring',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 

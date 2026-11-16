@@ -25,7 +25,16 @@ const MP_API = 'https://api.mercadopago.com';
 const PLAN_PRICES = {
   starter: 49.90,
   pro: 99.90,
+  business: 299.90,
 };
+
+// Anual: 2 meses grátis (paga 10, leva 12). O desconto não corrói a margem —
+// no pior caso (cliente usando 100% da cota todo mês) o Pro anual fecha em
+// ~72% de margem contra 76% do mensal.
+const MESES_COBRADOS_NO_ANUAL = 10;
+const PLAN_PRICES_ANUAL = Object.fromEntries(
+  Object.entries(PLAN_PRICES).map(([plano, mensal]) => [plano, Number((mensal * MESES_COBRADOS_NO_ANUAL).toFixed(2))])
+);
 
 class MercadoPagoService {
   constructor() {

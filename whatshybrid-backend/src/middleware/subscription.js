@@ -22,46 +22,46 @@ const logger = require('../utils/logger');
  */
 const FEATURE_PLANS = {
   // CRM & Vendas
-  'crm_advanced': ['pro', 'enterprise'],
-  'deals': ['starter', 'pro', 'enterprise'],
-  'pipeline_custom': ['pro', 'enterprise'],
-  'contacts_unlimited': ['pro', 'enterprise'],
-  'contacts_1000': ['starter', 'pro', 'enterprise'],
+  'crm_advanced': ['pro', 'business', 'enterprise'],
+  'deals': ['starter', 'pro', 'business', 'enterprise'],
+  'pipeline_custom': ['pro', 'business', 'enterprise'],
+  'contacts_unlimited': ['pro', 'business', 'enterprise'],
+  'contacts_1000': ['starter', 'pro', 'business', 'enterprise'],
 
   // Campanhas
-  'campaigns': ['starter', 'pro', 'enterprise'],
+  'campaigns': ['starter', 'pro', 'business', 'enterprise'],
   'campaigns_advanced': ['enterprise'],
-  'bulk_send': ['starter', 'pro', 'enterprise'],
+  'bulk_send': ['starter', 'pro', 'business', 'enterprise'],
 
   // Grupos — extração de membros de grupos do WhatsApp pra montar público-alvo.
   // Liberado em todos os planos (incluindo free) porque é feature de prospecção
   // que não consome backend nem tokens de IA: a extração roda 100% no DOM do
   // WhatsApp Web. Listada aqui explicitamente pra blindar contra alguém gatear
   // por engano no futuro.
-  'groups': ['free', 'starter', 'pro', 'enterprise'],
-  'groups_extract_members': ['free', 'starter', 'pro', 'enterprise'],
+  'groups': ['free', 'starter', 'pro', 'business', 'enterprise'],
+  'groups_extract_members': ['free', 'starter', 'pro', 'business', 'enterprise'],
 
   // Analytics
-  'analytics_basic': ['starter', 'pro', 'enterprise'],
-  'analytics_advanced': ['pro', 'enterprise'],
+  'analytics_basic': ['starter', 'pro', 'business', 'enterprise'],
+  'analytics_advanced': ['pro', 'business', 'enterprise'],
   'analytics_export': ['enterprise'],
 
   // Automação
-  'autopilot': ['starter', 'pro', 'enterprise'],
-  'autopilot_unlimited': ['pro', 'enterprise'],
+  'autopilot': ['starter', 'pro', 'business', 'enterprise'],
+  'autopilot_unlimited': ['pro', 'business', 'enterprise'],
 
   // IA
   // 'free' REMOVIDO de ai_basic e ai_advanced. Plano free não consome
   // tokens de IA por padrão; o trial de 7 dias passa a ser o caminho oficial
   // pra experimentar a IA sem assinatura paga.
-  'ai_basic': ['starter', 'pro', 'enterprise'],
-  'ai_advanced': ['pro', 'enterprise'],
+  'ai_basic': ['starter', 'pro', 'business', 'enterprise'],
+  'ai_advanced': ['pro', 'business', 'enterprise'],
   'ai_custom_models': ['enterprise'],
   // Treinamento (FAQ, produtos, exemplos, business info) — usa o mesmo
   // gate de ai_basic. Cliente em free não treina a IA, e isso é coerente
   // porque ele também não pode usar IA — sem motivo pra treinar algo
   // que ele não consegue invocar.
-  'training': ['starter', 'pro', 'enterprise'],
+  'training': ['starter', 'pro', 'business', 'enterprise'],
 
   // Equipe — a landing (index.html) vende "Equipe: adicione membros da sua
   // equipe ao mesmo workspace" como recurso dos planos PAGOS (card Starter).
@@ -69,15 +69,15 @@ const FEATURE_PLANS = {
   // pagante batia em 402 ao usar o que comprou. Papéis/permissões granulares
   // (team_roles) continuam exclusivos do enterprise — isso não é prometido
   // nos planos menores.
-  'team': ['starter', 'pro', 'enterprise'],
+  'team': ['starter', 'pro', 'business', 'enterprise'],
   'team_roles': ['enterprise'],
 
   // CRM - criação de registros (bloqueado após trial expirar / past_due / suspended)
-  'crm_create': ['free', 'starter', 'pro', 'enterprise'],
+  'crm_create': ['free', 'starter', 'pro', 'business', 'enterprise'],
 
   // API & Integrações
   'api_access': ['enterprise'],
-  'webhooks': ['pro', 'enterprise'],
+  'webhooks': ['pro', 'business', 'enterprise'],
   'integrations_advanced': ['enterprise']
 };
 

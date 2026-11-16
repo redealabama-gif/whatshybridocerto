@@ -4,7 +4,8 @@
  * Plans (preços alinhados com landing/signup/MP em Fase 2 cobrança):
  *   free       — trial 7d, sem IA
  *   starter    — R$49,90/mês, 50k tokens
- *   pro        — R$99,90/mês, 500k tokens
+ *   pro        — R$99,90/mês, 2.500 respostas
+ *   business   — R$299,90/mês, 10.000 respostas
  *   (enterprise — uso interno/master workspaces, não vendido)
  *
  * @module services/LicenseService
@@ -332,7 +333,7 @@ class LicenseService {
     }
 
     // Verificar se é upgrade
-    const planOrder = ['free', 'starter', 'pro', 'enterprise'];
+    const planOrder = ['free', 'starter', 'pro', 'business', 'enterprise'];
     const currentIndex = planOrder.indexOf(license.plan);
     const newIndex = planOrder.indexOf(newPlan);
 

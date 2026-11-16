@@ -229,7 +229,7 @@ router.post('/change-plan',
   authorize('owner'),
   asyncHandler(async (req, res) => {
     const { plan } = req.body;
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 
