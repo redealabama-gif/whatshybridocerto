@@ -1560,27 +1560,52 @@ window.whl_hooks_main = () => {
         } catch (_) { /* tenta o próximo */ }
 
         // 2) Download + decriptação pelo módulo do WhatsApp.
+        //
+        // WA-02/WA-02b: o WhatsApp confere o mimetype do que baixou contra o
+        // `type` pedido. Sem `mimetype` ele usa o genérico do servidor e recusa:
+        //   "Unexpected mimetype application/octet-stream for media type ptt"
+        // Resultado: áudio e imagem APAGADOS não eram salvos pelo Recover.
+        //
+        // As duas tentativas abaixo foram MEDIDAS no WhatsApp real (15/11/2026,
+        // scripts/wa-media-probe.js) em ptt, image, video, document e sticker:
+        //   {type, mimetype}            OK em ptt, image, sticker, document
+        //   {mimetype} (sem `type`)     "webMediaType is invalid: undefined" SEMPRE
+        //   {type} sozinho              "Unexpected mimetype ..." (o bug original)
+        //   {type:'document', mimetype} OK em tudo que o servidor ainda servia
+        // Por isso `type` vai SEMPRE (mandar sem ele é tentativa morta) e o
+        // fallback é type:'document', que o WhatsApp não confere contra o
+        // mimetype — serve também quando a mensagem em cache perdeu o `type`.
         if (f.directPath && f.mediaKey) {
-            try {
-                const mod = tryRequireModule('WAWebDownloadManager');
-                const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
-                if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
-                    const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
-                    const buf = await dm.downloadAndMaybeDecrypt({
-                        directPath: f.directPath,
-                        encFilehash: f.encFilehash,
-                        filehash: f.filehash,
-                        mediaKey: f.mediaKey,
-                        mediaKeyTimestamp: f.mediaKeyTimestamp,
-                        type: f.type,
-                        signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
-                        downloadQpl: noopQpl
-                    });
-                    const url = await midiaParaDataUrl(buf, mime);
-                    if (url) return url;
+            const mod = tryRequireModule('WAWebDownloadManager');
+            const dm = mod && (mod.downloadManager || (mod.default && mod.default.downloadManager));
+            if (dm && typeof dm.downloadAndMaybeDecrypt === 'function') {
+                const noopQpl = { addAnnotations() { return this; }, addPoint() { return this; } };
+                const baixar = (extras) => dm.downloadAndMaybeDecrypt({
+                    directPath: f.directPath,
+                    encFilehash: f.encFilehash,
+                    filehash: f.filehash,
+                    mediaKey: f.mediaKey,
+                    mediaKeyTimestamp: f.mediaKeyTimestamp,
+                    signal: typeof AbortController === 'function' ? new AbortController().signal : undefined,
+                    downloadQpl: noopQpl,
+                    ...extras
+                });
+                const tentativas = [
+                    { type: f.type, mimetype: mime || undefined },      // o par real
+                    { type: 'document', mimetype: mime || undefined },  // 'document' não é conferido
+                ];
+                for (const extras of tentativas) {
+                    try {
+                        const url = await midiaParaDataUrl(await baixar(extras), mime);
+                        if (url) return url;
+                    } catch (e) {
+                        const msg = String((e && (e.message || e.status)) || '');
+                        console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', msg);
+                        // 403/404 é o servidor do WhatsApp já sem o arquivo (mídia
+                        // antiga expira). Nenhum parâmetro resolve: parar aqui.
+                        if (/\b40[34]\b|mmsDownload/i.test(msg)) break;
+                    }
                 }
-            } catch (e) {
-                console.warn('[WHL Media] downloadAndMaybeDecrypt falhou:', e && (e.status || e.message));
             }
         }
 
@@ -1874,8 +1899,11 @@ window.whl_hooks_main = () => {
         // FIX PEND-MED-005: Mark media for potential download
         const hasMediaUrl = !!(msg.deprecatedMms3Url || msg.directPath || msg.url);
         const canDownload = !!(mediaFields && mediaFields.directPath && mediaFields.mediaKey);
-        // O que veio embutido na mensagem é a miniatura quando dá para baixar o original.
-        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg && canDownload);
+        // WA-03: o que vem embutido na mensagem é SEMPRE a miniatura — e não
+        // deixa de ser porque o WhatsApp não expôs como baixar o original.
+        // Marcar errado fazia o painel oferecer "Baixar" prometendo o arquivo e
+        // entregar 4 KB, e fazia o applyMediaUpdate recusar o original depois.
+        const mediaIsThumbnail = !prevFullMedia && !!(mediaData && isMediaMsg);
         const needsDownload = !prevFullMedia && isMediaMsg && (canDownload || hasMediaUrl) && (!mediaData || mediaIsThumbnail);
         if (prevFullMedia) mediaData = prevFullMedia;
 

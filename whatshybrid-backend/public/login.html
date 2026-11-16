@@ -190,7 +190,7 @@
       <div class="input-with-icon">
         <i data-lucide="lock"></i>
         <input type="password" id="password" aria-required="true" autocomplete="current-password" name="password" class="input" placeholder="••••••••" required autocomplete="current-password" minlength="8">
-        <button type="button" class="toggle-pwd" onclick="togglePassword()" aria-label="Mostrar senha">
+        <button type="button" class="toggle-pwd" id="toggle-pwd" aria-label="Mostrar senha">
           <i data-lucide="eye" id="eye-icon" style="width:18px;height:18px;"></i>
         </button>
       </div>
@@ -338,6 +338,9 @@
   }
 
   initGoogleSignIn();
+
+  // DASH-01: a CSP manda `script-src-attr 'none'`, que bloqueia onclick inline.
+  document.getElementById('toggle-pwd')?.addEventListener('click', () => togglePassword());
 </script>
 
 </body>

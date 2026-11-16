@@ -632,3 +632,213 @@ test('Recover: SUA edição segue para o WhatsApp gravar (com "Antes/Editada par
   assert.strictEqual(r.previousContent, 'oi');
   assert.strictEqual(r.body, 'oie', 'o histórico guarda o texto novo sem o marcador');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-02 — descoberto no WhatsApp REAL (console do dono):
+//   [WHL Media] downloadAndMaybeDecrypt falhou: Unexpected mimetype
+//   application/octet-stream for media type ptt
+// O WhatsApp confere o mimetype do que baixou contra o `type` pedido. Como não
+// mandávamos `mimetype`, ele usava o genérico do servidor e recusava — áudio e
+// imagem APAGADOS não eram salvos.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Imita a validação real: recusa quando falta `mimetype` (cai no octet-stream).
+function downloadManagerQueExigeMimetype() {
+  const calls = [];
+  return {
+    calls,
+    async downloadAndMaybeDecrypt(args) {
+      calls.push(args);
+      const f = FILES[args.directPath];
+      if (!f || !args.mediaKey) throw Object.assign(new Error('media not found (404)'), { status: 404 });
+      if (args.type && !args.mimetype) {
+        throw new Error(`Unexpected mimetype application/octet-stream for media type ${args.type}`);
+      }
+      const u8 = new Uint8Array(f.bytes);
+      return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+    },
+  };
+}
+
+test('WA-02: áudio apagado é baixado — o mimetype real vai junto no pedido', async () => {
+  const dm = downloadManagerQueExigeMimetype();
+  const audio = makeMediaMsg('ptt', '/v/t62/audio.enc');
+  const { coll, mediaReady } = await bootHooks({ preloaded: [audio], downloadManager: dm });
+  coll.revoke(audio);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'o áudio apagado NÃO foi salvo (era o erro do WhatsApp real)');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/audio.enc'));
+  assert.strictEqual(dm.calls[0].mimetype, FILES['/v/t62/audio.enc'].mime, 'o pedido foi sem o mimetype real');
+});
+
+test('WA-02: imagem apagada também é baixada', async () => {
+  const dm = downloadManagerQueExigeMimetype();
+  const { coll, mediaReady } = await bootHooks({ downloadManager: dm });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc', { caption: 'olha' });
+  coll.add(img);
+  coll.revoke(img);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'a imagem apagada NÃO foi salva');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/foto.enc'));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-02b — MEDIDO no WhatsApp do dono (15/11/2026) com o WAMediaProbe, em 5
+// tipos de mídia reais:
+//   {type, mimetype}            -> OK em ptt, image, sticker e document
+//   {mimetype}  (sem `type`)    -> "webMediaType is invalid: undefined" SEMPRE
+//   {type}      (como era antes)-> "Unexpected mimetype application/octet-stream"
+//   {type:'document', mimetype} -> OK em tudo que o servidor ainda servia
+// Conclusão medida: `type` é OBRIGATÓRIO. A 2ª tentativa que o código fazia
+// (sem `type`) era morta — nunca poderia dar certo. O fallback que funciona é
+// type:'document', que o WhatsApp não confere contra o mimetype.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Imita o WhatsApp real medido: exige `type`; com 'document' não compara o par. */
+function downloadManagerComoOWhatsAppReal({ recusaTypeReal = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    async downloadAndMaybeDecrypt(args) {
+      calls.push(args);
+      if (!args.type) throw new Error('webMediaType is invalid: undefined');
+      if (args.type !== 'document' && (!args.mimetype || recusaTypeReal)) {
+        throw new Error(`Unexpected mimetype application/octet-stream for media type ${args.type}`);
+      }
+      const f = FILES[args.directPath];
+      if (!f || !args.mediaKey) throw Object.assign(new Error('mmsDownload: 404'), { status: 404 });
+      const u8 = new Uint8Array(f.bytes);
+      return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+    },
+  };
+}
+
+test('WA-02b: nenhuma tentativa pode ir sem `type` (o WhatsApp recusa com "webMediaType is invalid")', async () => {
+  const dm = downloadManagerComoOWhatsAppReal({ recusaTypeReal: true });
+  const audio = makeMediaMsg('ptt', '/v/t62/audio.enc');
+  const { coll, mediaReady } = await bootHooks({ preloaded: [audio], downloadManager: dm });
+  coll.revoke(audio);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'o áudio se perdeu: a 2ª tentativa foi sem `type`, que o WhatsApp real sempre recusa');
+  assert.ok(dm.calls.length > 1, 'não houve 2ª tentativa');
+  assert.ok(dm.calls.every((c) => c.type), 'alguma tentativa foi SEM `type`');
+});
+
+test('WA-02b: recusado o par type×mimetype, a 2ª tentativa usa type:"document" com o mimetype real', async () => {
+  const dm = downloadManagerComoOWhatsAppReal({ recusaTypeReal: true });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc');
+  const { coll, mediaReady } = await bootHooks({ preloaded: [img], downloadManager: dm });
+  coll.revoke(img);
+  const ready = await waitFor(() => mediaReady()[0]);
+  assert.ok(ready, 'a imagem se perdeu — faltou o fallback type:"document"');
+  assert.strictEqual(ready.mediaData, dataUrlOf('/v/t62/foto.enc'));
+  assert.strictEqual(dm.calls.length, 2, `esperava 2 tentativas, houve ${dm.calls.length}`);
+  assert.strictEqual(dm.calls[0].type, 'image', '1ª tentativa manda o type real');
+  assert.strictEqual(dm.calls[1].type, 'document', '2ª tentativa precisa ser type:"document"');
+  assert.strictEqual(dm.calls[1].mimetype, FILES['/v/t62/foto.enc'].mime, 'o fallback foi sem o mimetype real');
+});
+
+test('WA-02b (controle): 404 do servidor (mídia já expirada) não vira repetição', async () => {
+  const calls = [];
+  const dm = {
+    calls,
+    async downloadAndMaybeDecrypt(args) {
+      calls.push(args);
+      throw Object.assign(new Error('mmsDownload: 404'), { status: 404 });
+    },
+  };
+  const video = makeMediaMsg('video', '/v/t62/video.enc');
+  const { coll } = await bootHooks({ preloaded: [video], downloadManager: dm });
+  coll.revoke(video);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.strictEqual(calls.length, 1, `404 do servidor não deve ser repetido; houve ${calls.length}`);
+});
+
+test('WA-02 (controle): erro que não é de mimetype NÃO vira repetição', async () => {
+  const calls = [];
+  const dm = {
+    calls,
+    async downloadAndMaybeDecrypt(args) {
+      calls.push(args);
+      throw Object.assign(new Error('media not found (404)'), { status: 404 });
+    },
+  };
+  const audio = makeMediaMsg('ptt', '/v/t62/audio.enc');
+  const { coll } = await bootHooks({ preloaded: [audio], downloadManager: dm });
+  coll.revoke(audio);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.strictEqual(calls.length, 1, `404 não deve ser repetido; houve ${calls.length} tentativas`);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-03 (lado da captura) — a miniatura embutida na mensagem é miniatura mesmo
+// quando o WhatsApp não expõe como baixar o original. Marcar como "arquivo
+// completo" fazia o painel prometer o original e entregar 4 KB.
+// ─────────────────────────────────────────────────────────────────────────────
+test('WA-03: miniatura de mensagem sem mediaKey é marcada como miniatura', async () => {
+  const dm = fakeDownloadManager();
+  const { coll, records } = await bootHooks({ downloadManager: dm });
+  const img = makeMediaMsg('image', '/v/t62/foto.enc', { caption: 'sem chave' });
+  // mensagem em que o WhatsApp não expõe como baixar o original: sobra a
+  // miniatura que veio no corpo
+  delete img.directPath;
+  delete img.mediaKey;
+  delete img.mediaKeyTimestamp;
+  coll.add(img);
+  await new Promise((r) => setTimeout(r, 50));
+  coll.revoke(img);
+  const r = records()[0];
+  assert.ok(r, 'imagem apagada não registrada');
+  assert.ok(String(r.mediaData).startsWith('/9j/'), 'o guardado deveria ser a miniatura do corpo');
+  assert.strictEqual(
+    r.mediaIsThumbnail,
+    true,
+    'miniatura marcada como arquivo original: o painel promete o original, entrega 4 KB, e o original nunca mais substitui'
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WA-04 (invariantes) — o dono viu no histórico entradas
+//   559284891875 → 559284891875  (o próprio número dos dois lados)
+// em mensagens que ele NÃO mandou para si mesmo.
+//
+// ATENÇÃO: estes dois casos NÃO são a correção do WA-04 — a causa ainda não foi
+// encontrada. Minha primeira hipótese (o @lid do remetente não resolve e a
+// varredura de extractPhoneNumber cai no campo `to`, que é a própria conta) foi
+// testada aqui e NÃO se confirma: um @lid de 15 dígitos passa na validação e
+// vira o remetente corretamente. Ficam como guarda do invariante enquanto o
+// caminho real é medido no aparelho do dono (wa-recover-storage-probe.js
+// agora imprime from/to/chatId/origem de cada registro).
+// ─────────────────────────────────────────────────────────────────────────────
+test('WA-04 (invariante): remetente @lid de grupo não vira "meu número → meu número"', async () => {
+  const GRUPO = '120363000000000000@g.us';
+  const { coll, records } = await bootHooks();
+  const id = '3EB0WA04LID000001';
+  const msg = {
+    id: { id, remote: GRUPO, fromMe: false, _serialized: `false_${GRUPO}_${id}` },
+    from: { _serialized: '199887766554433@lid', user: '199887766554433' },
+    author: { _serialized: '199887766554433@lid', user: '199887766554433' },
+    to: { _serialized: ME, user: ME.split('@')[0] },
+    body: 'Não to preparado para amanhã',
+    type: 'chat',
+    t: 1763230000,
+  };
+  coll.add(msg);
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.ok(r, 'mensagem apagada não registrada');
+  assert.notStrictEqual(
+    r.from,
+    r.to,
+    `o histórico mostrou "${r.from} → ${r.to}": a mensagem veio de grupo, não da própria conta`
+  );
+});
+
+test('WA-04 (controle): mensagem que o dono mandou mesmo continua com ele no remetente', async () => {
+  const { coll, records } = await bootHooks();
+  const msg = makeMsg('mensagem minha', { fromMe: true });
+  coll.add(msg);
+  coll.revoke(msg);
+  const r = records()[0];
+  assert.strictEqual(r.from, ME.split('@')[0], 'perdeu o remetente de uma mensagem realmente minha');
+});

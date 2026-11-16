@@ -24,13 +24,14 @@
 
   const SELECTORS = {
     // Container principal do chat
+    // WA-01: 'div[data-tab="1"]' não existe mais (canário no WhatsApp real:
+    // DEGRADED, só o fallback '#main' casava). '#main' vira o principal.
     MAIN_CHAT: {
-      primary: 'div[data-tab="1"]',
+      primary: '#main',
       fallbacks: [
-        '#main',
         'div[role="main"]',
-        'div._1hI5g',
-        'div.two._1jJ70'
+        'div[data-tab="1"]',
+        'div._1hI5g'
       ],
       description: 'Container principal do chat'
     },
@@ -95,12 +96,16 @@
     },
 
     // Mensagem individual
+    // WA-01: o WhatsApp atual põe no balão um data-id com SÓ o id da mensagem
+    // (não mais 'true_...'/'false_...'), então o seletor antigo não casava com
+    // nada (canário: BROKEN). Usamos o que o código de captura já usa e
+    // funciona: role="row" e [data-testid="msg-container"].
     MESSAGE_ITEM: {
-      primary: 'div[data-id^="true_"] , div[data-id^="false_"]',
+      primary: 'div[role="row"]',
       fallbacks: [
-        'div.message-in, div.message-out',
-        'div[class*="message"]',
-        'div._1gux_'
+        '[data-testid="msg-container"]',
+        'div[data-id]',
+        'div.message-in, div.message-out'
       ],
       description: 'Mensagem individual'
     },
@@ -128,14 +133,18 @@
     },
 
     // Status de conexão
+    // WA-01: 'span[data-testid="status"]' não existe mais (canário: BROKEN) e
+    // nenhum código dependia dele. O que indica sessão ativa de verdade — e é o
+    // que chatbackup/content.js (checkConnected) já usa — é a lista lateral
+    // '#pane-side' estar na tela: sem login, o WhatsApp mostra o QR no lugar.
     CONNECTION_STATUS: {
-      primary: 'span[data-testid="status"]',
+      primary: '#pane-side',
       fallbacks: [
-        'span[title*="clique aqui"]',
-        'span[title*="click here"]',
-        'div._2dDmN'
+        'div[aria-label="Lista de conversas"]',
+        'div[data-testid="chat-list"]',
+        'span[data-testid="status"]'
       ],
-      description: 'Status de conexão WhatsApp'
+      description: 'Sessão do WhatsApp ativa (lista lateral na tela)'
     }
   };
 

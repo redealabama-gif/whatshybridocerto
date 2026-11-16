@@ -260,7 +260,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <button class="tab-btn" onclick="api.logout()" aria-label="Sair da conta">
+      <button class="tab-btn" data-act="logout" aria-label="Sair da conta">
         <i data-lucide="log-out" aria-hidden="true"></i>
         Sair
       </button>
@@ -271,7 +271,7 @@
   <main class="content-area" id="main-content">
 
     <button class="mobile-toggle"
-            onclick="document.getElementById('sidebar').classList.toggle('open')"
+            data-act="toggleSidebar"
             aria-label="Abrir menu"
             aria-controls="sidebar"
             aria-expanded="false">
@@ -285,7 +285,7 @@
           <h1>Olá, <span id="user-name">amigo</span> 👋</h1>
           <p id="trial-banner-text">Carregando informações da conta...</p>
         </div>
-        <a href="#" class="btn btn-cyan" onclick="switchTab('extension'); return false;">
+        <a href="#" class="btn btn-cyan" data-act="switchTab" data-arg="extension">
           <i data-lucide="puzzle" style="width:18px;height:18px;"></i>
           Instalar extensão
         </a>
@@ -303,7 +303,7 @@
             <div class="welcome-step-num">1</div>
             <h3>Instale a extensão</h3>
             <p>Adicione ao Chrome em 30 segundos. Funciona no Edge e Brave também.</p>
-            <a href="#" class="btn btn-cyan btn-small" onclick="switchTab('extension'); return false;">Ir para extensão →</a>
+            <a href="#" class="btn btn-cyan btn-small" data-act="switchTab" data-arg="extension">Ir para extensão →</a>
           </div>
           <div class="welcome-step">
             <div class="welcome-step-num">2</div>
@@ -314,7 +314,7 @@
             <div class="welcome-step-num">3</div>
             <h3>Acompanhe por aqui</h3>
             <p>Saldo de tokens, planos e faturas ficam neste painel. A operação acontece toda na extensão.</p>
-            <a href="#" class="btn btn-cyan btn-small" onclick="switchTab('tokens'); return false;">Ver meu saldo →</a>
+            <a href="#" class="btn btn-cyan btn-small" data-act="switchTab" data-arg="tokens">Ver meu saldo →</a>
           </div>
         </div>
       </div>
@@ -486,7 +486,7 @@
           <h1>Tokens & Uso</h1>
           <p>Saldo da sua IA, histórico e pacotes para comprar mais.</p>
         </div>
-        <button class="btn btn-cyan" onclick="openBuyTokens()">
+        <button class="btn btn-cyan" data-act="openBuyTokens">
           <i data-lucide="plus" style="width:18px;height:18px;"></i>
           Comprar tokens
         </button>
@@ -568,7 +568,7 @@
                 <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
                 <span id="past-due-cta-label">Reconfigurar pagamento agora</span>
               </button>
-              <button class="btn btn-ghost" type="button" onclick="document.getElementById('payment-method-info').scrollIntoView({behavior:'smooth'})">
+              <button class="btn btn-ghost" type="button" data-act="verFormaPagamento">
                 Ver opções de pagamento
               </button>
             </div>
@@ -585,7 +585,7 @@
             <div class="text-muted mt-2" id="billing-next-charge" style="font-size: 0.85rem;">Próxima cobrança: —</div>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-ghost" onclick="cancelSubscription()" style="color: var(--error);">Cancelar</button>
+            <button class="btn btn-ghost" data-act="cancelSubscription" style="color: var(--error);">Cancelar</button>
           </div>
         </div>
 
@@ -596,11 +596,11 @@
           <div class="text-muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Chave de ativação da extensão</div>
           <div class="mt-2" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <code id="activation-key-code" style="font-size:1.05rem;padding:8px 12px;background:rgba(0,255,255,0.06);border:1px solid rgba(0,255,255,0.3);border-radius:8px;letter-spacing:1px;">—</code>
-            <button class="btn btn-ghost" onclick="copyActivationKey()">
+            <button class="btn btn-ghost" data-act="copyActivationKey">
               <i data-lucide="copy" style="width:16px;height:16px;"></i>
               Copiar
             </button>
-            <button class="btn btn-ghost" onclick="unbindActivationKey()" title="Liberar a chave para usar em outro computador">
+            <button class="btn btn-ghost" data-act="unbindActivationKey" title="Liberar a chave para usar em outro computador">
               <i data-lucide="monitor-x" style="width:16px;height:16px;"></i>
               Desvincular dispositivo
             </button>
@@ -620,15 +620,15 @@
           Você está em período de trial. Configure o método de pagamento antes de <strong id="trial-end-date">—</strong>.
         </div>
         <div class="mt-4 flex gap-3" style="flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="subscribeRecurring()" data-cursor="hover">
+          <button class="btn btn-primary" data-act="subscribeRecurring" data-cursor="hover">
             <i data-lucide="repeat" style="width:18px;height:18px;"></i>
             Assinar com renovação automática
           </button>
-          <button class="btn btn-ghost" onclick="startCheckout()">
+          <button class="btn btn-ghost" data-act="startCheckout">
             <i data-lucide="credit-card" style="width:18px;height:18px;"></i>
             Pagamento único (1 mês)
           </button>
-          <button class="btn btn-ghost" onclick="changePlan()">
+          <button class="btn btn-ghost" data-act="changePlan">
             <i data-lucide="arrow-up-right" style="width:18px;height:18px;"></i>
             Mudar plano
           </button>
@@ -682,7 +682,9 @@
     })();
     // Identifica usuário automaticamente quando logado
     if (window.api && typeof window.api.get === 'function') {
-      window.api.get('/api/v1/users/me').then(r => {
+      // DASH-02: /api/v1/users/me cai no /users/:id (id="me") e devolve 404.
+      // O endpoint certo é /api/v1/auth/me, o mesmo que o loadUser() usa.
+      window.api.get('/api/v1/auth/me').then(r => {
         if (r?.user) {
           window.$crisp.push(["set", "user:email", r.user.email]);
           window.$crisp.push(["set", "user:nickname", r.user.name]);
@@ -711,6 +713,35 @@
   }
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // DASH-01: a CSP manda `script-src-attr 'none'` (padrão do helmet), que
+  // BLOQUEIA handler inline — um atributo onclick simplesmente não roda. Era
+  // por isso que nenhum botão do painel respondia, nem o "Sair". Agora cada
+  // botão declara data-act (e data-arg quando precisa) e é ligado aqui por
+  // delegação,
+  // o que também cobre os botões criados depois (pacotes de tokens).
+  const ACOES = {
+    logout: () => api.logout(),
+    switchTab: (arg) => switchTab(arg),
+    toggleSidebar: () => document.getElementById('sidebar').classList.toggle('open'),
+    verFormaPagamento: () => document.getElementById('payment-method-info')?.scrollIntoView({ behavior: 'smooth' }),
+    openBuyTokens: () => openBuyTokens(),
+    buyTokenPackage: (arg) => buyTokenPackage(arg),
+    cancelSubscription: () => cancelSubscription(),
+    copyActivationKey: () => copyActivationKey(),
+    unbindActivationKey: () => unbindActivationKey(),
+    subscribeRecurring: () => subscribeRecurring(),
+    startCheckout: () => startCheckout(),
+    changePlan: () => changePlan(),
+  };
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-act]');
+    if (!el) return;
+    const fn = ACOES[el.dataset.act];
+    if (!fn) { console.warn('[dashboard] ação sem tratamento:', el.dataset.act); return; }
+    ev.preventDefault();
+    fn(el.dataset.arg);
   });
 
   // ── Load user data ───────────────────────────────────────
@@ -829,7 +860,7 @@
             R$ ${p.price_brl.toFixed(2).replace('.', ',')}
           </div>
           <div class="text-muted" style="font-size:0.75rem;">R$ ${p.cost_per_1k}/1k tokens</div>
-          <button class="btn btn-primary btn-block mt-4" onclick="buyTokenPackage('${p.id}')">
+          <button class="btn btn-primary btn-block mt-4" data-act="buyTokenPackage" data-arg="${p.id}">
             Comprar
           </button>
         </div>
@@ -932,7 +963,7 @@
   async function detectPaymentProvider() {
     // 1. Check user setting (se ele já escolheu)
     try {
-      const me = await api.get('/api/v1/users/me');
+      const me = await api.get('/api/v1/auth/me'); // DASH-02: /users/me é 404
       if (me?.user?.preferred_payment_provider) return me.user.preferred_payment_provider;
     } catch(_) {}
     // 2. Detect by browser locale (heurística inicial)

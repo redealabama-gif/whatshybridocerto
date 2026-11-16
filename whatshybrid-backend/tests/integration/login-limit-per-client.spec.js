@@ -38,9 +38,13 @@ describe('PROD-05 — limite de tentativas de login por cliente', () => {
     expect(r.status).toBe(201);
   });
 
+  // Cada tentativa usa um e-mail DIFERENTE de propósito: o que se mede aqui é o
+  // limite por IP (PROD-05). Repetir o mesmo e-mail esbarraria antes no bloqueio
+  // por conta do LoginAttemptsService (3 falhas em 15 min), que é outra defesa e
+  // tem teste próprio abaixo.
   test('5 senhas erradas do cliente A não bloqueiam o login do cliente B', async () => {
     for (let i = 0; i < 5; i++) {
-      const r = await login('203.0.113.10', 'cliente-a@example.com', `errada-${i}-123`);
+      const r = await login('203.0.113.10', `cliente-a-${i}@example.com`, `errada-${i}-123`);
       expect(r.status).toBe(401);
     }
     const b = await login('198.51.100.20', emailB, SENHA);
@@ -58,5 +62,21 @@ describe('PROD-05 — limite de tentativas de login por cliente', () => {
     expect(linhas.length).toBeGreaterThan(0);
     // {remote} = IP:porta (RemoteAddr) — cada conexão viraria um "cliente" novo
     for (const l of linhas) expect(l).toMatch(/\{remote_host\}|\{client_ip\}/);
+  });
+});
+
+// A outra defesa, que o teste acima evita de propósito: força bruta contra UMA
+// conta é barrada pelo e-mail, não pelo IP (LoginAttemptsService: 3 falhas em
+// 15 min). Sem isto, trocar de IP a cada tentativa driblaria o limite.
+describe('bloqueio por conta (independente do IP)', () => {
+  test('3 senhas erradas no mesmo e-mail bloqueiam mesmo vindo de IPs diferentes', async () => {
+    const alvo = `alvo-${Date.now()}@example.com`;
+    const status = [];
+    for (let i = 0; i < 4; i++) {
+      const r = await login(`203.0.113.${50 + i}`, alvo, `errada-${i}-123`);
+      status.push(r.status);
+    }
+    expect(status.slice(0, 3)).toEqual([401, 401, 401]);
+    expect(status[3]).toBe(429);
   });
 });

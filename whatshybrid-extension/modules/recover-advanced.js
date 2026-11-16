@@ -1068,7 +1068,12 @@
       if (!m || !(ids.has(messageIdCore(m.id)) || ids.has(messageIdCore(m.protocolId)))) return;
       if (payload.action && m.action && payload.action !== m.action && m.action === 'edited') return;
       const hasStored = typeof m.mediaData === 'string' && m.mediaData.length > 50 && m.mediaData !== '__HAS_MEDIA__';
-      const hasFull = hasStored && !m.mediaIsThumbnail;
+      // WA-03: registros antigos podem ter guardado a MINIATURA sem a marca
+      // (antes só se marcava quando dava para baixar o original). Medido no
+      // aparelho do dono: miniatura 4 KB x imagem real 151 KB. Então um arquivo
+      // que chega VÁRIAS vezes maior ainda pode substituir o que está lá.
+      const muitoMaior = hasStored && !incomingThumb && mediaData.length > m.mediaData.length * 4;
+      const hasFull = hasStored && !m.mediaIsThumbnail && !muitoMaior;
       if (hasFull) return;
       // Miniatura nova só troca a atual se for maior (a do WhatsApp é minúscula).
       if (incomingThumb && hasStored && m.mediaData.length >= mediaData.length) return;
@@ -1089,7 +1094,10 @@
       (entry.history || []).forEach(ev => {
         if (ev && ev.state !== MESSAGE_STATES.EDITED && REVOKED_UNIVERSE_STATES.includes(ev.state)) {
           const evStored = typeof ev.mediaDataPreview === 'string' && ev.mediaDataPreview.length > 50;
-          if (evStored && !ev.mediaIsThumbnail) return;
+          // WA-03: mesma tolerância do registro principal para a miniatura
+          // antiga que ficou sem a marca.
+          const evMuitoMaior = evStored && !incomingThumb && mediaData.length > ev.mediaDataPreview.length * 4;
+          if (evStored && !ev.mediaIsThumbnail && !evMuitoMaior) return;
           if (incomingThumb && evStored && ev.mediaDataPreview.length >= mediaData.length) return;
           ev.mediaDataPreview = mediaData;
           ev.mediaIsThumbnail = incomingThumb;
