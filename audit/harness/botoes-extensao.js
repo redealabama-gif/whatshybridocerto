@@ -104,12 +104,18 @@ const ESPIAO = () => {
   async function varrer(page, rotulo) {
     const alvos = await page.evaluate(MARCAR);
 
-    for (const a of alvos) {
-      if (/^(mailto:|tel:|https?:)/i.test(a.href)) continue;   // sai do painel
+    // Fila de trabalho: começa com o que está na tela e CRESCE quando um
+    // clique abre um modal. Os botões do modal entram na FRENTE, para serem
+    // testados enquanto ele está aberto — sem isso eles sumiam antes da vez
+    // deles e ficavam sem verificação (eram os 14 pulados).
+    const pendentes = alvos.filter((x) => !/^(mailto:|tel:|https?:)/i.test(x.href));
+    const conhecidos = new Set(pendentes.map((x) => x.chave));
+    let giros = 0;
 
-      // Re-marca antes de clicar: um clique anterior pode ter aberto ou
-      // fechado um modal, e aí o elemento deste índice não é mais o mesmo —
-      // ou nem existe. Sem isto, botão de modal que sumiu virava "morto".
+    while (pendentes.length && giros++ < 400) {
+      const a = pendentes.shift();
+
+      // Re-marca antes de clicar: o DOM pode ter mudado desde a coleta.
       const agora = await page.evaluate(MARCAR);
       if (!agora.some((x) => x.chave === a.chave)) { sumiram.push({ rotulo, ...a }); continue; }
 
@@ -145,7 +151,14 @@ const ESPIAO = () => {
         console.log(`  [MORTO] ${rotulo}  "${a.texto}"  id=${a.id}`);
       }
       await page.evaluate((q) => document.querySelector(q)?.removeAttribute('data-btn-k'), sel).catch(() => {});
+
+      // Apareceu coisa nova (modal)? Entra na frente da fila.
+      const depois = await page.evaluate(MARCAR);
+      const novos = depois.filter((x) => !conhecidos.has(x.chave) && !/^(mailto:|tel:|https?:)/i.test(x.href));
+      for (const n of novos) conhecidos.add(n.chave);
+      if (novos.length) pendentes.unshift(...novos);
     }
+    if (giros >= 400) console.log(`  (limite de 400 cliques atingido em ${rotulo})`);
   }
 
   const sp = await ctx.newPage();
