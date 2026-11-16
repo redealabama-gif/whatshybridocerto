@@ -3980,20 +3980,23 @@
       const stack = document.getElementById('sales-stack');
       if (!stack) return;
 
+      // SITE-01: três entradas anunciavam o plano "Business" por R$ 199,90.
+      // Esse plano não existe — os planos são Free, Starter (R$ 49,90) e Pro
+      // (R$ 99,90). Trocadas por planos reais.
       const sales = [
         { name: 'Breno Sevaroli',    initials: 'BS', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Camila Andrade',    initials: 'CA', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Rodrigo Tavares',   initials: 'RT', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Larissa Mendes',    initials: 'LM', plan: 'Pro',     value: 'R$ 99,90' },
-        { name: 'Felipe Nogueira',   initials: 'FN', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Felipe Nogueira',   initials: 'FN', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Aline Souza',       initials: 'AS', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Marcos Vinicius',   initials: 'MV', plan: 'Starter', value: 'R$ 49,90' },
-        { name: 'Patrícia Lima',     initials: 'PL', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Patrícia Lima',     initials: 'PL', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Eduardo Ramos',     initials: 'ER', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Vanessa Cardoso',   initials: 'VC', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Thiago Bernardes',  initials: 'TB', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Isabela Freitas',   initials: 'IF', plan: 'Starter', value: 'R$ 49,90' },
-        { name: 'Gabriel Moraes',    initials: 'GM', plan: 'Business',value: 'R$ 199,90' },
+        { name: 'Gabriel Moraes',    initials: 'GM', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Beatriz Camargo',   initials: 'BC', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'André Pinheiro',    initials: 'AP', plan: 'Starter', value: 'R$ 49,90' }
       ];

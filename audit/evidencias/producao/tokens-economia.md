@@ -78,3 +78,98 @@ diante do preço. **Não precisa reduzir a quantidade de tokens por custo.**
 4. **Alerta de saldo baixo** já existe (`LOW_BALANCE_THRESHOLD` 10%,
    `low_balance` no balance). Ligar e-mail/aviso quando dispara (ver Fase 6 IA).
 5. Pacotes avulsos não expiram (PLN-01 ✅); a renovação mantém o comprado.
+
+---
+
+# CORREÇÃO (16/11/2026) — a conta acima usou o modelo errado
+
+O dono apontou: *"eu tô utilizando a chave API com o modelo mais barato da
+OpenAI e também de uma outra IA, sendo que essa outra eu coloquei pra que fosse
+a mais utilizada"*.
+
+Ele está certo e a seção 3 estava incompleta. O provedor **primário** não é a
+OpenAI — é o **Groq**:
+
+```
+.env.example:61   AI_DEFAULT_PROVIDER=groq
+.env.example:62   AI_DEFAULT_MODEL=llama-3.3-70b-versatile
+```
+
+A OpenAI (`gpt-4o-mini`, fixado em `OpenAIProvider.js:59`) é o **fallback**.
+E o detalhe que muda a conta: **o Groq é mais caro que o gpt-4o-mini**.
+
+## Preços consultados em 16/11/2026
+
+| Modelo | Entrada / 1M | Saída / 1M |
+|---|---|---|
+| **Groq** `llama-3.3-70b-versatile` (primário) | **US$ 0,59** | **US$ 0,79** |
+| OpenAI `gpt-4o-mini` (fallback) | US$ 0,15 | US$ 0,60 |
+
+Entrada no Groq custa **3,9×** o do gpt-4o-mini. Câmbio usado: **R$ 5,30/US$**
+(cotação recente ≈ R$ 5,20; arredondado para cima, a favor da prudência).
+
+## Consumo medido
+
+`tokens-prompt-medido.json`: **~1.800 de entrada + ~120 de saída = ~1.920
+tokens por sugestão**. Ou seja 93,75% entrada / 6,25% saída.
+
+## Custo por sugestão
+
+| Provedor | Conta | Custo |
+|---|---|---|
+| Groq (primário) | (1.800×0,59 + 120×0,79) / 1M | US$ 0,00116 → **R$ 0,0061** |
+| gpt-4o-mini (fallback) | (1.800×0,15 + 120×0,60) / 1M | US$ 0,00034 → **R$ 0,0018** |
+
+## Custo por plano, com a cota INTEIRA consumida
+
+| Plano | Preço | Cota | Custo no Groq | Custo no gpt-4o-mini | Margem (pior caso) |
+|---|---|---|---|---|---|
+| Starter | R$ 49,90 | 50.000 | **R$ 0,16** | R$ 0,05 | **99,7%** |
+| Pro | R$ 99,90 | 500.000 | **R$ 1,60** | R$ 0,47 | **98,4%** |
+
+**Resposta: lucro, com folga — mesmo com 100% no provedor mais caro.**
+
+## O que protege a margem
+
+A **cota é o teto**. O cliente não consegue gastar mais do que comprou: quando
+o saldo zera, a IA para. Então o custo de IA por cliente é limitado por
+construção. Para o Starter dar prejuízo só de IA seriam necessárias
+**~8.200 sugestões/mês** do mesmo cliente (R$ 49,90 ÷ R$ 0,0061) — 15,7 milhões
+de tokens, 314× a cota. Não acontece.
+
+## O que REALMENTE pesa (não é a IA)
+
+| Custo por cliente Starter (R$ 49,90) | Valor | Proporção |
+|---|---|---|
+| Taxa do MercadoPago (~4,99% no cartão) | ~R$ 2,49 | **15× o custo de IA** |
+| IA (cota cheia, Groq) | R$ 0,16 | — |
+| Infraestrutura (VPS, Redis, Postgres, banda) | fixo, rateado | 🔒 depende do plano do servidor |
+
+Ou seja: a conta de IA é ruído. Quem define a margem real é a taxa de pagamento
+e o custo fixo do servidor.
+
+## Dois pontos que valem decisão do dono (🔒)
+
+**1. O pacote avulso de 50k custa MAIS que o plano Starter inteiro.**
+
+| Item | Tokens | Preço | Por token |
+|---|---|---|---|
+| Plano Starter | 50.000/mês | R$ 49,90 | R$ 0,000998 |
+| `pack_50k` | 50.000 | **R$ 79,00** | R$ 0,00158 |
+| `pack_10k` | 10.000 | R$ 19,00 | R$ 0,0019 |
+| `pack_200k` | 200.000 | R$ 249,00 | R$ 0,00125 |
+| `pack_1M` | 1.000.000 | R$ 999,00 | R$ 0,000999 |
+
+Um cliente Starter que acabar os tokens tem incentivo a **assinar outro plano**
+em vez de comprar o pacote de 50k, que custa 58% mais caro pela mesma coisa.
+Isso é decisão de preço, não defeito — mas vale ajustar.
+
+**2. Se o Groq ficar no free tier**, o custo de IA vai a zero, com limite de
+requisições por minuto. Sob carga isso vira 429 — já tratado com `Retry-After`
+(IA-61) e com queda para a OpenAI, que é mais barata. Ou seja: o fallback sai
+mais barato que o primário, o que é incomum mas não é problema.
+
+## Fontes dos preços
+
+Consultados em 16/11/2026; páginas de preço mudam — confirmar em groq.com e
+openai.com antes de fechar orçamento.

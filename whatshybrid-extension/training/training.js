@@ -1654,7 +1654,14 @@ class TrainingApp {
     if (!input) return;
 
     const userText = input.value.trim();
-    if (!userText) return;
+    if (!userText) {
+      // BTN-03: sem texto o botão não fazia NADA — nem aviso, nem foco no
+      // campo. Quem clica acha que está quebrado. Mesmo caso do "Comprar
+      // tokens" do painel do site, encontrado na varredura de botões.
+      this.showToast('Escreva a mensagem do cliente antes de enviar', 'warning');
+      input.focus();
+      return;
+    }
 
     // Limpa o estado vazio e adiciona bolha do usuário.
     const userMsgId = `user_${Date.now()}`;
