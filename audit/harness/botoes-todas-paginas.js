@@ -74,6 +74,9 @@ const MARCAR = () => {
   // da assinatura aparecia como morto.
   let dialogos = 0;
   page.on('dialog', (d) => { dialogos++; d.dismiss().catch(() => {}); });
+  // Abrir aba nova (window.open / target=_blank) também é reação.
+  let abasNovas = 0;
+  ctx.on('page', () => { abasNovas++; });
 
   await page.goto(BASE + '/signup.html', { waitUntil: 'networkidle' });
   await page.evaluate(async ([b, e, s]) => fetch(b + '/api/v1/auth/signup', {
@@ -145,6 +148,7 @@ const MARCAR = () => {
         const onReq = () => { req++; };
         page.on('request', onReq);
         const dlgAntes = dialogos;
+        const abasAntes = abasNovas;
         const antes = page.url();
         let como = 'mouse';
         try { await page.click(`[data-btn-i="${alvo.i}"]`, { timeout: 1500 }); }
@@ -162,7 +166,7 @@ const MARCAR = () => {
 
         const navegou = dep.url !== antes;
         const abriuDialogo = dialogos > dlgAntes;
-        if (!(navegou || dep.modal || dep.toast || dep.mut > 0 || req > 0 || abriuDialogo || dep.invalidos > 0)) {
+        if (!(navegou || dep.modal || dep.toast || dep.mut > 0 || req > 0 || abriuDialogo || dep.invalidos > 0 || abasNovas > abasAntes)) {
           mortos.push({ rot, ...alvo, como });
           console.log(`  [MORTO] ${alvo.texto}  (id=${alvo.id} act=${alvo.act} clique=${como})`);
         }

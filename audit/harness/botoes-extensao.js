@@ -68,8 +68,14 @@ const ESPIAO = () => {
   await wa.goto('https://web.whatsapp.com/');
   await wa.waitForTimeout(2000);
 
+  let dialogos = 0;
   const mortos = [];
   let total = 0;
+  // Abrir ABA NOVA é reação: btnOpenCrmFullscreen usa chrome.tabs.create e
+  // "Ver planos" usa window.open. Nenhum dos dois mexe na página atual, então
+  // sem contar isto os dois apareciam como mortos em várias telas.
+  let abasNovas = 0;
+  ctx.on('page', () => { abasNovas++; });
 
   async function varrer(page, rotulo) {
     const alvos = await page.evaluate(() => {
@@ -94,6 +100,12 @@ const ESPIAO = () => {
       let req = 0;
       const onReq = () => { req++; };
       page.on('request', onReq);
+      // Abrir o seletor de arquivo também é reação (sp_select_file).
+      let fileChooser = 0;
+      const onFC = (fc) => { fileChooser++; fc.setFiles([]).catch(() => {}); };
+      page.on('filechooser', onFC);
+      const abasAntes = abasNovas;
+      const dlgAntes = dialogos;
       await page.evaluate(ESPIAO);
       await page.evaluate(() => window.__btnReset && window.__btnReset());
       const antes = page.url();
@@ -101,13 +113,16 @@ const ESPIAO = () => {
       catch (_) { await page.evaluate((i) => document.querySelector(`[data-btn-i="${i}"]`)?.click(), a.i).catch(() => {}); }
       await page.waitForTimeout(500);
       page.off('request', onReq);
+      page.off('filechooser', onFC);
       const dep = await page.evaluate(() => ({
         url: location.href,
         mut: (window.__btn && window.__btn.mut) || 0,
         toast: [...document.querySelectorAll('[class*="toast"],[id*="toast"]')].some((t) => (t.textContent || '').trim()),
         modal: [...document.querySelectorAll('[class*="modal"],dialog')].some((m) => m.offsetParent !== null || m.open),
       })).catch(() => ({ url: antes, mut: 0, toast: false, modal: false }));
-      if (!(dep.url !== antes || dep.mut > 0 || dep.toast || dep.modal || req > 0)) {
+      const reagiu = dep.url !== antes || dep.mut > 0 || dep.toast || dep.modal || req > 0
+        || abasNovas > abasAntes || fileChooser > 0 || dialogos > dlgAntes;
+      if (!reagiu) {
         mortos.push({ rotulo, ...a });
         console.log(`  [MORTO] ${rotulo}  "${a.texto}"  id=${a.id}`);
       }
@@ -116,7 +131,7 @@ const ESPIAO = () => {
   }
 
   const sp = await ctx.newPage();
-  sp.on('dialog', (d) => d.dismiss().catch(() => {}));
+  sp.on('dialog', (d) => { dialogos++; d.dismiss().catch(() => {}); });
   await sp.goto(`chrome-extension://${extId}/sidepanel.html`);
   await sp.waitForTimeout(3500);
 
@@ -128,7 +143,7 @@ const ESPIAO = () => {
   }
 
   const tr = await ctx.newPage();
-  tr.on('dialog', (d) => d.dismiss().catch(() => {}));
+  tr.on('dialog', (d) => { dialogos++; d.dismiss().catch(() => {}); });
   await tr.goto(`chrome-extension://${extId}/training/training.html`).catch(() => {});
   await tr.waitForTimeout(2500);
   console.log('\n### training.html');
