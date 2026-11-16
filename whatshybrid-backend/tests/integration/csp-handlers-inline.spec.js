@@ -32,3 +32,21 @@ describe('DASH-01: nenhuma página usa handler inline (a CSP bloqueia)', () => {
     expect(achados).toEqual([]);
   });
 });
+
+/**
+ * DASH-02 — o painel chamava GET /api/v1/users/me, que cai na rota
+ * /api/v1/users/:id com id="me" e devolve 404 (medido no navegador real).
+ * As duas chamadas estavam dentro de .catch(), então falhavam em silêncio:
+ * o Crisp nunca recebia nome/e-mail do cliente e o detectPaymentProvider()
+ * nunca lia a preferência de pagamento. O endpoint certo é /api/v1/auth/me.
+ */
+describe('DASH-02: nenhuma página chama /api/v1/users/me (é 404)', () => {
+  test.each(paginas)('%s não usa /api/v1/users/me', (arquivo) => {
+    const html = fs.readFileSync(path.join(PUBLIC, arquivo), 'utf8');
+    const linhas = html.split('\n')
+      .map((l, i) => [i + 1, l])
+      .filter(([, l]) => l.includes("'/api/v1/users/me'") || l.includes('"/api/v1/users/me"'))
+      .map(([n, l]) => `${arquivo}:${n} ${l.trim().slice(0, 80)}`);
+    expect(linhas).toEqual([]);
+  });
+});

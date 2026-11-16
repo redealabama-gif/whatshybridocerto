@@ -682,7 +682,9 @@
     })();
     // Identifica usuário automaticamente quando logado
     if (window.api && typeof window.api.get === 'function') {
-      window.api.get('/api/v1/users/me').then(r => {
+      // DASH-02: /api/v1/users/me cai no /users/:id (id="me") e devolve 404.
+      // O endpoint certo é /api/v1/auth/me, o mesmo que o loadUser() usa.
+      window.api.get('/api/v1/auth/me').then(r => {
         if (r?.user) {
           window.$crisp.push(["set", "user:email", r.user.email]);
           window.$crisp.push(["set", "user:nickname", r.user.name]);
@@ -961,7 +963,7 @@
   async function detectPaymentProvider() {
     // 1. Check user setting (se ele já escolheu)
     try {
-      const me = await api.get('/api/v1/users/me');
+      const me = await api.get('/api/v1/auth/me'); // DASH-02: /users/me é 404
       if (me?.user?.preferred_payment_provider) return me.user.preferred_payment_provider;
     } catch(_) {}
     // 2. Detect by browser locale (heurística inicial)
