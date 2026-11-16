@@ -34,9 +34,16 @@ const PAGINAS_PUBLICAS = [
 const PAGINAS_LOGADO = ['dashboard.html'];
 
 const ESPIAO = () => {
-  window.__btn = { mut: 0 };
+  window.__btn = { mut: 0, invalidos: 0 };
   new MutationObserver((ms) => { window.__btn.mut += ms.length; })
     .observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+  // A validação nativa do navegador ("Preencha este campo") É resposta ao
+  // clique: o usuário vê o balão. Mas ela não muda o DOM nem faz requisição,
+  // então sem isto o "Continuar" do cadastro aparecia como morto.
+  if (!window.__btnInvalid) {
+    window.__btnInvalid = true;
+    document.addEventListener('invalid', () => { if (window.__btn) window.__btn.invalidos++; }, true);
+  }
 };
 
 /** Marca os clicáveis na ordem do DOM. Idempotente: pode rodar a cada clique. */
@@ -148,13 +155,14 @@ const MARCAR = () => {
         const dep = await page.evaluate(() => ({
           url: location.href,
           mut: (window.__btn && window.__btn.mut) || 0,
+          invalidos: (window.__btn && window.__btn.invalidos) || 0,
           modal: [...document.querySelectorAll('.modal,[class*="modal"],dialog')].some((m) => m.offsetParent !== null || m.open),
           toast: [...document.querySelectorAll('.toast,[class*="toast"]')].some((t) => (t.textContent || '').trim()),
-        })).catch(() => ({ url: page.url(), mut: 1, modal: false, toast: false })); // evaluate falhou = navegou
+        })).catch(() => ({ url: page.url(), mut: 1, invalidos: 0, modal: false, toast: false })); // evaluate falhou = navegou
 
         const navegou = dep.url !== antes;
         const abriuDialogo = dialogos > dlgAntes;
-        if (!(navegou || dep.modal || dep.toast || dep.mut > 0 || req > 0 || abriuDialogo)) {
+        if (!(navegou || dep.modal || dep.toast || dep.mut > 0 || req > 0 || abriuDialogo || dep.invalidos > 0)) {
           mortos.push({ rot, ...alvo, como });
           console.log(`  [MORTO] ${alvo.texto}  (id=${alvo.id} act=${alvo.act} clique=${como})`);
         }
