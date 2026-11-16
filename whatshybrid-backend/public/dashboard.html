@@ -11,6 +11,14 @@
   <link rel="stylesheet" href="css/futuristic.css">
   <script src="js/vendor/lucide.min.js"></script>
   <style>
+    /* BTN-02: resposta visível ao clicar em "Comprar tokens", mesmo quando a
+       seção já está na tela e o scroll não tem para onde ir. */
+    @keyframes destaquePacotes {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+      30%      { box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.5); }
+    }
+    .destaque-pacotes { animation: destaquePacotes 1.6s ease; border-radius: 14px; }
+
     /* Layout: sidebar + content */
     .portal {
       display: grid;
@@ -400,10 +408,16 @@
       <!-- Thank you / support -->
       <div class="section" style="text-align:center;">
         <h2 style="margin-bottom:8px;">Obrigado por confiar na gente ❤️</h2>
+        <!-- BTN-01: o botão "Falar com o suporte" era um link mailto:. Num
+             navegador sem programa de e-mail configurado o clique não faz
+             nada — e era isso que o dono via. Removido a pedido dele; o
+             endereço fica no texto, que o cliente copia. O e-mail aqui também
+             estava diferente do usado no resto do site (.com x .com.br). -->
         <p class="text-muted" style="max-width:560px;margin:0 auto 16px;">
-          Toda dúvida, sugestão ou bug — fala pra gente. A extensão evolui rápido e seu feedback puxa o roadmap.
+          Toda dúvida, sugestão ou bug — fala pra gente em
+          <strong>suporte@whatshybrid.com.br</strong>. A extensão evolui rápido e
+          seu feedback puxa o roadmap.
         </p>
-        <a href="mailto:suporte@whatshybrid.com" class="btn btn-secondary">Falar com o suporte</a>
       </div>
     </div>
 
@@ -936,7 +950,18 @@
   }
 
   function openBuyTokens() {
-    document.getElementById('tokens-packages-section').scrollIntoView({ behavior: 'smooth' });
+    // BTN-02: isto era só um scrollIntoView. Quando a seção de pacotes já
+    // estava visível na tela, o scroll não tinha para onde ir e o botão
+    // parecia morto — foi exatamente o relato do dono ("clico em comprar
+    // tokens e não executa nada"). Agora SEMPRE há resposta visível: rola se
+    // precisar e destaca a seção por um instante.
+    const alvo = document.getElementById('tokens-packages-section');
+    if (!alvo) { toast('Não encontrei a lista de pacotes nesta tela', 'error'); return; }
+    alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    alvo.classList.remove('destaque-pacotes');
+    void alvo.offsetWidth;            // reinicia a animação se clicar de novo
+    alvo.classList.add('destaque-pacotes');
+    setTimeout(() => alvo.classList.remove('destaque-pacotes'), 1600);
   }
 
   // ── Billing actions ──────────────────────────────────────
