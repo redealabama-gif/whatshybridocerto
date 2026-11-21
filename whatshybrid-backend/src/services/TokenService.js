@@ -147,6 +147,9 @@ class TokenService {
         usadas:   Math.floor(row.tokens_used  / TOKENS_POR_RESPOSTA),
         restantes: Math.floor(restante        / TOKENS_POR_RESPOSTA),
       },
+      // O painel usa isto pra converter o consumo de 30 dias (que vem em
+      // tokens de /tokens/usage) em respostas, sem repetir a constante no HTML.
+      tokens_por_resposta: TOKENS_POR_RESPOSTA,
     };
   }
 
