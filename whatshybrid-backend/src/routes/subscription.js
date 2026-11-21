@@ -523,7 +523,7 @@ router.post('/sync', asyncHandler(async (req, res) => {
 router.post('/codes', authorize('admin'), asyncHandler(async (req, res) => {
   const { workspace_id, plan = 'starter', expires_at = null, notes = null } = req.body || {};
   if (!workspace_id) throw new AppError('workspace_id obrigatório', 400);
-  if (!['starter', 'pro', 'enterprise'].includes(plan)) {
+  if (!['starter', 'pro', 'business', 'enterprise'].includes(plan)) {
     throw new AppError('Plano inválido', 400);
   }
   const ws = db.get('SELECT id FROM workspaces WHERE id = ?', [workspace_id]);

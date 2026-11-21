@@ -25,7 +25,13 @@ const PLAN_MONTHLY_PRICE_BRL = {
   free: 0,
   starter: 49.90,
   pro: 99.90,
+  business: 299.90,
 };
+
+// Planos que ganham trial de 7 dias e evento StartTrial na Meta. Lista em vez
+// de `plan === 'starter' || plan === 'pro'`: foi assim que o Business ficou de
+// fora quando o plano entrou (PLN-04).
+const PLANOS_PAGOS = ['starter', 'pro', 'business'];
 
 /**
  * Dispara eventos Meta CAPI após signup bem-sucedido (manual ou Google).
@@ -252,7 +258,7 @@ router.post('/signup',
     body('password').isLength({ min: 8 }),
     body('name').trim().notEmpty(),
     body('company').trim().isLength({ min: 2, max: 100 }),
-    body('plan').optional().isIn(['starter', 'pro', 'free']),
+    body('plan').optional().isIn(['starter', 'pro', 'business', 'free']),
     body('coupon').optional().isString().isLength({ min: 3, max: 32 }),
     body('attribution').optional().isObject(),
   ],
@@ -387,7 +393,7 @@ router.post('/signup',
     // de marketing não devem afetar a criação da conta.
     const metaEventIds = await fireSignupCapi({
       email, name, plan, userId, attribution, req,
-      includeStartTrial: plan === 'starter' || plan === 'pro',
+      includeStartTrial: PLANOS_PAGOS.includes(plan),
     });
 
     res.status(201).json({
@@ -1135,7 +1141,7 @@ router.post('/google',
   authLimiter,
   [
     body('credential').isString().notEmpty(),
-    body('plan').optional().isIn(['free', 'starter', 'pro']),
+    body('plan').optional().isIn(['free', 'starter', 'pro', 'business']),
     body('attribution').optional().isObject(),
   ],
   asyncHandler(async (req, res) => {
@@ -1326,8 +1332,7 @@ router.post('/google',
         userId: user.id,
         attribution,
         req,
-        includeStartTrial: (workspace?.plan || plan) === 'starter' ||
-                           (workspace?.plan || plan) === 'pro',
+        includeStartTrial: PLANOS_PAGOS.includes(workspace?.plan || plan),
       });
     }
 
