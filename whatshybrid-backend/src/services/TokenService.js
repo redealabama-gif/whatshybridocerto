@@ -72,10 +72,36 @@ const TOKEN_PACKAGES = {
 };
 for (const pacote of Object.values(TOKEN_PACKAGES)) pacote.tokens = pacote.respostas * TOKENS_POR_RESPOSTA;
 
+// Os 4 ids que o cliente pode ver numa vitrine. Fixado ANTES dos apelidos
+// abaixo, senão a lista sairia com cada pacote duas vezes (PKG-01).
+const PACOTES_A_LISTAR = Object.keys(TOKEN_PACKAGES);
+
 // Ids antigos continuam funcionando: links e e-mails já enviados não podem
-// quebrar. Cada um aponta para o pacote novo de volume mais próximo.
+// quebrar. Cada um aponta para o pacote novo de volume mais próximo. São
+// apelidos para RESOLVER uma compra, nunca para listar.
 const PACOTES_ANTIGOS = { pack_10k: 'pack_200', pack_50k: 'pack_600', pack_200k: 'pack_2000', pack_1M: 'pack_6000' };
 for (const [antigo, novo] of Object.entries(PACOTES_ANTIGOS)) TOKEN_PACKAGES[antigo] = TOKEN_PACKAGES[novo];
+
+/**
+ * Pacotes para mostrar ao cliente — sem os apelidos antigos.
+ * Quem precisa resolver um id de compra usa TOKEN_PACKAGES direto.
+ */
+function listarPacotes() {
+  return PACOTES_A_LISTAR.map((id) => {
+    const p = TOKEN_PACKAGES[id];
+    const reais = p.price_brl_cents / 100;
+    return {
+      id,
+      respostas: p.respostas,
+      tokens: p.tokens,
+      price_brl: reais,
+      price_brl_cents: p.price_brl_cents,
+      label: p.label,
+      preco_por_resposta: (reais / p.respostas).toFixed(4),
+      cost_per_1k: (reais / (p.tokens / 1000)).toFixed(3),
+    };
+  });
+}
 
 const LOW_BALANCE_THRESHOLD = 0.10; // 10% restante dispara alerta
 
@@ -471,6 +497,8 @@ module.exports = new TokenService();
 module.exports.TokenService = TokenService;
 module.exports.PLAN_TOKENS = PLAN_TOKENS;
 module.exports.TOKEN_PACKAGES = TOKEN_PACKAGES;
+module.exports.PACOTES_ANTIGOS = PACOTES_ANTIGOS;
+module.exports.listarPacotes = listarPacotes;
 module.exports.TOKENS_POR_RESPOSTA = TOKENS_POR_RESPOSTA;
 module.exports.PLAN_RESPOSTAS = PLAN_RESPOSTAS;
 module.exports.PLAN_TOKENS = PLAN_TOKENS;

@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 
 const tokenService = require('../services/TokenService');
-const { TOKEN_PACKAGES, PLAN_TOKENS } = tokenService;
+const { TOKEN_PACKAGES, PLAN_TOKENS, PLAN_RESPOSTAS } = tokenService;
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
@@ -55,19 +55,15 @@ router.get('/usage', asyncHandler(async (req, res) => {
  * Pacotes disponíveis para top-up
  */
 router.get('/packages', (req, res) => {
-  const packages = Object.entries(TOKEN_PACKAGES).map(([id, p]) => ({
-    id,
-    tokens: p.tokens,
-    price_brl: p.price_brl_cents / 100,
-    price_brl_cents: p.price_brl_cents,
-    label: p.label,
-    cost_per_1k: ((p.price_brl_cents / 100) / (p.tokens / 1000)).toFixed(3),
-  }));
-
+  // listarPacotes() em vez de Object.entries(TOKEN_PACKAGES): o objeto também
+  // guarda os apelidos antigos (pack_10k e cia.) apontando pros mesmos
+  // pacotes, e a vitrine saía com cada um duas vezes (PKG-01).
   res.json({
-    packages,
+    packages: tokenService.listarPacotes(),
     plan_grants: PLAN_TOKENS,
-    note: 'Tokens não usados expiram no fim do ciclo mensal. Pacotes avulsos não expiram.',
+    plan_respostas: PLAN_RESPOSTAS,
+    respostas_por_pacote: tokenService.listarPacotes().map((p) => p.respostas),
+    note: 'A cota mensal do plano zera na renovação. Pacotes avulsos não expiram.',
   });
 });
 
