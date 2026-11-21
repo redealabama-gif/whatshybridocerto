@@ -46,20 +46,31 @@ const ESPIAO = () => {
   }
 };
 
-/** Marca os clicáveis na ordem do DOM. Idempotente: pode rodar a cada clique. */
+/**
+ * Marca os clicáveis na ordem do DOM. Idempotente: pode rodar a cada clique.
+ *
+ * Marca TAMBÉM os desabilitados. Antes eles eram pulados, e isso quebrava o
+ * harness quando um clique desabilitava um botão: o elemento perdia o
+ * data-btn-i, TODOS os índices depois dele escorregavam um, e o alvo gravado
+ * no começo passava a apontar pra outro elemento (ou pra nenhum). Foi assim
+ * que "Assinar com renovação automática" e "Mudar plano" apareceram como
+ * mortos depois que o seletor de ciclo anual entrou no painel — os dois
+ * funcionam. O estado `disabled` é devolvido e tratado como resultado
+ * legítimo, não como botão morto.
+ */
 const MARCAR = () => {
   let n = 0;
   const vistos = [];
   document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el) => {
     const r = el.getBoundingClientRect();
     if (!el.offsetParent || r.width < 4 || r.height < 4) return;
-    if (el.disabled) return;
     const i = n++;
     el.setAttribute('data-btn-i', String(i));
     vistos.push({
       i: String(i),
       texto: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 42) || el.getAttribute('aria-label') || el.id || '(sem texto)',
       id: el.id || '', href: el.getAttribute('href'), act: el.getAttribute('data-act'),
+      disabled: el.disabled === true,
     });
   });
   return vistos;
@@ -95,6 +106,7 @@ const MARCAR = () => {
   const mortos = [];
   const linksQuebrados = [];
   const externos = [];
+  const desabilitados = [];
   let logado = false;
   let clicados = 0;
   let links = 0;
@@ -147,6 +159,19 @@ const MARCAR = () => {
         let req = 0;
         const onReq = () => { req++; };
         page.on('request', onReq);
+        // Um botão pode ter sido desabilitado por um clique anterior (ex.: o
+        // seletor "Anual" trava a renovação automática, que é mensal). Isso é
+        // comportamento, não botão morto.
+        const travado = await page.evaluate(
+          (i) => { const el = document.querySelector(`[data-btn-i="${i}"]`); return !!(el && el.disabled); },
+          alvo.i
+        ).catch(() => false);
+        if (travado) {
+          desabilitados.push({ rot, ...alvo });
+          console.log(`  [travado] ${alvo.texto}  (id=${alvo.id} act=${alvo.act}) — desabilitado por um clique anterior`);
+          continue;
+        }
+
         const dlgAntes = dialogos;
         const abasAntes = abasNovas;
         const antes = page.url();
@@ -179,6 +204,8 @@ const MARCAR = () => {
   console.log(`botões de ação clicados: ${clicados}   |   links verificados: ${links}`);
   console.log(`\nMORTOS (não reagiram a nada): ${mortos.length}`);
   for (const m of mortos) console.log(`   ${m.rot}  "${m.texto}"  id=${m.id} act=${m.act}`);
+  console.log(`\ndesabilitados no momento do clique (comportamento, não defeito): ${desabilitados.length}`);
+  for (const d of desabilitados) console.log(`   ${d.rot}  "${d.texto}"  act=${d.act}`);
   console.log(`\nLINKS QUEBRADOS: ${linksQuebrados.length}`);
   for (const l of linksQuebrados) console.log(`   ${l.rot}  "${l.texto}" -> ${l.href}  HTTP ${l.st}`);
   console.log(`\nnão clicados de propósito: ${externos.length}`);
