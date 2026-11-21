@@ -52,6 +52,15 @@ const PLAN_RESPOSTAS = {
   enterprise: 520_312,     // efetivamente ilimitado (workspaces internos)
 };
 
+// TRIAL-01 — o teste grátis de 7 dias NÃO entrega a cota do plano escolhido.
+// Antes o cadastro concedia a cota cheia: quem escolhia Business recebia
+// 10.000 respostas sem cartão, R$ 66 de custo nosso por cadastro, sem nada
+// limitando o número de contas. Agora o trial tem orçamento próprio, o mesmo
+// que o trial local da extensão já usava (trialAICredits em
+// whatshybrid-extension/modules/subscription-manager.js). A cota cheia entra
+// quando o pagamento é aprovado, pela mão dos webhooks.
+const RESPOSTAS_TRIAL = 50;
+
 const PLAN_TOKENS = Object.fromEntries(
   Object.entries(PLAN_RESPOSTAS).map(([plano, respostas]) => [plano, respostas * TOKENS_POR_RESPOSTA])
 );
@@ -257,8 +266,13 @@ class TokenService {
    * v9.3.9: aceita opts.invoice_id pra idempotência (defesa contra retransmissão
    * de webhook). Se mesma invoice já foi processada, retorna sem duplicar reset.
    */
+  /**
+   * Repõe a cota do ciclo. `opts.grant_tokens` sobrescreve a cota do plano —
+   * usado pela cota de trial, que é menor de propósito (TRIAL-01).
+   * `opts.rotulo` só muda o texto gravado no extrato.
+   */
   resetMonthlyForPlan(workspaceId, plan, opts = {}) {
-    const grant = PLAN_TOKENS[plan] || 0;
+    const grant = opts.grant_tokens != null ? opts.grant_tokens : (PLAN_TOKENS[plan] || 0);
     if (grant <= 0) return { balance_after: 0 };
 
     return db.transaction(() => {
@@ -314,9 +328,12 @@ class TokenService {
           (id, workspace_id, type, amount, balance_after, invoice_id, description)
          VALUES (?, ?, 'plan_renewal', ?, ?, ?, ?)`,
         [uuidv4(), workspaceId, grant, novoTotal, opts.invoice_id || null,
-          compradoRestante > 0
-            ? `Renovação mensal: ${plan} (+${compradoRestante} tokens comprados mantidos)`
-            : `Renovação mensal: ${plan}`]
+          (() => {
+            const base = opts.rotulo || `Renovação mensal: ${plan}`;
+            return compradoRestante > 0
+              ? `${base} (+${compradoRestante} tokens comprados mantidos)`
+              : base;
+          })()]
       );
 
       logger.info(`[Tokens] Renewal for ws=${workspaceId} plan=${plan}: ${grant} tokens + ${compradoRestante} comprados`);
@@ -499,7 +516,21 @@ class TokenService {
 module.exports = new TokenService();
 module.exports.TokenService = TokenService;
 module.exports.PLAN_TOKENS = PLAN_TOKENS;
+/**
+ * Cota do teste grátis de 7 dias, para qualquer plano pago (TRIAL-01).
+ * O Free não recebe nada — os recursos de IA são bloqueados nele.
+ */
+TokenService.prototype.concederCotaDeTrial = function (workspaceId, plan, opts = {}) {
+  if (!plan || plan === 'free') return { balance_after: 0 };
+  return this.resetMonthlyForPlan(workspaceId, plan, {
+    ...opts,
+    grant_tokens: RESPOSTAS_TRIAL * TOKENS_POR_RESPOSTA,
+    rotulo: `Cota do teste grátis (${RESPOSTAS_TRIAL} respostas)`,
+  });
+};
+
 module.exports.TOKEN_PACKAGES = TOKEN_PACKAGES;
+module.exports.RESPOSTAS_TRIAL = RESPOSTAS_TRIAL;
 module.exports.PACOTES_ANTIGOS = PACOTES_ANTIGOS;
 module.exports.listarPacotes = listarPacotes;
 module.exports.TOKENS_POR_RESPOSTA = TOKENS_POR_RESPOSTA;

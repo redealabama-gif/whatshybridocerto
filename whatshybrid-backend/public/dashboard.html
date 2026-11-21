@@ -519,6 +519,7 @@
             <div class="kpi-label">Saldo disponível</div>
             <div class="kpi-value gradient" id="tokens-balance" style="font-size: 3rem;">—</div>
             <div class="kpi-sub" id="tokens-sub">de — respostas neste ciclo</div>
+            <div class="kpi-sub" id="tokens-trial-aviso" hidden style="margin-top:6px;color:var(--brand-cyan);"></div>
             <div class="progress mt-4" style="max-width: 400px;">
               <div class="progress-fill" id="tokens-progress" style="width: 0%;"></div>
             </div>
@@ -913,6 +914,23 @@
         ? `de ${fmt(resp.total)} respostas neste ciclo (${b.utilization_pct}% usado)`
         : `de ${fmt(b.total)} tokens neste ciclo (${b.utilization_pct}% usado)`;
       document.getElementById('tokens-progress').style.width = b.utilization_pct + '%';
+
+      // TRIAL-01: no trial a cota é a do teste (50), não a do plano. Sem esta
+      // linha, quem escolheu Business veria "50 respostas" e acharia que foi
+      // enganado.
+      const avisoTrial = document.getElementById('tokens-trial-aviso');
+      if (avisoTrial) {
+        const emTrial = userData?.workspace?.subscription_status === 'trialing';
+        const doPlano = PRECOS[(userData?.workspace?.plan || 'free').toUpperCase()];
+        if (emTrial && doPlano && doPlano.respostas) {
+          avisoTrial.textContent =
+            `Esta é a cota do teste grátis. Ao confirmar o pagamento, suas ` +
+            `${doPlano.respostas.toLocaleString('pt-BR')} respostas por mês entram.`;
+          avisoTrial.hidden = false;
+        } else {
+          avisoTrial.hidden = true;
+        }
+      }
 
       // KPIs no overview também (se a aba existe)
       const ov = document.getElementById('kpi-tokens');

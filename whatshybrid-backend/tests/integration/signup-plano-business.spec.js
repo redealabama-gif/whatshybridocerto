@@ -10,6 +10,7 @@
  * também estavam presos a starter|pro (auth.js:390 e :1329).
  */
 const { startRealServer } = require('./helpers/real-server');
+const { RESPOSTAS_TRIAL, PLAN_RESPOSTAS } = require('../../src/services/TokenService');
 
 const SENHA = 'Cliente#Teste2026';
 let srv;
@@ -43,7 +44,7 @@ describe('PLN-04 — cadastro no plano Business', () => {
     expect(dias).toBe(7);
   });
 
-  test('a cota inicial é a do Business (10.000 respostas), não a do Free', async () => {
+  test('a conta nasce com a cota do teste grátis, e não com zero (que seria o Free)', async () => {
     const r = await signup('business', 'cota');
     expect(r.status).toBe(201);
     const token = r.body.token || r.body.accessToken;
@@ -53,8 +54,13 @@ describe('PLN-04 — cadastro no plano Business', () => {
     expect(saldo.status).toBe(200);
     // src/routes/tokens.js:25 responde { balance: <getBalance()> }
     const corpo = saldo.body.balance || saldo.body;
-    expect(corpo.respostas.total).toBe(10000);
-    expect(corpo.respostas.restantes).toBe(10000);
+    // TRIAL-01: o trial concede a cota do teste, não as 10.000 do plano — a
+    // cota cheia entra quando o pagamento é aprovado. O que importa aqui é
+    // que o Business foi reconhecido (não caiu no Free, que recebe zero).
+    expect(corpo.respostas.total).toBe(RESPOSTAS_TRIAL);
+    expect(corpo.respostas.restantes).toBe(RESPOSTAS_TRIAL);
+    expect(corpo.respostas.total).toBeGreaterThan(0);
+    expect(corpo.respostas.total).toBeLessThan(PLAN_RESPOSTAS.business);
   });
 
   test('os planos antigos continuam funcionando', async () => {

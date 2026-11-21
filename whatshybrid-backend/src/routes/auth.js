@@ -373,10 +373,14 @@ router.post('/signup',
       });
     } catch (_) {}
 
-    // v8.4.0 — concede tokens iniciais do plano para o trial
+    // TRIAL-01 — o teste grátis recebe a COTA DE TRIAL, não a cota do plano.
+    // Antes era resetMonthlyForPlan(workspaceId, plan): quem escolhia Business
+    // ganhava 10.000 respostas sem cartão (R$ 66 de custo por cadastro).
+    // A cota cheia entra quando o pagamento é aprovado — webhooks-payment-saas.js
+    // (:531, :588, :791, :853) e webhooks-stripe.js (:159, :247).
     try {
       const tokenService = require('../services/TokenService');
-      tokenService.resetMonthlyForPlan(workspaceId, plan);
+      tokenService.concederCotaDeTrial(workspaceId, plan);
     } catch (e) {
       // Não bloqueia signup se o TokenService falhar
     }
@@ -1298,9 +1302,12 @@ router.post('/google',
         });
       });
 
+      // TRIAL-01 — mesma regra do cadastro por e-mail: cota de trial, não a
+      // cota do plano. Entrar pelo Google não pode ser o caminho curto pras
+      // 10.000 respostas do Business de graça.
       try {
         const tokenService = require('../services/TokenService');
-        tokenService.resetMonthlyForPlan(workspaceId, plan);
+        tokenService.concederCotaDeTrial(workspaceId, plan);
       } catch (_) {}
 
       try {
