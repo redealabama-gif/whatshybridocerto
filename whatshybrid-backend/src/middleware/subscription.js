@@ -130,6 +130,24 @@ const PLAN_LIMITS = {
     // e remove a proteção anti-ban que o número comunica.
     bulk_contacts_per_day: 2000
   },
+  // PLN-03 — Business: mesmas funções do Pro (os gates acima listam
+  // ['pro','business',...] juntos) com cota 4x maior, 10.000 respostas/mês
+  // contra 2.500 (TokenService.PLAN_RESPOSTAS). Sem esta entrada, checkLimit()
+  // caía no `if (!limits) return next()` e pulava TODA conferência de cota do
+  // plano em silêncio.
+  business: {
+    contacts: -1,
+    deals: -1,
+    tasks: -1,
+    campaigns: -1,
+    // 2.000/dia contém pico e loop de Autopilot sem barrar o que foi vendido:
+    // 10.000 respostas/mês dão ~334/dia na média.
+    ai_requests_per_day: 2000,
+    // 5.000/dia: acima do Pro (2.000) pra justificar o preço, mas COM teto —
+    // -1 tiraria a proteção anti-ban. Espelha PLANS.business.limits
+    // .bulkContactsPerDay na extensão.
+    bulk_contacts_per_day: 5000
+  },
   enterprise: {
     contacts: -1,
     deals: -1,

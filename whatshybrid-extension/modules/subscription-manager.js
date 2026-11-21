@@ -142,6 +142,53 @@
         bulkContactsPerDay: 2000
       }
     },
+    // PLN-03 — Business: mesmas funções do Pro (os 19 gates de
+    // middleware/subscription.js listam ['pro','business',...] juntos) com
+    // cota 4x maior: 10.000 respostas/mês contra 2.500 do Pro
+    // (TokenService.PLAN_RESPOSTAS). Sem esta entrada, getPlan() caía no
+    // `|| PLANS.free` e quem paga R$ 299,90 recebia o Free Lite.
+    business: {
+      id: 'business',
+      name: 'Business',
+      price: 299.90,
+      color: '#0ea5e9',
+      icon: '\u{1F3E2}',
+      features: {
+        maxContacts: -1,
+        maxChatsPerDay: -1,
+        maxCampaigns: -1,
+        maxFlows: -1,
+        maxTeamMembers: -1,
+        // 4x o Pro (500), na mesma proporção das respostas do plano.
+        aiCredits: 2000,
+        smartReplies: true,
+        copilot: true,
+        autopilot: true,
+        analytics: 'advanced',
+        exportFormats: ['csv', 'xlsx', 'json'],
+        bulkMessages: true,
+        customLabels: true,
+        apiAccess: true,
+        prioritySupport: true,
+        recover: true,
+        crm: 'full',
+        training: true,
+        maxTemplates: -1,
+        maxKanbanBoards: -1,
+        maxScheduledActive: -1,
+        backupsPerWeek: -1
+      },
+      limits: {
+        messagesPerDay: 5000,
+        mediaPerDay: 1500,
+        exportsPerDay: -1,
+        aiRepliesPerDay: -1,
+        // 5.000/dia: acima do Pro (2.000) pra justificar o preço, mas COM
+        // teto — -1 tiraria a proteção anti-ban e derrubaria o número do
+        // cliente. Espelha PLAN_LIMITS.business.bulk_contacts_per_day.
+        bulkContactsPerDay: 5000
+      }
+    },
     enterprise: {
       id: 'enterprise',
       name: 'Enterprise',
@@ -183,7 +230,7 @@
     }
   };
 
-  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'enterprise'];
+  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'business', 'enterprise'];
 
   // ============================================
   // CONFIGURAÇÃO

@@ -44,6 +44,18 @@ const PLAN_LIMITS = {
     aiCredits: 10000,
     features: ['full_crm', 'campaigns', 'advanced_ai', 'templates', 'analytics', 'webhooks', 'api']
   },
+  // PLN-03 — Business entre pro e enterprise, igual ao planOrder usado em
+  // upgrade(). Sem esta entrada, create({plan:'business'}) lançava
+  // 'Plano inválido' e validate()/upgrade() liam limits.maxContacts de
+  // undefined (TypeError).
+  business: {
+    maxUsers: 25,
+    maxContacts: -1,
+    maxCampaigns: -1,
+    aiEnabled: true,
+    aiCredits: 40000,
+    features: ['full_crm', 'campaigns', 'advanced_ai', 'templates', 'analytics', 'webhooks', 'api']
+  },
   enterprise: {
     maxUsers: -1, // ilimitado
     maxContacts: -1,

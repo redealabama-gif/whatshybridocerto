@@ -78,7 +78,7 @@
     'feature:api_access': { minPlan: 'pro', feature: 'apiAccess' }
   };
 
-  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'enterprise'];
+  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'business', 'enterprise'];
 
   // ============================================
   // VERIFICAÇÕES
