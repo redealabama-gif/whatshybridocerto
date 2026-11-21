@@ -388,6 +388,20 @@
       display: flex; gap: 12px; align-items: flex-start;
     }
     .trial-banner i { color: var(--success); flex-shrink: 0; margin-top: 2px; }
+    /* display:flex acima vence o [hidden] do HTML — sem isto o aviso do ciclo
+       anual aparecia também no mensal. */
+    .trial-banner[hidden] { display: none; }
+    /* 4 planos: minmax(200px) deixava os cards estreitos demais no desktop e
+       o 4o sozinho numa linha. 2x2 até 860px, 4 colunas acima disso. */
+    @media (min-width: 860px) {
+      .plans-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 859px) {
+      .plans-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 520px) {
+      .plans-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body class="signup-page">
@@ -529,8 +543,18 @@
       <p class="text-muted">Você só é cobrado ao fim do trial. Pode mudar a qualquer momento.</p>
     </div>
 
+    <div class="trial-banner" id="aviso-anual" hidden style="margin-bottom:16px;">
+      <i data-lucide="calendar"></i>
+      <div>
+        <strong>Cobrança anual — 2 meses grátis</strong><br>
+        Você paga 10 meses e usa 12. A cota de respostas continua sendo reposta
+        todo mês. Dá pra trocar pro mensal no painel antes do fim do trial.
+      </div>
+    </div>
+
     <div class="plans-grid">
-      <div class="plan-option" data-plan="free" data-price="0" data-price-label="R$ 0/mês">
+      <div class="plan-option" data-plan="free" data-price="0" data-price-label="R$ 0/mês"
+           data-price-anual="0" data-price-label-anual="R$ 0/mês">
         <h4>Free</h4>
         <div class="price">R$ 0<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
@@ -539,24 +563,37 @@
           <li><i data-lucide="check"></i> Sem recursos de IA</li>
         </ul>
       </div>
-      <div class="plan-option selected" data-plan="starter" data-price="49.90" data-price-label="R$ 49,90/mês">
+      <div class="plan-option selected" data-plan="starter" data-price="49.90" data-price-label="R$ 49,90/mês"
+           data-price-anual="499.00" data-price-label-anual="R$ 499,00/ano">
         <h4>Starter <span class="pill" style="font-size:0.65rem;padding:2px 8px;margin-left:4px;">Popular</span></h4>
-        <div class="price">R$ 49,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <div class="price" data-preco-card>R$ 49,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
           <li><i data-lucide="check"></i> Tudo do Free</li>
-          <li><i data-lucide="check"></i> 50k tokens de IA/mês</li>
+          <li><i data-lucide="check"></i> 500 respostas da IA/mês</li>
           <li><i data-lucide="check"></i> Disparo em massa + Extrator</li>
           <li><i data-lucide="check"></i> Autopilot + Treinamento</li>
         </ul>
       </div>
-      <div class="plan-option" data-plan="pro" data-price="99.90" data-price-label="R$ 99,90/mês">
+      <div class="plan-option" data-plan="pro" data-price="99.90" data-price-label="R$ 99,90/mês"
+           data-price-anual="999.00" data-price-label-anual="R$ 999,00/ano">
         <h4>Pro</h4>
-        <div class="price">R$ 99,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <div class="price" data-preco-card>R$ 99,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
         <ul>
           <li><i data-lucide="check"></i> Tudo do Starter</li>
-          <li><i data-lucide="check"></i> 500k tokens de IA/mês</li>
+          <li><i data-lucide="check"></i> 2.500 respostas da IA/mês</li>
           <li><i data-lucide="check"></i> CRM e conversas ilimitados</li>
           <li><i data-lucide="check"></i> Suporte prioritário</li>
+        </ul>
+      </div>
+      <div class="plan-option" data-plan="business" data-price="299.90" data-price-label="R$ 299,90/mês"
+           data-price-anual="2999.00" data-price-label-anual="R$ 2.999,00/ano">
+        <h4>Business</h4>
+        <div class="price" data-preco-card>R$ 299,90<span style="font-size:0.7rem;color:var(--text-muted);">/mês</span></div>
+        <ul>
+          <li><i data-lucide="check"></i> Tudo do Pro</li>
+          <li><i data-lucide="check"></i> 10.000 respostas da IA/mês</li>
+          <li><i data-lucide="check"></i> Disparo em massa até 5.000/dia</li>
+          <li><i data-lucide="check"></i> Equipe de até 25 pessoas</li>
         </ul>
       </div>
     </div>
@@ -658,8 +695,15 @@
   let signupData = {
     company: '', name: '', email: '', password: '',
     plan: 'starter', price: 49.90, priceLabel: 'R$ 49,90/mês',
+    cycle: 'monthly',
     coupon: null, discount: 0,
   };
+
+  // Preço mensal de cada plano, pro evento StartTrial. Mantenha em sincronia
+  // com PLAN_PRICES em src/services/MercadoPagoService.js e com os cards da
+  // seção #pricing do index.html.
+  const PRECO_MENSAL = { starter: 49.90, pro: 99.90, business: 299.90 };
+  const PLANOS_VALIDOS = ['free', 'starter', 'pro', 'business'];
 
   // Dispara eventos de conversão após signup bem-sucedido — Meta + GA4.
   //
@@ -669,7 +713,8 @@
   // (event_name, event_id). Sem dedup, browser + server contam dobrado.
   //
   // - CompleteRegistration (Meta) / sign_up (GA4) — sempre, qualquer plano.
-  // - StartTrial (Meta) / start_trial custom (GA4) — só pra starter/pro.
+  // - StartTrial (Meta) / start_trial custom (GA4) — só pros planos pagos
+  //   (PRECO_MENSAL: starter, pro, business).
   // - Subscribe / purchase — não sai daqui; só dispara server-side no webhook
   //   de pagamento, porque planos pagos começam com trial grátis sem cartão.
   function fireSignupConversionEvents(plan, coupon, metaEventIds) {
@@ -702,8 +747,8 @@
       });
 
       // StartTrial (Meta) + start_trial (GA4 custom)
-      if (plan === 'starter' || plan === 'pro') {
-        var monthly = plan === 'starter' ? 49.90 : 99.90;
+      if (PRECO_MENSAL[plan]) {
+        var monthly = PRECO_MENSAL[plan];
         var stData = {
           content_name: planName, content_category: 'trial',
           currency: 'BRL', value: monthly, predicted_ltv: monthly * 12
@@ -730,15 +775,52 @@
   // Pre-select plan from URL ?plan=
   const urlParams = new URLSearchParams(window.location.search);
   const urlPlan = urlParams.get('plan');
-  if (urlPlan && ['free', 'starter', 'pro'].includes(urlPlan)) {
+  if (urlPlan && PLANOS_VALIDOS.includes(urlPlan)) {
     document.querySelectorAll('.plan-option').forEach(el => {
       el.classList.toggle('selected', el.dataset.plan === urlPlan);
     });
-    const opt = document.querySelector(`[data-plan="${urlPlan}"]`);
     signupData.plan = urlPlan;
-    signupData.price = parseFloat(opt.dataset.price);
-    signupData.priceLabel = opt.dataset.priceLabel;
   }
+
+  // ── Ciclo de cobrança (?cycle=annual, vindo do alternador do index) ──
+  //
+  // NÃO mandamos o ciclo pro /signup: workspaces.billing_cycle só pode virar
+  // 'annual' quando o pagamento é aprovado (webhooks-payment-saas.js). Se
+  // gravássemos aqui, renovarCotaAnual() em src/jobs/billingCron.js passaria a
+  // repor a cota mensal de quem está só no trial e nunca pagou.
+  //
+  // O ciclo é preferência de tela: mostra o preço certo no resumo e fica
+  // guardado pro checkout do painel já abrir no anual.
+  if ((urlParams.get('cycle') || '').toLowerCase() === 'annual') {
+    signupData.cycle = 'annual';
+  }
+  try {
+    if (signupData.cycle === 'annual') localStorage.setItem('whl_ciclo_preferido', 'annual');
+  } catch (_) {}
+
+  // Mostra no card o preço do ciclo escolhido e mantém signupData coerente.
+  function aplicarCiclo() {
+    const anual = signupData.cycle === 'annual';
+    document.querySelectorAll('.plan-option').forEach((el) => {
+      const alvo = el.querySelector('[data-preco-card]');
+      if (!alvo) return;
+      const rotulo = anual ? el.dataset.priceLabelAnual : el.dataset.priceLabel;
+      const [valor, periodo] = String(rotulo || '').split('/');
+      alvo.innerHTML = '';
+      alvo.append(valor);
+      const sp = document.createElement('span');
+      sp.setAttribute('style', 'font-size:0.7rem;color:var(--text-muted);');
+      sp.textContent = '/' + (periodo || 'mês');
+      alvo.appendChild(sp);
+    });
+    const sel = document.querySelector('.plan-option.selected') ||
+                document.querySelector('[data-plan="starter"]');
+    signupData.price = parseFloat(anual ? sel.dataset.priceAnual : sel.dataset.price);
+    signupData.priceLabel = anual ? sel.dataset.priceLabelAnual : sel.dataset.priceLabel;
+    const aviso = document.getElementById('aviso-anual');
+    if (aviso) aviso.hidden = !anual;
+  }
+  aplicarCiclo();
 
   // ── Cupom (?coupon=EXIT50) ──────────────────────────────────────
   // Fallback local — só usado se o backend ficar indisponível (rede).
@@ -910,8 +992,7 @@
       document.querySelectorAll('.plan-option').forEach(p => p.classList.remove('selected'));
       el.classList.add('selected');
       signupData.plan = el.dataset.plan;
-      signupData.price = parseFloat(el.dataset.price);
-      signupData.priceLabel = el.dataset.priceLabel;
+      aplicarCiclo();
     });
   });
 
@@ -920,7 +1001,8 @@
     e.preventDefault();
 
     document.getElementById('summary-plan').textContent =
-      signupData.plan.charAt(0).toUpperCase() + signupData.plan.slice(1);
+      signupData.plan.charAt(0).toUpperCase() + signupData.plan.slice(1) +
+      (signupData.cycle === 'annual' && signupData.plan !== 'free' ? ' (anual)' : '');
 
     const rowCoupon     = document.getElementById('summary-row-coupon');
     const rowDiscounted = document.getElementById('summary-row-discounted');
@@ -932,14 +1014,16 @@
       const discounted = signupData.price * (1 - signupData.discount);
       // "Preço cheio" riscado em vez de só "Preço"
       priceLabel.textContent = 'Preço cheio';
+      const periodo = signupData.cycle === 'annual' ? '/ano' : '/mês';
       priceEl.innerHTML = '<s style="color:var(--text-muted);font-weight:500;">' +
-        fmtBRL(signupData.price) + '/mês</s>';
+        fmtBRL(signupData.price) + periodo + '</s>';
       // Exibe as linhas de cupom + 1º mês + recorrente
       rowCoupon.hidden = false;
       rowDiscounted.hidden = false;
       rowRecurring.hidden = false;
       document.getElementById('summary-discounted-price').textContent = fmtBRL(discounted);
-      document.getElementById('summary-recurring-price').textContent = fmtBRL(signupData.price) + '/mês';
+      document.getElementById('summary-recurring-price').textContent =
+        fmtBRL(signupData.price) + (signupData.cycle === 'annual' ? '/ano' : '/mês');
     } else {
       // Sem cupom ou plano Free: comportamento original
       priceLabel.textContent = 'Preço';
