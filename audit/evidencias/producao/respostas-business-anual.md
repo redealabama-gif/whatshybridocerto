@@ -186,13 +186,32 @@ uma vez.
 
 ## 6. Pendências que este PR NÃO resolve
 
-**Decisão do dono (risco de custo):** o trial de 7 dias concede a cota cheia
-do plano escolhido. No Business isso são **10.000 respostas = R$ 66 de custo
-por cadastro**, sem cartão. Starter R$ 3,30, Pro R$ 16,50. Hoje nada limita
-quantas contas de trial Business podem ser abertas. Três saídas possíveis:
-limitar a cota do trial (ex.: 200 respostas em qualquer plano), exigir cartão
-no cadastro, ou aceitar o custo como aquisição. Não mexi nisso porque muda
-regra de negócio que o dono não pediu.
+**RESOLVIDO (TRIAL-01):** o trial de 7 dias concedia a cota cheia do plano —
+no Business, 10.000 respostas = R$ 66 de custo por cadastro, sem cartão.
+
+O dono já tinha programado proteção pra isso: `trialAICredits: 50` em
+`whatshybrid-extension/modules/subscription-manager.js:253`. Ela vale, mas só
+para o trial **local** da extensão (`startTrial()`). O trial criado pelo
+cadastro no site é outro caminho e não passava por lá — `auth.js:379` e
+`:1307` chamavam `resetMonthlyForPlan(workspaceId, plan)`.
+
+Medido no servidor real antes da correção, com provedor falso:
+
+```
+BUSINESS trial → POST /api/v2/ai/process → HTTP 200 | 2 chamadas | 10.000 → 9.999
+PRO      trial → HTTP 200 | 2 chamadas | 2.500 → 2.499
+STARTER  trial → HTTP 200 | 2 chamadas | 500 → 499
+FREE           → HTTP 402 FEATURE_NOT_AVAILABLE | 0 chamadas
+```
+
+Também não há teto diário de IA no servidor: `checkLimit()` está ligado
+apenas em `deals`, `contacts`, `campaigns` e `tasks`. Dava pra queimar a cota
+inteira num dia.
+
+Decisão do dono: **50 respostas no trial**, o mesmo número da extensão. O
+custo máximo por cadastro cai de R$ 66 para **R$ 0,33**. A cota cheia entra
+quando o pagamento é aprovado, pela mão dos webhooks, que já faziam isso.
+Site, cadastro, ajuda, termos e painel passaram a dizer o que o trial inclui.
 
 **SITE-03 (achado nesta fase, fora do escopo):** dois enfeites da home
 apontam para arquivos locais que nunca foram baixados, então em produção eles
