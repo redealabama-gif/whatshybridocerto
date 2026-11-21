@@ -1,0 +1,42 @@
+
+### index.html
+
+### login.html
+
+### signup.html
+
+### help.html
+
+### privacy.html
+
+### terms.html
+
+### forgot-password.html
+
+### reset-password.html
+
+### api-docs.html
+
+### dashboard.html
+  -- aba overview: 12 clicáveis
+  -- aba extension: 8 clicáveis
+  -- aba tokens: 11 clicáveis
+  -- aba billing: 12 clicáveis
+  [travado] Assinar com renovação automática  (id=btn-recorrente act=subscribeRecurring) — desabilitado por um clique anterior
+
+========================================================================
+botões de ação clicados: 74   |   links verificados: 48
+
+MORTOS (não reagiram a nada): 0
+
+desabilitados no momento do clique (comportamento, não defeito): 1
+   dashboard.html/billing  "Assinar com renovação automática"  act=subscribeRecurring
+
+LINKS QUEBRADOS: 0
+
+não clicados de propósito: 4
+   help.html  "Fale com o suporte"  mailto:suporte@whatshybrid.com.br  — mailto/tel — depende de app de e-mail no computador do cliente
+   privacy.html  "suporte@whatshybrid.com.br"  mailto:suporte@whatshybrid.com.br  — mailto/tel — depende de app de e-mail no computador do cliente
+   terms.html  "suporte@whatshybrid.com.br"  mailto:suporte@whatshybrid.com.br  — mailto/tel — depende de app de e-mail no computador do cliente
+   dashboard.html/extension  "web.whatsapp.com"  https://web.whatsapp.com  — link externo
+========================================================================

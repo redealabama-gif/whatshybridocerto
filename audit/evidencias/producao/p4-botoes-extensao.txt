@@ -1,0 +1,87 @@
+
+### painel / principal
+
+### painel / extrator
+
+### painel / recover
+
+### painel / config
+
+### painel / backup
+
+### painel / crm
+
+### painel / tasks
+
+### painel / ai
+
+### painel / autopilot
+
+### painel / backend
+
+### painel / team
+
+### painel / groups
+
+### painel / quickreplies
+
+### painel / sapl
+
+### training.html
+
+======================================================================
+clicáveis testados: 177
+sumiram antes do clique (modal fechado etc.): 51
+   painel/crm  "➕ Criar Negócio"
+   painel/crm  "🏷️"
+   painel/crm  "⭐"
+   painel/crm  "🔥"
+   painel/crm  "✅"
+   painel/crm  "⏳"
+   painel/crm  "📞"
+   painel/crm  "💼"
+   painel/crm  "❤️"
+   painel/crm  "🎯"
+   painel/crm  "💎"
+   painel/crm  "🚀"
+   painel/crm  "📌"
+   painel/crm  "🆕"
+   painel/crm  "💰"
+   painel/crm  "🛒"
+   painel/crm  "📧"
+   painel/crm  "Cancelar"
+   painel/crm  "➕ Criar"
+   painel/tasks  "Cancelar"
+   painel/tasks  "➕ Criar"
+   painel/tasks  "👤 Criar Contato"
+   painel/tasks  "×"
+   painel/tasks  "🏷️"
+   painel/tasks  "⭐"
+   painel/tasks  "🔥"
+   painel/tasks  "✅"
+   painel/tasks  "⏳"
+   painel/tasks  "📞"
+   painel/tasks  "💼"
+   painel/tasks  "❤️"
+   painel/tasks  "🎯"
+   painel/tasks  "💎"
+   painel/tasks  "🚀"
+   painel/tasks  "📌"
+   painel/tasks  "🆕"
+   painel/tasks  "💰"
+   painel/tasks  "🛒"
+   painel/tasks  "📧"
+   painel/tasks  "Cancelar"
+   painel/tasks  "💾 Salvar"
+   painel/ai  "🔍 Analisar Mensagem"
+   painel/backend  "🔑 Entrar"
+   training  "Cancelar"
+   training  "Salvar"
+   training  "Fechar"
+   training  "Cancelar"
+   training  "Salvar"
+   training  "🧹 Limpar conversa"
+   training  "📤 Enviar"
+   training  "Testar"
+MORTOS: 0
+======================================================================
