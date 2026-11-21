@@ -84,9 +84,9 @@
         <a href="#knowledge-base" data-show="knowledge-base">Ler guia →</a>
       </article>
 
-      <article class="help-card" data-keywords="tokens consumo uso pagamento">
-        <h3>💎 Tokens explicados</h3>
-        <p>O que é um token, quanto vem em cada plano, como acompanhar uso.</p>
+      <article class="help-card" data-keywords="respostas tokens cota consumo uso pagamento pacotes">
+        <h3>💬 Respostas da IA explicadas</h3>
+        <p>O que conta como resposta, quantas vêm em cada plano, como acompanhar o consumo.</p>
         <a href="#tokens" data-show="tokens">Ler guia →</a>
       </article>
 
@@ -131,8 +131,8 @@
 <p><strong>Pré-requisitos:</strong> Google Chrome 100+, conta WhatsApp Business</p>
 <ol>
   <li>Crie conta em <a href="/signup.html">signup</a></li>
-  <li>Escolha o plano (Free, Starter ou Pro) — Starter e Pro vêm com 7 dias de trial</li>
-  <li>Recebe os tokens de IA do plano escolhido durante o trial</li>
+  <li>Escolha o plano (Free, Starter, Pro ou Business) — os pagos vêm com 7 dias de trial</li>
+  <li>Recebe as respostas da IA do plano escolhido já durante o trial</li>
   <li>Configure idioma em "Configurações → Conta"</li>
   <li>(Opcional) Ative 2FA em "Configurações → Segurança"</li>
 </ol>
@@ -162,8 +162,10 @@
   <li><strong>Profissional</strong> — "Boa tarde, em que posso ajudar?"</li>
   <li><strong>Entusiasmado</strong> — "Olá! 🎉 Adorei sua mensagem!"</li>
 </ul>
-<h3>Tokens máximos por resposta</h3>
-<p>Default: 250. Recomendamos 150-300 para respostas naturais.</p>
+<h3>Tamanho máximo da resposta</h3>
+<p>Default: 250 (a medida interna que limita o texto gerado). Recomendamos
+150–300 para respostas naturais. Isso não muda o consumo da sua cota: cada
+resposta conta 1, independente do tamanho.</p>
       `,
       'knowledge-base': `
 <h2>📚 Base de conhecimento</h2>
@@ -179,16 +181,34 @@
 <p><strong>Tamanho ideal:</strong> 2.000–5.000 caracteres</p>
       `,
       'tokens': `
-<h2>💎 Tokens explicados</h2>
-<p>Token é a unidade de texto que a IA lê e escreve (em português, uma palavra costuma valer 1–2 tokens).</p>
-<p>Cada sugestão da IA envia junto o seu treinamento (FAQs, produtos, dados do negócio) e a conversa — por isso uma sugestão consome <strong>cerca de 1.800 a 2.000 tokens</strong>, não só o tamanho da resposta.</p>
-<h3>Quanto vem em cada plano</h3>
+<h2>💬 Respostas da IA explicadas</h2>
+<p>Uma <strong>resposta</strong> é uma mensagem que a IA escreve pra você: tanto a
+sugestão que aparece no botão quanto a resposta que o Autopilot manda sozinho.
+Cada uma conta 1, independente do tamanho do texto e de quanto a IA precisou
+ler do seu treinamento (FAQs, produtos, dados do negócio) e da conversa.</p>
+<h3>Quantas vêm em cada plano</h3>
 <ul>
-  <li><strong>Free R$ 0/mês:</strong> sem tokens de IA (recursos de IA bloqueados)</li>
-  <li><strong>Starter R$ 49,90/mês:</strong> 50.000 tokens — dá em torno de 25 sugestões/mês</li>
-  <li><strong>Pro R$ 99,90/mês:</strong> 500.000 tokens — em torno de 260 sugestões/mês</li>
+  <li><strong>Free R$ 0/mês:</strong> sem respostas da IA (recursos de IA bloqueados)</li>
+  <li><strong>Starter R$ 49,90/mês:</strong> 500 respostas</li>
+  <li><strong>Pro R$ 99,90/mês:</strong> 2.500 respostas</li>
+  <li><strong>Business R$ 299,90/mês:</strong> 10.000 respostas (cerca de 330 por dia)</li>
 </ul>
-<p>Acompanhe o consumo em "Tokens &amp; Uso" no painel. Precisa de mais? Compre pacotes avulsos a partir de R$ 19 — tokens avulsos não expiram e sobram para o mês seguinte.</p>
+<p>No plano anual você paga 10 meses e usa 12 — R$ 499,00, R$ 999,00 e
+R$ 2.999,00 no ano. A cota continua sendo <strong>mensal</strong>: é reposta
+todo mês durante os 12 meses, não vem tudo de uma vez.</p>
+<h3>Quando a cota acaba</h3>
+<p>O botão de sugestão para de gerar e mostra um aviso com link pra comprar
+mais. O resto da extensão continua funcionando.</p>
+<h3>Pacotes avulsos</h3>
+<ul>
+  <li>200 respostas — R$ 24,00</li>
+  <li>600 respostas — R$ 59,00</li>
+  <li>2.000 respostas — R$ 149,00</li>
+  <li>6.000 respostas — R$ 349,00</li>
+</ul>
+<p>Pacotes avulsos <strong>não expiram</strong>: o que sobrar fica no saldo
+mesmo depois da renovação do plano. Acompanhe o consumo em
+"Respostas &amp; Uso" no painel.</p>
       `,
       'two-factor': `
 <h2>🔐 Autenticação 2FA</h2>
@@ -232,7 +252,7 @@
 </ol>
 <h3>IA não responde</h3>
 <ul>
-  <li>Saldo de tokens zerado? Veja "Tokens & Uso"</li>
+  <li>Cota de respostas zerada? Veja "Respostas &amp; Uso"</li>
   <li>Subscription suspended? Regularize pagamento</li>
   <li>Auto-reply desativado? Vá em "IA → Configurações"</li>
 </ul>
