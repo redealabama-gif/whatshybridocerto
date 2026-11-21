@@ -38,6 +38,12 @@
     .sidebar-user { padding: 12px 8px; }
     .user-info { font-size: 0.85rem; color: var(--text-muted); }
     .user-email { color: white; font-weight: 600; word-break: break-all; }
+    .ciclo-escolha { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .ciclo-btn.active {
+      border-color: var(--brand-purple);
+      background: rgba(111, 0, 255, 0.18);
+      color: #fff;
+    }
     .plan-badge {
       display: inline-block;
       margin-top: 8px;
@@ -259,7 +265,7 @@
       </button>
       <button class="tab-btn" data-tab="tokens" role="tab" aria-selected="false" aria-controls="tab-tokens">
         <i data-lucide="coins" aria-hidden="true"></i>
-        Tokens &amp; Uso
+        Respostas &amp; Uso
       </button>
       <button class="tab-btn" data-tab="billing" role="tab" aria-selected="false" aria-controls="tab-billing">
         <i data-lucide="credit-card" aria-hidden="true"></i>
@@ -321,7 +327,7 @@
           <div class="welcome-step">
             <div class="welcome-step-num">3</div>
             <h3>Acompanhe por aqui</h3>
-            <p>Saldo de tokens, planos e faturas ficam neste painel. A operação acontece toda na extensão.</p>
+            <p>Saldo de respostas, planos e faturas ficam neste painel. A operação acontece toda na extensão.</p>
             <a href="#" class="btn btn-cyan btn-small" data-act="switchTab" data-arg="tokens">Ver meu saldo →</a>
           </div>
         </div>
@@ -497,12 +503,12 @@
     <div class="tab-content" id="tab-tokens" role="tabpanel" aria-labelledby="tab-btn-tokens">
       <div class="page-header">
         <div>
-          <h1>Tokens & Uso</h1>
-          <p>Saldo da sua IA, histórico e pacotes para comprar mais.</p>
+          <h1>Respostas &amp; Uso</h1>
+          <p>Quantas respostas da IA você ainda tem neste ciclo, o histórico e os pacotes para comprar mais.</p>
         </div>
         <button class="btn btn-cyan" data-act="openBuyTokens">
           <i data-lucide="plus" style="width:18px;height:18px;"></i>
-          Comprar tokens
+          Comprar respostas
         </button>
       </div>
 
@@ -512,38 +518,38 @@
           <div>
             <div class="kpi-label">Saldo disponível</div>
             <div class="kpi-value gradient" id="tokens-balance" style="font-size: 3rem;">—</div>
-            <div class="kpi-sub" id="tokens-sub">de — tokens neste ciclo</div>
+            <div class="kpi-sub" id="tokens-sub">de — respostas neste ciclo</div>
             <div class="progress mt-4" style="max-width: 400px;">
               <div class="progress-fill" id="tokens-progress" style="width: 0%;"></div>
             </div>
           </div>
-          <div style="font-size: 5rem; line-height: 1;">🪙</div>
+          <div style="font-size: 5rem; line-height: 1;">💬</div>
         </div>
       </div>
 
       <!-- Resumo de uso -->
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-label">Consumido (30d)</div>
+          <div class="kpi-label">Respostas (30d)</div>
           <div class="kpi-value" id="usage-tokens">—</div>
-          <div class="kpi-sub">tokens usados</div>
+          <div class="kpi-sub">geradas pela IA</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Requests (30d)</div>
+          <div class="kpi-label">Chamadas à IA (30d)</div>
           <div class="kpi-value" id="usage-requests">—</div>
-          <div class="kpi-sub">chamadas à IA</div>
+          <div class="kpi-sub">sugestões + Autopilot</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Média por request</div>
+          <div class="kpi-label">Média por dia</div>
           <div class="kpi-value" id="usage-avg">—</div>
-          <div class="kpi-sub">tokens/request</div>
+          <div class="kpi-sub">respostas por dia</div>
         </div>
       </div>
 
       <!-- Pacotes para comprar -->
       <div class="section" id="tokens-packages-section">
-        <h2>Comprar tokens avulsos</h2>
-        <p class="text-muted mb-4">Tokens avulsos não expiram. Use quando quiser.</p>
+        <h2>Comprar respostas avulsas</h2>
+        <p class="text-muted mb-4">Respostas avulsas <strong>não expiram</strong> — ficam no saldo mesmo depois da renovação do plano. Use quando quiser.</p>
         <div id="tokens-packages-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
           <!-- preenchido via JS -->
         </div>
@@ -633,14 +639,24 @@
           <i data-lucide="info" style="width:16px;height:16px;display:inline;"></i>
           Você está em período de trial. Configure o método de pagamento antes de <strong id="trial-end-date">—</strong>.
         </div>
+        <div class="ciclo-escolha mt-4" role="group" aria-label="Ciclo de cobrança">
+          <button type="button" class="btn btn-ghost ciclo-btn active" data-act="setCiclo" data-arg="monthly">
+            Mensal
+          </button>
+          <button type="button" class="btn btn-ghost ciclo-btn" data-act="setCiclo" data-arg="annual">
+            Anual — 2 meses grátis
+          </button>
+        </div>
+        <p class="text-muted mt-2" id="ciclo-resumo" style="font-size:0.9rem;">—</p>
+
         <div class="mt-4 flex gap-3" style="flex-wrap:wrap;">
-          <button class="btn btn-primary" data-act="subscribeRecurring" data-cursor="hover">
+          <button class="btn btn-primary" data-act="subscribeRecurring" data-cursor="hover" id="btn-recorrente">
             <i data-lucide="repeat" style="width:18px;height:18px;"></i>
             Assinar com renovação automática
           </button>
-          <button class="btn btn-ghost" data-act="startCheckout">
+          <button class="btn btn-ghost" data-act="startCheckout" id="btn-avulso">
             <i data-lucide="credit-card" style="width:18px;height:18px;"></i>
-            Pagamento único (1 mês)
+            <span id="btn-avulso-label">Pagamento único (1 mês)</span>
           </button>
           <button class="btn btn-ghost" data-act="changePlan">
             <i data-lucide="arrow-up-right" style="width:18px;height:18px;"></i>
@@ -718,6 +734,38 @@
 
   let userData = null;
 
+  // TOKENS_POR_RESPOSTA do backend (src/services/TokenService.js). O valor real
+  // chega no /tokens/balance; este é só o ponto de partida até a chamada voltar.
+  let tokensPorResposta = 1920;
+
+  // Preços dos planos — mantenha em sincronia com PLAN_PRICES em
+  // src/services/MercadoPagoService.js e com a seção #pricing do index.html.
+  // O anual cobra 10 meses (MESES_COBRADOS_NO_ANUAL).
+  const PRECOS = {
+    FREE:     { mensal: 0,      anual: 0,       respostas: 0 },
+    STARTER:  { mensal: 49.90,  anual: 499.00,  respostas: 500 },
+    PRO:      { mensal: 99.90,  anual: 999.00,  respostas: 2500 },
+    BUSINESS: { mensal: 299.90, anual: 2999.00, respostas: 10000 },
+  };
+  const brl = (n) => 'R$ ' + Number(n).toLocaleString('pt-BR',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Converte tokens (unidade interna) em respostas (o que foi vendido).
+  // Abaixo de 10 mostra 1 casa decimal: uma sugestão curta gasta menos de uma
+  // resposta inteira e arredondar pra 0 esconderia o movimento.
+  const emRespostas = (tokens) => {
+    const v = Number(tokens) / tokensPorResposta;
+    return v.toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(v) < 10 ? 1 : 0 });
+  };
+
+  // Ciclo escolhido pra uma compra NOVA. Começa no que o workspace já tem
+  // (billing_cycle, gravado só quando o pagamento é aprovado) ou na
+  // preferência que veio do alternador da landing via signup.html.
+  let cicloEscolhido = 'monthly';
+  try {
+    if (localStorage.getItem('whl_ciclo_preferido') === 'annual') cicloEscolhido = 'annual';
+  } catch (_) {}
+
   // ── Tab switcher ─────────────────────────────────────────
   function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
@@ -741,6 +789,7 @@
     toggleSidebar: () => document.getElementById('sidebar').classList.toggle('open'),
     verFormaPagamento: () => document.getElementById('payment-method-info')?.scrollIntoView({ behavior: 'smooth' }),
     openBuyTokens: () => openBuyTokens(),
+    setCiclo: (arg) => { cicloEscolhido = arg === 'annual' ? 'annual' : 'monthly'; aplicarCicloNoPainel(); },
     buyTokenPackage: (arg) => buyTokenPackage(arg),
     cancelSubscription: () => cancelSubscription(),
     copyActivationKey: () => copyActivationKey(),
@@ -807,9 +856,24 @@
     }
 
     // Billing tab
-    document.getElementById('billing-plan-name').textContent = plan;
-    const planPrices = { STARTER: 'R$ 49,90/mês', PRO: 'R$ 99,90/mês', FREE: 'R$ 0/mês' };
-    document.getElementById('billing-plan-price').textContent = planPrices[plan] || 'R$ —';
+    //
+    // billing_cycle só vale 'annual' depois do pagamento aprovado
+    // (webhooks-payment-saas.js); quem está no trial lê 'monthly'. Por isso o
+    // rótulo do plano ATUAL usa o banco, e não a preferência de tela.
+    const cicloAtual = (userData.workspace?.billing_cycle === 'annual') ? 'annual' : 'monthly';
+    const preco = PRECOS[plan];
+    document.getElementById('billing-plan-name').textContent =
+      plan + (cicloAtual === 'annual' ? ' (anual)' : '');
+    document.getElementById('billing-plan-price').textContent = preco
+      ? (cicloAtual === 'annual'
+          ? `${brl(preco.anual)}/ano · ${preco.respostas.toLocaleString('pt-BR')} respostas por mês`
+          : `${brl(preco.mensal)}/mês` +
+            (preco.respostas ? ` · ${preco.respostas.toLocaleString('pt-BR')} respostas por mês` : ''))
+      : 'R$ —';
+
+    // O seletor de ciclo começa no que a conta já tem.
+    if (cicloAtual === 'annual') cicloEscolhido = 'annual';
+    aplicarCicloNoPainel();
 
     if (trial) {
       const end = new Date(trial);
@@ -837,14 +901,22 @@
       const b = r.balance;
       const fmt = (n) => Number(n).toLocaleString('pt-BR');
 
-      document.getElementById('tokens-balance').textContent = fmt(b.balance);
-      document.getElementById('tokens-sub').textContent =
-        `de ${fmt(b.total)} tokens neste ciclo (${b.utilization_pct}% usado)`;
+      // O cliente compra RESPOSTAS; token é a unidade interna. b.respostas vem
+      // de TokenService.getBalance(). O `|| b.balance` é só pra não quebrar a
+      // tela se o painel rodar contra um backend mais antigo.
+      const resp = b.respostas || null;
+      tokensPorResposta = b.tokens_por_resposta || tokensPorResposta;
+
+      document.getElementById('tokens-balance').textContent =
+        fmt(resp ? resp.restantes : b.balance);
+      document.getElementById('tokens-sub').textContent = resp
+        ? `de ${fmt(resp.total)} respostas neste ciclo (${b.utilization_pct}% usado)`
+        : `de ${fmt(b.total)} tokens neste ciclo (${b.utilization_pct}% usado)`;
       document.getElementById('tokens-progress').style.width = b.utilization_pct + '%';
 
       // KPIs no overview também (se a aba existe)
       const ov = document.getElementById('kpi-tokens');
-      if (ov) ov.textContent = fmt(b.balance);
+      if (ov) ov.textContent = fmt(resp ? resp.restantes : b.balance);
     } catch (e) {
       console.warn('tokens balance error', e);
     }
@@ -853,9 +925,13 @@
     try {
       const r = await api.get('/api/v1/tokens/usage?days=30');
       const u = r.usage;
-      document.getElementById('usage-tokens').textContent = u.total_tokens_consumed.toLocaleString('pt-BR');
+      // /tokens/usage responde em tokens; aqui vira resposta, que é o que foi
+      // vendido. tokensPorResposta vem do /balance (TOKENS_POR_RESPOSTA).
+      const respostas30d = Math.round((u.total_tokens_consumed || 0) / tokensPorResposta);
+      document.getElementById('usage-tokens').textContent = respostas30d.toLocaleString('pt-BR');
       document.getElementById('usage-requests').textContent = u.total_requests.toLocaleString('pt-BR');
-      document.getElementById('usage-avg').textContent = u.avg_tokens_per_request.toLocaleString('pt-BR');
+      document.getElementById('usage-avg').textContent =
+        Math.round(respostas30d / 30).toLocaleString('pt-BR');
     } catch (e) {
       console.warn('tokens usage error', e);
     }
@@ -864,21 +940,28 @@
     try {
       const r = await api.get('/api/v1/tokens/packages');
       const grid = document.getElementById('tokens-packages-grid');
-      grid.innerHTML = r.packages.map(p => `
+      grid.innerHTML = r.packages.map(p => {
+        // p.respostas vem de TokenService.listarPacotes(). Backend antigo só
+        // mandava tokens — daí a conversão de reserva.
+        const respostas = p.respostas != null
+          ? p.respostas
+          : Math.round(p.tokens / tokensPorResposta);
+        const porResposta = (p.price_brl / respostas).toFixed(2).replace('.', ',');
+        return `
         <div class="card" style="text-align:center;">
           <div style="font-family:'Fraunces', Georgia, serif; font-size: 1.4rem; font-weight: 700; color: var(--brand-cyan);">
-            ${p.tokens.toLocaleString('pt-BR')}
+            ${respostas.toLocaleString('pt-BR')}
           </div>
-          <div class="text-muted mt-2" style="font-size:0.85rem;">tokens</div>
+          <div class="text-muted mt-2" style="font-size:0.85rem;">respostas</div>
           <div style="font-family:'Fraunces', Georgia, serif; font-size: 1.6rem; font-weight: 800; margin-top:12px;">
             R$ ${p.price_brl.toFixed(2).replace('.', ',')}
           </div>
-          <div class="text-muted" style="font-size:0.75rem;">R$ ${p.cost_per_1k}/1k tokens</div>
+          <div class="text-muted" style="font-size:0.75rem;">R$ ${porResposta} por resposta</div>
           <button class="btn btn-primary btn-block mt-4" data-act="buyTokenPackage" data-arg="${p.id}">
             Comprar
           </button>
         </div>
-      `).join('');
+      `;}).join('');
     } catch (e) {
       console.warn('tokens packages error', e);
     }
@@ -915,9 +998,9 @@
                 <td><span class="pill ${tl.color}">${tl.label}</span></td>
                 <td style="color:var(--text-muted);font-size:0.85rem;">${t.model || '—'}</td>
                 <td style="color:${isNeg ? 'var(--error)' : 'var(--success)'};font-weight:600;">
-                  ${isNeg ? '' : '+'}${Number(t.amount).toLocaleString('pt-BR')} <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">tokens</span>
+                  ${isNeg ? '' : '+'}${emRespostas(t.amount)} <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">respostas</span>
                 </td>
-                <td>${Number(t.balance_after).toLocaleString('pt-BR')} <span style="color:var(--text-muted);font-size:0.8rem;">tokens</span></td>
+                <td>${Math.floor(Number(t.balance_after) / tokensPorResposta).toLocaleString('pt-BR')} <span style="color:var(--text-muted);font-size:0.8rem;">respostas</span></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -962,6 +1045,51 @@
     void alvo.offsetWidth;            // reinicia a animação se clicar de novo
     alvo.classList.add('destaque-pacotes');
     setTimeout(() => alvo.classList.remove('destaque-pacotes'), 1600);
+  }
+
+  // Reflete o ciclo escolhido nos botões de pagamento.
+  //
+  // O "renovação automática" do MercadoPago (preapproval) é mensal: não existe
+  // preapproval de 12 meses no fluxo atual. Então o anual é cobrado como
+  // pagamento único de 12 meses — e a tela diz isso, em vez de oferecer uma
+  // recorrência anual que o backend não sabe criar.
+  function aplicarCicloNoPainel() {
+    const anual = cicloEscolhido === 'annual';
+    document.querySelectorAll('.ciclo-btn').forEach((b) => {
+      b.classList.toggle('active', (b.dataset.arg === 'annual') === anual);
+    });
+
+    const plano = (userData?.workspace?.plan || userData?.plan || 'free').toUpperCase();
+    const preco = PRECOS[plano];
+    const resumo = document.getElementById('ciclo-resumo');
+    const avulso = document.getElementById('btn-avulso');
+    const recorrente = document.getElementById('btn-recorrente');
+
+    if (resumo) {
+      if (!preco || !preco.mensal) {
+        resumo.textContent = 'O plano Free não tem cobrança. Escolha um plano pago em "Mudar plano".';
+      } else if (anual) {
+        const economia = preco.mensal * 12 - preco.anual;
+        resumo.innerHTML = `<strong>${brl(preco.anual)}</strong> por 12 meses — ` +
+          `você economiza ${brl(economia)} frente a ${brl(preco.mensal)} por mês. ` +
+          `A cota de ${preco.respostas.toLocaleString('pt-BR')} respostas é reposta todo mês.`;
+      } else {
+        resumo.innerHTML = `<strong>${brl(preco.mensal)}</strong> por mês, ` +
+          `com ${preco.respostas.toLocaleString('pt-BR')} respostas por mês.`;
+      }
+    }
+    const rotulo = document.getElementById('btn-avulso-label');
+    if (rotulo) {
+      rotulo.textContent = anual ? 'Pagar 12 meses agora' : 'Pagamento único (1 mês)';
+    }
+    if (recorrente) {
+      recorrente.disabled = anual;
+      recorrente.title = anual
+        ? 'A renovação automática do MercadoPago é mensal. No anual, use "Pagar 12 meses agora".'
+        : '';
+      recorrente.style.opacity = anual ? '0.5' : '';
+      recorrente.style.cursor = anual ? 'not-allowed' : '';
+    }
   }
 
   // ── Billing actions ──────────────────────────────────────
@@ -1023,7 +1151,9 @@
     if (provider === 'stripe') return startStripeCheckout();
 
     try {
-      const result = await api.post('/api/v1/billing/create-checkout', {});
+      // src/routes/billing.js:59 lê req.body.cycle e escolhe a tabela anual
+      // em MercadoPagoService.precoDoPlano(plano, ciclo).
+      const result = await api.post('/api/v1/billing/create-checkout', { cycle: cicloEscolhido });
       if (result.checkout_url) {
         toast('Redirecionando para o MercadoPago...', 'success');
         setTimeout(() => { window.location.href = result.checkout_url; }, 600);
@@ -1041,6 +1171,10 @@
 
   // v8.4.0 — assinatura recorrente automática
   async function subscribeRecurring() {
+    if (cicloEscolhido === 'annual') {
+      toast('A renovação automática do MercadoPago é mensal. No anual, use "Pagar 12 meses agora".', 'warning', 7000);
+      return;
+    }
     try {
       const result = await api.post('/api/v1/billing/subscribe-recurring', {});
       if (result.authorize_url) {
@@ -1061,10 +1195,19 @@
   }
 
   async function changePlan() {
-    const planChoice = prompt('Para qual plano deseja mudar?\n\n• starter — R$ 49,90/mês\n• pro — R$ 99,90/mês\n\nDigite: starter ou pro');
+    const opcoes = ['starter', 'pro', 'business'];
+    const lista = opcoes
+      .map((p) => {
+        const d = PRECOS[p.toUpperCase()];
+        return `• ${p} — ${brl(d.mensal)}/mês · ${d.respostas.toLocaleString('pt-BR')} respostas`;
+      })
+      .join('\n');
+    const planChoice = prompt(
+      `Para qual plano deseja mudar?\n\n${lista}\n\nDigite: ${opcoes.join(', ')}`
+    );
     if (!planChoice) return;
     const plan = planChoice.toLowerCase().trim();
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!opcoes.includes(plan)) {
       toast('Plano inválido', 'error'); return;
     }
     try {

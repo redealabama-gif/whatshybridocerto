@@ -12,7 +12,7 @@
   'use strict';
 
   // Tour alinhado às 4 abas reais do dashboard atual: overview, extension,
-  // tokens, billing. A configuração de IA (tom, FAQ, teste) acontece toda
+  // respostas, billing. A configuração de IA (tom, FAQ, teste) acontece toda
   // na extensão — o dashboard é só painel de conta. Steps antigos que
   // referenciavam [data-tab="ai"], #ai-knowledge-base, #ai-test-btn foram
   // removidos porque esses elementos não existem mais aqui.
@@ -20,11 +20,11 @@
   // v9.6.6: spotlight agora aponta para o CONTEÚDO de cada tab após o
   // switch (não pro botão da sidebar que acabamos de clicar — era
   // redundante). step.action prepara a tab que o PRÓXIMO step vai usar.
-  // Sequência: welcome → overview → extension → tokens → billing → fim.
+  // Sequência: welcome → overview → extension → respostas → billing → fim.
   const STEPS = [
     {
       title: '👋 Bem-vindo ao Vórtex Pro!',
-      content: 'Este é o painel da sua conta — gerencia plano, tokens e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Em 1 minuto te mostro onde fica cada coisa.',
+      content: 'Este é o painel da sua conta — gerencia plano, respostas da IA e faturas. Toda a operação acontece dentro da extensão, no WhatsApp Web. Em 1 minuto te mostro onde fica cada coisa.',
       target: null,
       placement: 'center',
       cta: 'Começar tour',
@@ -46,8 +46,8 @@
       cta: 'Próximo',
     },
     {
-      title: '🪙 Saldo de Tokens',
-      content: 'Cada resposta da IA consome tokens. Aqui você vê o saldo atual, o consumo dos últimos 30 dias e compra pacotes avulsos quando precisar — eles não expiram.',
+      title: '💬 Saldo de respostas',
+      content: 'Seu plano inclui uma cota de respostas da IA por mês — cada sugestão ou resposta do Autopilot conta 1. Aqui você vê quantas ainda tem neste ciclo, o consumo dos últimos 30 dias e compra pacotes avulsos quando precisar — esses não expiram.',
       target: '#tokens-balance',
       placement: 'right',
       action: () => switchTab('billing'),
@@ -55,7 +55,7 @@
     },
     {
       title: '💳 Assinatura e Faturas',
-      content: 'Em "Assinatura" você escolhe entre pagamento único ou renovação automática (PIX ou cartão via MercadoPago), muda de plano e baixa suas faturas. Cancela quando quiser.',
+      content: 'Em "Assinatura" você escolhe o ciclo (mensal ou anual, com 2 meses grátis), paga por PIX ou cartão via MercadoPago, muda de plano e baixa suas faturas. Cancela quando quiser.',
       target: '#current-plan-section',
       placement: 'bottom',
       action: () => switchTab('overview'),
@@ -63,7 +63,7 @@
     },
     {
       title: '🎉 Pronto pra vender!',
-      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar. Toda a operação acontece dentro da extensão — o painel aqui é pra acompanhar conta, tokens e faturas. Qualquer dúvida: suporte@whatshybrid.com.',
+      content: 'Agora é só instalar a extensão, abrir web.whatsapp.com e começar. Toda a operação acontece dentro da extensão — o painel aqui é pra acompanhar conta, respostas e faturas. Qualquer dúvida: suporte@whatshybrid.com.br.',
       target: null,
       placement: 'center',
       cta: 'Concluir',

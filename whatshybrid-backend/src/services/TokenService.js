@@ -23,31 +23,85 @@ const db = require('../utils/database');
 const { v4: uuidv4 } = require('../utils/uuid-wrapper');
 const logger = require('../utils/logger');
 
-// ── Limites iniciais por plano (em tokens) ───────────────────────
-// Estes são tokens VENDIDOS (markup já incluído).
-// Custo real estimado: gpt-4o input ~$2.50/M, output ~$10/M.
-// 50k tokens vendidos ≈ $0.40 custo real → markup ~10x sobre tokens premium
-const PLAN_TOKENS = {
-  free:       0,           // sem IA no plano free
-  // Medição real (audit/evidencias/producao/tokens-prompt-medido.json): uma
-  // sugestão pelo orquestrador gasta ~1.6k–2.1k tokens (prompt do sistema +
-  // conhecimento + conversa; resposta ≤ max_tokens). Ou seja ~25 sugestões no
-  // Starter e ~260 no Pro — NÃO "250/2500 mensagens" como dizia o comentário
-  // antigo. O site vende "50.000 tokens" (sem prometer nº de mensagens), então
-  // não há promessa quebrada; mas o custo de IA desses tokens é baixo
-  // (gpt-4o-mini: 50k ≈ R$0,05; 500k ≈ R$0,54), logo a margem é folgada.
-  starter:    50_000,      // ~25 sugestões/mês
-  pro:        500_000,     // ~260 sugestões/mês
-  enterprise: 999_000_000, // efetivamente ilimitado (usado por master workspaces internos)
+// ── Quanto custa UMA resposta da IA ──────────────────────────────
+//
+// Medido no backend real (audit/evidencias/producao/tokens-economia.md):
+// cada sugestão pelo orquestrador envia ~1.800 tokens de entrada (instruções
+// + treinamento do cliente + histórico da conversa) e ~120 de saída.
+//
+// Esta é a unidade de VENDA: o cliente compra respostas, não tokens. Tokens
+// continuam sendo a unidade interna de débito, porque é o que o provedor
+// cobra — mas ninguém entende "50.000 tokens", e foi justamente essa confusão
+// que pôs "uma resposta gasta ~200 tokens" no FAQ do site (9,6x errado).
+const TOKENS_POR_RESPOSTA = 1_920;
+
+// ── Quantas respostas cada plano dá por mês ──────────────────────
+//
+// Custo de IA por resposta (Groq llama-3.3-70b na geração + gpt-4o-mini no
+// classificador de intenção, câmbio R$ 5,30): ~R$ 0,0066.
+// Margens no PIOR caso, com o cliente gastando 100% da cota e já descontadas
+// a taxa do MercadoPago (4,99%) e o rateio de servidor:
+//   Starter   R$  49,90 →  500 respostas → IA R$  3,32 → margem 84%
+//   Pro       R$  99,90 → 2.500 respostas → IA R$ 16,62 → margem 76%
+//   Business  R$ 299,90 → 10.000 respostas → IA R$ 66,00 → margem 72%
+const PLAN_RESPOSTAS = {
+  free:          0,        // sem IA no plano free
+  starter:     500,
+  pro:       2_500,
+  business: 10_000,
+  enterprise: 520_312,     // efetivamente ilimitado (workspaces internos)
 };
 
-// ── Pacotes avulsos para topup (em centavos BRL para precisão) ───
+const PLAN_TOKENS = Object.fromEntries(
+  Object.entries(PLAN_RESPOSTAS).map(([plano, respostas]) => [plano, respostas * TOKENS_POR_RESPOSTA])
+);
+
+// ── Pacotes avulsos, também em respostas (centavos BRL) ──────────
+//
+// Regra: o preço por resposta de QUALQUER pacote fica acima do preço por
+// resposta de QUALQUER plano — assinar tem de valer mais a pena que recarregar.
+// O piso é o Business (R$ 0,030/resposta, o mais barato por resposta):
+//    200 → R$ 0,120    600 → R$ 0,098    2.000 → R$ 0,075    6.000 → R$ 0,058
+// Antes era o contrário: o pack de 50k custava R$ 79,00 enquanto o Starter
+// inteiro, com os mesmos 50k, custava R$ 49,90.
 const TOKEN_PACKAGES = {
-  pack_10k:  { tokens: 10_000,  price_brl_cents: 1900,  label: '10k tokens — R$ 19,00' },
-  pack_50k:  { tokens: 50_000,  price_brl_cents: 7900,  label: '50k tokens — R$ 79,00' },
-  pack_200k: { tokens: 200_000, price_brl_cents: 24900, label: '200k tokens — R$ 249,00' },
-  pack_1M:   { tokens: 1_000_000, price_brl_cents: 99900, label: '1M tokens — R$ 999,00' },
+  pack_200:   { respostas:   200, price_brl_cents:  2400, label:   '200 respostas — R$ 24,00' },
+  pack_600:   { respostas:   600, price_brl_cents:  5900, label:   '600 respostas — R$ 59,00' },
+  pack_2000:  { respostas: 2_000, price_brl_cents: 14900, label: '2.000 respostas — R$ 149,00' },
+  pack_6000:  { respostas: 6_000, price_brl_cents: 34900, label: '6.000 respostas — R$ 349,00' },
 };
+for (const pacote of Object.values(TOKEN_PACKAGES)) pacote.tokens = pacote.respostas * TOKENS_POR_RESPOSTA;
+
+// Os 4 ids que o cliente pode ver numa vitrine. Fixado ANTES dos apelidos
+// abaixo, senão a lista sairia com cada pacote duas vezes (PKG-01).
+const PACOTES_A_LISTAR = Object.keys(TOKEN_PACKAGES);
+
+// Ids antigos continuam funcionando: links e e-mails já enviados não podem
+// quebrar. Cada um aponta para o pacote novo de volume mais próximo. São
+// apelidos para RESOLVER uma compra, nunca para listar.
+const PACOTES_ANTIGOS = { pack_10k: 'pack_200', pack_50k: 'pack_600', pack_200k: 'pack_2000', pack_1M: 'pack_6000' };
+for (const [antigo, novo] of Object.entries(PACOTES_ANTIGOS)) TOKEN_PACKAGES[antigo] = TOKEN_PACKAGES[novo];
+
+/**
+ * Pacotes para mostrar ao cliente — sem os apelidos antigos.
+ * Quem precisa resolver um id de compra usa TOKEN_PACKAGES direto.
+ */
+function listarPacotes() {
+  return PACOTES_A_LISTAR.map((id) => {
+    const p = TOKEN_PACKAGES[id];
+    const reais = p.price_brl_cents / 100;
+    return {
+      id,
+      respostas: p.respostas,
+      tokens: p.tokens,
+      price_brl: reais,
+      price_brl_cents: p.price_brl_cents,
+      label: p.label,
+      preco_por_resposta: (reais / p.respostas).toFixed(4),
+      cost_per_1k: (reais / (p.tokens / 1000)).toFixed(3),
+    };
+  });
+}
 
 const LOW_BALANCE_THRESHOLD = 0.10; // 10% restante dispara alerta
 
@@ -77,13 +131,25 @@ class TokenService {
   getBalance(workspaceId) {
     const row = this.ensureRow(workspaceId);
     const balance = row.tokens_total - row.tokens_used;
+    const restante = Math.max(0, balance);
     return {
       total: row.tokens_total,
       used: row.tokens_used,
-      balance: Math.max(0, balance),
+      balance: restante,
       utilization_pct: row.tokens_total > 0
         ? Math.round((row.tokens_used / row.tokens_total) * 100)
         : 0,
+      // O cliente compra RESPOSTAS; tokens são a unidade interna. O painel e a
+      // extensão mostram estes campos — ninguém entende "restam 412.800 tokens",
+      // todo mundo entende "restam 215 respostas".
+      respostas: {
+        total:    Math.floor(row.tokens_total / TOKENS_POR_RESPOSTA),
+        usadas:   Math.floor(row.tokens_used  / TOKENS_POR_RESPOSTA),
+        restantes: Math.floor(restante        / TOKENS_POR_RESPOSTA),
+      },
+      // O painel usa isto pra converter o consumo de 30 dias (que vem em
+      // tokens de /tokens/usage) em respostas, sem repetir a constante no HTML.
+      tokens_por_resposta: TOKENS_POR_RESPOSTA,
     };
   }
 
@@ -434,4 +500,9 @@ module.exports = new TokenService();
 module.exports.TokenService = TokenService;
 module.exports.PLAN_TOKENS = PLAN_TOKENS;
 module.exports.TOKEN_PACKAGES = TOKEN_PACKAGES;
+module.exports.PACOTES_ANTIGOS = PACOTES_ANTIGOS;
+module.exports.listarPacotes = listarPacotes;
+module.exports.TOKENS_POR_RESPOSTA = TOKENS_POR_RESPOSTA;
+module.exports.PLAN_RESPOSTAS = PLAN_RESPOSTAS;
+module.exports.PLAN_TOKENS = PLAN_TOKENS;
 module.exports.LOW_BALANCE_THRESHOLD = LOW_BALANCE_THRESHOLD;

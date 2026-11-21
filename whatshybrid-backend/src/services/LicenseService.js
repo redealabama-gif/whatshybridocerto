@@ -4,7 +4,8 @@
  * Plans (preços alinhados com landing/signup/MP em Fase 2 cobrança):
  *   free       — trial 7d, sem IA
  *   starter    — R$49,90/mês, 50k tokens
- *   pro        — R$99,90/mês, 500k tokens
+ *   pro        — R$99,90/mês, 2.500 respostas
+ *   business   — R$299,90/mês, 10.000 respostas
  *   (enterprise — uso interno/master workspaces, não vendido)
  *
  * @module services/LicenseService
@@ -41,6 +42,18 @@ const PLAN_LIMITS = {
     maxCampaigns: 100,
     aiEnabled: true,
     aiCredits: 10000,
+    features: ['full_crm', 'campaigns', 'advanced_ai', 'templates', 'analytics', 'webhooks', 'api']
+  },
+  // PLN-03 — Business entre pro e enterprise, igual ao planOrder usado em
+  // upgrade(). Sem esta entrada, create({plan:'business'}) lançava
+  // 'Plano inválido' e validate()/upgrade() liam limits.maxContacts de
+  // undefined (TypeError).
+  business: {
+    maxUsers: 25,
+    maxContacts: -1,
+    maxCampaigns: -1,
+    aiEnabled: true,
+    aiCredits: 40000,
     features: ['full_crm', 'campaigns', 'advanced_ai', 'templates', 'analytics', 'webhooks', 'api']
   },
   enterprise: {
@@ -332,7 +345,7 @@ class LicenseService {
     }
 
     // Verificar se é upgrade
-    const planOrder = ['free', 'starter', 'pro', 'enterprise'];
+    const planOrder = ['free', 'starter', 'pro', 'business', 'enterprise'];
     const currentIndex = planOrder.indexOf(license.plan);
     const newIndex = planOrder.indexOf(newPlan);
 

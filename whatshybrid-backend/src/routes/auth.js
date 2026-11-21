@@ -25,7 +25,13 @@ const PLAN_MONTHLY_PRICE_BRL = {
   free: 0,
   starter: 49.90,
   pro: 99.90,
+  business: 299.90,
 };
+
+// Planos que ganham trial de 7 dias e evento StartTrial na Meta. Lista em vez
+// de `plan === 'starter' || plan === 'pro'`: foi assim que o Business ficou de
+// fora quando o plano entrou (PLN-04).
+const PLANOS_PAGOS = ['starter', 'pro', 'business'];
 
 /**
  * Dispara eventos Meta CAPI após signup bem-sucedido (manual ou Google).
@@ -252,7 +258,7 @@ router.post('/signup',
     body('password').isLength({ min: 8 }),
     body('name').trim().notEmpty(),
     body('company').trim().isLength({ min: 2, max: 100 }),
-    body('plan').optional().isIn(['starter', 'pro', 'free']),
+    body('plan').optional().isIn(['starter', 'pro', 'business', 'free']),
     body('coupon').optional().isString().isLength({ min: 3, max: 32 }),
     body('attribution').optional().isObject(),
   ],
@@ -387,7 +393,7 @@ router.post('/signup',
     // de marketing não devem afetar a criação da conta.
     const metaEventIds = await fireSignupCapi({
       email, name, plan, userId, attribution, req,
-      includeStartTrial: plan === 'starter' || plan === 'pro',
+      includeStartTrial: PLANOS_PAGOS.includes(plan),
     });
 
     res.status(201).json({
@@ -532,9 +538,13 @@ router.post('/login',
         const tokenService = require('../services/TokenService');
         const balance = tokenService.getBalance(user.workspace_id);
         workspace.balance = balance?.balance || 0;
-        workspace.credits = workspace.balance; // compat de frontend antigo
+        // EXT-01: `credits` alimenta o chip da extensão. Mandava o saldo em
+        // TOKENS (19.200.000 no Business), que não é o que o cliente comprou.
+        workspace.respostas = balance?.respostas || { total: 0, usadas: 0, restantes: 0 };
+        workspace.credits = workspace.respostas.restantes;
       } catch (_) {
         workspace.balance = 0;
+        workspace.respostas = { total: 0, usadas: 0, restantes: 0 };
         workspace.credits = 0;
       }
     }
@@ -605,9 +615,12 @@ router.post('/login/totp',
         const tokenService = require('../services/TokenService');
         const balance = tokenService.getBalance(user.workspace_id);
         workspace.balance = balance?.balance || 0;
-        workspace.credits = workspace.balance;
+        // EXT-01: credits em RESPOSTAS, não em tokens (ver /auth/me acima).
+        workspace.respostas = balance?.respostas || { total: 0, usadas: 0, restantes: 0 };
+        workspace.credits = workspace.respostas.restantes;
       } catch (_) {
         workspace.balance = 0;
+        workspace.respostas = { total: 0, usadas: 0, restantes: 0 };
         workspace.credits = 0;
       }
     }
@@ -793,7 +806,10 @@ router.get('/me',
               w.name as workspace_name, w.plan, w.credits,
               w.trial_end_at, w.subscription_status, w.next_billing_at,
               w.payment_provider, w.mp_preapproval_id, w.stripe_subscription_id,
-              w.auto_renew_enabled, w.past_due_since, w.dunning_attempts
+              w.auto_renew_enabled, w.past_due_since, w.dunning_attempts,
+              -- migrations/024_billing_cycle.sql; o painel mostra "(anual)" e
+              -- o valor anual do plano a partir daqui.
+              w.billing_cycle, w.annual_period_end
        FROM users u
        JOIN workspaces w ON u.workspace_id = w.id
        WHERE u.id = ?`,
@@ -803,6 +819,17 @@ router.get('/me',
     if (!user) {
       throw new AppError('User not found', 404);
     }
+
+    // EXT-01: w.credits é a coluna parada (nasce 100 no cadastro e ninguém
+    // atualiza). O saldo de verdade, na unidade vendida, vem do TokenService.
+    let respostas = { total: 0, usadas: 0, restantes: 0 };
+    let saldoTokens = 0;
+    try {
+      const tokenService = require('../services/TokenService');
+      const b = tokenService.getBalance(user.workspace_id);
+      respostas = b.respostas || respostas;
+      saldoTokens = b.balance || 0;
+    } catch (_) { /* conta sem linha de saldo ainda — segue com zero */ }
 
     res.json({
       user: {
@@ -818,7 +845,11 @@ router.get('/me',
         id: user.workspace_id,
         name: user.workspace_name,
         plan: user.plan,
-        credits: user.credits,
+        respostas,
+        balance: saldoTokens,
+        credits: respostas.restantes,
+        billing_cycle: user.billing_cycle || 'monthly',
+        annual_period_end: user.annual_period_end || null,
         trial_end_at: user.trial_end_at,
         subscription_status: user.subscription_status,
         next_billing_at: user.next_billing_at,
@@ -1135,7 +1166,7 @@ router.post('/google',
   authLimiter,
   [
     body('credential').isString().notEmpty(),
-    body('plan').optional().isIn(['free', 'starter', 'pro']),
+    body('plan').optional().isIn(['free', 'starter', 'pro', 'business']),
     body('attribution').optional().isObject(),
   ],
   asyncHandler(async (req, res) => {
@@ -1308,9 +1339,12 @@ router.post('/google',
         const tokenSvc = require('../services/TokenService');
         const balance = tokenSvc.getBalance(user.workspace_id);
         workspace.balance = balance?.balance || 0;
-        workspace.credits = workspace.balance;
+        // EXT-01: credits em RESPOSTAS, não em tokens (ver /auth/me acima).
+        workspace.respostas = balance?.respostas || { total: 0, usadas: 0, restantes: 0 };
+        workspace.credits = workspace.respostas.restantes;
       } catch (_) {
         workspace.balance = 0;
+        workspace.respostas = { total: 0, usadas: 0, restantes: 0 };
         workspace.credits = 0;
       }
     }
@@ -1326,8 +1360,7 @@ router.post('/google',
         userId: user.id,
         attribution,
         req,
-        includeStartTrial: (workspace?.plan || plan) === 'starter' ||
-                           (workspace?.plan || plan) === 'pro',
+        includeStartTrial: PLANOS_PAGOS.includes(workspace?.plan || plan),
       });
     }
 

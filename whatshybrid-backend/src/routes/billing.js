@@ -51,9 +51,12 @@ router.post('/create-checkout',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
+    // 'annual' = paga 10 meses e leva 12, numa cobrança única. Qualquer outro
+    // valor vira mensal — nunca cobrar um ciclo que o cliente não escolheu.
+    const cycle = mpService.normalizarCiclo(req.body?.cycle);
 
     if (!mpService.isConfigured()) {
       return res.status(503).json({
@@ -81,6 +84,7 @@ router.post('/create-checkout',
         email: ws.email,
         name: ws.name,
         couponCode,
+        cycle,
       });
 
       // Salva intent de pagamento (auditoria). Inclui o cupom no metadata
@@ -231,12 +235,15 @@ router.post('/recover-link',
 router.post('/create-token-checkout',
   authorize('owner'),
   asyncHandler(async (req, res) => {
-    const { TOKEN_PACKAGES } = require('../services/TokenService');
+    const { TOKEN_PACKAGES, listarPacotes } = require('../services/TokenService');
     const { package_id } = req.body || {};
 
+    // Resolve por TOKEN_PACKAGES (aceita os apelidos antigos), mas sugere
+    // só os ids da vitrine — a mensagem listava os 8, com 4 repetidos.
     const pkg = TOKEN_PACKAGES[package_id];
     if (!pkg) {
-      throw new AppError(`Pacote inválido. Use: ${Object.keys(TOKEN_PACKAGES).join(', ')}`, 400);
+      const validos = listarPacotes().map((x) => x.id).join(', ');
+      throw new AppError(`Pacote inválido. Use: ${validos}`, 400);
     }
 
     if (!mpService.isConfigured()) {
@@ -347,7 +354,7 @@ router.post('/subscribe-recurring',
     if (!ws) throw new AppError('Workspace not found', 404);
 
     const plan = (req.body?.plan || ws.plan || 'pro').toLowerCase();
-    if (!['starter', 'pro'].includes(plan)) {
+    if (!['starter', 'pro', 'business'].includes(plan)) {
       throw new AppError('Plano inválido', 400);
     }
 

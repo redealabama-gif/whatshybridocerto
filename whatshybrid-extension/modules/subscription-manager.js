@@ -69,7 +69,10 @@
         maxCampaigns: 5,
         maxFlows: 3,
         maxTeamMembers: -1,
-        aiCredits: 100,
+        // Respostas da IA por mês — espelha PLAN_RESPOSTAS em
+        // whatshybrid-backend/src/services/TokenService.js. É só o valor de
+        // partida: o número que vale vem do servidor em validation.credits.
+        aiCredits: 500,
         smartReplies: true,
         copilot: false,
         autopilot: true,
@@ -113,7 +116,7 @@
         maxCampaigns: 20,
         maxFlows: 10,
         maxTeamMembers: -1,
-        aiCredits: 500,
+        aiCredits: 2500,
         smartReplies: true,
         copilot: true,
         autopilot: true,
@@ -140,6 +143,53 @@
         // 2.000 mensagens por dia". Espelha PLAN_LIMITS.pro.bulk_contacts_per_day
         // no backend; -1 deixava a promessa imprecisa e sem proteção anti-ban.
         bulkContactsPerDay: 2000
+      }
+    },
+    // PLN-03 — Business: mesmas funções do Pro (os 19 gates de
+    // middleware/subscription.js listam ['pro','business',...] juntos) com
+    // cota 4x maior: 10.000 respostas/mês contra 2.500 do Pro
+    // (TokenService.PLAN_RESPOSTAS). Sem esta entrada, getPlan() caía no
+    // `|| PLANS.free` e quem paga R$ 299,90 recebia o Free Lite.
+    business: {
+      id: 'business',
+      name: 'Business',
+      price: 299.90,
+      color: '#0ea5e9',
+      icon: '\u{1F3E2}',
+      features: {
+        maxContacts: -1,
+        maxChatsPerDay: -1,
+        maxCampaigns: -1,
+        maxFlows: -1,
+        maxTeamMembers: -1,
+        // Respostas da IA por mês (PLAN_RESPOSTAS.business no backend).
+        aiCredits: 10000,
+        smartReplies: true,
+        copilot: true,
+        autopilot: true,
+        analytics: 'advanced',
+        exportFormats: ['csv', 'xlsx', 'json'],
+        bulkMessages: true,
+        customLabels: true,
+        apiAccess: true,
+        prioritySupport: true,
+        recover: true,
+        crm: 'full',
+        training: true,
+        maxTemplates: -1,
+        maxKanbanBoards: -1,
+        maxScheduledActive: -1,
+        backupsPerWeek: -1
+      },
+      limits: {
+        messagesPerDay: 5000,
+        mediaPerDay: 1500,
+        exportsPerDay: -1,
+        aiRepliesPerDay: -1,
+        // 5.000/dia: acima do Pro (2.000) pra justificar o preço, mas COM
+        // teto — -1 tiraria a proteção anti-ban e derrubaria o número do
+        // cliente. Espelha PLAN_LIMITS.business.bulk_contacts_per_day.
+        bulkContactsPerDay: 5000
       }
     },
     enterprise: {
@@ -183,7 +233,7 @@
     }
   };
 
-  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'enterprise'];
+  const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'business', 'enterprise'];
 
   // ============================================
   // CONFIGURAÇÃO

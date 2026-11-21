@@ -25,7 +25,16 @@ const MP_API = 'https://api.mercadopago.com';
 const PLAN_PRICES = {
   starter: 49.90,
   pro: 99.90,
+  business: 299.90,
 };
+
+// Anual: 2 meses grátis (paga 10, leva 12). O desconto não corrói a margem —
+// no pior caso (cliente usando 100% da cota todo mês) o Pro anual fecha em
+// ~72% de margem contra 76% do mensal.
+const MESES_COBRADOS_NO_ANUAL = 10;
+const PLAN_PRICES_ANUAL = Object.fromEntries(
+  Object.entries(PLAN_PRICES).map(([plano, mensal]) => [plano, Number((mensal * MESES_COBRADOS_NO_ANUAL).toFixed(2))])
+);
 
 class MercadoPagoService {
   constructor() {
@@ -54,12 +63,16 @@ class MercadoPagoService {
    * @param {string} [opts.couponCode] — código do cupom pra aplicar desconto
    *                                     na 1ª cobrança (ex.: 'EXIT50')
    */
-  async createPreference({ workspaceId, plan, email, name, successUrl, couponCode }) {
+  async createPreference({ workspaceId, plan, email, name, successUrl, couponCode, cycle }) {
     if (!this.isConfigured()) {
       throw new Error('MercadoPago não configurado (MERCADOPAGO_ACCESS_TOKEN ausente)');
     }
 
-    const price = PLAN_PRICES[plan];
+    // Ciclo anual: paga 10 meses, leva 12. Cobrança única — a cota continua
+    // sendo liberada mês a mês pelo cron (renovarCotaAnual), para o teto de
+    // custo mensal que sustenta a margem não ser furado.
+    const ciclo = String(cycle || '').toLowerCase() === 'annual' ? 'annual' : 'monthly';
+    const price = (ciclo === 'annual' ? PLAN_PRICES_ANUAL : PLAN_PRICES)[plan];
     if (!price) throw new Error(`Plano inválido: ${plan}`);
 
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -84,6 +97,7 @@ class MercadoPagoService {
     }
 
     const title = `Vórtex Pro — Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)}` +
+      (ciclo === 'annual' ? ' (anual, 12 meses)' : '') +
       (appliedCoupon ? ` (${appliedCoupon.label})` : '');
 
     const payload = {
@@ -98,9 +112,14 @@ class MercadoPagoService {
         unit_price: finalPrice,
       }],
       payer: { email, name },
-      external_reference: appliedCoupon
-        ? `${workspaceId}|${plan}|coupon:${appliedCoupon.code}`
-        : `${workspaceId}|${plan}`,
+      // O ciclo viaja no external_reference para o webhook saber se grava
+              // billing_cycle='annual' quando o pagamento for aprovado.
+      external_reference: [
+        workspaceId,
+        plan,
+        ...(appliedCoupon ? [`coupon:${appliedCoupon.code}`] : []),
+        ...(ciclo === 'annual' ? ['cycle:annual'] : []),
+      ].join('|'),
       notification_url: this.notificationUrl,
       back_urls: {
         success: successUrl || `${baseUrl}/dashboard.html?paid=1`,
@@ -480,3 +499,19 @@ const instance = new MercadoPagoService();
 module.exports = instance;
 module.exports.MercadoPagoService = MercadoPagoService;
 module.exports.PLAN_PRICES = PLAN_PRICES;
+module.exports.PLAN_PRICES_ANUAL = PLAN_PRICES_ANUAL;
+module.exports.MESES_COBRADOS_NO_ANUAL = MESES_COBRADOS_NO_ANUAL;
+
+/**
+ * Preço do plano no ciclo pedido. Ciclo desconhecido cai em mensal — nunca
+ * cobrar um valor que o cliente não escolheu.
+ */
+module.exports.precoDoPlano = function precoDoPlano(plano, ciclo = 'monthly') {
+  const tabela = ciclo === 'annual' ? PLAN_PRICES_ANUAL : PLAN_PRICES;
+  return tabela[String(plano || '').toLowerCase()] ?? null;
+};
+
+/** 'annual' ou 'monthly'. Qualquer outra coisa vira mensal. */
+module.exports.normalizarCiclo = function normalizarCiclo(ciclo) {
+  return String(ciclo || '').toLowerCase() === 'annual' ? 'annual' : 'monthly';
+};

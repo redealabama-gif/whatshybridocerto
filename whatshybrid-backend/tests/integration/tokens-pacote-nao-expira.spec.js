@@ -30,37 +30,44 @@ afterAll(() => cleanupDb());
 
 const saldo = () => tokenService.getBalance(ws).balance;
 
+// A cota vem da constante, não de um número escrito à mão: este teste é sobre
+// "o pacote comprado não expira na renovação", não sobre o tamanho da cota.
+// Antes estava fixo em 50.000 e quebrou quando os planos passaram a ser
+// medidos em respostas (Starter 500 respostas = 960.000 tokens).
+const COTA = require('../../src/services/TokenService').PLAN_TOKENS.starter;
+const PACOTE = 10_000;
+
 describe('PLN-01 — pacote de tokens comprado não expira', () => {
   test('sobra do pacote passa para o mês seguinte; sobra da cota do plano não', () => {
-    tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-1' }); // 50.000 do plano
-    tokenService.credit(ws, 10_000, 'topup', { invoice_id: 'pack-1' }); // pacote de R$ 19
-    expect(saldo()).toBe(60_000);
+    tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-1' }); // cota do plano
+    tokenService.credit(ws, PACOTE, 'topup', { invoice_id: 'pack-1' }); // pacote avulso
+    expect(saldo()).toBe(COTA + PACOTE);
 
-    // usa 20.000: sai tudo da cota do plano (sobram 30.000 do plano + 10.000 comprados)
+    // gasta um pedaço que sai só da cota do plano; o pacote fica intacto
     expect(tokenService.consume(ws, 20_000).allowed).toBe(true);
 
     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-2' });
-    // nova cota (50.000) + o pacote inteiro (10.000); a sobra do plano (30.000) não acumula
-    expect(saldo()).toBe(60_000);
+    // nova cota + o pacote inteiro; a sobra da cota do plano não acumula
+    expect(saldo()).toBe(COTA + PACOTE);
   });
 
   test('pacote usado em parte: só o que restou dele passa', () => {
-    // mês 2: 50.000 do plano + 10.000 comprados. Usa 55.000 → 5.000 do pacote foram usados
-    expect(tokenService.consume(ws, 55_000).allowed).toBe(true);
-    expect(saldo()).toBe(5_000);
+    // gasta toda a cota do plano e metade do pacote
+    expect(tokenService.consume(ws, COTA + PACOTE / 2).allowed).toBe(true);
+    expect(saldo()).toBe(PACOTE / 2);
 
     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-3' });
-    expect(saldo()).toBe(55_000);
+    expect(saldo()).toBe(COTA + PACOTE / 2);
   });
 
   test('renovação repetida (mesmo pagamento) não soma de novo', () => {
     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-3' });
-    expect(saldo()).toBe(55_000);
+    expect(saldo()).toBe(COTA + PACOTE / 2);
   });
 
   test('(controle) sem pacote, a renovação dá só a cota do plano', () => {
-    expect(tokenService.consume(ws, 55_000).allowed).toBe(true);
+    expect(tokenService.consume(ws, COTA + PACOTE / 2).allowed).toBe(true);
     tokenService.resetMonthlyForPlan(ws, 'starter', { invoice_id: 'mes-4' });
-    expect(saldo()).toBe(50_000);
+    expect(saldo()).toBe(COTA);
   });
 });
