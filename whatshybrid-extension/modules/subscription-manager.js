@@ -69,7 +69,10 @@
         maxCampaigns: 5,
         maxFlows: 3,
         maxTeamMembers: -1,
-        aiCredits: 100,
+        // Respostas da IA por mês — espelha PLAN_RESPOSTAS em
+        // whatshybrid-backend/src/services/TokenService.js. É só o valor de
+        // partida: o número que vale vem do servidor em validation.credits.
+        aiCredits: 500,
         smartReplies: true,
         copilot: false,
         autopilot: true,
@@ -113,7 +116,7 @@
         maxCampaigns: 20,
         maxFlows: 10,
         maxTeamMembers: -1,
-        aiCredits: 500,
+        aiCredits: 2500,
         smartReplies: true,
         copilot: true,
         autopilot: true,
@@ -159,8 +162,8 @@
         maxCampaigns: -1,
         maxFlows: -1,
         maxTeamMembers: -1,
-        // 4x o Pro (500), na mesma proporção das respostas do plano.
-        aiCredits: 2000,
+        // Respostas da IA por mês (PLAN_RESPOSTAS.business no backend).
+        aiCredits: 10000,
         smartReplies: true,
         copilot: true,
         autopilot: true,

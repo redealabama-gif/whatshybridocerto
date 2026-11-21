@@ -96,10 +96,13 @@
       return;
     }
 
-    if (['starter', 'pro', 'enterprise'].includes(planId) && SM.isActive()) {
+    // 'business' estava fora desta lista: o cliente de R$ 299,90 caía no
+    // renderFreeLite() e via a faixa de plano gratuito (PLN-03).
+    if (['starter', 'pro', 'business', 'enterprise'].includes(planId) && SM.isActive()) {
       const credits = SM.getCredits();
       const plan = SM.getPlan();
-      renderChip(`${plan.icon} ${plan.name}`, `${credits.remaining} créditos`);
+      const n = Number(credits.remaining || 0).toLocaleString('pt-BR');
+      renderChip(`${plan.icon} ${plan.name}`, `${n} resposta${credits.remaining === 1 ? '' : 's'}`);
       return;
     }
 
@@ -122,7 +125,7 @@
     bannerEl.innerHTML = `
       <div class="whl-banner-text">
         <span class="whl-banner-label">🎁 Trial Pro — ${days} dia${days === 1 ? '' : 's'} restante${days === 1 ? '' : 's'}</span>
-        <span class="whl-banner-sub">${remaining}/${total} créditos IA${lowCredits ? ' • acabando' : ''}</span>
+        <span class="whl-banner-sub">${remaining}/${total} respostas da IA${lowCredits ? ' • acabando' : ''}</span>
       </div>
       <button class="whl-banner-cta" data-action="upgrade">Ver planos</button>
     `;
@@ -177,8 +180,8 @@
     window.NotificationsModule.show({
       title: '🎁 Trial Pro ativado!',
       message: isAuto
-        ? 'Boas-vindas! Você tem 7 dias com Smart Replies, Copilot, Autopilot e 50 créditos de IA.'
-        : 'Você tem 7 dias com Smart Replies, Copilot, Autopilot e 50 créditos de IA.',
+        ? 'Boas-vindas! Você tem 7 dias com Smart Replies, Copilot, Autopilot e 50 respostas da IA.'
+        : 'Você tem 7 dias com Smart Replies, Copilot, Autopilot e 50 respostas da IA.',
       type: 'success',
       duration: 9000
     });

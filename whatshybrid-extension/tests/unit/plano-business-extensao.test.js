@@ -148,3 +148,43 @@ test('PLN-03: o gate continua barrando quem está abaixo (não afrouxou nada)', 
     global.window.SubscriptionManager = antes;
   }
 });
+
+// --- EXT-01: a cota exibida tem de ser a vendida ---------------------------
+
+test('EXT-01: aiCredits de cada plano = respostas vendidas (PLAN_RESPOSTAS)', () => {
+  // Espelha whatshybrid-backend/src/services/TokenService.js. É só o valor de
+  // partida (offline); o número que vale vem do servidor em validation.credits.
+  const esperado = { free: 0, starter: 500, pro: 2500, business: 10000 };
+  for (const [plano, respostas] of Object.entries(esperado)) {
+    assert.strictEqual(
+      SM.PLANS[plano].features.aiCredits, respostas,
+      `${plano}: aiCredits=${SM.PLANS[plano].features.aiCredits}, vendido=${respostas}`
+    );
+  }
+});
+
+test('EXT-01: a faixa de plano da extensão reconhece o business', () => {
+  // modules/subscription-ui.js roda só com DOM; aqui basta garantir que o
+  // business não ficou fora da lista que decide entre chip de plano pago e
+  // renderFreeLite() — era por essa lista que o cliente Business via a faixa
+  // de plano gratuito.
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../../modules/subscription-ui.js'), 'utf8');
+  const m = src.match(/\[([^\]]*'starter'[^\]]*)\]\.includes\(planId\)/);
+  assert.ok(m, 'não achei a lista de planos em subscription-ui.js');
+  assert.ok(m[1].includes("'business'"), 'business fora da lista: [' + m[1] + ']');
+});
+
+test('EXT-01: nenhum texto de tela da IA fala em "token"', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const arq of ['modules/ai-suggestion-fixed.js', 'modules/subscription-ui.js']) {
+    const src = fs.readFileSync(path.join(__dirname, '../../', arq), 'utf8');
+    // só o que vai pra tela: título, mensagem e rótulo de botão
+    const trechos = src.match(/const (title|msg|ctaLabel)\s*=[^;]+;/g) || [];
+    for (const t of trechos) {
+      assert.ok(!/token/i.test(t), arq + ' ainda mostra "token": ' + t.slice(0, 120));
+    }
+  }
+});

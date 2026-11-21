@@ -11,6 +11,24 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 
+/**
+ * EXT-01 — saldo em RESPOSTAS, que é a unidade vendida.
+ *
+ * workspaces.credits nasce 100 no cadastro e ninguém atualiza (o comentário
+ * em src/routes/auth.js:535 já diz "workspaces.credits removido"). Quem lia
+ * essa coluna mostrava 100 pra quem comprou 10.000 respostas. A fonte certa é
+ * o TokenService.
+ */
+function saldoEmRespostas(workspaceId) {
+  try {
+    const tokenService = require('../services/TokenService');
+    const b = tokenService.getBalance(workspaceId);
+    return b.respostas || { total: 0, usadas: 0, restantes: 0 };
+  } catch (_) {
+    return { total: 0, usadas: 0, restantes: 0 };
+  }
+}
+
 const db = require('../utils/database');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate, authorize } = require('../middleware/auth');
@@ -143,7 +161,8 @@ router.get('/', asyncHandler(async (req, res) => {
       } : null,
       is_in_trial: isInTrial,
       trial_days_left: trialDaysLeft,
-      credits: ws.credits,
+      respostas: saldoEmRespostas(ws.id),
+      credits: saldoEmRespostas(ws.id).restantes,
       activation_code: activationCode,
     },
   });
@@ -407,7 +426,8 @@ router.post('/validate', asyncHandler(async (req, res) => {
     reason,
     plan: ws.plan,
     status: ws.subscription_status,
-    credits: ws.credits || 0,
+    respostas: saldoEmRespostas(ws.id),
+    credits: saldoEmRespostas(ws.id).restantes,
     expires_at: nextBillingAt || trialEndAt || null,
     trial_days_left: trialDaysLeft,
     code_status: codeRow ? codeRow.status : null,
@@ -501,7 +521,8 @@ router.post('/sync', asyncHandler(async (req, res) => {
     success: true,
     plan: ws.plan,
     status: ws.subscription_status,
-    credits: ws.credits || 0,
+    respostas: saldoEmRespostas(ws.id),
+    credits: saldoEmRespostas(ws.id).restantes,
     trial_end_at: ws.trial_end_at,
     next_billing_at: ws.next_billing_at,
     server_authoritative: true,

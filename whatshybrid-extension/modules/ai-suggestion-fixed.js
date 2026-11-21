@@ -2060,11 +2060,11 @@ Responda APENAS com o texto da sugestão:`;
 
     const noCredits = result?.reason === 'no_credits' || result?.canBuyCredits === true;
     const icon  = noCredits ? '🔋' : '🔒';
-    const title = noCredits ? 'Tokens de IA esgotados' : 'Recurso dos planos pagos';
+    const title = noCredits ? 'Respostas da IA esgotadas' : 'Recurso dos planos pagos';
     const msg   = noCredits
-      ? 'Seus tokens de IA acabaram. Compre um pacote avulso (não expira) para voltar a gerar sugestões.'
-      : (result?.message || 'A sugestão de resposta com IA faz parte dos planos Starter e Pro. Faça upgrade para usar o assistente.');
-    const ctaLabel = noCredits ? '🛒 Comprar tokens' : '⚡ Ver planos';
+      ? 'Suas respostas da IA deste mês acabaram. Compre um pacote avulso (não expira) para voltar a gerar sugestões.'
+      : (result?.message || 'A sugestão de resposta com IA faz parte dos planos pagos — Starter, Pro e Business. Faça upgrade para usar o assistente.');
+    const ctaLabel = noCredits ? '🛒 Comprar respostas' : '⚡ Ver planos';
 
     body.innerHTML = `
       <div style="padding: 18px; text-align: center;">
