@@ -163,6 +163,14 @@
             "priceCurrency": "BRL",
             "priceValidUntil": "2026-12-31",
             "availability": "https://schema.org/InStock"
+          },
+          {
+            "@type": "Offer",
+            "name": "Business",
+            "price": "299.90",
+            "priceCurrency": "BRL",
+            "priceValidUntil": "2026-12-31",
+            "availability": "https://schema.org/InStock"
           }
         ]
       },
@@ -736,11 +744,38 @@
       background: var(--brand-purple);
       color: white;
     }
+    .pricing-toggle-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(0, 255, 255, 0.14);
+      color: var(--brand-cyan);
+      font-size: 0.72rem;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .pricing-toggle button.active .pricing-toggle-badge {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    .plan-price-anual {
+      margin: -10px 0 14px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .plan-price-anual strong { color: var(--brand-cyan); }
     .pricing-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 22px;
       max-width: 1240px; margin: 48px auto 0;
+    }
+    /* Com 4 planos, minmax(320px) dentro de 1240px jogava o 4o card pra uma
+       segunda linha. Acima de 1180px fixamos as 4 colunas. */
+    @media (min-width: 1180px) {
+      .pricing-grid { grid-template-columns: repeat(4, 1fr); max-width: 1340px; }
+      .pricing-grid .plan { padding: 28px 22px; }
     }
     .plan {
       background: rgba(15, 12, 41, 0.6);
@@ -1628,6 +1663,8 @@
       • CTA plan=free            Meta: Lead              GA4: generate_lead
       • CTA plan=starter         Meta: InitiateCheckout  GA4: begin_checkout (R$ 49,90)
       • CTA plan=pro             Meta: InitiateCheckout  GA4: begin_checkout (R$ 99,90)
+      • CTA plan=business        Meta: InitiateCheckout  GA4: begin_checkout (R$ 299,90)
+      • cycle=annual no href     multiplica o value por 10 (2 meses grátis)
       • Scroll #pricing 40%      Meta: ViewContent       GA4: view_item_list
 
     Helpers públicos `window.metaTrack` e `window.ga4Track` expostos para
@@ -1656,9 +1693,15 @@
       var planMatch = href.match(/[?&]plan=([^&]+)/);
       var plan = planMatch ? decodeURIComponent(planMatch[1]).toLowerCase() : '';
 
-      if (plan === 'starter' || plan === 'pro') {
-        var value = plan === 'starter' ? 49.90 : 99.90;
-        var label = plan === 'starter' ? 'Plano Starter' : 'Plano Pro';
+      var PLAN_PRICES = { starter: 49.90, pro: 99.90, business: 299.90 };
+      var PLAN_LABELS  = { starter: 'Plano Starter', pro: 'Plano Pro', business: 'Plano Business' };
+      // Anual cobra 10 meses (2 grátis) — espelha MESES_COBRADOS_NO_ANUAL
+      // em src/services/MercadoPagoService.js.
+      var annual = /[?&]cycle=annual\b/.test(href);
+
+      if (PLAN_PRICES[plan]) {
+        var value = annual ? PLAN_PRICES[plan] * 10 : PLAN_PRICES[plan];
+        var label = PLAN_LABELS[plan] + (annual ? ' (anual)' : '');
         meta('InitiateCheckout', {
           content_name: label, content_category: 'subscription',
           value: value, currency: 'BRL'
@@ -1666,7 +1709,7 @@
         ga('begin_checkout', {
           currency: 'BRL', value: value,
           items: [{
-            item_id: 'plan_' + plan, item_name: label,
+            item_id: 'plan_' + plan + (annual ? '_annual' : ''), item_name: label,
             item_category: 'subscription', price: value, quantity: 1
           }]
         });
@@ -1695,7 +1738,8 @@
         items: [
           { item_id: 'plan_free',    item_name: 'Plano Free',    item_category: 'subscription', price: 0,     quantity: 1 },
           { item_id: 'plan_starter', item_name: 'Plano Starter', item_category: 'subscription', price: 49.90, quantity: 1 },
-          { item_id: 'plan_pro',     item_name: 'Plano Pro',     item_category: 'subscription', price: 99.90, quantity: 1 }
+          { item_id: 'plan_pro',     item_name: 'Plano Pro',     item_category: 'subscription', price: 99.90, quantity: 1 },
+          { item_id: 'plan_business', item_name: 'Plano Business', item_category: 'subscription', price: 299.90, quantity: 1 }
         ]
       });
     });
@@ -2962,6 +3006,10 @@
     <span class="section-eyebrow">Planos</span>
     <h2 class="mb-4">Investimento que se <span class="text-gradient">paga sozinho</span></h2>
     <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
+    <div class="pricing-toggle" id="pricing-toggle" role="group" aria-label="Ciclo de cobranca">
+      <button type="button" data-ciclo="monthly" class="active" aria-pressed="true">Mensal</button>
+      <button type="button" data-ciclo="annual" aria-pressed="false">Anual<span class="pricing-toggle-badge">2 meses gr&aacute;tis</span></button>
+    </div>
   </div>
 
   <div class="pricing-grid">
@@ -3021,9 +3069,10 @@
       <h3>Starter</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value">49,90</span>
+        <span class="plan-price-value" data-preco data-mensal="49,90" data-anual="41,58">49,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="plan-price-anual" data-nota-anual hidden>R$ 499,00 cobrados por ano — <strong>economia de R$ 99,80</strong></p>
       <p class="plan-tagline">Pra começar a vender com IA</p>
       <ul class="plan-features">
         <li class="feat-incl"><i data-lucide="check"></i>Tudo do Free&nbsp;<span class="feat-incl-extra">— com limites bem maiores</span></li>
@@ -3051,11 +3100,11 @@
           <span class="feat-head"><i data-lucide="check"></i><strong>Equipe</strong></span>
           <span class="feat-desc">Adicione membros da sua equipe ao mesmo workspace.</span>
         </li>
-        <li class="feat-spec"><i data-lucide="zap"></i>50.000 tokens de IA por mês</li>
+        <li class="feat-spec"><i data-lucide="zap"></i>500 respostas da IA por mês</li>
         <li class="feat-spec"><i data-lucide="check"></i>CRM até 1.000 contatos e 200 tarefas</li>
         <li class="feat-spec"><i data-lucide="check"></i>Etiquetas customizadas no WhatsApp</li>
       </ul>
-      <a href="signup.html?plan=starter" class="btn btn-primary btn-block">7 dias grátis</a>
+      <a href="signup.html?plan=starter" data-cta-plano="starter" class="btn btn-primary btn-block">7 dias grátis</a>
     </div>
 
     <!-- PRO -->
@@ -3063,15 +3112,16 @@
       <h3>Pro</h3>
       <div class="plan-price">
         <span class="plan-price-currency">R$</span>
-        <span class="plan-price-value">99,90</span>
+        <span class="plan-price-value" data-preco data-mensal="99,90" data-anual="83,25">99,90</span>
         <span class="plan-price-period">/mês</span>
       </div>
+      <p class="plan-price-anual" data-nota-anual hidden>R$ 999,00 cobrados por ano — <strong>economia de R$ 199,80</strong></p>
       <p class="plan-tagline">Pra escalar o atendimento</p>
       <ul class="plan-features">
-        <li class="feat-incl"><i data-lucide="check"></i>Tudo do Starter&nbsp;<span class="feat-incl-extra">— sem limites de uso</span></li>
+        <li class="feat-incl"><i data-lucide="check"></i>Tudo do Starter&nbsp;<span class="feat-incl-extra">— sem limites de CRM</span></li>
         <li class="feat">
-          <span class="feat-head"><i data-lucide="check"></i><strong>10× mais tokens de IA</strong></span>
-          <span class="feat-desc">500.000 tokens por mês para sugestões e Autopilot.</span>
+          <span class="feat-head"><i data-lucide="check"></i><strong>5× mais respostas da IA</strong></span>
+          <span class="feat-desc">2.500 respostas por mês para sugestões e Autopilot.</span>
         </li>
         <li class="feat">
           <span class="feat-head"><i data-lucide="check"></i><strong>CRM ilimitado</strong></span>
@@ -3087,18 +3137,111 @@
         </li>
         <li class="feat-spec"><i data-lucide="check"></i>Suporte prioritário</li>
       </ul>
-      <a href="signup.html?plan=pro" class="btn btn-ghost btn-block">7 dias grátis</a>
+      <a href="signup.html?plan=pro" data-cta-plano="pro" class="btn btn-ghost btn-block">7 dias grátis</a>
+    </div>
+
+    <!-- BUSINESS -->
+    <div class="plan reveal delay-4 plan-card-3d">
+      <h3>Business</h3>
+      <div class="plan-price">
+        <span class="plan-price-currency">R$</span>
+        <span class="plan-price-value" data-preco data-mensal="299,90" data-anual="249,92">299,90</span>
+        <span class="plan-price-period">/mês</span>
+      </div>
+      <p class="plan-price-anual" data-nota-anual hidden>R$ 2.999,00 cobrados por ano — <strong>economia de R$ 599,80</strong></p>
+      <p class="plan-tagline">Pra quem deixa a IA atendendo sozinha</p>
+      <ul class="plan-features">
+        <li class="feat-incl"><i data-lucide="check"></i>Tudo do Pro&nbsp;<span class="feat-incl-extra">— com 4× mais respostas</span></li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>10.000 respostas da IA por mês</strong></span>
+          <span class="feat-desc">Cerca de 330 por dia — dá pro Autopilot atender o dia inteiro sem você encostar.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Disparo em massa até 5.000/dia</strong></span>
+          <span class="feat-desc">2,5× o teto do Pro, com o mesmo delay anti-ban.</span>
+        </li>
+        <li class="feat">
+          <span class="feat-head"><i data-lucide="check"></i><strong>Equipe maior</strong></span>
+          <span class="feat-desc">Até 25 pessoas no mesmo workspace.</span>
+        </li>
+        <li class="feat-spec"><i data-lucide="check"></i>Suporte prioritário</li>
+        <li class="feat-spec"><i data-lucide="check"></i>Acesso à API e webhooks</li>
+      </ul>
+      <a href="signup.html?plan=business" data-cta-plano="business" class="btn btn-ghost btn-block">7 dias grátis</a>
     </div>
 
   </div>
 
   <p class="pricing-note">
     Todos os planos incluem <strong>7 dias grátis</strong>, sem cartão de crédito.
-    Quando precisar de mais IA, compre pacotes avulsos de tokens a partir de
-    <strong>R$ 19</strong> — eles não expiram.
+    Uma resposta é uma mensagem que a IA escreve pra você — sugestão no botão
+    ou resposta do Autopilot. Se a cota acabar antes do fim do mês, você compra
+    pacotes avulsos a partir de <strong>200 respostas por R$ 24</strong> — eles
+    <strong>não expiram</strong>.
   </p>
   </div>
 </section>
+
+<!--
+  Alternador mensal/anual da seção de planos.
+
+  O anual cobra 10 meses (2 grátis) — MESES_COBRADOS_NO_ANUAL em
+  src/services/MercadoPagoService.js. O card mostra o equivalente por mês
+  (R$ 499,00 ÷ 12 = R$ 41,58) e a linha de baixo diz o valor realmente
+  cobrado, pra ninguém achar que vai pagar R$ 41,58 por mês.
+
+  Os CTAs ganham &cycle=annual; signup.html repassa ao checkout, que escolhe a
+  tabela anual em precoDoPlano(plano, ciclo).
+
+  Sem handler inline: a CSP do helmet tem script-src-attr 'none'.
+-->
+<script>
+(function () {
+  var toggle = document.getElementById('pricing-toggle');
+  if (!toggle) return;
+
+  var botoes = toggle.querySelectorAll('button[data-ciclo]');
+  var precos = document.querySelectorAll('[data-preco]');
+  var notas  = document.querySelectorAll('[data-nota-anual]');
+  var ctas   = document.querySelectorAll('[data-cta-plano]');
+
+  function aplicar(ciclo) {
+    var anual = ciclo === 'annual';
+
+    for (var i = 0; i < botoes.length; i++) {
+      var ativo = botoes[i].getAttribute('data-ciclo') === ciclo;
+      botoes[i].classList.toggle('active', ativo);
+      botoes[i].setAttribute('aria-pressed', ativo ? 'true' : 'false');
+    }
+    for (var j = 0; j < precos.length; j++) {
+      var v = precos[j].getAttribute(anual ? 'data-anual' : 'data-mensal');
+      if (v) precos[j].textContent = v;
+    }
+    for (var k = 0; k < notas.length; k++) {
+      notas[k].hidden = !anual;
+    }
+    for (var m = 0; m < ctas.length; m++) {
+      var plano = ctas[m].getAttribute('data-cta-plano');
+      ctas[m].setAttribute(
+        'href',
+        'signup.html?plan=' + plano + (anual ? '&cycle=annual' : '')
+      );
+    }
+  }
+
+  toggle.addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest && ev.target.closest('button[data-ciclo]');
+    if (!b) return;
+    aplicar(b.getAttribute('data-ciclo'));
+  });
+
+  // Quem chega em /#pricing?cycle=annual (ou volta do signup) já vê o anual.
+  try {
+    if (/[?&]cycle=annual\b/.test(window.location.search)) aplicar('annual');
+    else aplicar('monthly');
+  } catch (_) { aplicar('monthly'); }
+})();
+</script>
 
 <!-- FAQ -->
 <section id="faq" class="py-16 pfx-section" data-pfx-tone="inquiry" data-pfx-speed="0.16">
@@ -3124,7 +3267,15 @@
         <span class="q-text">Posso cancelar quando quiser?</span>
         <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>Sim. Sem fidelidade, sem multa. Cancele dentro do portal do cliente e a cobrança para no próximo ciclo. Seus dados ficam disponíveis por 30 dias para você exportar.</p></div>
+      <div class="faq-answer"><p>Sim. Sem fidelidade, sem multa. Cancele dentro do portal do cliente e a cobrança para no próximo ciclo. No plano anual, isso significa que a renovação não acontece e você continua usando até o fim dos 12 meses já pagos. Seus dados ficam disponíveis por 30 dias para você exportar.</p></div>
+    </div>
+    <div class="faq-item reveal delay-1">
+      <button class="faq-question">
+        <span class="q-icon"><i data-lucide="calendar" aria-hidden="true"></i></span>
+        <span class="q-text">Como funciona o plano anual?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
+      </button>
+      <div class="faq-answer"><p>Você paga 10 meses e usa 12 — os 2 meses grátis já estão no valor. O Starter sai de R$ 598,80 para R$ 499,00 no ano (equivale a R$ 41,58 por mês), o Pro de R$ 1.198,80 para R$ 999,00 (R$ 83,25 por mês) e o Business de R$ 3.598,80 para R$ 2.999,00 (R$ 249,92 por mês). A cota de respostas continua sendo <strong>mensal</strong>: ela é reposta todo mês durante os 12 meses, não vem tudo de uma vez. É um pagamento único por ano, no cartão ou PIX, e o desconto vale enquanto você mantiver o plano anual.</p></div>
     </div>
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
@@ -3148,7 +3299,7 @@
         <span class="q-text">Quanto custa a IA por cliente atendido?</span>
         <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>Cada plano pago inclui uma cota mensal de tokens — 50.000 no Starter e 500.000 no Pro. Tokens são a unidade que a IA consome: cada resposta gasta cerca de 2.000 tokens, porque a IA lê o seu treinamento (FAQs, produtos, dados do negócio) e o histórico da conversa antes de responder. Na prática isso dá aproximadamente 25 respostas no Starter e 260 no Pro. Se a cota acabar, você compra pacotes avulsos a partir de R$ 19 (não expiram). No portal você acompanha o saldo em tempo real e o histórico completo de uso.</p></div>
+      <div class="faq-answer"><p>Cada plano pago inclui uma cota mensal de <strong>respostas da IA</strong>: 500 no Starter, 2.500 no Pro e 10.000 no Business. Uma resposta é uma mensagem que a IA escreve pra você — tanto a sugestão que aparece no botão quanto a resposta que o Autopilot manda sozinho. Não cobramos por caractere nem por token: cada resposta conta 1, independente de quanto a IA leu do seu treinamento (FAQs, produtos, dados do negócio) e do histórico da conversa. Se a cota acabar antes do fim do mês, você compra pacotes avulsos a partir de 200 respostas por R$ 24 (não expiram). No portal você acompanha o saldo em tempo real e o histórico completo de uso.</p></div>
     </div>
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
@@ -3169,10 +3320,10 @@
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
         <span class="q-icon"><i data-lucide="zap-off" aria-hidden="true"></i></span>
-        <span class="q-text">O que acontece quando meus tokens acabam?</span>
+        <span class="q-text">O que acontece quando minhas respostas acabam?</span>
         <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>O botão de sugestão da IA para de gerar respostas e exibe um aviso com link direto para comprar mais tokens. O restante da extensão continua funcionando normalmente — só a parte de IA fica em pausa até você recarregar. Os pacotes avulsos não expiram, então o saldo que sobrar fica para depois.</p></div>
+      <div class="faq-answer"><p>O botão de sugestão da IA para de gerar respostas e exibe um aviso com link direto para comprar mais. O restante da extensão continua funcionando normalmente — só a parte de IA fica em pausa até você recarregar. Os pacotes avulsos não expiram, então o saldo que sobrar fica para depois.</p></div>
     </div>
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
@@ -3180,7 +3331,7 @@
         <span class="q-text">Qual a diferença do plano Free para os planos pagos?</span>
         <i data-lucide="chevron-down" aria-hidden="true"></i>
       </button>
-      <div class="faq-answer"><p>O Free entrega disparo manual, Recover, CRM básico, Tarefas, Configurações, Backup e Grupos (extração de membros pra montar público-alvo) — ótimo para conhecer a plataforma. Os recursos de IA (sugestão de resposta, Autopilot e Treinamento da IA), além de disparo em massa, Extrator e Equipe, são exclusivos do Starter e do Pro.</p></div>
+      <div class="faq-answer"><p>O Free entrega disparo manual, Recover, CRM básico, Tarefas, Configurações, Backup e Grupos (extração de membros pra montar público-alvo) — ótimo para conhecer a plataforma. Os recursos de IA (sugestão de resposta, Autopilot e Treinamento da IA), além de disparo em massa, Extrator e Equipe, são exclusivos dos planos pagos — Starter, Pro e Business.</p></div>
     </div>
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
@@ -3980,9 +4131,11 @@
       const stack = document.getElementById('sales-stack');
       if (!stack) return;
 
-      // SITE-01: três entradas anunciavam o plano "Business" por R$ 199,90.
-      // Esse plano não existe — os planos são Free, Starter (R$ 49,90) e Pro
-      // (R$ 99,90). Trocadas por planos reais.
+      // SITE-01: três entradas anunciavam um plano "Business" por R$ 199,90
+      // que não existia, e foram trocadas por planos reais. O Business passou
+      // a existir em P2, a R$ 299,90 — o preço aqui tem de bater com
+      // PLAN_PRICES em src/services/MercadoPagoService.js e com o card da
+      // seção #pricing.
       const sales = [
         { name: 'Breno Sevaroli',    initials: 'BS', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Camila Andrade',    initials: 'CA', plan: 'Pro',     value: 'R$ 99,90' },
@@ -3998,7 +4151,9 @@
         { name: 'Isabela Freitas',   initials: 'IF', plan: 'Starter', value: 'R$ 49,90' },
         { name: 'Gabriel Moraes',    initials: 'GM', plan: 'Pro',     value: 'R$ 99,90' },
         { name: 'Beatriz Camargo',   initials: 'BC', plan: 'Pro',     value: 'R$ 99,90' },
-        { name: 'André Pinheiro',    initials: 'AP', plan: 'Starter', value: 'R$ 49,90' }
+        { name: 'André Pinheiro',    initials: 'AP', plan: 'Starter', value: 'R$ 49,90' },
+        { name: 'Juliana Prado',     initials: 'JP', plan: 'Business', value: 'R$ 299,90' },
+        { name: 'Henrique Vasques',  initials: 'HV', plan: 'Business', value: 'R$ 299,90' }
       ];
       const palette = [
         ['#6f00ff', '#a64dff'],
