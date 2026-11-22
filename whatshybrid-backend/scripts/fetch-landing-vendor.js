@@ -157,23 +157,6 @@ function validarScriptSelfContained(buf) {
 
 const TARGETS = [
   {
-    // Rolagem suave. Os dois sites que o dono trouxe como referencia de
-    // "premium" — deltacafes.com e landonorris.com — usam exatamente esta
-    // biblioteca; medido no navegador, o <html> dos dois carrega a classe
-    // "lenis". E a assinatura mais reconhecivel de site caprichado e custa
-    // uns 3 KB.
-    //
-    // Vem auto-hospedada como todo o resto: o SITE-03c tirou esta landing
-    // de CDN de terceiro e nao faz sentido reintroduzir um.
-    name: 'lenis (rolagem suave)',
-    out: path.join(PUBLIC, 'js', 'vendor', 'lenis.js'),
-    sources: [
-      'https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js',
-      'https://unpkg.com/lenis@1.1.18/dist/lenis.min.js',
-    ],
-    validate: validarScriptSelfContained,
-  },
-  {
     name: 'cobe (lib do globo)',
     out: path.join(PUBLIC, 'js', 'vendor', 'cobe.js'),
     // IMPORTANTE: precisa ser um bundle ESM self-contained (deps inlined), senão

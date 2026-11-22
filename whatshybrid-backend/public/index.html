@@ -3351,11 +3351,6 @@
 </a>
 
 <script src="js/futuristic.js"></script>
-<!-- Rolagem suave. Auto-hospedada, como todo o resto desde o SITE-03c.
-     Vem antes do landing-fx porque o js/suave.js precisa do globalThis.Lenis
-     já definido; os dois têm defer, então a ordem aqui é a de execução. -->
-<script src="js/vendor/lenis.js" defer></script>
-<script src="js/suave.js" defer></script>
 <script src="js/landing-revamp.js" defer></script>
 <script src="js/landing-fx.js" defer></script>
 <script src="js/hero-fx.js" defer></script>
@@ -3764,13 +3759,6 @@
           const id = a.getAttribute('href').slice(1);
           const t = document.getElementById(id);
           if (!t) return;
-          // Com a rolagem suave ativa (js/suave.js), quem leva ao destino é
-          // ela — e ela já desconta a altura da barra fixa. Chamar
-          // scrollIntoView aqui também moveria a página por fora do Lenis,
-          // que mantém a posição por conta própria: os dois disputam e o
-          // salto passa do alvo. Medido: #pricing parava com o título em
-          // y=-2767, quase três mil pixels acima da janela.
-          if (window.__lenis) return;
           e.preventDefault();
           // 'auto' NAO quer dizer instantaneo: quer dizer "siga o CSS", e o
           // CSS diz smooth. Entao quem pediu menos movimento recebia a
