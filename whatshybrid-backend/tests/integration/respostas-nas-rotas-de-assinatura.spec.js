@@ -18,6 +18,12 @@
  * carrega o mesmo número (respostas restantes) pra UI antiga não mentir.
  */
 const { startRealServer } = require('./helpers/real-server');
+const { RESPOSTAS_TRIAL } = require('../../src/services/TokenService');
+
+// A conta nasce em trial, então a cota é a do teste grátis (TRIAL-01), não a
+// do plano. O que este teste mede é a UNIDADE e a FONTE do número — que ele
+// venha do TokenService e não da coluna parada (100) nem em tokens crus.
+const COTA = RESPOSTAS_TRIAL;
 
 let srv, token;
 
@@ -45,11 +51,11 @@ describe('EXT-01 — rotas de assinatura falam em respostas', () => {
     expect(r.status).toBe(200);
     const sub = r.body.subscription || r.body;
     expect(sub.respostas).toBeDefined();
-    expect(sub.respostas.total).toBe(10000);
-    expect(sub.respostas.restantes).toBe(10000);
-    expect(sub.credits).toBe(10000);
-    expect(sub.credits).not.toBe(100);        // a coluna parada
-    expect(sub.credits).not.toBe(19200000);   // tokens crus
+    expect(sub.respostas.total).toBe(COTA);
+    expect(sub.respostas.restantes).toBe(COTA);
+    expect(sub.credits).toBe(COTA);
+    expect(sub.credits).not.toBe(100);                 // a coluna parada
+    expect(sub.credits).not.toBe(COTA * 1920);         // tokens crus
   });
 
   test('POST /subscription/validate traz respostas e credits coerentes', async () => {
@@ -58,8 +64,8 @@ describe('EXT-01 — rotas de assinatura falam em respostas', () => {
     });
     expect(r.status).toBe(200);
     expect(r.body.respostas).toBeDefined();
-    expect(r.body.respostas.restantes).toBe(10000);
-    expect(r.body.credits).toBe(10000);
+    expect(r.body.respostas.restantes).toBe(COTA);
+    expect(r.body.credits).toBe(COTA);
   });
 
   test('POST /subscription/sync traz respostas e credits coerentes', async () => {
@@ -68,8 +74,8 @@ describe('EXT-01 — rotas de assinatura falam em respostas', () => {
     });
     expect(r.status).toBe(200);
     expect(r.body.respostas).toBeDefined();
-    expect(r.body.respostas.restantes).toBe(10000);
-    expect(r.body.credits).toBe(10000);
+    expect(r.body.respostas.restantes).toBe(COTA);
+    expect(r.body.credits).toBe(COTA);
   });
 
   test('GET /auth/me devolve respostas além do saldo em tokens', async () => {
@@ -78,9 +84,9 @@ describe('EXT-01 — rotas de assinatura falam em respostas', () => {
     const ws = (r.body.user && r.body.user.workspace) || r.body.workspace;
     expect(ws).toBeDefined();
     expect(ws.respostas).toBeDefined();
-    expect(ws.respostas.restantes).toBe(10000);
+    expect(ws.respostas.restantes).toBe(COTA);
     // balance continua em tokens (é o nome histórico do campo)
-    expect(ws.balance).toBe(19200000);
-    expect(ws.credits).toBe(10000);
+    expect(ws.balance).toBe(COTA * 1920);
+    expect(ws.credits).toBe(COTA);
   });
 });

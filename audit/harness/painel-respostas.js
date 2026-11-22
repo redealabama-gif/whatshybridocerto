@@ -46,10 +46,21 @@ async function criarConta(plano) {
   ok(!/\btokens?\b/i.test(abaTxt), 'A) aba ainda fala em token: ' + (abaTxt.match(/.{0,40}token.{0,40}/i)||[''])[0]);
   ok((await page.locator('[data-tab="tokens"]').innerText()).includes('Respostas'), 'A) rótulo da aba');
 
+  // A conta nasce em TRIAL, então a cota é a do teste grátis (TRIAL-01), não
+  // as 10.000 do plano. A cota cheia entra quando o pagamento é aprovado —
+  // isso está coberto em tests/integration/cota-de-trial.spec.js.
+  const COTA_TRIAL = 50;
   const saldo = (await page.locator('#tokens-balance').innerText()).trim();
   const sub = (await page.locator('#tokens-sub').innerText()).trim();
-  ok(saldo === '10.000', 'B) saldo mostrado: "' + saldo + '" (esperado 10.000 respostas)');
-  ok(sub === 'de 10.000 respostas neste ciclo (0% usado)', 'B) linha do saldo: "' + sub + '"');
+  ok(saldo === String(COTA_TRIAL), 'B) saldo mostrado: "' + saldo + '" (esperado ' + COTA_TRIAL + ')');
+  ok(sub === `de ${COTA_TRIAL} respostas neste ciclo (0% usado)`, 'B) linha do saldo: "' + sub + '"');
+
+  // Sem este aviso, quem escolheu Business veria "50" e acharia que foi enganado.
+  const aviso = page.locator('#tokens-trial-aviso');
+  ok(await aviso.isVisible(), 'B) aviso do trial não apareceu');
+  const txtAviso = (await aviso.innerText()).trim();
+  ok(txtAviso.includes('teste grátis') && txtAviso.includes('10.000'),
+     'B) texto do aviso do trial: "' + txtAviso + '"');
 
   const cards = await page.locator('#tokens-packages-grid .card').count();
   ok(cards === 4, 'C) pacotes exibidos: ' + cards + ' (esperado 4, sem duplicata)');
