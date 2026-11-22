@@ -1,0 +1,626 @@
+/* ════════════════════════════════════════════════════════════════════
+   VÓRTEX PRO — DIREÇÃO DE ARTE "EDITORIAL DE INSTRUMENTO"
+   ════════════════════════════════════════════════════════════════════
+
+   Carregada POR ÚLTIMO, logo antes de </head> — depois do <style>
+   inline de 50 KB que começa em index.html:193 e onde vive, de fato, o
+   estilo da landing. Entrar antes dele seria perder toda disputa de
+   igual especificidade.
+
+   É uma camada de direção de arte: impõe sistema (tipo, espaço, raio,
+   régua, composição) sobre a base existente, sem reescrevê-la.
+
+   POR QUE UMA CAMADA, E NÃO UM REFAZ: o JavaScript da landing depende
+   de 56 seletores (#roi-slider, #pricing-toggle, [data-preco],
+   [data-cta-plano], .faq-question, .plan-card-3d, #globe-canvas,
+   .nav-toggle, [data-magnetic] e outros). Mexer na estrutura é arriscar
+   o funcionamento; mexer na apresentação, não. Aqui nenhuma classe e
+   nenhum id é renomeado, nenhum nó é removido.
+
+   A PALETA É A DO PROJETO, SEM UM TOM NOVO:
+     #6f00ff  #00ffff  #030014  #0f0c29  #131129  #1e1b3a
+   O que muda é a dosagem — o ciano deixa de ser decoração constante e
+   volta a ser sinal: índice de seção, foco, estado ativo.
+
+   O DIAGNÓSTICO QUE ELA CORRIGE, MEDIDO NO CÓDIGO:
+     43 tamanhos de fonte distintos   →  escala de 8 degraus
+     15 valores de border-radius      →  3 (2px / 10px / pílula)
+     10 seções abrindo com o mesmo
+       eyebrow ciano centralizado     →  índice lateral, à esquerda
+     11 títulos com gradiente ciano
+       → roxo no meio da frase        →  Fraunces itálico, sem gradiente
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOKENS ──────────────────────────────────────────────────── */
+:root{
+  /* Tipo: 8 degraus fluidos. Nada fora desta lista. */
+  --t-mono:.6875rem;
+  --t-sm:.8125rem;
+  --t-body:1rem;
+  --t-lead:clamp(1.0625rem,.98rem + .4vw,1.1875rem);
+  --t-h3:clamp(1.25rem,1.1rem + .7vw,1.5rem);
+  --t-h2:clamp(2rem,1.3rem + 3.1vw,3.25rem);
+  --t-h1:clamp(2.9rem,1.5rem + 6.2vw,5.5rem);
+  --t-num:clamp(2rem,1.4rem + 2vw,3rem);
+
+  /* Espaço: base 4 */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+
+  /* Raio: três, e só três */
+  --r-hair:2px; --r-box:10px; --r-pill:999px;
+
+  /* Régua: a estrutura visível, no lugar da borda de card */
+  --rule:rgba(255,255,255,.10);
+  --rule-strong:rgba(255,255,255,.20);
+  --violet-wash:rgba(111,0,255,.08);
+
+  /* Tempo */
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --fast:160ms; --mid:320ms; --slow:560ms;
+
+  /* Famílias. JetBrains Mono é auto-hospedada em css/fonts.css. */
+  --f-display:'Fraunces',Georgia,serif;
+  --f-text:'Inter',system-ui,-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+/* A barra tem position:sticky e 80 px de altura, e o projeto nao tinha
+   scroll-padding em lugar nenhum (so `scroll-behavior: smooth` em
+   css/futuristic.css:32). Antes desta folha o titulo de secao parava em
+   y=103 e escapava por 22 px; com a grade do cabecalho ele passou a
+   parar em y=64 e ficava COBERTO. Medido clicando cada item do menu com
+   a rolagem suave desligada. Uma linha resolve para todas as ancoras,
+   inclusive as que ja passavam raspando. */
+html{ scroll-padding-top:96px; }
+
+/* ── 2. TIPOGRAFIA ──────────────────────────────────────────────── */
+body{ font-family:var(--f-text); }
+
+h1,h2,h3,h4{ font-family:var(--f-display); text-wrap:balance; }
+/* O degrau --t-h1 e display, nao "titulo": serve a UMA frase por pagina,
+   a do hero. Titulo de pagina interna ("Politica de Privacidade", "Ola,
+   Fulano") usa o mesmo degrau dos h2, senao fica em 5,5rem. */
+h1{ font-size:var(--t-h2); line-height:1.02; letter-spacing:-.025em; font-weight:700; }
+.hero h1{ font-size:var(--t-h1); line-height:.96; letter-spacing:-.03em; }
+h2{ font-size:var(--t-h2); line-height:1.04; letter-spacing:-.022em; font-weight:600; }
+h3{ font-size:var(--t-h3); line-height:1.2;  letter-spacing:-.012em; font-weight:600; }
+
+/* Medida de linha: texto corrido não atravessa a tela inteira. */
+.lead{ font-size:var(--t-lead); line-height:1.62; max-width:56ch; }
+.step-content p,.feat-desc{ max-width:56ch; }
+
+/* Dois degraus que estavam a 0,2 px de distancia do vizinho sem motivo
+   nenhum: .feat-desc em 0,8rem (12,8 px) e <small> em 0,55/0,65rem.
+   Nao reescrevo os tamanhos de dentro das maquetes (conversa, painel,
+   celular, contagem) — ali o tamanho esta amarrado ao desenho da peca e
+   mexer e refatorar por gosto. */
+.feat-desc{ font-size:var(--t-sm); }
+small{ font-size:var(--t-mono); letter-spacing:.02em; }
+
+/* Números alinham em coluna (algarismo de largura fixa). */
+.plan-price,.plan-price-value,.stat-value,.donut-value{ font-variant-numeric:tabular-nums; }
+
+/* ── 3. ÊNFASE: ITÁLICO NO LUGAR DO GRADIENTE ────────────────────
+   .text-gradient aparece 11 vezes, sempre dentro de um título
+   (index.html:1845 e os dez h2). Gradiente ciano→roxo no meio da frase
+   é a marca mais reconhecível de página feita por gerador: a mesma
+   ênfase sai melhor com o itálico da Fraunces, que é recurso da
+   própria fonte. O texto não muda — só o desenho dele. */
+.text-gradient{
+  background:none;
+  -webkit-background-clip:border-box;
+          background-clip:border-box;
+  -webkit-text-fill-color:currentColor;
+  font-style:italic;
+  font-weight:400;
+  /* Cor do proprio titulo, nao cinza: medido sobre o hero, o cinza
+     --text-muted virava texto rebaixado em vez de realcado, e ainda
+     derrubava o contraste da palavra mais importante da frase. O
+     italico da Fraunces ja faz a enfase sozinho. */
+  color:inherit;
+}
+
+/* ── 4. A CAMADA MONO — rótulos, índices, metadados ─────────────── */
+.section-eyebrow,
+.plan-badge,
+.stat-label,
+.pricing-toggle button{
+  font-family:var(--f-mono);
+  font-size:var(--t-mono);
+  font-weight:500;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+
+/* Dois rótulos pedem 'Orbitron' (css/globe.css:109 e css/seals.css:14),
+   família que NUNCA foi auto-hospedada — não está em css/fonts.css e o
+   navegador cai calado em sans-serif. Medido: document.fonts traz só
+   Fraunces, Inter e JetBrains Mono, mas getComputedStyle devolve
+   "Orbitron" nesses dois nós. São uma dica do globo e um rótulo de
+   selo: etiqueta curta em caixa alta com entreletra, que é exatamente
+   o trabalho da camada mono. Vão para ela, em vez de eu auto-hospedar
+   uma quarta família para servir dois rótulos. */
+.globe-hint,
+.trust-seals .seals-eyebrow{
+  font-family:var(--f-mono);
+  font-size:var(--t-mono);
+  letter-spacing:.18em;
+}
+
+/* O eyebrow perde o brilho animado (hero-fx.css:178), o traço de 28px
+   (landing-revamp.css:863) e o ciano permanente: vira rótulo. */
+.section-eyebrow{
+  display:block;
+  padding-left:0;
+  margin-bottom:0;
+  color:var(--text-muted);
+  background:none;
+  background-image:none;
+  -webkit-text-fill-color:currentColor;
+  animation:none;
+}
+.section-eyebrow::before{ content:none; display:none; }
+
+/* ── 5. CABEÇALHO DE SEÇÃO — índice lateral no lugar do centro ───
+   O [data-sec] carrega só o número; a composição inteira é CSS. A
+   classe .text-center continua no HTML (nada que dependa dela quebra) —
+   aqui ela é sobreposta, não removida.
+
+   Linha 1:  01            Título da seção
+   Linha 2:  ONBOARDING    descrição em medida de leitura */
+.text-center[data-sec]{
+  text-align:left;
+  display:grid;
+  grid-template-columns:minmax(0,2.1fr) minmax(0,8fr);
+  column-gap:var(--s6);
+  align-items:start;
+  margin-bottom:var(--s7);
+}
+.text-center[data-sec]::before{
+  content:attr(data-sec);
+  grid-column:1; grid-row:1;
+  font-family:var(--f-mono); font-size:var(--t-mono); font-weight:600;
+  letter-spacing:.14em; color:var(--brand-cyan);
+  padding-top:.45em;
+}
+.text-center[data-sec] > .section-eyebrow{ grid-column:1; grid-row:2; }
+.text-center[data-sec] > h2{ grid-column:2; grid-row:1; margin:0; }
+.text-center[data-sec] > p{
+  grid-column:2; grid-row:2;
+  margin:var(--s4) 0 0; max-width:54ch;
+}
+/* Qualquer outro filho — hoje só o alternador mensal/anual em "Planos" —
+   entra na coluna do texto, abaixo da descrição. Tentei primeiro numa
+   terceira coluna à direita do título, e no navegador ela cai debaixo do
+   aviso flutuante de prova social, que é position:fixed naquele canto:
+   o controle mais importante da seção ficava encoberto. Abaixo do texto
+   ele também lê melhor — título, explicação, e então o controle. */
+.text-center[data-sec] > *:not(.section-eyebrow):not(h2):not(p){
+  grid-column:2; grid-row:3; justify-self:start; margin:var(--s5) 0 0;
+}
+
+/* O cabecalho 06 ("Disparo em massa") tem uma regra propria num 2o
+   <style>, este dentro do <body> (index.html:2496):
+   #disparo .disparo-intro{max-width:760px;margin:0 auto}. Por estar
+   depois no documento, ela venceria minha regra na igualdade — e so
+   aquela secao abriria estreita e centralizada, fora do sistema.
+   Subo a especificidade para (1,2,0) em vez de disputar ordem. */
+#disparo .text-center.disparo-intro{ max-width:none; margin:0; }
+
+/* ── 6. CARD: superfície com fio, não caixa com brilho ───────────
+   .card aparece 18 vezes. Tirar o lift, a sombra ciana e o contorno
+   aceso é o que separa "página de produto" de "template". O realce de
+   borda no hover fica — é o retorno que o cursor precisa. */
+.card{
+  background:rgba(255,255,255,.015);
+  border:1px solid var(--rule);
+  border-radius:var(--r-box);
+  box-shadow:none;
+  transition:border-color var(--mid) var(--ease), background var(--mid) var(--ease);
+}
+.card:hover{
+  border-color:var(--rule-strong);
+  background:rgba(255,255,255,.03);
+  transform:none;
+  box-shadow:none;
+}
+/* o halo radial que segue o cursor (index.html:1068) sai de cena */
+.card[data-magnetic]::before{ opacity:0 !important; }
+.roi-card{ border-radius:var(--r-box); }
+
+/* ── 7. ONBOARDING — lista editorial, não três caixas iguais ─────
+   Reaproveita o contador `step` e o .step::before que já existem
+   (index.html:712-721): o número sai de "fantasma gigante atrás do
+   card" para "índice de linha", que é o que ele sempre quis ser. */
+#how .steps{
+  display:block;
+  margin-top:var(--s7);
+  border-top:1px solid var(--rule);
+}
+#how .step{
+  background:none;
+  border:0;
+  border-bottom:1px solid var(--rule);
+  border-radius:0;
+  box-shadow:none;
+  padding:var(--s7) 0;
+  display:grid;
+  grid-template-columns:64px minmax(0,2.2fr) minmax(0,3fr);
+  column-gap:var(--s5);
+  align-items:start;
+  transform:none;                 /* neutraliza .fx-tilt (hero-fx.css:130) */
+  transition:background var(--mid) var(--ease);
+}
+#how .step:hover{
+  background:linear-gradient(90deg,var(--violet-wash),transparent 62%);
+  transform:none;
+  border-color:var(--rule);
+  box-shadow:none;
+}
+/* O número do passo NUNCA chegou a aparecer, nem antes desta folha: a
+   mesma div é `class="card step tilt"` com [data-magnetic], e
+   .card[data-magnetic]::before (index.html:1068) vale (0,2,0) contra os
+   (0,1,0) de .step::before (index.html:713) — vence, e zera o content
+   para desenhar no lugar o halo que segue o cursor. O contador
+   `counter-reset`/`counter-increment` roda, mas não imprime nada.
+   Medido no navegador em ambas as versões: content="" nas três linhas.
+   Aqui o halo está desligado e o número é a espinha da composição, então
+   devolvo o ::before ao que o HTML sempre quis que ele fosse. */
+#how .step::before{
+  content:counter(step,decimal-leading-zero);
+  opacity:1 !important;        /* vence o halo desligado logo acima */
+  position:static;
+  inset:auto;
+  padding:0;
+  background:none;
+  -webkit-mask:none;
+          mask:none;
+  font-family:var(--f-mono);
+  font-size:var(--t-mono);
+  font-weight:600;
+  letter-spacing:.14em;
+  color:var(--text-dim);
+  padding-top:.45em;
+  transition:color var(--mid) var(--ease);
+}
+#how .step:hover::before{ color:var(--brand-cyan); }
+/* display:contents promove h3 e p a itens da grade do .step */
+#how .step .step-content{ display:contents; }
+#how .step .card-icon{ display:none; }
+#how .step h3{ grid-column:2; grid-row:1; margin:0; }
+#how .step .step-content p{ grid-column:3; grid-row:1; margin:0; font-size:var(--t-sm); }
+
+/* ── 8. HERO — o número vira tipografia, não gradiente ───────────
+   Especificidade casada com .hero-text .hero-stats (index.html:267). */
+.hero-text .hero-stats,
+.hero-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:0;
+  border-top:1px solid var(--rule);
+  padding-top:var(--s5);
+}
+.hero-text .stat-card,
+.stat-card{
+  text-align:left;
+  border-left:1px solid var(--rule);
+  padding:0 var(--s5);
+}
+.hero-text .stat-card:first-child,
+.stat-card:first-child{ border-left:0; padding-left:0; }
+.stat-value{
+  font-size:var(--t-num);
+  line-height:1;
+  letter-spacing:-.03em;
+  font-weight:600;
+  background:none;
+  -webkit-background-clip:border-box;
+          background-clip:border-box;
+  -webkit-text-fill-color:currentColor;
+  color:var(--text);
+}
+.stat-label{ margin-top:var(--s2); color:var(--text-muted); }
+.hero .pill{
+  background:none;
+  border:0;
+  padding:0;
+  color:var(--text-muted);
+  font-family:var(--f-mono);
+  font-size:var(--t-mono);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+
+/* O anel que respira em volta do selo do hero (css/hero-fx.css:255) era o
+   que sobrava do formato de pilula depois de eu tirar fundo e borda: um
+   retangulo arredondado piscando em volta de um rotulo que agora e so
+   texto. */
+.hero-text .pill::after{ animation:none; box-shadow:none; }
+
+/* As duas camadas que pintam a abertura: a malha de gradientes
+   (index.html:1308, opacidade 0,85) e o canvas WebGL da nebulosa, que o
+   js/hero-shader.js:22 injeta como primeiro filho do hero e acende em
+   opacidade 1 (css/hero-fx.css:36). Juntas elas enchem a tela inteira
+   de fumaca roxa — e e esse nevoeiro, mais do que qualquer outra coisa
+   acima da dobra, que da a aparencia de capa gerada. Nas doses abaixo
+   as duas continuam dando profundidade e param de disputar com um
+   titulo de 88 px. Mesma razao e mesma dose das .pfx-bg. */
+.hero .hero-mesh{ opacity:.28; }
+.hero .hero-nebula.is-live{ opacity:.26; }
+
+/* ── 9. PLANOS — colunas separadas por régua ─────────────────────
+   O card sobrevive aqui porque aqui é comparação: quatro colunas lidas
+   lado a lado pedem fio divisório, não quatro caixas flutuando. */
+.pricing-grid{
+  gap:0;
+  border-top:1px solid var(--rule-strong);
+  margin-top:var(--s7);
+}
+.pricing-grid .plan,
+.plan{
+  background:none;
+  border:0;
+  border-right:1px solid var(--rule);
+  border-radius:0;
+  box-shadow:none;
+  padding:var(--s6) var(--s5) var(--s6) 0;
+  transform:none;
+}
+.pricing-grid .plan:last-child{ border-right:0; }
+.plan:hover{
+  background:rgba(255,255,255,.02);
+  border-color:var(--rule);
+  transform:none;
+}
+.plan.featured{
+  background:var(--violet-wash);
+  border:0;
+  border-right:1px solid var(--rule);
+  box-shadow:inset 0 2px 0 var(--brand-cyan);
+  transform:none;
+}
+.plan.featured:hover{ transform:none; }
+.pricing-grid .plan.featured{ padding-left:var(--s5); }
+.plan h3{
+  font-family:var(--f-mono);
+  font-size:var(--t-mono);
+  font-weight:600;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+.plan-badge{
+  background:none;
+  border:0;
+  padding:0;
+  color:var(--brand-cyan);
+}
+.plan-price-value{ letter-spacing:-.03em; line-height:1; }
+.plan-price-currency,.plan-price-period{
+  font-family:var(--f-text);
+  font-weight:400;
+  font-size:var(--t-sm);
+  color:var(--text-dim);
+}
+/* Cada vantagem do plano era um retangulo roxo com borda e raio de 10 px
+   (index.html:822) — cartao dentro de cartao, quatro vezes por coluna,
+   dezesseis na secao. Vira linha com fio embaixo, igual ao resto. */
+.plan-features li.feat{
+  background:none;
+  border:0;
+  border-bottom:1px solid var(--rule);
+  border-radius:0;
+  padding:var(--s3) 0;
+  margin-bottom:0;
+}
+.plan-features li.feat:last-child{ border-bottom:0; }
+
+.pricing-toggle{ border-radius:var(--r-pill); }
+.pricing-toggle button{ border-radius:var(--r-pill); min-height:38px; }
+
+/* ── 10. FAQ — régua, não caixa ──────────────────────────────────
+   O padding horizontal fica como está: .faq-answer alinha em 64px
+   (index.html:904) por causa do ícone, e mexer nisso desalinharia
+   pergunta e resposta. */
+.faq-item{
+  background:none;
+  border:0;
+  border-bottom:1px solid var(--rule);
+  border-radius:0;
+  margin-bottom:0;
+}
+.faq-list > .faq-item:first-child{ border-top:1px solid var(--rule); }
+.faq-item:hover,
+.faq-item.open{ border-color:var(--border-hover); }
+.faq-question .q-text{
+  font-family:var(--f-display);
+  font-size:var(--t-h3);
+  font-weight:600;
+  letter-spacing:-.012em;
+}
+
+/* ── 11. BOTÕES — dois pesos, nada mais ─────────────────────────── */
+.btn{
+  font-family:var(--f-text);
+  font-size:var(--t-sm);
+  font-weight:600;
+  letter-spacing:-.005em;
+  border-radius:var(--r-pill);
+  min-height:44px;
+  box-shadow:none;
+  transition:transform var(--fast) var(--ease),
+             background var(--fast) var(--ease),
+             border-color var(--fast) var(--ease),
+             color var(--fast) var(--ease);
+}
+.btn-cyan,.btn-primary{
+  background:var(--text);
+  color:var(--brand-dark);
+  border:1px solid transparent;
+}
+.btn-cyan:hover,.btn-primary:hover{
+  background:var(--brand-cyan);
+  color:var(--brand-dark);
+  transform:translateY(-1px);
+  box-shadow:none;
+}
+.btn-ghost{
+  background:transparent;
+  border:1px solid var(--rule-strong);
+  color:var(--text);
+}
+.btn-ghost:hover{
+  background:transparent;
+  border-color:var(--brand-cyan);
+  color:var(--brand-cyan);
+}
+
+/* ── 12. NAVEGAÇÃO ──────────────────────────────────────────────── */
+.navbar{ border-bottom:1px solid var(--rule); }
+.nav-links a:not(.btn){ font-size:var(--t-sm); border-radius:var(--r-pill); }
+
+/* ── 13. FUNDOS DE SEÇÃO — textura, não ilustração ───────────────
+   As 10 .pfx-bg são fotos de 1,3–2,2 MB ocupando a seção inteira
+   (landing-fx.css:32-41, opacidade 0,32–0,55). Nessa dose competem com
+   o texto e carregam o visual genérico de banco de imagem. Em 0,14
+   continuam dando profundidade e param de disputar a leitura. Nenhum
+   arquivo é removido e nenhuma regra original é apagada. */
+.pfx-section .pfx-bg{ opacity:.14 !important; }
+
+/* ── 13b. RAIOS — fechar os 3 degraus no resto da página ─────────
+   Medido no navegador depois da camada acima: 19 raios distintos ainda
+   em uso, porque a folha só governava o que ela reescreve. Em px eram
+   doze decisões soltas (8, 9, 11, 12, 14, 16, 18, 20, 22), tomadas uma
+   a uma, componente por componente, em cinco arquivos diferentes.
+
+   A especificidade de cada linha abaixo está casada com a regra que ela
+   substitui — por isso algumas carregam o #id ou o ancestral: um
+   seletor de uma classe só perderia para `#disparo .disparo-reason`
+   (index.html:2505) ou `.faq-question .q-icon`
+   (css/landing-revamp.css:738), e eu já tinha perdido assim na
+   primeira tentativa.
+
+   Os raios em porcentagem (50%, 14%, 18% 8.5%, 16% 7.5%, 24%) ficam
+   como estão: são círculos, cubos e telas de aparelho das maquetes —
+   ali o raio é a forma do objeto, não estilo de caixa. Pelo mesmo
+   motivo .screen (2px), .foot (4px) e .hud-corner (6px) ficam: são
+   peças de desenho de aparelho, não cartões. */
+
+/* caixa (10px) */
+.card-icon,                              /* css/futuristic.css:227  12px */
+.hero-feat,                              /* index.html:548          14px */
+.feature-robot,                          /* index.html:642          16px */
+.activity-ticker,                        /* index.html:1096         14px */
+.drag-reveal,                            /* index.html:1167         18px */
+.exit-modal,                             /* index.html:1376         22px */
+.exit-input,                             /* index.html:1443         12px */
+.chat-mock,                              /* landing-revamp.css:132  18px */
+.chat-ai-card,                           /* landing-revamp.css:217  14px */
+.dash-mock,                              /* landing-revamp.css:300  18px */
+.roi-output-row,                         /* landing-revamp.css:502  12px */
+.comparison-card,                        /* landing-revamp.css:542  18px */
+.learn-card,                             /* landing-revamp.css:630  16px */
+.cta-inline,                             /* landing-revamp.css:681  18px */
+.cd-unit,                                /* landing-revamp.css:818   8px */
+.chat-ai-btn,                            /* landing-revamp.css:271   8px */
+.seal,                                   /* css/seals.css:31        14px */
+/* As tres de #disparo levam o nome do elemento de proposito: o <style>
+   que as define esta no <body> (index.html:2496-2554), depois do meu
+   <link> no documento, entao em (1,1,0) x (1,1,0) o desempate de ordem
+   seria dele. Com div/span vai a (1,1,1) e a disputa acaba. */
+#disparo div.disparo-reason,             /* index.html:2505         14px */
+#disparo div.disparo-visual,             /* index.html:2530         18px */
+#disparo span.dr-ic,                     /* index.html:2519         12px */
+.egg-toast,
+.cta-banner,
+.hero-feat .ico,                         /* index.html:562          11px */
+.faq-question .q-icon,                   /* landing-revamp.css:738   8px */
+.ncore-points li .nc-ic{                 /* css/crystal.css:120      9px */
+  border-radius:var(--r-box);
+}
+
+/* A bolha de conversa mantém o "rabicho" assimétrico, que diz de quem é
+   a fala — só passa a usar os degraus (10px e o fio de 2px) em vez de
+   14px/4px. */
+.chat-bubble{ border-radius:var(--r-box) var(--r-box) var(--r-box) var(--r-hair); }
+.chat-msg.outbound .chat-bubble{ border-radius:var(--r-box) var(--r-box) var(--r-hair) var(--r-box); }
+
+/* pílula */
+.pill,.chat-tag,.plan-badge,.exit-modal-badge{ border-radius:var(--r-pill); }
+
+/* ── 14. MOVIMENTO — refina o .reveal que já existe ──────────────
+   Mesma mecânica (nasce visível, o JS arma, .in dispara), só o tempo e
+   a curva mudam. prefers-reduced-motion continua respeitado pela regra
+   original. */
+.reveal.armed.in{
+  animation-duration:var(--slow);
+  animation-timing-function:var(--ease);
+}
+@media (prefers-reduced-motion:reduce){
+  .card,.plan,.btn,#how .step,.faq-item{ transition:none !important; }
+}
+
+/* ── 15. RESPONSIVO — a grade colapsa, a hierarquia não ─────────── */
+@media (max-width:1080px){
+  #how .step{ grid-template-columns:56px minmax(0,1fr); row-gap:var(--s2); }
+  #how .step h3{ grid-column:2; grid-row:1; }
+  #how .step .step-content p{ grid-column:2; grid-row:2; }
+}
+/* A base trava h1/h2/h3 em valores fixos com !important nos dois
+   recortes de celular (css/futuristic.css:463-465 e 497-498), de quando
+   a tipografia nao era fluida. Com clamp() o tamanho pequeno ja esta
+   embutido no proprio degrau (em 390px: h1 2,9rem, h2 2rem, h3
+   1,25rem), e o valor fixo so apaga a direcao no celular. Igualo a
+   especificidade para devolver a escala. */
+@media (max-width:768px){
+  h1{ font-size:var(--t-h2) !important; }
+  .hero h1{ font-size:var(--t-h1) !important; }
+  h2{ font-size:var(--t-h2) !important; }
+  h3{ font-size:var(--t-h3) !important; }
+  /* a base poe gap:16px !important aqui; com regua, o vao vira buraco */
+  .pricing-grid{ gap:0 !important; }
+}
+
+@media (max-width:860px){
+  .text-center[data-sec]{
+    display:block;
+    text-align:left;
+    margin-bottom:var(--s6);
+  }
+  .text-center[data-sec]::before{
+    display:inline;
+    padding-top:0;
+    margin-right:.9em;
+  }
+  .text-center[data-sec] > .section-eyebrow{ display:inline; }
+  .text-center[data-sec] > h2{ margin-top:var(--s4); }
+  .text-center[data-sec] > p{ margin-top:var(--s4); }
+
+  #how .step{ padding:var(--s5) 0; }
+  #how .step::before{ padding-top:0; }
+
+  .hero-text .hero-stats,
+  .hero-stats{ grid-template-columns:1fr; }
+  .hero-text .stat-card,
+  .stat-card{
+    border-left:0;
+    border-top:1px solid var(--rule);
+    padding:var(--s4) 0 0;
+    display:flex;
+    align-items:baseline;
+    gap:var(--s4);
+    text-align:left;
+  }
+  .hero-text .stat-card:first-child,
+  .stat-card:first-child{ border-top:0; padding-top:0; }
+  .stat-value{ font-size:1.9rem; }
+  .stat-label{ margin-top:0; }
+
+  .pricing-grid .plan,
+  .plan{
+    border-right:0;
+    border-bottom:1px solid var(--rule);
+    padding:var(--s5) 0;
+  }
+  .pricing-grid .plan.featured{ padding:var(--s5) var(--s4); }
+}

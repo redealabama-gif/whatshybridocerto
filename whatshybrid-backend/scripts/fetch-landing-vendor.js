@@ -251,12 +251,18 @@ const TARGETS = [
 // isso entrega o IP de cada visitante ao Google — sob a LGPD, transferência
 // de dado pessoal que ninguém consentiu.
 //
-// A folha vem com 38 @font-face (7 subconjuntos de caracteres). Baixamos
-// TODOS: cada arquivo tem 10–20 KB, então pegar só o latin pouparia pouco e
-// quebraria texto em grego, cirílico ou vietnamita.
+// A folha vem com dezenas de @font-face (um por subconjunto de caracteres).
+// Baixamos TODOS: cada arquivo tem 10–20 KB, então pegar só o latin pouparia
+// pouco e quebraria texto em grego, cirílico ou vietnamita.
+//
+// JetBrains Mono entrou com o redesign: é a família dos rótulos, índices de
+// seção e números (ver public/css/redesign.css). Mono de verdade, porque
+// `ui-monospace` muda de desenho em cada sistema — e rótulo que troca de
+// largura entre Mac e Windows desalinha a grade.
 const FONTES_URL =
   'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800' +
-  '&family=Inter:wght@400;500;600;700;800&display=swap';
+  '&family=Inter:wght@400;500;600;700;800' +
+  '&family=JetBrains+Mono:wght@400;500;600&display=swap';
 // Sem User-Agent de navegador moderno a Google devolve .ttf em vez de .woff2.
 const UA_NAVEGADOR =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -290,7 +296,11 @@ async function vendorizarFontes(manifesto) {
     if (!fam || !url) throw new Error('bloco @font-face sem familia ou url');
 
     // Nome legivel e estavel: familia-subset-peso.woff2 ("400 800" = variavel).
-    const nome = [fam.toLowerCase(), subset, peso.includes(' ') ? 'var' : peso].join('-') + '.woff2';
+    // O espaco de uma familia composta ("JetBrains Mono") vira hifen: sem isso
+    // o nome sai com espaco e a url() da folha fica invalida (CSS nao aceita
+    // espaco em url() sem aspas), e a fonte simplesmente nao carrega.
+    const slug = fam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const nome = [slug, subset, peso.includes(' ') ? 'var' : peso].join('-') + '.woff2';
     if (usados.has(nome)) throw new Error('dois arquivos cairiam em ' + nome);
     usados.add(nome);
 
@@ -309,7 +319,7 @@ async function vendorizarFontes(manifesto) {
   const cabecalho = [
     '/* Fontes auto-hospedadas \u2014 NAO EDITE A MAO.',
     ' * Gerado por whatshybrid-backend/scripts/fetch-landing-vendor.js',
-    ' * Fraunces e Inter estao sob a SIL Open Font License 1.1.',
+    ' * Fraunces, Inter e JetBrains Mono estao sob a SIL Open Font License 1.1.',
     ' */',
     '',
   ].join('\n');
