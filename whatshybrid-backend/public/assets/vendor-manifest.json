@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-11-22T01:45:41.297Z",
+  "gerado_em": "2026-11-22T01:52:18.475Z",
   "assets": {
     "js/vendor/cobe.js": {
       "bytes": 11533,
@@ -85,6 +85,12 @@
       "bytes": 1349622,
       "origem": "prod.spline.design",
       "local": true
+    },
+    "css/fonts.css": {
+      "bytes": 11876,
+      "origem": "fonts.googleapis.com",
+      "local": true,
+      "arquivos_woff2": 38
     }
   }
 }
