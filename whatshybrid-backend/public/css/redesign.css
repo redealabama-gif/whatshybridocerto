@@ -362,6 +362,18 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   border-top:1px solid var(--rule-strong);
   margin-top:var(--s7);
 }
+/* Recuo SIMETRICO. Na primeira versao eu usei `var(--s6) var(--s5)
+   var(--s6) 0`: com fio divisor a esquerda de cada coluna, zerar o
+   padding-left cola o texto na regua da coluna anterior e joga toda a
+   folga para a direita — a coluna respira do lado errado. Medido em
+   1440: folga ate o fio da esquerda = 0 px nos planos Free, Pro e
+   Business.
+
+   As pontas perdem o recuo externo para que o texto da primeira coluna
+   caia na mesma margem do resto da pagina (x=144 em 1440, igual ao
+   indice da secao, as linhas do Onboarding e o titulo) e o da ultima
+   termine na margem direita. O vao entre o texto de uma coluna e o da
+   seguinte fica em 48 px nos tres intervalos. */
 .pricing-grid .plan,
 .plan{
   background:none;
@@ -369,10 +381,11 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   border-right:1px solid var(--rule);
   border-radius:0;
   box-shadow:none;
-  padding:var(--s6) var(--s5) var(--s6) 0;
+  padding:var(--s6) var(--s5);
   transform:none;
 }
-.pricing-grid .plan:last-child{ border-right:0; }
+.pricing-grid .plan:first-child{ padding-left:0; }
+.pricing-grid .plan:last-child{ border-right:0; padding-right:0; }
 .plan:hover{
   background:rgba(255,255,255,.02);
   border-color:var(--rule);
@@ -386,7 +399,6 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   transform:none;
 }
 .plan.featured:hover{ transform:none; }
-.pricing-grid .plan.featured{ padding-left:var(--s5); }
 .plan h3{
   font-family:var(--f-mono);
   font-size:var(--t-mono);
@@ -582,6 +594,10 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   .hero h1{ font-size:var(--t-h1) !important; }
   h2{ font-size:var(--t-h2) !important; }
   h3{ font-size:var(--t-h3) !important; }
+  /* O nome do plano e um <h3>, mas desenhado como rotulo mono. Sem o
+     !important aqui ele herda o degrau de titulo acima e no celular o
+     "FREE" sai do tamanho de uma etiqueta para o de um subtitulo. */
+  .plan h3{ font-size:var(--t-mono) !important; }
   /* a base poe gap:16px !important aqui; com regua, o vao vira buraco */
   .pricing-grid{ gap:0 !important; }
 }
@@ -627,5 +643,9 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
     border-bottom:1px solid var(--rule);
     padding:var(--s5) 0;
   }
-  .pricing-grid .plan.featured{ padding:var(--s5) var(--s4); }
+  .pricing-grid .plan:first-child,
+  .pricing-grid .plan:last-child{ padding-left:0; padding-right:0; }
+  /* empilhado, o destacado tambem fica na margem dos outros: o fundo
+     violeta se estende de ponta a ponta e marca a faixa sozinho. */
+  .pricing-grid .plan.featured{ padding:var(--s5) 0; }
 }
