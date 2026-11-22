@@ -116,6 +116,12 @@
         linear-gradient(180deg, rgba(3,0,20,0.3) 0%, rgba(3,0,20,0.1) 22%, rgba(3,0,20,0.5) 44%, rgba(3,0,20,0.92) 62%, rgba(3,0,20,0.99) 100%),
         url('assets/signup-hero.png'),
         radial-gradient(120% 60% at 50% 0%, rgba(111,0,255,0.42), transparent 60%);
+      /* 2.146 KB -> 136 KB. Mesma logica do login: a de cima e fallback. */
+      background-image:
+        linear-gradient(180deg, rgba(3,0,20,0.3) 0%, rgba(3,0,20,0.1) 22%, rgba(3,0,20,0.5) 44%, rgba(3,0,20,0.92) 62%, rgba(3,0,20,0.99) 100%),
+        image-set(url('assets/signup-hero-1100w.webp') type('image/webp'),
+                  url('assets/signup-hero.png') type('image/png')),
+        radial-gradient(120% 60% at 50% 0%, rgba(111,0,255,0.42), transparent 60%);
       background-repeat: no-repeat;
       background-position: center top, center 8%, center;
       background-size: cover, cover, cover;
@@ -403,6 +409,7 @@
   </style>
   <!-- Direcao de arte: carrega por ultimo, depois do <style> inline. -->
   <link rel="stylesheet" href="css/redesign.css">
+  <meta name="view-transition" content="same-origin">
 </head>
 <body class="signup-page">
 
@@ -427,7 +434,7 @@
 <div class="signup-card">
   <a href="index.html" class="logo mb-6" style="display:flex; justify-content:center;">
     <img class="logo-mark" src="assets/logo-mark.png" alt="" width="32" height="32" decoding="async">
-    <img class="logo-wordmark" src="assets/vortex-pro-wordmark.png" alt="Vórtex Pro" width="89" height="34" decoding="async">
+    <img class="logo-wordmark" src="assets/vortex-pro-wordmark-240w.webp" srcset="assets/vortex-pro-wordmark-240w.webp 240w, assets/vortex-pro-wordmark.png 1105w" sizes="89px" alt="Vórtex Pro" width="89" height="34" decoding="async">
   </a>
 
   <!-- Progress steps -->

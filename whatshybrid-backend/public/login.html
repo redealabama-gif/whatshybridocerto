@@ -38,6 +38,14 @@
         linear-gradient(180deg, rgba(3,0,20,0.4) 0%, rgba(3,0,20,0.12) 26%, rgba(3,0,20,0.72) 60%, rgba(3,0,20,0.97) 100%),
         url('assets/login-hero.png'),
         radial-gradient(120% 60% at 50% 0%, rgba(111,0,255,0.42), transparent 60%);
+      /* O PNG acima tem 2.047 KB; o WebP de 1100 px tem 101 KB. A
+         declaracao original fica como fallback: navegador sem image-set
+         usa ela, e quem entende image-set nao baixa o PNG. */
+      background-image:
+        linear-gradient(180deg, rgba(3,0,20,0.4) 0%, rgba(3,0,20,0.12) 26%, rgba(3,0,20,0.72) 60%, rgba(3,0,20,0.97) 100%),
+        image-set(url('assets/login-hero-1100w.webp') type('image/webp'),
+                  url('assets/login-hero.png') type('image/png')),
+        radial-gradient(120% 60% at 50% 0%, rgba(111,0,255,0.42), transparent 60%);
       background-repeat: no-repeat;
       background-position: center top, center 6%, center;
       background-size: cover, cover, cover;
@@ -138,6 +146,7 @@
   </style>
   <!-- Direcao de arte: carrega por ultimo, depois do <style> inline. -->
   <link rel="stylesheet" href="css/redesign.css">
+  <meta name="view-transition" content="same-origin">
 </head>
 <body class="auth-page">
 
@@ -163,7 +172,7 @@
   <div class="auth-header">
     <a href="index.html" class="logo justify-center mb-6" style="display:inline-flex;">
       <img class="logo-mark" src="assets/logo-mark.png" alt="" width="32" height="32" decoding="async">
-      <img class="logo-wordmark" src="assets/vortex-pro-wordmark.png" alt="Vórtex Pro" width="89" height="34" decoding="async">
+      <img class="logo-wordmark" src="assets/vortex-pro-wordmark-240w.webp" srcset="assets/vortex-pro-wordmark-240w.webp 240w, assets/vortex-pro-wordmark.png 1105w" sizes="89px" alt="Vórtex Pro" width="89" height="34" decoding="async">
     </a>
     <h1 data-i18n="auth.welcome_back">Bem-vindo de volta</h1>
     <p class="text-muted">Entre para acessar seu painel</p>

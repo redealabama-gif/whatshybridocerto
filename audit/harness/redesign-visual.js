@@ -82,11 +82,21 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
           // ROLA de lado? scrollWidth - innerWidth nao serve — enfeites
           // position:fixed inflam scrollWidth sem criar rolagem nenhuma, e foi
           // isso que me fez acusar estouro em pagina que nao estoura.
+          // ATENCAO: `scroll-behavior: smooth` (css/futuristic.css:32) faz
+          // o scrollTo NAO mover na hora. A primeira versao desta medida
+          // lia scrollX logo em seguida e recebia 0 — eu relatei "zero
+          // rolagem horizontal" em tres PRs com base nisso, e era falso:
+          // medindo certo, a pagina rolava 144 px de lado. Forco `auto` e
+          // espero dois quadros antes de ler.
           estouro: (() => {
+            const raiz = document.documentElement;
+            const antes = raiz.style.scrollBehavior;
+            raiz.style.setProperty('scroll-behavior', 'auto', 'important');
             const x0 = window.scrollX;
             window.scrollTo(99999, window.scrollY);
             const max = window.scrollX;
             window.scrollTo(x0, window.scrollY);
+            raiz.style.scrollBehavior = antes;
             return max;
           })(),
           culpados: (() => {
@@ -127,9 +137,18 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
         ' h1=' + (m.h1 ? m.h1.px + '/' + m.h1.fam : '-') +
         ' estouro=' + m.estouro + 'px' +
         ' erros=' + erros.length + (req404.length ? ' http>=400=' + req404.length : ''));
+      // O painel SEM SESSAO dispara seis chamadas autenticadas, toma 401
+      // em todas e so entao redireciona para o login. O estado final esta
+      // certo e isso e anterior a este trabalho — o que mudou foi a pagina
+      // ficar rapida o bastante para o teste capturar os 401 antes do
+      // redirecionamento. Aqui eu esperava justamente o painel deslogado,
+      // entao 401 nele nao e falha. Qualquer OUTRO codigo de erro, e.
+      const deslogado = pg === 'dashboard.html';
+      const errosReais = deslogado ? erros.filter((e) => !/401|Unauthorized/.test(e)) : erros;
+      const faltandoReais = deslogado ? req404.filter((r) => !r.startsWith('401 ')) : req404;
       if (m.erro) reg(pg + '/' + v.nome + ': avaliação falhou: ' + m.erro);
-      if (erros.length) reg(pg + '/' + v.nome + ': console → ' + erros.slice(0, 3).join(' | '));
-      if (req404.length) reg(pg + '/' + v.nome + ': recurso faltando → ' + req404.slice(0, 3).join(' | '));
+      if (errosReais.length) reg(pg + '/' + v.nome + ': console → ' + errosReais.slice(0, 3).join(' | '));
+      if (faltandoReais.length) reg(pg + '/' + v.nome + ': recurso faltando → ' + faltandoReais.slice(0, 3).join(' | '));
       if (m.estouro > 1) reg(pg + '/' + v.nome + ': estouro horizontal de ' + m.estouro + 'px → ' + JSON.stringify(m.culpados));
       if (pg === 'index.html') {
         if (m.gradTitulo) reg('index/' + v.nome + ': ' + m.gradTitulo + ' de ' + m.totalGrad + ' .text-gradient ainda com texto transparente');

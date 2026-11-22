@@ -74,6 +74,39 @@
    inclusive as que ja passavam raspando. */
 html{ scroll-padding-top:96px; }
 
+/* A pagina rolava de lado: 144 px em 1440, 39 px em 390 — medido com
+   `scroll-behavior` forcado em auto, porque com `smooth` o scrollTo do
+   teste nao movia e o estouro passava batido.
+   Quem estoura e so enfeite: .bg-glow, .hero-mesh, #spotlight-cursor e
+   uns <path> de SVG, todos posicionados fora da janela de proposito.
+   `overflow-x: clip` corta sem criar caixa de rolagem — ao contrario de
+   `overflow: hidden`, que quebraria a barra `position: sticky` e a
+   rolagem do Lenis. */
+html{ overflow-x:clip; }
+
+/* `html { scroll-behavior: smooth }` (css/futuristic.css:32) valia para
+   TODO MUNDO, inclusive para quem pede menos movimento no sistema. E um
+   salto de ancora nesta pagina atravessa dez mil pixels animados.
+   Quem marcou "reduzir movimento" nao quer isso. */
+@media (prefers-reduced-motion:reduce){
+  html{ scroll-behavior:auto !important; }
+}
+
+/* Com o Lenis no comando (js/suave.js), a rolagem suave NATIVA do
+   css/futuristic.css:32 disputa com a dele e a pagina treme. O proprio
+   Lenis poe estas classes na raiz; as regras sao dele, que nao
+   carregamos em CSS separado. */
+html.lenis,
+html.lenis body{ height:auto; }
+/* Medido: esta versao do Lenis poe so a classe `lenis` na raiz, nao
+   `lenis-smooth`. A regra oficial dele exige as duas e, com ela, o
+   scroll-behavior continuava `smooth` e as duas rolagens disputavam.
+   Basta `lenis` — que e justamente "o Lenis esta no comando". */
+html.lenis{ scroll-behavior:auto !important; }
+.lenis.lenis-smooth{ scroll-behavior:auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
+.lenis.lenis-stopped{ overflow:hidden; }
+
 /* ── 2. TIPOGRAFIA ──────────────────────────────────────────────── */
 body{ font-family:var(--f-text); }
 
@@ -501,8 +534,20 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
    (landing-fx.css:32-41, opacidade 0,32–0,55). Nessa dose competem com
    o texto e carregam o visual genérico de banco de imagem. Em 0,14
    continuam dando profundidade e param de disputar a leitura. Nenhum
-   arquivo é removido e nenhuma regra original é apagada. */
-.pfx-section .pfx-bg{ opacity:.14 !important; }
+   arquivo é removido e nenhuma regra original é apagada.
+
+   A opacidade agora só sobe quando o js/landing-fx.js marca a imagem
+   como carregada (.pfx-bg-pronto). Antes o fundo era um style inline e
+   já nascia pintado; agora ele chega sob demanda, e sem esta transição
+   a imagem apareceria de um quadro para o outro. */
+.pfx-section .pfx-bg{
+  opacity:0 !important;
+  transition:opacity 700ms var(--ease);
+}
+.pfx-section .pfx-bg.pfx-bg-pronto{ opacity:.14 !important; }
+@media (prefers-reduced-motion:reduce){
+  .pfx-section .pfx-bg{ transition:none; }
+}
 
 /* ── 13b. RAIOS — fechar os 3 degraus no resto da página ─────────
    Medido no navegador depois da camada acima: 19 raios distintos ainda
@@ -648,4 +693,143 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   /* empilhado, o destacado tambem fica na margem dos outros: o fundo
      violeta se estende de ponta a ponta e marca a faixa sozinho. */
   .pricing-grid .plan.featured{ padding:var(--s5) 0; }
+}
+
+/* ── 16. COREOGRAFIA DE ROLAGEM — três momentos, não a página toda ──
+   O site do Lando Norris tem 124 mil pixels de altura e a narrativa é o
+   produto. A nossa página vende uma extensão: o objetivo é a pessoa
+   chegar ao preço e ao botão. Animar tudo atrasaria isso.
+
+   São três momentos, escolhidos por serem os de maior peso na decisão:
+   a abertura, a prova de que a IA conversa, e o preço.
+
+   Feito com `animation-timeline: view()` — nativo, sem biblioteca. O
+   progresso vem da posição do elemento na janela, não de um listener de
+   scroll: roda no compositor, não trava a rolagem e não disputa com o
+   Lenis. Onde o navegador não suporta, nada acontece e a página fica
+   como estava; por isso tudo mora dentro do @supports.
+
+   O sistema .reveal (landing-revamp.css:10) segue responsável pela
+   ENTRADA de cada bloco. Isto é outra camada: o que acontece ENQUANTO a
+   pessoa rola.
+
+   REGRA QUE EU ME IMPUS AQUI: nada que esconda conteúdo. Com
+   `animation-fill-mode: both`, o elemento fica no estado inicial
+   ANTES de a faixa começar — se eu animasse opacidade ou clip-path nos
+   planos, bastaria um navegador se comportar de um jeito que eu não
+   previ para o visitante encarar uma seção de preços em branco. Nos
+   planos, portanto, só movimento. Opacidade fica para o texto do hero,
+   que está saindo de cena de qualquer jeito, e para a maquete da
+   conversa, que é ilustração. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* 1. ABERTURA — o texto do hero afunda e esmaece enquanto sai de
+       cena, e a maquete do aparelho fica. Cria profundidade entre as
+       duas camadas: é o que o parallax faz com os fundos, agora com o
+       conteúdo. */
+    .hero .hero-text {
+      animation: sair-subindo linear both;
+      animation-timeline: view();
+      /* acompanha a SAÍDA do hero, não a entrada */
+      animation-range: exit-crossing 0% exit-crossing 85%;
+    }
+    @keyframes sair-subindo {
+      to { transform: translateY(-40px); opacity: .35; }
+    }
+
+    /* 2. A IA CONVERSANDO — a maquete sobe e se endireita conforme
+       entra. É a prova visual do produto; merece chegar com um gesto. */
+    #ai-action .chat-mock {
+      animation: chegar-de-baixo linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 38%;
+      transform-origin: 50% 100%;
+    }
+    @keyframes chegar-de-baixo {
+      from { transform: translateY(44px) scale(.965); opacity: .55; }
+      to   { transform: none; opacity: 1; }
+    }
+
+    /* 3. OS PLANOS — as quatro colunas chegam em cascata, da esquerda
+       para a direita, no sentido da leitura e do preço crescente. A
+       defasagem vem de uma faixa de entrada diferente por coluna, não
+       de `animation-delay`: com timeline de rolagem quem manda é a
+       posição, e delay não se aplica.
+       Só translate. Sem opacidade, pelo motivo no cabeçalho. */
+    .pricing-grid .plan {
+      animation: coluna-chega linear both;
+      animation-timeline: view();
+    }
+    .pricing-grid .plan:nth-child(1) { animation-range: entry 6%  cover 26%; }
+    .pricing-grid .plan:nth-child(2) { animation-range: entry 10% cover 30%; }
+    .pricing-grid .plan:nth-child(3) { animation-range: entry 14% cover 34%; }
+    .pricing-grid .plan:nth-child(4) { animation-range: entry 18% cover 38%; }
+    @keyframes coluna-chega {
+      from { transform: translateY(30px); }
+      to   { transform: none; }
+    }
+  }
+}
+
+/* ── 17. TRANSIÇÃO ENTRE PÁGINAS — nativa, sem biblioteca ────────
+   Os dois sites de referência não têm isso (medi: nem barba, nem swup,
+   nem view-transition nos dois). Mas o piscar branco entre a home e o
+   cadastro é exatamente o tipo de costura que separa "site" de
+   "produto", e hoje existe a API do navegador para resolver sem
+   nenhuma dependência.
+
+   `@view-transition` só funciona entre páginas de MESMA ORIGEM, e é
+   ignorado em silêncio onde o navegador não suporta — a navegação
+   segue normal. Nada de JS, nada de interceptar clique: é o navegador
+   que faz o cruzamento.
+
+   A transição é curta de propósito. Acima de uns 250 ms ela deixa de
+   parecer fluidez e passa a parecer demora para abrir a página. */
+@view-transition { navigation: auto; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease);
+}
+/* A barra fica parada enquanto o conteúdo cruza: ela é a mesma nas duas
+   páginas, e vê-la piscar junto denunciaria o recarregamento. */
+.navbar { view-transition-name: barra; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+}
+
+/* ── 18. TIPOGRAFIA DE DISPLAY — o que dá para fazer sem licença ──
+   Delta Cafés usa `delta-season`; o site do Lando Norris usa `Brier`.
+   São desenhos exclusivos, comprados. Não dá para reproduzir isso com
+   código, e eu não posso licenciar uma fonte.
+
+   O que dá: a Fraunces é variável e tem dois eixos que quase ninguém
+   usa — SOFT (quanto os cantos amolecem) e WONK (troca algumas letras
+   por versões de desenho torto, com descendentes diferentes). O padrão
+   de prateleira é WONK ligado no itálico e nada no resto. Usando os
+   eixos de propósito, em doses diferentes por tamanho, o texto deixa de
+   ter a cara da Fraunces que vem na caixa.
+
+   Se um dia você licenciar uma fonte de display, a troca é só aqui:
+   --f-display, mais o @font-face em css/fonts.css. Nada mais no
+   projeto nomeia a família. */
+h1, h2, .hero h1 {
+  /* opsz no máximo (144) dá os contrastes finos de um desenho de
+     display; SOFT baixo mantém as quinas firmes; WONK ligado traz o
+     "g" e o "y" de desenho alternativo, que é a assinatura da fonte. */
+  font-variation-settings: 'opsz' 144, 'SOFT' 12, 'WONK' 1;
+}
+h3, .plan-price-value, .stat-value {
+  /* Em tamanho médio o WONK vira ruído: as letras tortas competem com a
+     leitura em vez de dar caráter. Fica só o opsz alto. */
+  font-variation-settings: 'opsz' 110, 'SOFT' 20, 'WONK' 0;
+}
+.text-gradient {
+  /* A palavra em itálico é o ponto mais expressivo de cada título —
+     aqui o WONK e o SOFT vão ao máximo. */
+  font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
 }

@@ -365,6 +365,8 @@
     .hv-imac .screen{
       width:100%; height:100%;
       background:#000 url("assets/mockup-render.png") center/100% 100% no-repeat;
+      background-image: image-set(url("assets/mockup-render-1400w.webp") type("image/webp"),
+                                  url("assets/mockup-render.png") type("image/png"));
       border-radius: 2px;
       overflow:hidden;
       position:relative;
@@ -465,6 +467,8 @@
     .hv-iphone .ip-screen{
       width:100%; height:100%;
       background:#000 url("assets/iphone-screen.jpeg") center/100% 100% no-repeat;
+      background-image: image-set(url("assets/iphone-screen-860w.webp") type("image/webp"),
+                                  url("assets/iphone-screen.jpeg") type("image/jpeg"));
       border-radius: 16%/7.5%;
       position:relative;
       overflow:hidden;
@@ -1734,6 +1738,7 @@
   </script>
   <!-- Direcao de arte: carrega por ultimo, depois do <style> inline. -->
   <link rel="stylesheet" href="css/redesign.css">
+  <meta name="view-transition" content="same-origin">
 </head>
 <body>
 
@@ -1752,7 +1757,7 @@
   <div class="navbar-content">
     <a href="index.html" class="logo">
       <img class="logo-mark" src="assets/logo-mark.png" alt="" width="32" height="32" decoding="async">
-      <img class="logo-wordmark" src="assets/vortex-pro-wordmark.png" alt="Vórtex Pro" width="89" height="34" decoding="async">
+      <img class="logo-wordmark" src="assets/vortex-pro-wordmark-240w.webp" srcset="assets/vortex-pro-wordmark-240w.webp 240w, assets/vortex-pro-wordmark.png 1105w" sizes="89px" alt="Vórtex Pro" width="89" height="34" decoding="async">
     </a>
     <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="primary-nav">
       <span></span><span></span><span></span>
@@ -1988,7 +1993,7 @@
 
 <!-- How it works -->
 <section class="py-16 pfx-section" id="how" data-pfx-tone="steps" data-pfx-speed="0.15">
-  <div class="pfx-bg" style="background-image: url('assets/bg-steps.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-steps"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="01">
@@ -2025,7 +2030,7 @@
 
 <!-- AI in action: chat mockup + dashboard -->
 <section class="py-16 pfx-section" id="ai-action" data-pfx-tone="dialogue" data-pfx-speed="0.12">
-  <div class="pfx-bg" style="background-image: url('assets/bg-dialogue.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-dialogue"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="02">
@@ -2205,7 +2210,7 @@
 
 <!-- Features -->
 <section id="features" class="py-16 pfx-section" data-pfx-tone="toolkit" data-pfx-speed="0.18">
-  <div class="pfx-bg" style="background-image: url('assets/bg-toolkit.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-toolkit"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="03">
@@ -2263,7 +2268,7 @@
 
 <!-- Como a IA aprende (narrative flow) -->
 <section class="py-16 pfx-section" id="learning" data-pfx-tone="brain" data-pfx-speed="0.20">
-  <div class="pfx-bg" style="background-image: url('assets/bg-brain.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-brain"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="04">
@@ -2376,7 +2381,7 @@
 
     <div class="ncore-stage reveal reveal-zoom" aria-hidden="true">
       <div class="ncore-crystal" id="neural-core-crystal">
-        <video class="ncore-video" autoplay loop muted playsinline preload="auto" poster="assets/neural-core-crystal.jpg">
+        <video class="ncore-video" autoplay loop muted playsinline preload="auto" poster="assets/neural-core-crystal-1140w.webp">
           <source src="assets/neural-core-crystal.mp4" type="video/mp4">
         </video>
       </div>
@@ -2429,7 +2434,7 @@
 
 <!-- Funcionalidades (mantido do original) -->
 <section id="funcionalidades" class="py-16 pfx-section" data-pfx-tone="net" data-pfx-speed="0.15">
-  <div class="pfx-bg" style="background-image: url('assets/bg-network.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-network"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="05">
@@ -2554,7 +2559,7 @@
   }
 </style>
 <section id="disparo" class="py-16 pfx-section" data-pfx-tone="dialogue" data-pfx-speed="0.16" data-screen-label="Disparo em massa">
-  <div class="pfx-bg" style="background-image: url('assets/bg-dialogue.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-dialogue"></div>
   <div class="pfx-veil"></div>
   <div class="container">
     <div class="text-center disparo-intro reveal reveal-blur" data-sec="06">
@@ -2639,7 +2644,7 @@
 
 <!-- Sem vs Com comparison -->
 <section class="py-16 pfx-section" id="compare" data-pfx-tone="contrast" data-pfx-speed="0.18">
-  <div class="pfx-bg" style="background-image: url('assets/bg-contrast.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-contrast"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="07">
@@ -2760,7 +2765,7 @@
 
 <!-- ROI Calculator -->
 <section id="roi" class="py-16 pfx-section" data-pfx-tone="savings" data-pfx-speed="0.18">
-  <div class="pfx-bg" style="background-image: url('assets/bg-roi.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-roi"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal" data-sec="08">
@@ -2813,7 +2818,7 @@
 
 <!-- Pricing -->
 <section id="pricing" class="py-16 pfx-section" data-pfx-tone="growth" data-pfx-speed="0.20">
-  <div class="pfx-bg" style="background-image: url('assets/bg-growth.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-growth"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="09">
@@ -3061,7 +3066,7 @@
 
 <!-- FAQ -->
 <section id="faq" class="py-16 pfx-section" data-pfx-tone="inquiry" data-pfx-speed="0.16">
-  <div class="pfx-bg" style="background-image: url('assets/bg-faq.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-faq"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="10">
@@ -3171,7 +3176,7 @@
 
 <!-- CTA banner with countdown -->
 <section class="py-16 pfx-section" data-pfx-tone="rays" data-pfx-speed="0.22">
-  <div class="pfx-bg" style="background-image: url('assets/bg-rays.jpg');"></div>
+  <div class="pfx-bg" data-fundo="bg-rays"></div>
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="cta-banner reveal reveal-blur" id="final-cta">
@@ -3273,7 +3278,7 @@
 
     <a href="index.html" class="logo justify-center mb-4" style="display: inline-flex;">
       <img class="logo-mark" src="assets/logo-mark.png" alt="" width="32" height="32" decoding="async">
-      <img class="logo-wordmark" src="assets/vortex-pro-wordmark.png" alt="Vórtex Pro" width="89" height="34" decoding="async">
+      <img class="logo-wordmark" src="assets/vortex-pro-wordmark-240w.webp" srcset="assets/vortex-pro-wordmark-240w.webp 240w, assets/vortex-pro-wordmark.png 1105w" sizes="89px" alt="Vórtex Pro" width="89" height="34" decoding="async">
     </a>
     <p>© 2026 Vórtex Pro. Todos os direitos reservados.</p>
     <p class="mt-2">
@@ -3346,6 +3351,11 @@
 </a>
 
 <script src="js/futuristic.js"></script>
+<!-- Rolagem suave. Auto-hospedada, como todo o resto desde o SITE-03c.
+     Vem antes do landing-fx porque o js/suave.js precisa do globalThis.Lenis
+     já definido; os dois têm defer, então a ordem aqui é a de execução. -->
+<script src="js/vendor/lenis.js" defer></script>
+<script src="js/suave.js" defer></script>
 <script src="js/landing-revamp.js" defer></script>
 <script src="js/landing-fx.js" defer></script>
 <script src="js/hero-fx.js" defer></script>
@@ -3754,8 +3764,19 @@
           const id = a.getAttribute('href').slice(1);
           const t = document.getElementById(id);
           if (!t) return;
+          // Com a rolagem suave ativa (js/suave.js), quem leva ao destino é
+          // ela — e ela já desconta a altura da barra fixa. Chamar
+          // scrollIntoView aqui também moveria a página por fora do Lenis,
+          // que mantém a posição por conta própria: os dois disputam e o
+          // salto passa do alvo. Medido: #pricing parava com o título em
+          // y=-2767, quase três mil pixels acima da janela.
+          if (window.__lenis) return;
           e.preventDefault();
-          t.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+          // 'auto' NAO quer dizer instantaneo: quer dizer "siga o CSS", e o
+          // CSS diz smooth. Entao quem pediu menos movimento recebia a
+          // mesma rolagem animada de dez mil pixels. 'instant' e o valor
+          // que de fato pula.
+          t.scrollIntoView({ behavior: prefersReduced ? 'instant' : 'smooth', block: 'start' });
         });
       });
     }
