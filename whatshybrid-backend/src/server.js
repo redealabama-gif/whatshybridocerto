@@ -560,12 +560,38 @@ app.get('/admin', (req, res) => {
 // Servido sem autenticação — o portal usa client-side JS para gate.
 const PUBLIC_DIR = path.join(__dirname, '../public');
 app.use(express.static(PUBLIC_DIR, {
-  // não cachear HTML (sempre revalidar) — caching agressivo em CSS/JS
+  // CACHE: por que CSS e JS NÃO levam max-age longo aqui.
+  //
+  // Antes, tudo que não fosse .html levava `public, max-age=86400`. Com
+  // isso o navegador guardava o CSS por 24 h e NEM PERGUNTAVA ao
+  // servidor. Como nenhum arquivo deste projeto tem versão ou hash no
+  // nome — é sempre css/redesign.css —, toda correção de estilo ficava
+  // invisível por um dia para quem já tinha visitado o site.
+  //
+  // Isso aconteceu de verdade: uma correção de cor de botão e de
+  // alinhamento dos planos foi para produção e o dono continuou vendo a
+  // versão antiga, enquanto a mudança de HTML da mesma entrega chegou na
+  // hora (HTML sempre revalidou).
+  //
+  // Agora CSS e JS revalidam. Não é o mesmo que "sem cache": o ETag
+  // continua valendo, então a resposta normal é um 304 sem corpo, de
+  // algumas centenas de bytes. Os arquivos aqui são pequenos (o maior
+  // CSS tem 36 KB) e a correção valer no mesmo instante importa mais.
+  //
+  // Mídia (imagem, fonte, vídeo, wasm) fica com cache longo: são os
+  // arquivos grandes, mudam raramente, e uma versão velha de imagem é um
+  // problema cosmético — não uma página com estilo errado.
+  //
+  // A solução definitiva é nome com hash de conteúdo
+  // (redesign.a1b2c3.css) e `immutable`. Isso pede uma etapa de build
+  // que o projeto não tem hoje; quando tiver, é aqui que muda.
   setHeaders: (res, filepath) => {
     if (filepath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    } else if (filepath.match(/\.(css|js|png|jpg|svg|woff2?)$/)) {
-      res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h
+    } else if (filepath.match(/\.(css|js|mjs|json|map)$/)) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else if (filepath.match(/\.(png|jpe?g|webp|avif|gif|svg|ico|woff2?|ttf|otf|mp4|webm|wasm|splinecode)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 dias
     }
   },
   extensions: ['html'],
