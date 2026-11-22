@@ -658,7 +658,7 @@ router.post('/refresh',
     }
 
     // Verify JWT signature
-    /** @type {{ userId: string, type?: string }} */
+    /** @type {{ userId: string, type?: string, sid?: string }} */
     let decoded;
     try {
       decoded = /** @type {any} */ (jwt.verify(refreshToken, config.jwt.secret, { algorithms: ['HS256'] }));
