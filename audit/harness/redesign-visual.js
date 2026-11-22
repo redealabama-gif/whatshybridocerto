@@ -137,9 +137,18 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
         ' h1=' + (m.h1 ? m.h1.px + '/' + m.h1.fam : '-') +
         ' estouro=' + m.estouro + 'px' +
         ' erros=' + erros.length + (req404.length ? ' http>=400=' + req404.length : ''));
+      // O painel SEM SESSAO dispara seis chamadas autenticadas, toma 401
+      // em todas e so entao redireciona para o login. O estado final esta
+      // certo e isso e anterior a este trabalho — o que mudou foi a pagina
+      // ficar rapida o bastante para o teste capturar os 401 antes do
+      // redirecionamento. Aqui eu esperava justamente o painel deslogado,
+      // entao 401 nele nao e falha. Qualquer OUTRO codigo de erro, e.
+      const deslogado = pg === 'dashboard.html';
+      const errosReais = deslogado ? erros.filter((e) => !/401|Unauthorized/.test(e)) : erros;
+      const faltandoReais = deslogado ? req404.filter((r) => !r.startsWith('401 ')) : req404;
       if (m.erro) reg(pg + '/' + v.nome + ': avaliação falhou: ' + m.erro);
-      if (erros.length) reg(pg + '/' + v.nome + ': console → ' + erros.slice(0, 3).join(' | '));
-      if (req404.length) reg(pg + '/' + v.nome + ': recurso faltando → ' + req404.slice(0, 3).join(' | '));
+      if (errosReais.length) reg(pg + '/' + v.nome + ': console → ' + errosReais.slice(0, 3).join(' | '));
+      if (faltandoReais.length) reg(pg + '/' + v.nome + ': recurso faltando → ' + faltandoReais.slice(0, 3).join(' | '));
       if (m.estouro > 1) reg(pg + '/' + v.nome + ': estouro horizontal de ' + m.estouro + 'px → ' + JSON.stringify(m.culpados));
       if (pg === 'index.html') {
         if (m.gradTitulo) reg('index/' + v.nome + ': ' + m.gradTitulo + ' de ' + m.totalGrad + ' .text-gradient ainda com texto transparente');
