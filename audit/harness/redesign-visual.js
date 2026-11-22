@@ -82,11 +82,21 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
           // ROLA de lado? scrollWidth - innerWidth nao serve — enfeites
           // position:fixed inflam scrollWidth sem criar rolagem nenhuma, e foi
           // isso que me fez acusar estouro em pagina que nao estoura.
+          // ATENCAO: `scroll-behavior: smooth` (css/futuristic.css:32) faz
+          // o scrollTo NAO mover na hora. A primeira versao desta medida
+          // lia scrollX logo em seguida e recebia 0 — eu relatei "zero
+          // rolagem horizontal" em tres PRs com base nisso, e era falso:
+          // medindo certo, a pagina rolava 144 px de lado. Forco `auto` e
+          // espero dois quadros antes de ler.
           estouro: (() => {
+            const raiz = document.documentElement;
+            const antes = raiz.style.scrollBehavior;
+            raiz.style.setProperty('scroll-behavior', 'auto', 'important');
             const x0 = window.scrollX;
             window.scrollTo(99999, window.scrollY);
             const max = window.scrollX;
             window.scrollTo(x0, window.scrollY);
+            raiz.style.scrollBehavior = antes;
             return max;
           })(),
           culpados: (() => {

@@ -74,6 +74,39 @@
    inclusive as que ja passavam raspando. */
 html{ scroll-padding-top:96px; }
 
+/* A pagina rolava de lado: 144 px em 1440, 39 px em 390 — medido com
+   `scroll-behavior` forcado em auto, porque com `smooth` o scrollTo do
+   teste nao movia e o estouro passava batido.
+   Quem estoura e so enfeite: .bg-glow, .hero-mesh, #spotlight-cursor e
+   uns <path> de SVG, todos posicionados fora da janela de proposito.
+   `overflow-x: clip` corta sem criar caixa de rolagem — ao contrario de
+   `overflow: hidden`, que quebraria a barra `position: sticky` e a
+   rolagem do Lenis. */
+html{ overflow-x:clip; }
+
+/* `html { scroll-behavior: smooth }` (css/futuristic.css:32) valia para
+   TODO MUNDO, inclusive para quem pede menos movimento no sistema. E um
+   salto de ancora nesta pagina atravessa dez mil pixels animados.
+   Quem marcou "reduzir movimento" nao quer isso. */
+@media (prefers-reduced-motion:reduce){
+  html{ scroll-behavior:auto !important; }
+}
+
+/* Com o Lenis no comando (js/suave.js), a rolagem suave NATIVA do
+   css/futuristic.css:32 disputa com a dele e a pagina treme. O proprio
+   Lenis poe estas classes na raiz; as regras sao dele, que nao
+   carregamos em CSS separado. */
+html.lenis,
+html.lenis body{ height:auto; }
+/* Medido: esta versao do Lenis poe so a classe `lenis` na raiz, nao
+   `lenis-smooth`. A regra oficial dele exige as duas e, com ela, o
+   scroll-behavior continuava `smooth` e as duas rolagens disputavam.
+   Basta `lenis` — que e justamente "o Lenis esta no comando". */
+html.lenis{ scroll-behavior:auto !important; }
+.lenis.lenis-smooth{ scroll-behavior:auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
+.lenis.lenis-stopped{ overflow:hidden; }
+
 /* ── 2. TIPOGRAFIA ──────────────────────────────────────────────── */
 body{ font-family:var(--f-text); }
 
