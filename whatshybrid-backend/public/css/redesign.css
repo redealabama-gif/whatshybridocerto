@@ -83,6 +83,17 @@ html{ scroll-padding-top:96px; }
    `overflow: hidden`, que quebraria a barra `position: sticky` e a
    rolagem do Lenis. */
 html{ overflow-x:clip; }
+/* E o <body> junto. Isto NAO e enfeite: futuristic.css:37 poe
+   `overflow-x:hidden` no body. Enquanto o <html> era `visible`, o
+   overflow do body era PROPAGADO para a viewport e o body continuava
+   sendo uma caixa normal. Ao dar overflow ao <html>, quem passa a ser
+   propagado e o do <html>, e o `hidden` do body passa a valer de
+   verdade: o body vira caixa de rolagem, e todo `position: sticky`
+   dentro dele para de colar — inclusive a .navbar (futuristic.css:304).
+   `clip` corta igual sem criar caixa de rolagem. Medido: com `hidden`,
+   a navbar estava em top -1200 depois de rolar 1200px; com `clip`,
+   em 0. Travado em audit/harness/notebook-rolagem.js. */
+body{ overflow-x:clip; }
 
 /* `html { scroll-behavior: smooth }` (css/futuristic.css:32) valia para
    TODO MUNDO, inclusive para quem pede menos movimento no sistema. E um

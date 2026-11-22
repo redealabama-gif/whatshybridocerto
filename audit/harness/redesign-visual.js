@@ -88,6 +88,27 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
           // rolagem horizontal" em tres PRs com base nisso, e era falso:
           // medindo certo, a pagina rolava 144 px de lado. Forco `auto` e
           // espero dois quadros antes de ler.
+          // A .navbar e `position: sticky` (css/futuristic.css:304). Colar
+          // nao depende so da regra: se um ancestral virar caixa de
+          // rolagem, o sticky morre calado. Foi o que aconteceu quando
+          // pus `overflow-x:clip` no <html> e o `overflow-x:hidden` do
+          // <body> (futuristic.css:37) deixou de ser propagado para a
+          // viewport e passou a valer: a navbar sumia ao rolar, em toda
+          // a pagina. Aqui se mede o efeito, nao a regra.
+          barraCola: (() => {
+            const n = document.querySelector('.navbar');
+            if (!n) return null;
+            if (getComputedStyle(n).position !== 'sticky') return 'nao-e-sticky';
+            const raiz = document.documentElement;
+            const antes = raiz.style.scrollBehavior;
+            raiz.style.setProperty('scroll-behavior', 'auto', 'important');
+            const y0 = window.scrollY;
+            window.scrollTo(window.scrollX, 1200);
+            const topo = Math.round(n.getBoundingClientRect().top);
+            window.scrollTo(window.scrollX, y0);
+            raiz.style.scrollBehavior = antes;
+            return topo;
+          })(),
           estouro: (() => {
             const raiz = document.documentElement;
             const antes = raiz.style.scrollBehavior;
@@ -136,6 +157,7 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
         ' raios=' + (m.raios || []).length +
         ' h1=' + (m.h1 ? m.h1.px + '/' + m.h1.fam : '-') +
         ' estouro=' + m.estouro + 'px' +
+        (m.barraCola === null ? '' : ' barraCola=' + m.barraCola) +
         ' erros=' + erros.length + (req404.length ? ' http>=400=' + req404.length : ''));
       // O painel SEM SESSAO dispara seis chamadas autenticadas, toma 401
       // em todas e so entao redireciona para o login. O estado final esta
@@ -149,6 +171,10 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
       if (m.erro) reg(pg + '/' + v.nome + ': avaliação falhou: ' + m.erro);
       if (errosReais.length) reg(pg + '/' + v.nome + ': console → ' + errosReais.slice(0, 3).join(' | '));
       if (faltandoReais.length) reg(pg + '/' + v.nome + ': recurso faltando → ' + faltandoReais.slice(0, 3).join(' | '));
+      if (m.barraCola !== null && m.barraCola !== 'nao-e-sticky' && Math.abs(m.barraCola) > 1) {
+        reg(pg + '/' + v.nome + ': a .navbar e position:sticky mas NAO cola — depois de rolar 1200px ela estava em top ' +
+            m.barraCola + 'px (esperado 0). Procure um ancestral que virou caixa de rolagem.');
+      }
       if (m.estouro > 1) reg(pg + '/' + v.nome + ': estouro horizontal de ' + m.estouro + 'px → ' + JSON.stringify(m.culpados));
       if (pg === 'index.html') {
         if (m.gradTitulo) reg('index/' + v.nome + ': ' + m.gradTitulo + ' de ' + m.totalGrad + ' .text-gradient ainda com texto transparente');
