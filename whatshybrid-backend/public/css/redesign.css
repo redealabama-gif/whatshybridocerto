@@ -501,8 +501,20 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
    (landing-fx.css:32-41, opacidade 0,32–0,55). Nessa dose competem com
    o texto e carregam o visual genérico de banco de imagem. Em 0,14
    continuam dando profundidade e param de disputar a leitura. Nenhum
-   arquivo é removido e nenhuma regra original é apagada. */
-.pfx-section .pfx-bg{ opacity:.14 !important; }
+   arquivo é removido e nenhuma regra original é apagada.
+
+   A opacidade agora só sobe quando o js/landing-fx.js marca a imagem
+   como carregada (.pfx-bg-pronto). Antes o fundo era um style inline e
+   já nascia pintado; agora ele chega sob demanda, e sem esta transição
+   a imagem apareceria de um quadro para o outro. */
+.pfx-section .pfx-bg{
+  opacity:0 !important;
+  transition:opacity 700ms var(--ease);
+}
+.pfx-section .pfx-bg.pfx-bg-pronto{ opacity:.14 !important; }
+@media (prefers-reduced-motion:reduce){
+  .pfx-section .pfx-bg{ transition:none; }
+}
 
 /* ── 13b. RAIOS — fechar os 3 degraus no resto da página ─────────
    Medido no navegador depois da camada acima: 19 raios distintos ainda
