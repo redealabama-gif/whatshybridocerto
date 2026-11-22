@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vórtex Pro — Proposta de direção de arte</title>
+
+<!--
+  PROTÓTIPO DE DIREÇÃO DE ARTE — não é código de produção.
+  Conteúdo, cores, logo e fontes são os reais do projeto.
+  Paleta intocada: #6f00ff, #00ffff, #030014, #0f0c29, #131129, #1e1b3a.
+-->
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   FONTES — as mesmas já auto-hospedadas no projeto, mais a JetBrains
+   Mono, que é a camada nova: rótulos, números e metadados.
+   ═══════════════════════════════════════════════════════════════════ */
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:400 800;font-display:swap;
+  src:url(assets/fontes/fraunces-latin-var.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:400 800;font-display:swap;
+  src:url(assets/fontes/fraunces-latin-ext-var.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fontes/inter-latin-400.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:500;font-display:swap;src:url(assets/fontes/inter-latin-500.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url(assets/fontes/inter-latin-600.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url(assets/fontes/inter-latin-700.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:800;font-display:swap;src:url(assets/fontes/inter-latin-800.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fontes/jetbrainsmono-latin-400.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url(assets/fontes/jetbrainsmono-latin-500.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;src:url(assets/fontes/jetbrainsmono-latin-600.woff2) format('woff2');}
+
+/* ═══════════════════════════════════════════════════════════════════
+   1. TOKENS
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  /* Paleta — EXATAMENTE a do projeto, nada acrescentado */
+  --ink:#030014; --ink-2:#0f0c29; --ink-3:#131129; --ink-4:#1e1b3a;
+  --violet:#6f00ff; --cyan:#00ffff;
+  --paper:#ffffff; --paper-60:#94a3b8; --paper-40:#64748b;
+  --rule:rgba(255,255,255,.10);
+  --rule-strong:rgba(255,255,255,.20);
+  --violet-wash:rgba(111,0,255,.14);
+
+  /* Tipo — 8 degraus, fluidos. Hoje o projeto tem 43 tamanhos soltos. */
+  --t-mono:.6875rem;
+  --t-sm:.8125rem;
+  --t-body:1rem;
+  --t-lead:clamp(1.0625rem,.98rem + .4vw,1.1875rem);
+  --t-h3:clamp(1.25rem,1.1rem + .7vw,1.5rem);
+  --t-h2:clamp(2rem,1.3rem + 3.1vw,3.25rem);
+  --t-h1:clamp(2.9rem,1.5rem + 6.2vw,5.5rem);
+  --t-mega:clamp(3.5rem,1.6rem + 8.4vw,8rem);
+
+  /* Espaço — base 4, nove degraus */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  --s6:32px; --s7:48px; --s8:64px; --s9:96px; --s10:144px;
+
+  /* Raio — três, e só três */
+  --r-hair:2px; --r-box:10px; --r-pill:999px;
+
+  /* Grade */
+  --grid:minmax(var(--s5),1fr) repeat(12,minmax(0,88px)) minmax(var(--s5),1fr);
+  --gut:24px;
+
+  /* Tempo — valores do preset "scroll reveal" da skill, em CSS puro */
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --fast:160ms; --mid:320ms; --slow:560ms;
+}
+
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0; background:var(--ink); color:var(--paper);
+  font-family:'Inter',system-ui,sans-serif; font-size:var(--t-body);
+  line-height:1.6; -webkit-font-smoothing:antialiased;
+  font-feature-settings:'ss01','cv05';
+}
+img{max-width:100%;display:block;}
+a{color:inherit;text-decoration:none;}
+
+/* ── A trama de fundo: uma grade de impressão, não um gradiente ── */
+body::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    linear-gradient(var(--rule) 1px,transparent 1px) 0 0/100% 96px,
+    radial-gradient(60% 50% at 18% -10%,var(--violet-wash),transparent 70%);
+  opacity:.5; mask-image:linear-gradient(180deg,#000 0,#000 70%,transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. GRADE EDITORIAL — tudo assenta nela
+   ═══════════════════════════════════════════════════════════════════ */
+.grade{display:grid; grid-template-columns:var(--grid); column-gap:var(--gut);}
+.c1-7{grid-column:2/9;} .c1-8{grid-column:2/10;} .c1-12{grid-column:2/14;}
+.c2-7{grid-column:3/9;} .c3-12{grid-column:4/14;} .c8-12{grid-column:9/14;}
+.c1-5{grid-column:2/7;} .c6-12{grid-column:7/14;}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. PRIMITIVAS TIPOGRÁFICAS
+   ═══════════════════════════════════════════════════════════════════ */
+.mono{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:var(--t-mono); font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:var(--paper-60);
+}
+.mono--cyan{color:var(--cyan);}
+
+h1,h2,h3{
+  font-family:'Fraunces',Georgia,serif; font-weight:600;
+  margin:0; text-wrap:balance;
+  font-variation-settings:'opsz' 100;
+}
+h1{font-size:var(--t-h1); line-height:.96; letter-spacing:-.03em; font-weight:700;}
+h2{font-size:var(--t-h2); line-height:1.04; letter-spacing:-.022em;}
+h3{font-size:var(--t-h3); line-height:1.2; letter-spacing:-.012em;}
+p{margin:0;}
+.lead{font-size:var(--t-lead); line-height:1.62; color:var(--paper-60); max-width:46ch;}
+.sm{font-size:var(--t-sm); color:var(--paper-60); line-height:1.55;}
+
+/* o acento: fatia de luz sob a palavra, não gradiente no texto */
+.acento{position:relative; white-space:nowrap; color:var(--paper);}
+.acento::after{
+  content:''; position:absolute; left:-.04em; right:-.04em; bottom:.1em; height:.22em;
+  background:linear-gradient(90deg,var(--violet),var(--cyan));
+  opacity:.5; z-index:-1; transform-origin:left;
+}
+.italico{font-style:italic; font-variation-settings:'opsz' 144; color:var(--paper-60);}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. RÉGUAS — a estrutura visível que substitui 48 cards
+   ═══════════════════════════════════════════════════════════════════ */
+.regua{height:1px; background:var(--rule); border:0; margin:0;}
+.regua--viva{
+  height:1px; border:0; margin:0;
+  background:linear-gradient(90deg,var(--cyan),var(--violet) 32%,transparent 72%);
+  opacity:.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   5. NAV
+   ═══════════════════════════════════════════════════════════════════ */
+.topo{position:sticky; top:0; z-index:50; background:rgba(3,0,20,.72);
+  backdrop-filter:blur(14px); border-bottom:1px solid var(--rule);}
+.topo .grade{align-items:center; min-height:72px;}
+.marca{display:flex; align-items:center; gap:10px; grid-column:2/5;}
+.marca img{width:28px;height:28px;}
+.marca b{font-family:'Fraunces',serif; font-size:1.0625rem; letter-spacing:-.02em; font-weight:700;}
+.marca span{font-size:.5rem;}
+.menu{grid-column:5/11; display:flex; gap:var(--s6); justify-content:center;}
+.menu a{font-size:var(--t-sm); color:var(--paper-60); transition:color var(--fast) var(--ease);}
+.menu a:hover{color:var(--paper);}
+.acoes{grid-column:11/14; display:flex; gap:var(--s4); justify-content:flex-end; align-items:center;}
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. BOTÕES — dois pesos, nada mais
+   ═══════════════════════════════════════════════════════════════════ */
+.btn{
+  display:inline-flex; align-items:center; gap:10px;
+  font-size:var(--t-sm); font-weight:600; letter-spacing:-.01em;
+  padding:13px 22px; border-radius:var(--r-pill); border:1px solid transparent;
+  cursor:pointer; transition:transform var(--fast) var(--ease),
+    background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+  min-height:44px;
+}
+.btn:focus-visible{outline:2px solid var(--cyan); outline-offset:3px;}
+.btn--solido{background:var(--paper); color:var(--ink);}
+.btn--solido:hover{transform:translateY(-1px); background:var(--cyan);}
+.btn--linha{border-color:var(--rule-strong); color:var(--paper);}
+.btn--linha:hover{border-color:var(--cyan); color:var(--cyan);}
+.btn .seta{transition:transform var(--mid) var(--ease);}
+.btn:hover .seta{transform:translateX(3px);}
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. HERO — assimétrico, texto ancorado à esquerda
+   ═══════════════════════════════════════════════════════════════════ */
+.hero{position:relative; z-index:1; padding:var(--s9) 0 0;}
+.hero .selo{grid-column:2/9; display:flex; align-items:center; gap:10px; margin-bottom:var(--s6);}
+.ponto{width:6px;height:6px;border-radius:var(--r-pill);background:var(--cyan);
+  box-shadow:0 0 0 4px rgba(0,255,255,.14);}
+.hero h1{grid-column:2/11; margin-bottom:var(--s5);}
+.hero .lead{grid-column:3/9; margin-bottom:var(--s7);}
+.hero .ctas{grid-column:3/11; display:flex; gap:var(--s3); flex-wrap:wrap;}
+
+/* instrumento: os números viram tipografia, com réguas entre eles */
+.instrumento{margin-top:var(--s8); border-top:1px solid var(--rule);}
+.instrumento .grade{padding:var(--s5) 0 var(--s6);}
+.medida{grid-column:span 4; display:flex; flex-direction:column; gap:6px; padding-right:var(--s5);}
+.medida:nth-child(1){grid-column:2/6;}
+.medida:nth-child(2){grid-column:6/10; border-left:1px solid var(--rule); padding-left:var(--s5);}
+.medida:nth-child(3){grid-column:10/14; border-left:1px solid var(--rule); padding-left:var(--s5);}
+.medida .valor{
+  font-family:'Fraunces',serif; font-weight:600; font-size:clamp(2.2rem,1.4rem + 2.4vw,3.4rem);
+  line-height:1; letter-spacing:-.03em; font-variation-settings:'opsz' 144;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   8. CABEÇALHO DE SEÇÃO — índice à esquerda, título ao lado.
+      Substitui o eyebrow centralizado repetido 10 vezes.
+   ═══════════════════════════════════════════════════════════════════ */
+.secao{position:relative; z-index:1; padding:var(--s10) 0;}
+.cab{align-items:start; padding-bottom:var(--s7);}
+.cab .indice{grid-column:2/4; display:flex; align-items:baseline; gap:10px; padding-top:.5em;}
+.cab .indice .num{
+  font-family:'JetBrains Mono',monospace; font-size:var(--t-mono); font-weight:600;
+  color:var(--cyan); letter-spacing:.14em;
+}
+.cab .titulo{grid-column:4/11;}
+.cab .titulo .lead{margin-top:var(--s4);}
+.cab .nota{grid-column:11/14; padding-top:.7em; text-align:right;}
+
+/* ═══════════════════════════════════════════════════════════════════
+   9. PASSOS — lista editorial numerada, sem cards
+   ═══════════════════════════════════════════════════════════════════ */
+.passos{grid-column:2/14; border-top:1px solid var(--rule);}
+.passo{
+  display:grid; grid-template-columns:72px minmax(0,2.6fr) minmax(0,3fr);
+  gap:var(--gut); align-items:start;
+  padding:var(--s7) 0; border-bottom:1px solid var(--rule);
+  transition:background var(--mid) var(--ease);
+}
+.passo:hover{background:linear-gradient(90deg,rgba(111,0,255,.07),transparent 60%);}
+.passo .n{font-family:'JetBrains Mono',monospace; font-size:var(--t-mono);
+  font-weight:600; color:var(--paper-40); letter-spacing:.14em; padding-top:.45em;}
+.passo:hover .n{color:var(--cyan);}
+.passo h3{letter-spacing:-.018em;}
+.passo p{color:var(--paper-60); font-size:var(--t-sm); max-width:52ch;}
+
+/* ═══════════════════════════════════════════════════════════════════
+   10. PLANOS — o card sobrevive aqui, porque aqui ele é comparação
+   ═══════════════════════════════════════════════════════════════════ */
+.ciclo{grid-column:2/14; display:flex; justify-content:flex-end; gap:var(--s2);
+  margin-bottom:var(--s6); align-items:center;}
+.ciclo .lbl{margin-right:auto;}
+.ciclo button{
+  font-family:'JetBrains Mono',monospace; font-size:var(--t-mono); font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase;
+  background:transparent; border:1px solid var(--rule); color:var(--paper-60);
+  padding:9px 16px; border-radius:var(--r-pill); cursor:pointer; min-height:38px;
+  transition:all var(--fast) var(--ease);
+}
+.ciclo button[aria-pressed="true"]{border-color:var(--cyan); color:var(--ink); background:var(--cyan);}
+.ciclo button:focus-visible{outline:2px solid var(--cyan); outline-offset:3px;}
+
+.planos{grid-column:2/14; display:grid; grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--rule-strong);}
+.plano{
+  padding:var(--s6) var(--s5) var(--s6) 0; border-right:1px solid var(--rule);
+  display:flex; flex-direction:column; gap:var(--s4);
+  transition:background var(--mid) var(--ease);
+}
+.plano:last-child{border-right:0;}
+.plano:hover{background:rgba(255,255,255,.02);}
+.plano--destaque{padding-left:var(--s5); background:rgba(111,0,255,.08);
+  box-shadow:inset 0 2px 0 var(--cyan);}
+.plano .nome{display:flex; align-items:baseline; gap:10px;}
+.plano .nome h3{font-size:1.125rem;}
+.plano .preco{font-family:'Fraunces',serif; font-weight:600;
+  font-size:clamp(1.9rem,1.3rem + 1.7vw,2.6rem); line-height:1; letter-spacing:-.03em;
+  font-variation-settings:'opsz' 144; font-variant-numeric:tabular-nums;}
+.plano .preco small{font-family:'Inter',sans-serif; font-size:.8125rem; font-weight:400;
+  color:var(--paper-40); letter-spacing:0;}
+.plano .cota{color:var(--paper-60); font-size:var(--t-sm);}
+.plano ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;
+  border-top:1px solid var(--rule); padding-top:var(--s4); margin-top:auto;}
+.plano li{font-size:var(--t-sm); color:var(--paper-60); display:flex; gap:9px; line-height:1.45;}
+.plano li::before{content:''; width:4px;height:4px;border-radius:var(--r-pill);
+  background:var(--paper-40); flex:none; margin-top:.52em;}
+.plano--destaque li::before{background:var(--cyan);}
+.plano .btn{width:100%; justify-content:center; margin-top:var(--s4);}
+
+/* ═══════════════════════════════════════════════════════════════════
+   11. ENTRADA — mesma lógica do .reveal que já existe no projeto
+   ═══════════════════════════════════════════════════════════════════ */
+.ent{opacity:1;}
+.ent.armado{opacity:0; transform:translateY(22px);}
+.ent.armado.dentro{animation:entrar var(--slow) var(--ease) forwards;}
+.ent.d1.dentro{animation-delay:70ms;} .ent.d2.dentro{animation-delay:140ms;}
+.ent.d3.dentro{animation-delay:210ms;} .ent.d4.dentro{animation-delay:280ms;}
+@keyframes entrar{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:none;}}
+
+/* título entra por máscara — o gesto editorial */
+.mascara{display:block; overflow:hidden;}
+.mascara > span{display:block;}
+.armado .mascara > span{transform:translateY(102%);}
+.armado.dentro .mascara > span{animation:subir 680ms var(--ease) forwards;}
+@keyframes subir{to{transform:none;}}
+
+@media (prefers-reduced-motion:reduce){
+  .ent,.ent.armado{opacity:1!important;transform:none!important;animation:none!important;}
+  .armado .mascara > span{transform:none!important;animation:none!important;}
+  .btn,.passo,.plano{transition:none!important;}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   12. ESPÉCIME (só do protótipo, para você avaliar o sistema)
+   ═══════════════════════════════════════════════════════════════════ */
+.especime{background:var(--ink-2); border-top:1px solid var(--rule-strong); padding:var(--s9) 0;}
+.esp-bloco{grid-column:2/14; display:grid; grid-template-columns:repeat(12,1fr); gap:var(--gut);
+  padding-top:var(--s5); border-top:1px solid var(--rule); margin-top:var(--s5);}
+.esp-bloco > div{grid-column:span 4;}
+.amostra{display:flex; align-items:baseline; gap:var(--s4); padding:10px 0;
+  border-bottom:1px solid var(--rule);}
+.amostra .tag{font-family:'JetBrains Mono',monospace; font-size:.625rem; color:var(--paper-40);
+  letter-spacing:.12em; width:72px; flex:none; text-transform:uppercase;}
+.chips{display:flex; gap:var(--s2); flex-wrap:wrap;}
+.chip{display:flex; align-items:center; gap:8px; border:1px solid var(--rule);
+  border-radius:var(--r-pill); padding:7px 13px; font-family:'JetBrains Mono',monospace;
+  font-size:.625rem; letter-spacing:.1em; color:var(--paper-60);}
+.swatch{width:13px;height:13px;border-radius:var(--r-hair);border:1px solid var(--rule-strong);}
+
+/* ═══════════════════════════════════════════════════════════════════
+   13. RESPONSIVO — a grade colapsa, a hierarquia não
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width:1080px){
+  .planos{grid-template-columns:repeat(2,1fr);}
+  .plano:nth-child(2){border-right:0;}
+  .plano:nth-child(1),.plano:nth-child(2){border-bottom:1px solid var(--rule);}
+  .plano--destaque{padding-left:var(--s4);}
+  .esp-bloco > div{grid-column:span 6;}
+}
+@media (max-width:860px){
+  :root{--grid:20px repeat(12,minmax(0,1fr)) 20px; --gut:16px;}
+  .menu{display:none;}
+  .marca{grid-column:2/9;} .acoes{grid-column:9/14;}
+  .hero{padding:var(--s8) 0 var(--s7);}
+  .hero h1,.hero .lead,.hero .ctas,.hero .selo{grid-column:2/14;}
+  .hero .ctas .btn{flex:1 1 auto; justify-content:center;}
+  .cab .indice,.cab .titulo,.cab .nota{grid-column:2/14;}
+  .cab .indice{padding-top:0; margin-bottom:var(--s4);}
+  .cab .nota{text-align:left; padding-top:var(--s4);}
+  .medida,.medida:nth-child(1),.medida:nth-child(2),.medida:nth-child(3){
+    grid-column:2/14; border-left:0; padding-left:0; padding-top:var(--s4);
+    border-top:1px solid var(--rule); flex-direction:row; align-items:baseline; gap:var(--s4);
+  }
+  .medida:nth-child(1){border-top:0;}
+  .medida .valor{font-size:2rem;}
+  .passo{grid-template-columns:1fr; gap:var(--s3); padding:var(--s5) 0;}
+  .passo .n{padding-top:0;}
+  .passos,.planos,.ciclo,.esp-bloco{grid-column:2/14;}
+  .planos{grid-template-columns:1fr;}
+  .plano{border-right:0; border-bottom:1px solid var(--rule); padding:var(--s5) 0;}
+  .plano--destaque{padding-left:var(--s4); padding-right:var(--s4);}
+  .ciclo{flex-wrap:wrap;}
+  .esp-bloco > div{grid-column:span 12;}
+  .secao{padding:var(--s8) 0;}
+}
+</style>
+</head>
+<body>
+
+<!-- ─────────────────────────── NAV ─────────────────────────── -->
+<header class="topo">
+  <div class="grade">
+    <a class="marca" href="#">
+      <img src="assets/logo-mark.png" alt="Vórtex Pro">
+      <b>VÓRTEX <span class="mono mono--cyan">PRO</span></b>
+    </a>
+    <nav class="menu">
+      <a href="#">Recursos</a><a href="#">ROI</a><a href="#">Planos</a><a href="#">FAQ</a>
+    </nav>
+    <div class="acoes">
+      <a href="#" class="sm">Entrar</a>
+      <a href="#" class="btn btn--solido">Começar grátis</a>
+    </div>
+  </div>
+</header>
+
+<!-- ─────────────────────────── HERO ─────────────────────────── -->
+<section class="hero">
+  <div class="grade">
+    <div class="selo ent armado">
+      <span class="ponto"></span>
+      <span class="mono">Novo · Aprendizado neural validado</span>
+    </div>
+    <h1 class="ent armado d1">
+      <span class="mascara"><span>A IA que <em class="italico">aprende</em></span></span>
+      <span class="mascara"><span>a vender no <span class="acento">WhatsApp</span></span></span>
+    </h1>
+    <p class="lead ent armado d2">
+      Vórtex Pro automatiza seu atendimento, aprende com seus melhores fechamentos,
+      e responde clientes 24/7 com a voz da sua empresa. Instale a extensão no Chrome,
+      conecte ao WhatsApp Web, e comece em 5 minutos.
+    </p>
+    <div class="ctas ent armado d3">
+      <a href="#" class="btn btn--solido">Testar 7 dias grátis <span class="seta">→</span></a>
+      <a href="#" class="btn btn--linha">Ver como funciona</a>
+    </div>
+  </div>
+
+  <div class="instrumento">
+    <div class="grade">
+      <div class="medida ent armado d1"><span class="valor">24/7</span><span class="mono">Atendimento</span></div>
+      <div class="medida ent armado d2"><span class="valor">5min</span><span class="mono">Para configurar</span></div>
+      <div class="medida ent armado d3"><span class="valor">100%</span><span class="mono">Multi-tenant</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="regua--viva">
+
+<!-- ────────────────────── 01 · ONBOARDING ────────────────────── -->
+<section class="secao">
+  <div class="grade cab">
+    <div class="indice ent armado"><span class="num">01</span><span class="mono">Onboarding</span></div>
+    <div class="titulo">
+      <h2 class="ent armado d1">
+        <span class="mascara"><span>Em 3 passos você</span></span>
+        <span class="mascara"><span>está <span class="acento">vendendo</span></span></span>
+      </h2>
+      <p class="lead ent armado d2">Sem desenvolvimento, sem integrações complicadas.</p>
+    </div>
+    <div class="nota ent armado d3"><span class="mono">~5 min</span></div>
+  </div>
+
+  <div class="grade">
+    <div class="passos">
+      <article class="passo ent armado">
+        <span class="n">01</span>
+        <h3>Instalar extensão</h3>
+        <p>Adicione ao Chrome, faça login, conecte o WhatsApp Web. Tudo via interface — sem configurar API.</p>
+      </article>
+      <article class="passo ent armado d1">
+        <span class="n">02</span>
+        <h3>Treinar a IA</h3>
+        <p>Configure o tom de voz, FAQ, catálogo e políticas em formulários simples. A IA já está pronta para responder.</p>
+      </article>
+      <article class="passo ent armado d2">
+        <span class="n">03</span>
+        <h3>Aprender e crescer</h3>
+        <p>Cada feedback positivo seu vira exemplo aprendido. Em dias, a IA responde melhor que muitos humanos.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────── 02 · PLANOS ──────────────────────── -->
+<section class="secao" style="background:var(--ink-2);border-top:1px solid var(--rule);">
+  <div class="grade cab">
+    <div class="indice ent armado"><span class="num">02</span><span class="mono">Planos</span></div>
+    <div class="titulo">
+      <h2 class="ent armado d1">
+        <span class="mascara"><span>Investimento que</span></span>
+        <span class="mascara"><span>se <span class="acento">paga sozinho</span></span></span>
+      </h2>
+      <p class="lead ent armado d2">Sem fidelidade. Cancele quando quiser.</p>
+    </div>
+    <div class="nota ent armado d3"><span class="mono">4 planos</span></div>
+  </div>
+
+  <div class="grade">
+    <div class="ciclo ent armado">
+      <span class="mono lbl">Ciclo de cobrança</span>
+      <button type="button" data-ciclo="monthly" aria-pressed="true">Mensal</button>
+      <button type="button" data-ciclo="annual" aria-pressed="false">Anual · 2 meses grátis</button>
+    </div>
+
+    <div class="planos">
+      <div class="plano ent armado">
+        <div class="nome"><h3>Free</h3></div>
+        <div class="preco" data-preco data-mensal="R$ 0" data-anual="R$ 0">R$ 0<small>/mês</small></div>
+        <p class="cota">Pra conhecer a plataforma</p>
+        <ul><li>Disparo manual e Recover</li><li>CRM até 50 contatos</li><li>Sem recursos de IA</li></ul>
+        <a href="#" class="btn btn--linha">Começar grátis</a>
+      </div>
+
+      <div class="plano plano--destaque ent armado d1">
+        <div class="nome"><h3>Starter</h3><span class="mono mono--cyan">Mais popular</span></div>
+        <div class="preco" data-preco data-mensal="R$ 49,90" data-anual="R$ 41,58">R$ 49,90<small>/mês</small></div>
+        <p class="cota">500 respostas da IA por mês</p>
+        <ul><li>Disparo em massa + Extrator</li><li>Autopilot e Treinamento da IA</li><li>CRM até 1.000 contatos</li></ul>
+        <a href="#" class="btn btn--solido">7 dias grátis <span class="seta">→</span></a>
+      </div>
+
+      <div class="plano ent armado d2">
+        <div class="nome"><h3>Pro</h3></div>
+        <div class="preco" data-preco data-mensal="R$ 99,90" data-anual="R$ 83,25">R$ 99,90<small>/mês</small></div>
+        <p class="cota">2.500 respostas da IA por mês</p>
+        <ul><li>Tudo do Starter, sem limites de CRM</li><li>Disparo até 2.000/dia</li><li>Suporte prioritário</li></ul>
+        <a href="#" class="btn btn--linha">7 dias grátis</a>
+      </div>
+
+      <div class="plano ent armado d3">
+        <div class="nome"><h3>Business</h3></div>
+        <div class="preco" data-preco data-mensal="R$ 299,90" data-anual="R$ 249,92">R$ 299,90<small>/mês</small></div>
+        <p class="cota">10.000 respostas da IA por mês</p>
+        <ul><li>Tudo do Pro, com 4× mais respostas</li><li>Disparo até 5.000/dia</li><li>Equipe de até 25 pessoas</li></ul>
+        <a href="#" class="btn btn--linha">7 dias grátis</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── ESPÉCIME ───────────────────────── -->
+<section class="especime">
+  <div class="grade cab" style="padding-bottom:var(--s5);">
+    <div class="indice"><span class="num">—</span><span class="mono">Sistema</span></div>
+    <div class="titulo"><h2>O sistema por trás</h2>
+      <p class="lead">Três famílias, oito degraus de tipo, três raios, uma paleta — a sua.</p></div>
+  </div>
+
+  <div class="grade">
+    <div class="esp-bloco">
+      <div>
+        <p class="mono" style="margin-bottom:var(--s4)">Tipografia</p>
+        <div class="amostra"><span class="tag">Display</span><span style="font-family:Fraunces,serif;font-size:1.9rem;font-weight:700;letter-spacing:-.03em;">Fraunces 700</span></div>
+        <div class="amostra"><span class="tag">Citação</span><span style="font-family:Fraunces,serif;font-style:italic;font-size:1.4rem;color:var(--paper-60);">Fraunces Italic</span></div>
+        <div class="amostra"><span class="tag">Texto</span><span style="font-size:.95rem;">Inter 400 · 500 · 600</span></div>
+        <div class="amostra"><span class="tag">Rótulo</span><span class="mono">JetBrains Mono 500</span></div>
+      </div>
+      <div>
+        <p class="mono" style="margin-bottom:var(--s4)">Paleta (intocada)</p>
+        <div class="chips">
+          <span class="chip"><span class="swatch" style="background:#6f00ff"></span>#6F00FF</span>
+          <span class="chip"><span class="swatch" style="background:#00ffff"></span>#00FFFF</span>
+          <span class="chip"><span class="swatch" style="background:#030014"></span>#030014</span>
+          <span class="chip"><span class="swatch" style="background:#0f0c29"></span>#0F0C29</span>
+          <span class="chip"><span class="swatch" style="background:#131129"></span>#131129</span>
+          <span class="chip"><span class="swatch" style="background:#1e1b3a"></span>#1E1B3A</span>
+        </div>
+        <p class="sm" style="margin-top:var(--s4)">O ciano deixa de ser decoração e vira sinal: só marca o caminho ativo, o índice da seção e o plano em destaque.</p>
+      </div>
+      <div>
+        <p class="mono" style="margin-bottom:var(--s4)">Disciplina</p>
+        <div class="amostra"><span class="tag">Tipo</span><span class="sm">8 degraus (hoje: 43 tamanhos)</span></div>
+        <div class="amostra"><span class="tag">Raio</span><span class="sm">2 · 10 · 999 (hoje: 15 valores)</span></div>
+        <div class="amostra"><span class="tag">Grade</span><span class="sm">12 colunas, calha 24px</span></div>
+        <div class="amostra"><span class="tag">Cabeçalho</span><span class="sm">índice à esquerda, nunca centralizado</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid var(--rule);padding:var(--s6) 0;position:relative;z-index:1;">
+  <div class="grade">
+    <p class="mono c1-7">Protótipo de direção de arte · conteúdo e paleta reais do projeto</p>
+  </div>
+</footer>
+
+<script>
+// Entrada por scroll — mesma estratégia do .reveal que já existe no projeto:
+// o conteúdo nasce visível e o JS "arma" a animação. Se o JS falhar, a página
+// continua legível em vez de ficar em branco.
+(function(){
+  var reduz = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var alvos = document.querySelectorAll('.ent');
+  if (reduz || !('IntersectionObserver' in window)) return;
+  alvos.forEach(function(el){ el.classList.add('armado'); });
+  var io = new IntersectionObserver(function(ent){
+    ent.forEach(function(e){
+      if (e.isIntersecting){ e.target.classList.add('dentro'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  alvos.forEach(function(el){ io.observe(el); });
+})();
+
+// Alternador mensal/anual — só para demonstrar o comportamento visual.
+(function(){
+  var btns = document.querySelectorAll('.ciclo button[data-ciclo]');
+  var precos = document.querySelectorAll('[data-preco]');
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      var anual = b.dataset.ciclo === 'annual';
+      btns.forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+      precos.forEach(function(p){
+        var v = anual ? p.dataset.anual : p.dataset.mensal;
+        p.innerHTML = v + '<small>/mês</small>';
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
