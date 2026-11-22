@@ -213,16 +213,38 @@ custo máximo por cadastro cai de R$ 66 para **R$ 0,33**. A cota cheia entra
 quando o pagamento é aprovado, pela mão dos webhooks, que já faziam isso.
 Site, cadastro, ajuda, termos e painel passaram a dizer o que o trial inclui.
 
-**SITE-03 (achado nesta fase, fora do escopo):** dois enfeites da home
-apontam para arquivos locais que nunca foram baixados, então em produção eles
-**sempre** vêm de CDN de terceiros — mesma classe do `lucide@latest` já
-corrigido:
+**SITE-03 — RESOLVIDO, e a descrição que eu tinha dado estava errada.**
 
-- `index.html:2784` → `/js/vendor/cobe.js` (404; `js/vendor/` só tem
-  `lucide.min.js`) → cai em `unpkg.com`, `cdn.jsdelivr.net`, `esm.sh`;
-- `index.html:4372` → `assets/robot-scene.splinecode` (404 confirmado no
-  backend real: `curl -o /dev/null -w '%{http_code}'` devolveu 404) → cai em
-  `https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode`.
+Eu escrevi aqui que esses enfeites "sempre vêm de CDN em produção". Não era
+verdade: o repo já tinha `scripts/fetch-landing-vendor.js` e o
+`Dockerfile:36` já o rodava no build. O problema era outro, e mais difícil de
+ver:
+
+1. **O auto-hospedar do cobe nunca funcionou, mesmo com o download dando
+   certo.** As duas fontes entregavam um *stub*, não um bundle
+   (`import U from "/npm/phenomenon@1.6.0/+esm"` na jsdelivr;
+   `export * from "/cobe@0.6.3/es2022/cobe.bundle.mjs"` na esm.sh). Caminho
+   relativo à raiz, servido do nosso domínio, vira 404. O validador só olhava
+   `from "https://…"` e aprovava os dois — rodei o validador antigo contra os
+   stubs e ele aprovou ambos.
+2. **O `spline-viewer.js` nem era auto-hospedado**, só a cena. A cena é dado;
+   o viewer é JavaScript de terceiro que executa no navegador do cliente.
+3. **Nada garantia que os arquivos existissem.**
+
+Agora os três estão versionados (3,5 MB), o validador recusa qualquer import
+pendente, o `index.html` tenta a cópia local do viewer antes dos CDNs e o
+script escreve `public/assets/vendor-manifest.json` dizendo o que é local.
+
+Verificado com `audit/harness/landing-sem-cdn.js` (Chromium, toda requisição
+externa abortada): globo em WebGL 552×552, robô montado e `is-loaded`,
+`[globe] cobe carregado via local`, `[3D] usando cena:
+assets/robot-scene.splinecode`, nenhum pedido externo inesperado.
+
+**Ainda sai para fora, e este trabalho não resolve:**
+`unpkg.com/@splinetool/*-wasm` (o viewer traz 6 URLs cravadas no próprio
+bundle minificado e busca os `.wasm` sob demanda; auto-hospedar exigiria
+reescrever código de terceiro) e `fonts.googleapis.com` (Google Fonts,
+dependência anterior e independente).
 
 O `hero-demo.mp4` aparecia como 404 no meu servidor estático de teste, mas
 responde **200** no backend real — era limitação do harness (não trata
