@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-11-22T01:52:18.475Z",
+  "gerado_em": "2026-11-22T13:08:54.682Z",
   "assets": {
     "js/vendor/cobe.js": {
       "bytes": 11533,
@@ -87,10 +87,10 @@
       "local": true
     },
     "css/fonts.css": {
-      "bytes": 11876,
+      "bytes": 17919,
       "origem": "fonts.googleapis.com",
       "local": true,
-      "arquivos_woff2": 38
+      "arquivos_woff2": 56
     }
   }
 }

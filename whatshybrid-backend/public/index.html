@@ -1732,6 +1732,8 @@
     });
   })();
   </script>
+  <!-- Direcao de arte: carrega por ultimo, depois do <style> inline. -->
+  <link rel="stylesheet" href="css/redesign.css">
 </head>
 <body>
 
@@ -1989,7 +1991,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-steps.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="01">
     <span class="section-eyebrow">Onboarding</span>
     <h2 class="mb-4">Em 3 passos você está vendendo</h2>
     <p class="text-muted">Sem desenvolvimento, sem integrações complicadas.</p>
@@ -2026,7 +2028,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-dialogue.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="02">
     <span class="section-eyebrow">IA em ação</span>
     <h2 class="mb-4">Veja a IA <span class="text-gradient">conversando com cliente</span></h2>
     <p class="text-muted">À esquerda, o cliente. À direita, a sugestão que a IA gera pra você aprovar — no tom da sua empresa.</p>
@@ -2206,7 +2208,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-toolkit.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="03">
     <span class="section-eyebrow">Recursos</span>
     <h2 class="mb-4">Recursos que <span class="text-gradient">vendem</span></h2>
     <p class="text-muted">Não é só um chatbot. É um vendedor digital que melhora sozinho.</p>
@@ -2264,7 +2266,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-brain.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="04">
     <span class="section-eyebrow">Como a IA aprende</span>
     <h2 class="mb-4">A IA que <span class="text-gradient">gradua sozinha</span></h2>
     <p class="text-muted">Cada resposta sua vira treino. Padrões só viram exemplo permanente depois de validados.</p>
@@ -2430,7 +2432,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-network.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="05">
     <span class="section-eyebrow">Toolkit completo</span>
     <h2 class="mb-4">Funcionalidades que <span class="text-gradient">alavancam o seu negócio</span></h2>
     <p class="text-muted">Tudo o que você precisa para vender mais, atender melhor e economizar tempo — num só lugar.</p>
@@ -2555,7 +2557,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-dialogue.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-    <div class="text-center disparo-intro reveal reveal-blur">
+    <div class="text-center disparo-intro reveal reveal-blur" data-sec="06">
       <span class="section-eyebrow">Disparo em massa</span>
       <h2 class="mb-4">Disparo de mensagens em massa — <span class="text-gradient">sem cara de spam</span></h2>
       <p class="text-muted">É o recurso que mais assusta — e com razão. Ninguém quer ser bloqueado nem mandar aquele texto frio de lista de transmissão. Por isso o disparo do Vórtex foi feito diferente: ritmo humanizado, mensagem personalizada e entrega confirmada — para você falar com a base inteira sem queimar o seu número.</p>
@@ -2640,7 +2642,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-contrast.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="07">
     <span class="section-eyebrow">Antes &amp; depois</span>
     <h2 class="mb-4">Seu dia <span class="text-gradient">com</span> e <span style="color:#f87171;">sem</span> Vórtex</h2>
     <p class="text-muted">Mesma equipe, mesma estrutura — só muda quem responde primeiro. <em style="color:var(--brand-cyan);">Arraste a barra abaixo</em>.</p>
@@ -2761,7 +2763,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-roi.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal">
+  <div class="text-center reveal" data-sec="08">
     <span class="section-eyebrow">Calculadora de ROI</span>
     <h2 class="mb-4">Quanto a IA <span class="text-gradient">economiza no seu mês</span></h2>
     <p class="text-muted">Estimativa baseada em ~1,5 min médio por mensagem respondida bem e custo de atendente PJ.</p>
@@ -2814,7 +2816,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-growth.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="09">
     <span class="section-eyebrow">Planos</span>
     <h2 class="mb-4">Investimento que se <span class="text-gradient">paga sozinho</span></h2>
     <p class="text-muted mb-8">Sem fidelidade. Cancele quando quiser.</p>
@@ -3062,7 +3064,7 @@
   <div class="pfx-bg" style="background-image: url('assets/bg-faq.jpg');"></div>
   <div class="pfx-veil"></div>
   <div class="container">
-  <div class="text-center reveal reveal-blur">
+  <div class="text-center reveal reveal-blur" data-sec="10">
     <span class="section-eyebrow">Dúvidas comuns</span>
     <h2 class="mb-4">Perguntas frequentes</h2>
   </div>
