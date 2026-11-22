@@ -85,20 +85,24 @@ const soNum = (s) => Number(String(s).replace(/[^\d]/g, '')) || 0;
   conf('total do ciclo e % usado conferem', soNum(sub.split('tokens')[0]) === credits.tokens_total && new RegExp(`\\(${bal.utilization_pct}% usado\\)`).test(sub),
     `sub="${sub}" total_banco=${credits.tokens_total} pct=${bal.utilization_pct}`);
 
-  // 3. tokens consumidos em 30d = soma dos consume no banco
-  const usoTela = soNum(await txt(p, 'usage-tokens'));
-  conf('tokens consumidos (30d) na tela = banco', usoTela === usage.total_tokens_consumed && usage.total_tokens_consumed === consumo.t,
-    `tela=${usoTela} api=${usage.total_tokens_consumed} banco=${consumo.t}`);
+  // 3 e 4. DASH-02 tirou do painel os cartões "Respostas (30d)",
+  // "Chamadas à IA (30d)" e "Média por dia" — o dono pediu, por não confiar
+  // na sincronia e não achar o número relevante. A conferência de TELA some
+  // junto; a de API contra BANCO continua valendo, porque o endpoint
+  // /tokens/usage ficou (a suíte de fumaça o exercita) e é dele que sai o
+  // número se um dia voltar à tela.
+  conf('tokens consumidos (30d): API = banco', usage.total_tokens_consumed === consumo.t,
+    `api=${usage.total_tokens_consumed} banco=${consumo.t}`);
+  conf('nº de chamadas (30d): API = banco', usage.total_requests === consumo.c,
+    `api=${usage.total_requests} banco=${consumo.c}`);
 
-  // 4. nº de requisições = nº de consume
-  const reqTela = soNum(await txt(p, 'usage-requests'));
-  conf('nº de sugestões (30d) na tela = banco', reqTela === usage.total_requests && usage.total_requests === consumo.c,
-    `tela=${reqTela} api=${usage.total_requests} banco=${consumo.c}`);
-
-  // 5. média por sugestão
-  const avgTela = soNum(await txt(p, 'usage-avg'));
-  const avgEsper = consumo.c > 0 ? Math.round(consumo.t / consumo.c) : 0;
-  conf('média de tokens por sugestão confere', avgTela === avgEsper, `tela=${avgTela} esperado=${avgEsper}`);
+  // 5. e os cartões não podem ter voltado sem querer
+  const cartoes = await p.evaluate(() => ({
+    ids: ['usage-tokens', 'usage-requests', 'usage-avg'].filter((i) => document.getElementById(i)),
+    grids: document.querySelectorAll('.kpi-grid, .kpi-card').length,
+  }));
+  conf('cartões de uso (30d) fora do painel', cartoes.ids.length === 0 && cartoes.grids === 0,
+    `ids_presentes=${JSON.stringify(cartoes.ids)} .kpi-grid/.kpi-card=${cartoes.grids}`);
 
   // 6. o topup comprado aparece no saldo (não some) e consta como "Compra avulsa" no histórico
   const historico = await p.evaluate(() => (document.getElementById('tokens-history-container')?.innerText || ''));
