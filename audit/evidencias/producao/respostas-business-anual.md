@@ -240,11 +240,22 @@ externa abortada): globo em WebGL 552×552, robô montado e `is-loaded`,
 `[globe] cobe carregado via local`, `[3D] usando cena:
 assets/robot-scene.splinecode`, nenhum pedido externo inesperado.
 
-**Ainda sai para fora, e este trabalho não resolve:**
-`unpkg.com/@splinetool/*-wasm` (o viewer traz 6 URLs cravadas no próprio
-bundle minificado e busca os `.wasm` sob demanda; auto-hospedar exigiria
-reescrever código de terceiro) e `fonts.googleapis.com` (Google Fonts,
-dependência anterior e independente).
+**SITE-03b — o `.wasm` também foi resolvido.** Auto-hospedar só o
+`spline-viewer.js` não bastava: o bundle carrega oito `.js` irmãos por import
+relativo, quatro `.wasm` por URL absoluta cravada no código minificado, o
+`navmesh.js` dentro de um worker montado por template de string, o
+decodificador Draco no `www.gstatic.com` e o logo do Spline no
+`app.spline.design`. Tudo isso vive agora em `public/js/vendor/spline/`
+(13 MB), com as 7 URLs absolutas reescritas pelo script de vendor, que falha
+se sobrar qualquer host de terceiro depois da troca.
+
+A pasta foi vendorizada inteira de propósito: com o import relativo apontando
+para o local, um arquivo ausente dá 404 e **não** cai em CDN — vendorizar pela
+metade trocaria "depende de CDN" por "quebra em silêncio quando a cena mudar".
+
+**Ainda sai para fora:** só `fonts.googleapis.com` (Google Fonts), dependência
+anterior e independente — e com implicação de LGPD, já que o Google recebe o
+IP de cada visitante.
 
 O `hero-demo.mp4` aparecia como 404 no meu servidor estático de teste, mas
 responde **200** no backend real — era limitação do harness (não trata
