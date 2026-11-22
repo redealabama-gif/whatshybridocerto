@@ -1,14 +1,84 @@
 {
-  "gerado_em": "2026-11-22T01:31:06.142Z",
+  "gerado_em": "2026-11-22T01:45:41.297Z",
   "assets": {
     "js/vendor/cobe.js": {
       "bytes": 11533,
       "origem": "esm.sh",
       "local": true
     },
-    "js/vendor/spline-viewer.js": {
-      "bytes": 2235800,
+    "js/vendor/spline/spline-viewer.js": {
+      "bytes": 2235601,
       "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/physics.js": {
+      "bytes": 1988993,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/opentype.js": {
+      "bytes": 177274,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/process.js": {
+      "bytes": 114661,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/navmesh.js": {
+      "bytes": 95105,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/boolean.js": {
+      "bytes": 93494,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/ui.js": {
+      "bytes": 92056,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/gaussian-splat-compression.js": {
+      "bytes": 83100,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/howler.js": {
+      "bytes": 26899,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/boolean.wasm": {
+      "bytes": 503857,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/process.wasm": {
+      "bytes": 506500,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/navmesh.wasm": {
+      "bytes": 352193,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/ui.wasm": {
+      "bytes": 6169290,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "js/vendor/spline/draco/draco_wasm_wrapper.js": {
+      "bytes": 59024,
+      "origem": "www.gstatic.com",
+      "local": true
+    },
+    "js/vendor/spline/draco/draco_decoder.wasm": {
+      "bytes": 280793,
+      "origem": "www.gstatic.com",
       "local": true
     },
     "assets/robot-scene.splinecode": {

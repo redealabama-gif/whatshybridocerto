@@ -6,16 +6,15 @@
  * servidor local. Se o globo desenhar e o <spline-viewer> montar um canvas
  * nessas condições, os assets estão mesmo auto-hospedados.
  *
- * Dois pedidos externos SOBRAM de propósito e estão listados em RESIDUAIS:
+ * Um único pedido externo SOBRA de propósito e está listado em RESIDUAIS:
  *
- *   unpkg.com/@splinetool/*-wasm  — o viewer traz 6 URLs cravadas no próprio
- *     bundle minificado e busca esses .wasm sob demanda. Auto-hospedar exigiria
- *     reescrever código de terceiro; a cena renderiza sem eles.
- *   fonts.googleapis.com          — Google Fonts, dependência de CDN anterior
- *     e independente desta correção.
+ *   fonts.googleapis.com / fonts.gstatic.com — Google Fonts, dependência
+ *     anterior e independente desta correção (e com implicação de LGPD: o
+ *     Google recebe o IP de cada visitante).
  *
- * Eles são reportados a cada execução, mas não reprovam: o que reprova é
- * qualquer pedido externo FORA dessa lista — aí um asset nosso voltou pro CDN.
+ * O unpkg saiu da lista de propósito: depois que o viewer do Spline passou a
+ * ser auto-hospedado com as URLs reescritas, QUALQUER pedido ao unpkg
+ * significa que algo voltou pro CDN — e aí o harness tem de reprovar.
  *
  * Uso (na raiz): node audit/harness/landing-sem-cdn.js [dir-para-prints]
  */
@@ -103,7 +102,6 @@ const srv = http.createServer((req, res) => {
 
   // Conhecidos e aceitos (ver cabeçalho). Qualquer outro host externo reprova.
   const RESIDUAIS = [
-    /^https:\/\/unpkg\.com\/@splinetool\/[a-z-]+@[\d.]+\/build\//,
     /^https:\/\/fonts\.googleapis\.com\//,
     /^https:\/\/fonts\.gstatic\.com\//,
   ];

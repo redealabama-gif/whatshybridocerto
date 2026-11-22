@@ -28,10 +28,10 @@ const PUBLIC = path.join(__dirname, '..', '..', 'public');
 const ler = (rel) => fs.readFileSync(path.join(PUBLIC, rel));
 
 describe('SITE-03 — assets da landing auto-hospedados', () => {
-  test('os três arquivos existem no repositório', () => {
-    for (const rel of ['js/vendor/cobe.js', 'js/vendor/spline-viewer.js', 'assets/robot-scene.splinecode']) {
-      const p = path.join(PUBLIC, rel);
-      expect({ rel, existe: fs.existsSync(p) }).toEqual({ rel, existe: true });
+  test('todos os arquivos do script existem no repositório', () => {
+    for (const t of TARGETS) {
+      const rel = path.relative(PUBLIC, t.out).split(path.sep).join('/');
+      expect({ rel, existe: fs.existsSync(t.out) }).toEqual({ rel, existe: true });
     }
   });
 
@@ -40,7 +40,47 @@ describe('SITE-03 — assets da landing auto-hospedados', () => {
   });
 
   test('spline-viewer.js não importa de URL externa', () => {
-    expect(() => validarScriptSelfContained(ler('js/vendor/spline-viewer.js'))).not.toThrow();
+    expect(() => validarScriptSelfContained(ler('js/vendor/spline/spline-viewer.js'))).not.toThrow();
+  });
+
+  // --- o viewer não pode mais buscar NADA de terceiro ---------------------
+
+  test('o viewer local não cita nenhum host de CDN', () => {
+    const txt = ler('js/vendor/spline/spline-viewer.js').toString('utf8');
+    for (const host of ['unpkg.com', 'cdn.jsdelivr.net', 'www.gstatic.com', 'app.spline.design']) {
+      expect({ host, encontrado: txt.includes(host) }).toEqual({ host, encontrado: false });
+    }
+  });
+
+  test('o viewer aponta para /js/vendor/spline', () => {
+    const txt = ler('js/vendor/spline/spline-viewer.js').toString('utf8');
+    expect(txt).toContain('"/js/vendor/spline"');
+    expect(txt).toContain('/js/vendor/spline/draco/');
+    expect(txt).toContain('/js/vendor/spline/ui.wasm');
+  });
+
+  test('cada .js que o viewer importa sob demanda está na mesma pasta', () => {
+    const txt = ler('js/vendor/spline/spline-viewer.js').toString('utf8');
+    const pedidos = [...txt.matchAll(/import\("\.\/([^"]+)"\)/g)].map((m) => m[1]);
+    expect(pedidos.length).toBeGreaterThan(0);
+    for (const arq of new Set(pedidos)) {
+      const p = path.join(PUBLIC, 'js', 'vendor', 'spline', arq);
+      // Se faltar, o import dá 404 e NÃO cai em CDN: quebra em silêncio.
+      expect({ arq, existe: fs.existsSync(p) }).toEqual({ arq, existe: true });
+    }
+  });
+
+  test('os quatro .wasm são WebAssembly de verdade', () => {
+    for (const arq of ['boolean.wasm', 'process.wasm', 'navmesh.wasm', 'ui.wasm']) {
+      const buf = ler('js/vendor/spline/' + arq);
+      expect({ arq, magico: buf.slice(0, 4).toString('hex') })
+        .toEqual({ arq, magico: '0061736d' });
+    }
+  });
+
+  test('o decodificador Draco está local', () => {
+    expect(ler('js/vendor/spline/draco/draco_decoder.wasm').slice(0, 4).toString('hex')).toBe('0061736d');
+    expect(ler('js/vendor/spline/draco/draco_wasm_wrapper.js').length).toBeGreaterThan(10 * 1024);
   });
 
   test('a cena do robô é binário de verdade, não página de erro', () => {
@@ -80,7 +120,7 @@ describe('SITE-03 — assets da landing auto-hospedados', () => {
     const m = src.match(/var VIEWER_CDNS = \[([\s\S]*?)\];/);
     expect(m).toBeTruthy();
     const urls = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(urls[0]).toBe('js/vendor/spline-viewer.js');
+    expect(urls[0]).toBe('js/vendor/spline/spline-viewer.js');
     expect(urls.length).toBeGreaterThan(1); // CDN segue como rede de segurança
   });
 
@@ -92,10 +132,12 @@ describe('SITE-03 — assets da landing auto-hospedados', () => {
     expect(iCdn).toBeGreaterThan(iLocal);
   });
 
-  test('o script de vendor cobre os três alvos', () => {
+  test('o script de vendor cobre cobe, cena e o conjunto do Spline', () => {
     const saidas = TARGETS.map((t) => path.relative(PUBLIC, t.out).split(path.sep).join('/'));
-    expect(saidas.sort()).toEqual(
-      ['assets/robot-scene.splinecode', 'js/vendor/cobe.js', 'js/vendor/spline-viewer.js']
-    );
+    expect(saidas).toContain('js/vendor/cobe.js');
+    expect(saidas).toContain('assets/robot-scene.splinecode');
+    expect(saidas).toContain('js/vendor/spline/spline-viewer.js');
+    // 8 irmãos .js + 4 wasm + 2 do draco + o viewer = 15 no diretório do Spline
+    expect(saidas.filter((x) => x.startsWith('js/vendor/spline/')).length).toBe(15);
   });
 });

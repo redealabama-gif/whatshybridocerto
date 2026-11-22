@@ -6,7 +6,9 @@
  * landing IMUNE a quedas do prod.spline.design / jsdelivr / esm.sh:
  *
  *   - cobe (lib do globo)   → public/js/vendor/cobe.js          (ESM self-contained)
- *   - viewer do Spline      → public/js/vendor/spline-viewer.js  (ESM self-contained)
+ *   - Spline inteiro        → public/js/vendor/spline/           (viewer + .js irmãos
+ *                             + .wasm + decodificador Draco, com as URLs de CDN
+ *                             cravadas no bundle reescritas para o caminho local)
  *   - cena 3D do robô       → public/assets/robot-scene.splinecode
  *
  * USO (num ambiente COM acesso à internet):
@@ -28,6 +30,83 @@ const path = require('path');
 const https = require('https');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
+
+// ───────────────────────────── Spline ─────────────────────────────
+//
+// O bundle do viewer carrega, SOB DEMANDA, mais oito arquivos .js irmãos
+// (import('./physics.js') e companhia, relativos ao próprio arquivo) e busca
+// quatro .wasm e o decodificador Draco por URL ABSOLUTA cravada no código
+// minificado. Auto-hospedar só o spline-viewer.js não resolvia nada: a cena
+// continuava puxando process.wasm do unpkg a cada visita.
+//
+// Tudo vai para a MESMA pasta (public/js/vendor/spline/). Assim os imports
+// relativos resolvem sozinhos e as URLs absolutas viram um prefixo só.
+const SPLINE_VER = '1.9.96';
+const SPLINE_DIR = path.join(PUBLIC, 'js', 'vendor', 'spline');
+const SPLINE_BASE_WEB = '/js/vendor/spline';
+const DRACO_VER = '1.5.2';
+
+// PNG 1x1 totalmente transparente, embutido — não baixa nada de ninguém.
+const PNG_TRANSPARENTE =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+// Arquivos .js que o viewer importa por caminho relativo. Todos precisam
+// estar presentes: se faltar um, o import dá 404 e NÃO cai em CDN nenhum —
+// seria trocar "depende de CDN" por "quebra em silêncio".
+const SPLINE_JS_IRMAOS = [
+  'physics.js', 'opentype.js', 'process.js', 'navmesh.js',
+  'boolean.js', 'ui.js', 'gaussian-splat-compression.js', 'howler.js',
+];
+
+// Pacotes .wasm separados, buscados por URL absoluta.
+const SPLINE_WASM = [
+  ['boolean-wasm', 'boolean.wasm'],
+  ['modelling-wasm', 'process.wasm'],
+  ['navmesh-wasm', 'navmesh.wasm'],
+  ['ui-wasm', 'ui.wasm'],
+];
+
+/**
+ * Reescreve as URLs de CDN cravadas no bundle do viewer para o caminho local.
+ * São literais de string no código minificado; a troca é textual e o
+ * resultado é conferido depois (nenhum host de terceiro pode sobrar).
+ */
+function reescreverUrlsDoViewer(buf) {
+  let txt = buf.toString('utf8');
+  const trocas = [
+    [`https://unpkg.com/@splinetool/boolean-wasm@${SPLINE_VER}/build`, SPLINE_BASE_WEB],
+    [`https://unpkg.com/@splinetool/modelling-wasm@${SPLINE_VER}/build`, SPLINE_BASE_WEB],
+    [`https://unpkg.com/@splinetool/navmesh-wasm@${SPLINE_VER}/build`, SPLINE_BASE_WEB],
+    [`https://unpkg.com/@splinetool/ui-wasm@${SPLINE_VER}/build/ui.wasm`, SPLINE_BASE_WEB + '/ui.wasm'],
+    [`https://unpkg.com/@splinetool/runtime@${SPLINE_VER}/build/`, SPLINE_BASE_WEB + '/'],
+    [`https://www.gstatic.com/draco/versioned/decoders/${DRACO_VER}/`, SPLINE_BASE_WEB + '/draco/'],
+    // Logo do Spline, usado como background-image do badge dentro do shadow
+    // DOM do viewer. A landing JÁ esconde esse badge por CSS
+    // (`.feature-robot spline-viewer::part(logo) { display: none }`), então a
+    // imagem nunca aparece — mas era pedida ao app.spline.design a cada
+    // visita. Trocada por um PNG transparente embutido: não muda nada na
+    // tela, só some com a requisição. Se um dia o badge voltar a ser
+    // exibido, isto aqui precisa voltar atrás.
+    ['https://app.spline.design/_assets/_icons/icon_favicon32x32.png', PNG_TRANSPARENTE],
+  ];
+  const feitas = [];
+  for (const [de, para] of trocas) {
+    const antes = txt.length;
+    txt = txt.split(de).join(para);
+    if (txt.length !== antes) feitas.push(de);
+  }
+  if (!feitas.length) throw new Error('nenhuma URL de CDN encontrada no bundle (versão mudou?)');
+
+  // Nada de terceiro pode sobrar entre as URLs que o viewer BUSCA. As que
+  // restam no arquivo são de comentário/atribuição (shadertoy, iquilezles) ou
+  // de recursos do editor que a landing não usa.
+  const proibidos = [/unpkg\.com/, /cdn\.jsdelivr\.net/, /www\.gstatic\.com/, /app\.spline\.design/];
+  for (const re of proibidos) {
+    const m = txt.match(re);
+    if (m) throw new Error('sobrou referência a ' + m[0] + ' depois da reescrita');
+  }
+  return { buf: Buffer.from(txt, 'utf8'), feitas };
+}
 
 /**
  * Um bundle auto-hospedado não pode ter NENHUM import pendente — nem absoluto
@@ -52,6 +131,15 @@ function validarEsmSelfContained(buf) {
   }
 }
 
+/** Um .wasm de verdade começa com o número mágico \0asm. */
+function validarWasm(buf) {
+  if (buf.length < 1024) throw new Error('pequeno demais (' + buf.length + ' bytes)');
+  const magico = buf.slice(0, 4);
+  if (!(magico[0] === 0x00 && magico[1] === 0x61 && magico[2] === 0x73 && magico[3] === 0x6d)) {
+    throw new Error('não é WebAssembly (começa com ' + magico.toString('hex') + ')');
+  }
+}
+
 /** Validação de um bundle que registra um custom element (não precisa exportar). */
 function validarScriptSelfContained(buf) {
   const txt = buf.toString('utf8');
@@ -61,8 +149,8 @@ function validarScriptSelfContained(buf) {
   if (/\bfrom\s*["']https?:\/\//.test(txt)) {
     throw new Error('não é self-contained — importa de URL externa');
   }
-  if (buf.length < 50 * 1024) {
-    throw new Error('arquivo pequeno demais para o viewer (' + buf.length + ' bytes)');
+  if (buf.length < 10 * 1024) {
+    throw new Error('arquivo pequeno demais (' + buf.length + ' bytes)');
   }
 }
 
@@ -91,18 +179,54 @@ const TARGETS = [
     validate: validarEsmSelfContained,
   },
   {
-    // O arquivo mais importante dos três: é JAVASCRIPT DE TERCEIRO que roda no
-    // navegador do cliente. A cena é só dado; o viewer executa. Enquanto ele
-    // vier de CDN, uma invasão no pacote @splinetool/viewer roda código na
-    // nossa landing. Antes só a cena era auto-hospedada.
+    // O arquivo mais importante do conjunto: é JAVASCRIPT DE TERCEIRO que roda
+    // no navegador do cliente. A cena é só dado; o viewer executa. As URLs de
+    // CDN cravadas nele são reescritas para o caminho local em `transform`.
     name: 'viewer do Spline (lib que executa no navegador)',
-    out: path.join(PUBLIC, 'js', 'vendor', 'spline-viewer.js'),
+    out: path.join(SPLINE_DIR, 'spline-viewer.js'),
     sources: [
-      'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js',
-      'https://cdn.jsdelivr.net/npm/@splinetool/viewer@1.9.96/build/spline-viewer.js',
+      `https://unpkg.com/@splinetool/viewer@${SPLINE_VER}/build/spline-viewer.js`,
+      `https://cdn.jsdelivr.net/npm/@splinetool/viewer@${SPLINE_VER}/build/spline-viewer.js`,
     ],
     validate: validarScriptSelfContained,
+    transform(buf) {
+      const { buf: saida, feitas } = reescreverUrlsDoViewer(buf);
+      console.log('    ↳ ' + feitas.length + ' URL(s) de CDN reescritas para ' + SPLINE_BASE_WEB);
+      return saida;
+    },
   },
+
+  // Os .js irmãos: o viewer faz import('./physics.js') e companhia quando a
+  // cena usa o recurso. Sem eles no mesmo diretório, 404 sem fallback.
+  ...SPLINE_JS_IRMAOS.map((arq) => ({
+    name: 'Spline — ' + arq + ' (import sob demanda do viewer)',
+    out: path.join(SPLINE_DIR, arq),
+    sources: [
+      `https://unpkg.com/@splinetool/viewer@${SPLINE_VER}/build/${arq}`,
+      `https://cdn.jsdelivr.net/npm/@splinetool/viewer@${SPLINE_VER}/build/${arq}`,
+    ],
+    validate: validarScriptSelfContained,
+  })),
+
+  // Os .wasm, que o bundle buscava por URL absoluta no unpkg.
+  ...SPLINE_WASM.map(([pacote, arq]) => ({
+    name: 'Spline — ' + arq + ' (' + pacote + ')',
+    out: path.join(SPLINE_DIR, arq),
+    sources: [
+      `https://unpkg.com/@splinetool/${pacote}@${SPLINE_VER}/build/${arq}`,
+      `https://cdn.jsdelivr.net/npm/@splinetool/${pacote}@${SPLINE_VER}/build/${arq}`,
+    ],
+    validate: validarWasm,
+  })),
+
+  // Decodificador Draco (geometria comprimida), que o viewer buscava no
+  // www.gstatic.com do Google.
+  ...['draco_wasm_wrapper.js', 'draco_decoder.wasm'].map((arq) => ({
+    name: 'Spline — draco/' + arq,
+    out: path.join(SPLINE_DIR, 'draco', arq),
+    sources: [`https://www.gstatic.com/draco/versioned/decoders/${DRACO_VER}/${arq}`],
+    validate: arq.endsWith('.wasm') ? validarWasm : validarScriptSelfContained,
+  })),
   {
     name: 'cena 3D do robô (Spline)',
     out: path.join(PUBLIC, 'assets', 'robot-scene.splinecode'),
@@ -195,7 +319,8 @@ async function main() {
   for (const t of TARGETS) {
     console.log('\n▶ ' + t.name);
     try {
-      const { buf, url } = await fetchFirst(t);
+      const { buf: bruto, url } = await fetchFirst(t);
+      const buf = t.transform ? t.transform(bruto) : bruto;
       fs.mkdirSync(path.dirname(t.out), { recursive: true });
       fs.writeFileSync(t.out, buf);
       const rel = path.relative(PUBLIC, t.out).split(path.sep).join('/');
