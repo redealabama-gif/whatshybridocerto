@@ -253,9 +253,18 @@ A pasta foi vendorizada inteira de propósito: com o import relativo apontando
 para o local, um arquivo ausente dá 404 e **não** cai em CDN — vendorizar pela
 metade trocaria "depende de CDN" por "quebra em silêncio quando a cena mudar".
 
-**Ainda sai para fora:** só `fonts.googleapis.com` (Google Fonts), dependência
-anterior e independente — e com implicação de LGPD, já que o Google recebe o
-IP de cada visitante.
+**SITE-03c — as fontes também.** As 9 páginas de `public/` mais o painel
+`admin/` pediam Fraunces e Inter a `fonts.googleapis.com`, que serve os
+`.woff2` de `fonts.gstatic.com`. Além do CDN, era um problema de LGPD: toda
+visita entregava o IP do visitante ao Google. Agora são 38 arquivos em
+`public/fonts/` (1,3 MB, os 7 subconjuntos de caracteres completos) servidos
+por `public/css/fonts.css`, e os dois hosts saíram da CSP — o navegador passa
+a **recusar** uma volta ao CDN, em vez de só não precisar dele.
+
+**Resultado final:** a home renderiza inteira — globo, robô 3D e fontes — com
+**toda requisição externa abortada**. O único host de terceiro que a conta
+ainda usa é `accounts.google.com`, do "Entrar com Google", que por natureza
+tem de vir do Google.
 
 O `hero-demo.mp4` aparecia como 404 no meu servidor estático de teste, mas
 responde **200** no backend real — era limitação do harness (não trata
