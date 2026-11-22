@@ -219,8 +219,12 @@ const helmetForPortal = helmet({
         "https://accounts.google.com/gsi/client",
       ],
       workerSrc: ["'self'", "blob:", "data:", CRISP_SRC], // Spline cria workers de blob:/data:
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", CRISP_SRC, "https://accounts.google.com/gsi/style"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:", CRISP_SRC],
+      // SITE-03c: as fontes passaram a ser auto-hospedadas (public/css/fonts.css
+      // + public/fonts/*.woff2), então fonts.googleapis.com e fonts.gstatic.com
+      // saíram daqui. Agora a CSP RECUSA uma volta ao Google Fonts, em vez de
+      // só não precisar dele.
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", CRISP_SRC, "https://accounts.google.com/gsi/style"],
+      fontSrc: ["'self'", "data:", CRISP_SRC],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       mediaSrc: ["'self'", CRISP_SRC], // sons de notificação do chat
       connectSrc: ["'self'", "https:", "wss:", "blob:"],

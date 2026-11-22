@@ -10,6 +10,7 @@
  *                             + .wasm + decodificador Draco, com as URLs de CDN
  *                             cravadas no bundle reescritas para o caminho local)
  *   - cena 3D do robô       → public/assets/robot-scene.splinecode
+ *   - Google Fonts          → public/fonts/*.woff2 + public/css/fonts.css
  *
  * USO (num ambiente COM acesso à internet):
  *   cd whatshybrid-backend
@@ -243,18 +244,99 @@ const TARGETS = [
   },
 ];
 
-function get(url, redirects = 0) {
+// ───────────────────────────── Google Fonts ─────────────────────────────
+//
+// As 9 páginas carregavam as duas famílias de fonts.googleapis.com, que por
+// sua vez serve os .woff2 de fonts.gstatic.com. Além da dependência de CDN,
+// isso entrega o IP de cada visitante ao Google — sob a LGPD, transferência
+// de dado pessoal que ninguém consentiu.
+//
+// A folha vem com 38 @font-face (7 subconjuntos de caracteres). Baixamos
+// TODOS: cada arquivo tem 10–20 KB, então pegar só o latin pouparia pouco e
+// quebraria texto em grego, cirílico ou vietnamita.
+const FONTES_URL =
+  'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800' +
+  '&family=Inter:wght@400;500;600;700;800&display=swap';
+// Sem User-Agent de navegador moderno a Google devolve .ttf em vez de .woff2.
+const UA_NAVEGADOR =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Baixa a folha do Google, troca cada URL remota pelo arquivo local e salva
+ * tudo em public/fonts/ + public/css/fonts.css.
+ */
+async function vendorizarFontes(manifesto) {
+  console.log('\n\u25b6 Google Fonts (Fraunces + Inter)');
+  const dirFontes = path.join(PUBLIC, 'fonts');
+  const saidaCss = path.join(PUBLIC, 'css', 'fonts.css');
+
+  process.stdout.write('  \u2022 folha do Google \u2026 ');
+  let css = (await get(FONTES_URL, 0, { 'User-Agent': UA_NAVEGADOR })).toString('utf8');
+  if (!/@font-face/.test(css)) throw new Error('a folha veio sem @font-face');
+  console.log('ok (' + css.length.toLocaleString('pt-BR') + ' bytes)');
+
+  const blocos = [...css.matchAll(/\/\* ([a-z-]+) \*\/\s*@font-face\s*\{([^}]*)\}/g)];
+  if (!blocos.length) throw new Error('nao consegui separar os @font-face');
+
+  fs.mkdirSync(dirFontes, { recursive: true });
+  const usados = new Set();
+  let baixados = 0;
+
+  for (const [, subset, corpo] of blocos) {
+    const fam = (corpo.match(/font-family:\s*'([^']+)'/) || [])[1];
+    const peso = ((corpo.match(/font-weight:\s*([^;]+);/) || [])[1] || '400').trim();
+    const url = (corpo.match(/url\((https:\/\/[^)]+)\)/) || [])[1];
+    if (!fam || !url) throw new Error('bloco @font-face sem familia ou url');
+
+    // Nome legivel e estavel: familia-subset-peso.woff2 ("400 800" = variavel).
+    const nome = [fam.toLowerCase(), subset, peso.includes(' ') ? 'var' : peso].join('-') + '.woff2';
+    if (usados.has(nome)) throw new Error('dois arquivos cairiam em ' + nome);
+    usados.add(nome);
+
+    const buf = await get(url, 0, { 'User-Agent': UA_NAVEGADOR });
+    // Um .woff2 comeca com a assinatura "wOF2".
+    if (buf.slice(0, 4).toString('ascii') !== 'wOF2') {
+      throw new Error(nome + ': nao e woff2 (' + buf.slice(0, 4).toString('hex') + ')');
+    }
+    fs.writeFileSync(path.join(dirFontes, nome), buf);
+    css = css.split(url).join('/fonts/' + nome);
+    baixados += 1;
+  }
+
+  if (/https?:\/\//.test(css)) throw new Error('sobrou URL externa na folha depois da troca');
+
+  const cabecalho = [
+    '/* Fontes auto-hospedadas \u2014 NAO EDITE A MAO.',
+    ' * Gerado por whatshybrid-backend/scripts/fetch-landing-vendor.js',
+    ' * Fraunces e Inter estao sob a SIL Open Font License 1.1.',
+    ' */',
+    '',
+  ].join('\n');
+  fs.mkdirSync(path.dirname(saidaCss), { recursive: true });
+  fs.writeFileSync(saidaCss, cabecalho + css);
+
+  console.log('  \u2713 ' + baixados + ' arquivo(s) em public/fonts/ + public/css/fonts.css');
+  manifesto.assets['css/fonts.css'] = {
+    bytes: Buffer.byteLength(cabecalho + css),
+    origem: 'fonts.googleapis.com',
+    local: true,
+    arquivos_woff2: baixados,
+  };
+}
+
+function get(url, redirects = 0, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     if (redirects > 5) return reject(new Error('redirecionamentos demais'));
     const req = https.get(
       url,
-      { headers: { 'User-Agent': 'whatshybrid-vendor/1.0', Accept: '*/*' } },
+      { headers: { 'User-Agent': 'whatshybrid-vendor/1.0', Accept: '*/*', ...extraHeaders } },
       (res) => {
         const code = res.statusCode || 0;
         if (code >= 300 && code < 400 && res.headers.location) {
           res.resume();
           const next = new URL(res.headers.location, url).toString();
-          return resolve(get(next, redirects + 1));
+          return resolve(get(next, redirects + 1, extraHeaders));
         }
         if (code !== 200) {
           res.resume();
@@ -332,6 +414,14 @@ async function main() {
       manifesto.assets[rel] = { local: false, erro: e.message };
       console.error('  ✗ ' + t.name + ': ' + e.message);
     }
+  }
+
+  try {
+    await vendorizarFontes(manifesto);
+  } catch (e) {
+    failures += 1;
+    manifesto.assets['css/fonts.css'] = { local: false, erro: e.message };
+    console.error('  ✗ Google Fonts: ' + e.message);
   }
 
   // O manifesto é o que permite SABER, em produção, se a landing está

@@ -141,3 +141,80 @@ describe('SITE-03 — assets da landing auto-hospedados', () => {
     expect(saidas.filter((x) => x.startsWith('js/vendor/spline/')).length).toBe(15);
   });
 });
+
+// ──────────────────────────── SITE-03c: fontes ────────────────────────────
+//
+// As 10 páginas (9 em public/ + o painel admin) carregavam Fraunces e Inter
+// de fonts.googleapis.com, que por sua vez serve os .woff2 de
+// fonts.gstatic.com. Além da dependência de CDN, isso entrega o IP de cada
+// visitante ao Google — sob a LGPD, transferência de dado pessoal sem
+// consentimento.
+
+const RAIZ_BACKEND = path.join(__dirname, '..', '..');
+
+function paginasHtml() {
+  const out = [];
+  for (const dir of [PUBLIC, path.join(RAIZ_BACKEND, 'admin')]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      if (f.endsWith('.html')) out.push(path.join(dir, f));
+    }
+  }
+  return out;
+}
+
+describe('SITE-03c — fontes auto-hospedadas', () => {
+  test('nenhuma página referencia o Google Fonts', () => {
+    const culpadas = paginasHtml().filter((p) =>
+      /fonts\.(googleapis|gstatic)\.com/.test(fs.readFileSync(p, 'utf8'))
+    ).map((p) => path.basename(p));
+    expect(culpadas).toEqual([]);
+  });
+
+  test('toda página que usa as famílias carrega a folha local', () => {
+    const semFolha = paginasHtml().filter((p) => {
+      const src = fs.readFileSync(p, 'utf8');
+      const usa = /Fraunces|'Inter'|"Inter"/.test(src);
+      return usa && !/href="\/?css\/fonts\.css"/.test(src);
+    }).map((p) => path.basename(p));
+    expect(semFolha).toEqual([]);
+  });
+
+  test('a folha local não aponta para fora', () => {
+    const css = ler('css/fonts.css').toString('utf8');
+    expect(/https?:\/\//.test(css)).toBe(false);
+    expect(css).toMatch(/@font-face/);
+  });
+
+  test('cada arquivo citado na folha existe e é woff2 de verdade', () => {
+    const css = ler('css/fonts.css').toString('utf8');
+    const refs = [...css.matchAll(/url\((\/fonts\/[^)]+)\)/g)].map((m) => m[1]);
+    expect(refs.length).toBeGreaterThanOrEqual(30); // 7 subconjuntos x 2 famílias
+    for (const ref of new Set(refs)) {
+      const p = path.join(PUBLIC, ref.replace(/^\//, ''));
+      expect({ ref, existe: fs.existsSync(p) }).toEqual({ ref, existe: true });
+      // Assinatura de um .woff2.
+      expect(fs.readFileSync(p).slice(0, 4).toString('ascii')).toBe('wOF2');
+    }
+  });
+
+  test('as duas famílias estão na folha, com os subconjuntos', () => {
+    const css = ler('css/fonts.css').toString('utf8');
+    expect(css).toMatch(/font-family:\s*'Fraunces'/);
+    expect(css).toMatch(/font-family:\s*'Inter'/);
+    expect(css).toMatch(/unicode-range/);
+    expect(css).toMatch(/font-display:\s*swap/);
+  });
+
+  test('a CSP não libera mais os hosts do Google Fonts', () => {
+    // Deixar os hosts na política faria a CSP aceitar uma volta ao CDN em
+    // silêncio. Tirando, o navegador RECUSA.
+    const src = fs.readFileSync(path.join(RAIZ_BACKEND, 'src', 'server.js'), 'utf8');
+    const politica = src.slice(src.indexOf('const helmetForPortal'));
+    const style = (politica.match(/styleSrc:\s*\[([^\]]*)\]/) || [])[1] || '';
+    const font = (politica.match(/fontSrc:\s*\[([^\]]*)\]/) || [])[1] || '';
+    expect(style).not.toContain('fonts.googleapis.com');
+    expect(font).not.toContain('fonts.gstatic.com');
+    expect(font).toContain("'self'");
+  });
+});

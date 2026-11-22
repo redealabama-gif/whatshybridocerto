@@ -6,15 +6,13 @@
  * servidor local. Se o globo desenhar e o <spline-viewer> montar um canvas
  * nessas condições, os assets estão mesmo auto-hospedados.
  *
- * Um único pedido externo SOBRA de propósito e está listado em RESIDUAIS:
- *
- *   fonts.googleapis.com / fonts.gstatic.com — Google Fonts, dependência
- *     anterior e independente desta correção (e com implicação de LGPD: o
- *     Google recebe o IP de cada visitante).
- *
- * O unpkg saiu da lista de propósito: depois que o viewer do Spline passou a
- * ser auto-hospedado com as URLs reescritas, QUALQUER pedido ao unpkg
- * significa que algo voltou pro CDN — e aí o harness tem de reprovar.
+ * RESIDUAIS está vazio: a landing não deve pedir NADA para fora. Cada host
+ * que saiu da lista saiu porque o asset virou local —
+ *   unpkg/jsdelivr/esm.sh  → cobe e o conjunto do Spline;
+ *   www.gstatic.com        → decodificador Draco;
+ *   app.spline.design      → logo do badge;
+ *   fonts.googleapis.com / fonts.gstatic.com → Fraunces e Inter.
+ * Qualquer pedido externo agora significa que algo voltou pro CDN.
  *
  * Uso (na raiz): node audit/harness/landing-sem-cdn.js [dir-para-prints]
  */
@@ -101,14 +99,25 @@ const srv = http.createServer((req, res) => {
   });
 
   // Conhecidos e aceitos (ver cabeçalho). Qualquer outro host externo reprova.
-  const RESIDUAIS = [
-    /^https:\/\/fonts\.googleapis\.com\//,
-    /^https:\/\/fonts\.gstatic\.com\//,
-  ];
+  const RESIDUAIS = [];
   const residuais = externas.filter((u) => RESIDUAIS.some((re) => re.test(u)));
   const inesperadas = externas.filter((u) => !RESIDUAIS.some((re) => re.test(u)));
 
+  // As fontes locais aplicaram mesmo? document.fonts só lista o que carregou.
+  const fontes = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const familias = [...document.fonts].map((f) => f.family.replace(/['"]/g, ''));
+    const h1 = document.querySelector('h1, h2');
+    return {
+      carregadas: [...new Set(familias)],
+      usadaNoTitulo: h1 ? getComputedStyle(h1).fontFamily : null,
+    };
+  });
+
   const falhas = [];
+  if (!fontes.carregadas.includes('Fraunces') || !fontes.carregadas.includes('Inter')) {
+    falhas.push('fontes locais não carregaram: ' + JSON.stringify(fontes));
+  }
   if (!globo.ok) falhas.push('globo não renderizou: ' + JSON.stringify(globo));
   if (!robo.ok) falhas.push('robô 3D não renderizou: ' + JSON.stringify(robo));
   if (inesperadas.length) {
@@ -118,6 +127,7 @@ const srv = http.createServer((req, res) => {
 
   console.log('globo :', JSON.stringify(globo));
   console.log('robô  :', JSON.stringify(robo));
+  console.log('fontes :', JSON.stringify(fontes));
   console.log('residuais conhecidos :', residuais.length
     ? [...new Set(residuais)].join('\n                      ') : 'nenhum');
   console.log('externos inesperados :', inesperadas.length
@@ -127,7 +137,7 @@ const srv = http.createServer((req, res) => {
   await page.screenshot({ path: path.join(SAIDA, 'landing-sem-cdn.png') });
   console.log(falhas.length
     ? 'FALHAS:\n  ' + falhas.join('\n  ')
-    : 'GLOBO E ROBÔ RENDERIZARAM COM OS ASSETS LOCAIS (só os residuais conhecidos saíram pra fora)');
+    : 'A PÁGINA RENDERIZOU INTEIRA SEM UM ÚNICO PEDIDO EXTERNO (globo, robô 3D e fontes)');
 
   await browser.close();
   srv.close();
