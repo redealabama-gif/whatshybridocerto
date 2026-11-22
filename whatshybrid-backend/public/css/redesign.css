@@ -270,6 +270,11 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
 #how .step::before{
   content:counter(step,decimal-leading-zero);
   opacity:1 !important;        /* vence o halo desligado logo acima */
+  /* e o mesmo halo some de vez no celular por
+     .card[data-magnetic]::before{display:none} (index.html:1090, dentro
+     do recorte <=768px). Especificidade vale por propriedade: como eu
+     nao declarava display, o numero sumia so no celular. */
+  display:block;
   position:static;
   inset:auto;
   padding:0;
