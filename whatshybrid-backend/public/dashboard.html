@@ -69,19 +69,8 @@
     .page-header h1 { font-size: 1.8rem; }
     .page-header p { color: var(--text-muted); margin-top: 4px; }
 
-    /* KPI cards */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-    .kpi-card {
-      background: rgba(15, 12, 41, 0.6);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-    }
+    /* Rótulo, número e legenda — ainda usados pelo bloco "Saldo
+       disponível". .kpi-grid e .kpi-card saíram com os cartões de uso. */
     .kpi-label {
       font-size: 0.75rem;
       text-transform: uppercase;
@@ -528,25 +517,6 @@
         </div>
       </div>
 
-      <!-- Resumo de uso -->
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-label">Respostas (30d)</div>
-          <div class="kpi-value" id="usage-tokens">—</div>
-          <div class="kpi-sub">geradas pela IA</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Chamadas à IA (30d)</div>
-          <div class="kpi-value" id="usage-requests">—</div>
-          <div class="kpi-sub">sugestões + Autopilot</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Média por dia</div>
-          <div class="kpi-value" id="usage-avg">—</div>
-          <div class="kpi-sub">respostas por dia</div>
-        </div>
-      </div>
-
       <!-- Pacotes para comprar -->
       <div class="section" id="tokens-packages-section">
         <h2>Comprar respostas avulsas</h2>
@@ -937,21 +907,6 @@
       if (ov) ov.textContent = fmt(resp ? resp.restantes : b.balance);
     } catch (e) {
       console.warn('tokens balance error', e);
-    }
-
-    // Usage 30d
-    try {
-      const r = await api.get('/api/v1/tokens/usage?days=30');
-      const u = r.usage;
-      // /tokens/usage responde em tokens; aqui vira resposta, que é o que foi
-      // vendido. tokensPorResposta vem do /balance (TOKENS_POR_RESPOSTA).
-      const respostas30d = Math.round((u.total_tokens_consumed || 0) / tokensPorResposta);
-      document.getElementById('usage-tokens').textContent = respostas30d.toLocaleString('pt-BR');
-      document.getElementById('usage-requests').textContent = u.total_requests.toLocaleString('pt-BR');
-      document.getElementById('usage-avg').textContent =
-        Math.round(respostas30d / 30).toLocaleString('pt-BR');
-    } catch (e) {
-      console.warn('tokens usage error', e);
     }
 
     // Pacotes
