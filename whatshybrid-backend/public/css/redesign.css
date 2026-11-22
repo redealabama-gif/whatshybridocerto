@@ -857,3 +857,238 @@ h3, .plan-price-value, .stat-value {
      aqui o WONK e o SOFT vão ao máximo. */
   font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
 }
+
+/* ── 19. NOTEBOOK QUE ABRE AO ROLAR ──────────────────────────────
+   Referência: o MacBook Scroll da Aceternity UI, cuja fonte o dono
+   mandou por inteiro. Aquele componente é React + Motion + Tailwind,
+   e este projeto não tem nenhum dos três (nem components.json, nem
+   bundler): o .tsx não roda aqui. O que foi trazido é o EFEITO e a
+   GEOMETRIA, lidos da fonte:
+
+     container    min-h-[200vh]  [perspective:800px]
+     tampa        w-[32rem] h-96          origem no topo
+     base         w-[32rem] h-[22rem]     bg-[#272729]
+     teclado      w-[80%]  (410x160 => 2,56:1)
+     trackpad     w-[40%] h-32  (205x128 => 1,6:1)
+     alto-falante 10% de cada lado
+     cores        #010101 (tampa)  #272729 (deck)  #050505 (teclas)
+     raio         rounded-2xl = 16px      respiro p-2 = 8px
+
+     scaleX   progresso 0 → 0,3     1,2 → 1,5
+     scaleY   progresso 0 → 0,3     0,6 → 1,5
+     rotateX  progresso 0,1 → 0,3   −28° → 0°
+     título   opacidade 1→0 em [0, 0,2]; sobe 100px em [0, 0,3]
+
+   ONDE DIVERGE DA FONTE, E POR QUÊ
+   1. Tela 16:10, não 4:3. A captura do dono é 2000x1015, quase 2:1;
+      num recorte 4:3 some metade dela. 16:10 é também a proporção real
+      de um MacBook.
+   2. Palco `sticky`. Na fonte não há sticky: o conjunto sobe com a
+      rolagem e a tela é empurrada 1500px para baixo para acompanhar.
+      Esse 1500 é um número fixo que assume uma janela específica. Aqui
+      o palco fica parado no centro enquanto o notebook abre — mesmo
+      gesto, sem depender do tamanho da tela de quem olha.
+   3. O conjunto é limitado por `62vh`, não escalado em degraus
+      (scale-[0.35] / sm:scale-50 / md:scale-100). Como o palco é uma
+      janela de 100vh, o notebook tem de caber nela; a fonte deixa o
+      dela transbordar e você rola por cima.
+   4. O teclado são fileiras em `repeating-linear-gradient`, não 78
+      teclas desenhadas uma a uma com ícones do @tabler. No tamanho em
+      que aparece a diferença não se vê, e não vale 78 nós no DOM mais
+      uma biblioteca de ícones.
+   5. Uma tampa só, não duas. A fonte empilha a carcaça estática em
+      −25° e a tela animada por cima; com uma só o desenho é o mesmo e
+      há um elemento a menos girando.
+   6. Sem Tailwind as classes viraram CSS. Os valores são os da fonte.
+
+   DEGRADAÇÃO
+   O estado em repouso é o notebook ABERTO e legível. A animação só
+   existe dentro do @supports e fora de prefers-reduced-motion: quem
+   não tiver suporte, ou tiver pedido menos movimento, vê a tela aberta
+   — nunca uma tela deitada e ilegível. */
+
+.mb-pista {
+  position: relative;
+  height: 260vh;          /* a altura da pista é o "tempo" da animação */
+}
+
+.mb-fixo {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.mb-legenda {
+  position: absolute;
+  top: clamp(var(--s6), 8vh, 96px);
+  left: 0; right: 0;
+  /* ATRAS do notebook. Medido no retrato v2-d-22.png: com o titulo na
+     frente, a tampa subindo passava POR BAIXO das letras e o quadro
+     ficava confuso. Com o notebook na frente, a tela sobe cobrindo o
+     titulo que ja esta sumindo — vira revelacao em vez de colisao. */
+  z-index: 1;
+  padding: 0 var(--s5);
+  text-align: center;
+}
+.mb-legenda .section-eyebrow { display: block; margin-bottom: var(--s3); }
+.mb-legenda h2 { margin: 0 auto; max-width: 20ch; }
+
+/* A perspectiva mora no pai direto da tampa — é ela que transforma o
+   rotateX em profundidade em vez de achatamento. 800px é o da fonte.
+   A largura é limitada por 62vh porque o conjunto todo mede ~1,25x a
+   largura e tem de caber na janela de 100vh do palco. */
+.mb-conjunto {
+  position: relative;
+  z-index: 2;
+  /* Medido no navegador: o conjunto inteiro tem altura 1,267x a
+     largura. Para caber na janela de 100vh do palco com uma folga de
+     ~12%: largura <= 0,88 x 100vh / 1,267 = 69vh. 68vh por seguranca.
+     (Estimei 62vh na primeira versao e estourava embaixo.) */
+  width: min(86vw, 760px, 68vh);
+  perspective: 800px;
+}
+
+/* ── tampa / tela ──────────────────────────────────────────────── */
+.mb-tampa {
+  position: relative;
+  z-index: 2;
+  aspect-ratio: 16 / 10;         /* divergência 1 */
+  padding: 8px;                  /* p-2 */
+  border-radius: 16px 16px 4px 4px;
+  background: #010101;
+  transform-origin: 50% 100%;    /* a dobradiça fica embaixo */
+  box-shadow: 0 30px 70px rgba(0,0,0,.5);
+}
+.mb-moldura {
+  position: absolute; inset: 8px;
+  border-radius: 8px;
+  background: #272729;
+  overflow: hidden;
+}
+.mb-tela {
+  width: 100%; height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: left top;     /* object-left-top, como na fonte */
+}
+/* Reflexo diagonal no vidro. Fraco de propósito. */
+.mb-tampa::after {
+  content: '';
+  position: absolute; inset: 8px;
+  border-radius: 8px;
+  pointer-events: none;
+  background: linear-gradient(104deg,
+    rgba(255,255,255,0) 38%,
+    rgba(255,255,255,.055) 47%,
+    rgba(255,255,255,0) 56%);
+}
+
+/* ── base: barra, alto-falantes, teclado, trackpad, pé ─────────── */
+.mb-base {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.6% 10% 2.4%;        /* os 10% laterais são os alto-falantes */
+  border-radius: 0 0 16px 16px;
+  background: #272729;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+}
+/* a faixa escura logo abaixo da dobradiça (h-10 com h-4 w-[80%]) */
+.mb-barra {
+  /* 410x16 na fonte = 25,6:1. Em % a altura resolvia para 0, porque
+     porcentagem de altura precisa de um pai com altura definida, e a
+     base tem altura automatica. Medido: a barra saia com 0px. */
+  aspect-ratio: 25.6 / 1;
+  margin-bottom: 1.6%;
+  background: #050505;
+}
+/* 410x160 na fonte = 2,56:1 */
+.mb-teclado {
+  aspect-ratio: 2.56 / 1;
+  border-radius: 5px;
+  /* As duas camadas desenham a grade de teclas. A de cima PRECISA ter
+     vao transparente: na primeira versao ela era opaca e tapava a de
+     baixo, e so apareciam listras verticais. */
+  background:
+    repeating-linear-gradient(90deg, transparent 0 5.2%, rgba(0,0,0,.92) 5.2% 6.25%),
+    repeating-linear-gradient(180deg, #17161c 0 14.2%, rgba(0,0,0,.92) 14.2% 16.6%),
+    #050505;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+/* 205x128 na fonte = 1,6:1, w-[40%] */
+.mb-trackpad {
+  width: 50%;                    /* 40% da base inteira = 50% da área útil */
+  aspect-ratio: 1.6 / 1;
+  margin: 3.4% auto 0;
+  border-radius: 8px;
+  box-shadow: 0 0 1px 1px rgba(0,0,0,.14) inset;
+}
+/* os dois alto-falantes, nos 10% de cada lado */
+.mb-base::before {
+  content: '';
+  position: absolute;
+  top: 6%; bottom: 14%; left: 0; right: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #08080a .5px, transparent .6px);
+  background-size: 3px 3px;
+  -webkit-mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
+          mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
+}
+/* o pezinho da frente */
+.mb-base::after {
+  content: '';
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: 0;
+  width: 16%; height: 4px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(to top, #050505, #272729);
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mb-pista {
+      view-timeline-name: --pista-notebook;
+      view-timeline-axis: block;
+    }
+    .mb-tampa {
+      animation: nb-abrir linear both;
+      animation-timeline: --pista-notebook;
+      /* A abertura acontece na primeira parte da pista; o resto é a
+         tela aberta e parada, para a pessoa ler. */
+      animation-range: entry 100% cover 46%;
+    }
+    /* A curva é a da fonte: a tela começa deitada em −28° e achatada em
+       scaleY .6, e se levanta crescendo. O 1,5 de lá era para crescer
+       dentro de um palco de 512px; aqui o conjunto já nasce no tamanho
+       final e chegar a 1 basta — passar disso estouraria a janela. */
+    @keyframes nb-abrir {
+      from { transform: rotateX(-28deg) scaleX(1.2) scaleY(.6); }
+      to   { transform: rotateX(0deg) scale(1); }
+    }
+    /* O título sai de cena quando a tela toma a frente: às duas juntas
+       o olho não sabe onde pousar. Opacidade 1→0 e 100px para cima,
+       como na fonte. */
+    .mb-legenda {
+      animation: nb-legenda linear both;
+      animation-timeline: --pista-notebook;
+      animation-range: entry 100% cover 34%;
+    }
+    @keyframes nb-legenda {
+      from { opacity: 1; transform: none; }
+      to   { opacity: 0; transform: translateY(-100px); }
+    }
+  }
+}
+
+@media (max-width: 860px) {
+  /* 260vh de rolagem num celular é muito dedo para pouco efeito. */
+  .mb-pista { height: 170vh; }
+  .mb-conjunto { width: min(92vw, 56vh); }
+  .mb-legenda { top: var(--s5); }
+  .mb-legenda h2 { max-width: 16ch; }
+}
