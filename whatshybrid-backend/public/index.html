@@ -4352,10 +4352,14 @@
   function loadRobot() {
     console.info('[3D] carregando a cena Spline…');
 
-    // 1) Web component <spline-viewer> — tenta unpkg e cai pra jsdelivr.
-    //    Os dois CDNs estão liberados na CSP; assim, se um estiver fora, o
-    //    outro ainda registra o custom element <spline-viewer>.
+    // 1) Web component <spline-viewer>. A cópia LOCAL vem primeiro — é
+    //    JavaScript de terceiro que roda no navegador do cliente, então o que
+    //    menos queremos é buscá-lo em CDN a cada visita. A cópia é gerada por
+    //    `npm run vendor:landing` (whatshybrid-backend) e também no build da
+    //    imagem. Os CDNs ficam só como rede de segurança, caso a cópia local
+    //    não exista — e a CSP continua liberando os dois por causa disso.
     var VIEWER_CDNS = [
+      'js/vendor/spline-viewer.js',
       'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js',
       'https://cdn.jsdelivr.net/npm/@splinetool/viewer@1.9.96/build/spline-viewer.js'
     ];
@@ -4370,7 +4374,7 @@
           console.warn('[3D] viewer falhou (' + VIEWER_CDNS[cdnIdx - 1] + ') — tentando ' + VIEWER_CDNS[cdnIdx]);
           injectViewer();
         } else {
-          markFailed('spline-viewer.js indisponível em todos os CDNs.');
+          markFailed('spline-viewer.js indisponível local e em todos os CDNs.');
         }
       };
       document.head.appendChild(m);

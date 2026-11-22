@@ -6,6 +6,7 @@
  * landing IMUNE a quedas do prod.spline.design / jsdelivr / esm.sh:
  *
  *   - cobe (lib do globo)   → public/js/vendor/cobe.js          (ESM self-contained)
+ *   - viewer do Spline      → public/js/vendor/spline-viewer.js  (ESM self-contained)
  *   - cena 3D do robô       → public/assets/robot-scene.splinecode
  *
  * USO (num ambiente COM acesso à internet):
@@ -28,26 +29,79 @@ const https = require('https');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
+/**
+ * Um bundle auto-hospedado não pode ter NENHUM import pendente — nem absoluto
+ * (https://cdn…), nem relativo à raiz (/npm/…), nem relativo ao arquivo (./…).
+ * Servido do nosso domínio, qualquer um deles vira 404 e o auto-hospedar perde
+ * o sentido. O validador antigo só olhava `from "https://…"` e por isso dava OK
+ * para arquivos quebrados.
+ */
+function validarEsmSelfContained(buf) {
+  const txt = buf.toString('utf8');
+  if (/^\s*<!doctype html|<html/i.test(txt.slice(0, 4096))) {
+    throw new Error('veio HTML (provável erro do CDN)');
+  }
+  const pendentes = [
+    ...txt.matchAll(/(?:^|[;}\s])(?:import|export)\s*(?:[^;'"]*?\sfrom\s*)?["']([^"']+)["']/g),
+  ].map((m) => m[1]);
+  if (pendentes.length) {
+    throw new Error('não é self-contained — ainda importa de: ' + [...new Set(pendentes)].slice(0, 3).join(', '));
+  }
+  if (!/export\s*(\{|default|\*)/.test(txt)) {
+    throw new Error('não exporta nada (não parece um módulo ESM)');
+  }
+}
+
+/** Validação de um bundle que registra um custom element (não precisa exportar). */
+function validarScriptSelfContained(buf) {
+  const txt = buf.toString('utf8');
+  if (/^\s*<!doctype html|<html/i.test(txt.slice(0, 4096))) {
+    throw new Error('veio HTML (provável erro do CDN)');
+  }
+  if (/\bfrom\s*["']https?:\/\//.test(txt)) {
+    throw new Error('não é self-contained — importa de URL externa');
+  }
+  if (buf.length < 50 * 1024) {
+    throw new Error('arquivo pequeno demais para o viewer (' + buf.length + ' bytes)');
+  }
+}
+
 const TARGETS = [
   {
     name: 'cobe (lib do globo)',
     out: path.join(PUBLIC, 'js', 'vendor', 'cobe.js'),
     // IMPORTANTE: precisa ser um bundle ESM self-contained (deps inlined), senão
-    // o arquivo local ainda importaria de CDN. jsdelivr /+esm e esm.sh ?bundle
-    // entregam um único arquivo sem imports externos. unpkg ?module NÃO serve
-    // aqui (ele reescreve os imports pra URLs do unpkg).
+    // o arquivo local ainda importa de fora e o auto-hospedar não serve de nada.
+    //
+    // As duas fontes que estavam aqui NÃO serviam, e o validador antigo não
+    // pegava porque só olhava import de URL absoluta:
+    //
+    //   cdn.jsdelivr.net/npm/cobe@0.6.3/+esm  → import U from "/npm/phenomenon@1.6.0/+esm"
+    //   esm.sh/cobe@0.6.3?bundle              → export * from "/cobe@0.6.3/es2022/cobe.bundle.mjs"
+    //
+    // Os dois usam caminho relativo à RAIZ. Servidos do nosso domínio, o
+    // navegador resolveria /npm/... contra o nosso host e tomaria 404. O
+    // arquivo abaixo é o bundle de verdade: 11.533 bytes, zero imports.
     sources: [
-      'https://cdn.jsdelivr.net/npm/cobe@0.6.3/+esm',
-      'https://esm.sh/cobe@0.6.3?bundle',
+      'https://esm.sh/cobe@0.6.3/es2022/cobe.bundle.mjs',
+      // Se a esm.sh mudar o alvo de compilação (es2022 → es20xx), o stub
+      // ?bundle continua apontando pro caminho certo; seguimos o re-export.
+      { stub: 'https://esm.sh/cobe@0.6.3?bundle' },
     ],
-    validate(buf) {
-      const head = buf.slice(0, 4096).toString('utf8');
-      if (/<!doctype html|<html/i.test(head)) throw new Error('veio HTML (provável erro do CDN)');
-      // não pode sobrar import absoluto pra CDN (deixaria de ser self-contained)
-      if (/from\s*["']https?:\/\//.test(buf.toString('utf8'))) {
-        throw new Error('bundle não é self-contained (ainda importa de URL externa)');
-      }
-    },
+    validate: validarEsmSelfContained,
+  },
+  {
+    // O arquivo mais importante dos três: é JAVASCRIPT DE TERCEIRO que roda no
+    // navegador do cliente. A cena é só dado; o viewer executa. Enquanto ele
+    // vier de CDN, uma invasão no pacote @splinetool/viewer roda código na
+    // nossa landing. Antes só a cena era auto-hospedada.
+    name: 'viewer do Spline (lib que executa no navegador)',
+    out: path.join(PUBLIC, 'js', 'vendor', 'spline-viewer.js'),
+    sources: [
+      'https://unpkg.com/@splinetool/viewer@1.9.96/build/spline-viewer.js',
+      'https://cdn.jsdelivr.net/npm/@splinetool/viewer@1.9.96/build/spline-viewer.js',
+    ],
+    validate: validarScriptSelfContained,
   },
   {
     name: 'cena 3D do robô (Spline)',
@@ -92,10 +146,32 @@ function get(url, redirects = 0) {
   });
 }
 
+/**
+ * Uma fonte { stub: url } busca primeiro um arquivo de re-export e segue o
+ * caminho que ele aponta. A esm.sh responde ?bundle com um stub de 3 linhas
+ * (`export * from "/cobe@0.6.3/es2022/cobe.bundle.mjs"`); o bundle de verdade
+ * está no caminho de dentro. Assim o script sobrevive a uma mudança do alvo
+ * de compilação da esm.sh sem precisar de edição.
+ */
+async function resolverStub(stubUrl) {
+  const stub = await get(stubUrl);
+  const txt = stub.toString('utf8');
+  const m = txt.match(/export\s*\*\s*from\s*["']([^"']+)["']/) ||
+            txt.match(/from\s*["']([^"']+)["']/);
+  if (!m) throw new Error('o stub não aponta para nenhum arquivo');
+  return new URL(m[1], stubUrl).toString();
+}
+
 async function fetchFirst(target) {
   let lastErr;
-  for (const url of target.sources) {
+  for (const fonte of target.sources) {
+    let url = typeof fonte === 'string' ? fonte : null;
     try {
+      if (!url) {
+        process.stdout.write('  • (seguindo stub ' + fonte.stub + ') … ');
+        url = await resolverStub(fonte.stub);
+        console.log('→ ' + url);
+      }
       process.stdout.write('  • ' + url + ' … ');
       const buf = await get(url);
       if (!buf || buf.length === 0) throw new Error('resposta vazia');
@@ -110,9 +186,11 @@ async function fetchFirst(target) {
   throw lastErr || new Error('nenhuma fonte respondeu');
 }
 
-(async () => {
+async function main() {
   console.log('Auto-hospedando assets da landing em public/ …');
   let failures = 0;
+
+  const manifesto = { gerado_em: new Date().toISOString(), assets: {} };
 
   for (const t of TARGETS) {
     console.log('\n▶ ' + t.name);
@@ -120,12 +198,25 @@ async function fetchFirst(target) {
       const { buf, url } = await fetchFirst(t);
       fs.mkdirSync(path.dirname(t.out), { recursive: true });
       fs.writeFileSync(t.out, buf);
+      const rel = path.relative(PUBLIC, t.out).split(path.sep).join('/');
       console.log('  ✓ salvo: ' + path.relative(process.cwd(), t.out) + '  (origem: ' + new URL(url).host + ')');
+      manifesto.assets[rel] = { bytes: buf.length, origem: new URL(url).host, local: true };
     } catch (e) {
       failures += 1;
+      const rel = path.relative(PUBLIC, t.out).split(path.sep).join('/');
+      manifesto.assets[rel] = { local: false, erro: e.message };
       console.error('  ✗ ' + t.name + ': ' + e.message);
     }
   }
+
+  // O manifesto é o que permite SABER, em produção, se a landing está
+  // servindo os assets locais ou caindo no CDN. Sem ele, o `--soft || true`
+  // do Dockerfile esconde a falha e ninguém descobre.
+  fs.mkdirSync(PUBLIC, { recursive: true });
+  fs.writeFileSync(
+    path.join(PUBLIC, 'assets', 'vendor-manifest.json'),
+    JSON.stringify(manifesto, null, 2) + '\n'
+  );
 
   console.log('');
   if (failures) {
@@ -138,6 +229,19 @@ async function fetchFirst(target) {
     console.error('Rode num ambiente com internet liberada (ou baixe manual pelo navegador e salve nos caminhos acima) e tente de novo.');
     process.exit(1);
   }
-  console.log('Pronto! Assets locais: public/js/vendor/cobe.js + public/assets/robot-scene.splinecode');
+  console.log('Pronto! Assets locais:');
+  for (const rel of Object.keys(manifesto.assets)) console.log('  public/' + rel);
+  console.log('Inventário em public/assets/vendor-manifest.json.');
   console.log('A landing passa a usar as cópias locais automaticamente (CDN vira só fallback).');
-})();
+}
+
+// Só baixa quando chamado como script. Assim os testes podem exercitar os
+// validadores sem disparar download nenhum.
+if (require.main === module) {
+  main().catch((e) => {
+    console.error('Falhou:', e && e.message ? e.message : e);
+    process.exit(1);
+  });
+}
+
+module.exports = { TARGETS, validarEsmSelfContained, validarScriptSelfContained };

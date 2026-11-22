@@ -1,0 +1,20 @@
+{
+  "gerado_em": "2026-11-22T01:31:06.142Z",
+  "assets": {
+    "js/vendor/cobe.js": {
+      "bytes": 11533,
+      "origem": "esm.sh",
+      "local": true
+    },
+    "js/vendor/spline-viewer.js": {
+      "bytes": 2235800,
+      "origem": "unpkg.com",
+      "local": true
+    },
+    "assets/robot-scene.splinecode": {
+      "bytes": 1349622,
+      "origem": "prod.spline.design",
+      "local": true
+    }
+  }
+}
