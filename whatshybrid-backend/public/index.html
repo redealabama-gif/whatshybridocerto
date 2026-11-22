@@ -1476,17 +1476,6 @@
     }
 
     /* ═══════════════════════════════════════════════════════
-       10. CONTINUOUS COUNTER TICKER — sutil incremento contínuo
-       ═══════════════════════════════════════════════════════ */
-    [data-counter-live] {
-      transition: color 0.4s;
-    }
-    [data-counter-live].is-blipping {
-      color: var(--brand-cyan);
-      text-shadow: 0 0 14px rgba(0, 255, 255, 0.5);
-    }
-
-    /* ═══════════════════════════════════════════════════════
        11. EASTER EGG TOAST
        ═══════════════════════════════════════════════════════ */
     .egg-toast {
@@ -1992,181 +1981,6 @@
     </div>
 
     <div class="hero-divider"></div>
-  </div>
-</section>
-
-<!-- ─── Video demo section ─────────────────────────────── -->
-<section class="container py-16" id="hero-video" aria-label="Demonstração em vídeo">
-  <div class="hero-media-wrap reveal delay-1">
-    <div class="laptop-frame">
-      <div class="laptop-screen">
-        <video
-          autoplay
-          loop
-          muted
-          playsinline
-          preload="metadata"
-          aria-label="Demonstração do Vórtex Pro em ação"
-          data-hide-on-error="1"
-        >
-          <source src="assets/hero-demo-mobile.mp4" media="(max-width: 768px)" type="video/mp4">
-          <source src="assets/hero-demo.mp4" type="video/mp4">
-        </video>
-        <div class="laptop-inner laptop-fallback" aria-hidden="true">
-          <div class="lf-stripes"></div>
-          <div class="lf-label">DEMO · Vórtex Pro em ação</div>
-        </div>
-      </div>
-      <div class="laptop-base"></div>
-    </div>
-
-    <div class="float-badges" aria-hidden="true">
-      <div class="float-badge fb-tl">
-        <div class="fb-icon"><i data-lucide="message-circle"></i></div>
-        <div>
-          <div class="fb-value" data-target="3500" data-suffix="+">0</div>
-          <div class="fb-label">mensagens/dia automatizadas</div>
-        </div>
-      </div>
-      <div class="float-badge fb-tr">
-        <div class="fb-icon"><i data-lucide="check-circle"></i></div>
-        <div>
-          <div class="fb-value" data-target="97" data-suffix="%">0</div>
-          <div class="fb-label">taxa de aprovação</div>
-        </div>
-      </div>
-      <div class="float-badge fb-bl">
-        <div class="fb-icon"><i data-lucide="trending-up"></i></div>
-        <div>
-          <div class="fb-value" data-target="3.2" data-suffix="×">0</div>
-          <div class="fb-label">mais fechamentos</div>
-        </div>
-      </div>
-      <div class="float-badge fb-br">
-        <div class="fb-icon"><i data-lucide="timer"></i></div>
-        <div>
-          <div class="fb-value" data-target="12" data-suffix="s">0</div>
-          <div class="fb-label">resposta média</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Social proof: logo strip + testimonials -->
-<section class="container py-16" id="social-proof">
-  <div class="text-center reveal">
-    <span class="section-eyebrow">Quem já automatizou</span>
-    <h2 class="mb-4">+<span data-counter-live="1200">1.200</span> PMEs brasileiras <span class="text-gradient">vendendo com IA</span></h2>
-    <p class="text-muted">Empresas de e-commerce, serviços e clínicas que escalaram o atendimento sem contratar mais ninguém.</p>
-  </div>
-
-  <!-- Placeholder logos: SVG monocromático cyan. Trocar por reais quando disponíveis. -->
-  <div class="logo-strip reveal delay-1" aria-label="Empresas-cliente (exemplos)">
-    <div class="logo-strip-track">
-      <!-- placeholder logo: Acme Co. -->
-      <svg viewBox="0 0 120 28" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <path d="M14 6 L14 22 M6 14 L22 14" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">ACME Co.</text>
-      </svg>
-      <!-- placeholder logo: TechBR -->
-      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="4" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <path d="M8 14 L12 18 L18 8" stroke="currentColor" stroke-width="2.5" fill="none" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">TechBR</text>
-      </svg>
-      <!-- placeholder logo: VendasPro -->
-      <svg viewBox="0 0 160 28" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 22 L12 12 L18 18 L26 6" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <circle cx="26" cy="6" r="3" fill="currentColor" style="color:var(--brand-cyan)"/>
-        <text x="34" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">VendasPro</text>
-      </svg>
-      <!-- placeholder logo: NovaMed -->
-      <svg viewBox="0 0 150 28" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 4 L20 4 L20 12 L28 12 L28 20 L20 20 L20 28 L12 28 L12 20 L4 20 L4 12 L12 12 Z"
-              fill="currentColor" style="color:var(--brand-cyan); transform: translate(0, -2px);"/>
-        <text x="36" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">NovaMed</text>
-      </svg>
-      <!-- placeholder logo: PolarCo -->
-      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="14,3 25,24 3,24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <text x="32" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">PolarCo</text>
-      </svg>
-      <!-- placeholder logo: Quanta -->
-      <svg viewBox="0 0 130 28" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <circle cx="14" cy="14" r="4" fill="currentColor" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">Quanta</text>
-      </svg>
-      <!-- duplicate set for seamless scroll -->
-      <svg viewBox="0 0 120 28" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <path d="M14 6 L14 22 M6 14 L22 14" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">ACME Co.</text>
-      </svg>
-      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="4" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <path d="M8 14 L12 18 L18 8" stroke="currentColor" stroke-width="2.5" fill="none" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">TechBR</text>
-      </svg>
-      <svg viewBox="0 0 160 28" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 22 L12 12 L18 18 L26 6" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <circle cx="26" cy="6" r="3" fill="currentColor" style="color:var(--brand-cyan)"/>
-        <text x="34" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">VendasPro</text>
-      </svg>
-      <svg viewBox="0 0 150 28" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 4 L20 4 L20 12 L28 12 L28 20 L20 20 L20 28 L12 28 L12 20 L4 20 L4 12 L12 12 Z"
-              fill="currentColor" style="color:var(--brand-cyan); transform: translate(0, -2px);"/>
-        <text x="36" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">NovaMed</text>
-      </svg>
-      <svg viewBox="0 0 140 28" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="14,3 25,24 3,24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <text x="32" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">PolarCo</text>
-      </svg>
-      <svg viewBox="0 0 130 28" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--brand-cyan)"/>
-        <circle cx="14" cy="14" r="4" fill="currentColor" style="color:var(--brand-cyan)"/>
-        <text x="30" y="20" font-family="Inter, sans-serif" font-weight="700" font-size="14" fill="white">Quanta</text>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Testimonials (placeholder text — substituir por depoimentos reais) -->
-  <div class="testimonials-grid">
-    <div class="testimonial reveal delay-1">
-      <span class="testimonial-result"><i data-lucide="arrow-up-right" style="width:12px;height:12px;"></i>+38% em fechamentos</span>
-      <p>Em 3 semanas a IA aprendeu o jeito que falo com cliente. Hoje ela responde sozinha as dúvidas chatas e eu foco só em fechar venda. Pago o plano em 2 dias.</p>
-      <div class="testimonial-author">
-        <div class="testimonial-avatar"><img src="assets/testimonials/renato-carvalho.jpg" alt="Renato Carvalho" loading="lazy" decoding="async" width="44" height="44"></div>
-        <div class="testimonial-meta">
-          <strong>Renato Carvalho</strong>
-          <small>Dono · ModaPlus (e-commerce)</small>
-        </div>
-      </div>
-    </div>
-    <div class="testimonial reveal delay-2">
-      <span class="testimonial-result"><i data-lucide="clock" style="width:12px;height:12px;"></i>−22h/semana de atendimento</span>
-      <p>Tinha 4 atendentes só pra responder &quot;qual o valor?&quot; e &quot;tem prazo?&quot;. Coloquei a IA no Autopilot pra essas perguntas e liberei o time pra suporte real. Mudou o jogo.</p>
-      <div class="testimonial-author">
-        <div class="testimonial-avatar"><img src="assets/testimonials/juliana-maia.jpg" alt="Juliana Maia" loading="lazy" decoding="async" width="44" height="44"></div>
-        <div class="testimonial-meta">
-          <strong>Juliana Maia</strong>
-          <small>Gerente · ClínicaBem</small>
-        </div>
-      </div>
-    </div>
-    <div class="testimonial reveal delay-3">
-      <span class="testimonial-result"><i data-lucide="zap" style="width:12px;height:12px;"></i>resposta em &lt;15s 24/7</span>
-      <p>Atendo cliente de madrugada sem ficar acordado. O copiloto me avisa só quando precisa de aprovação humana — o resto a IA resolve. Sumiram as reclamações de demora.</p>
-      <div class="testimonial-author">
-        <div class="testimonial-avatar"><img src="assets/testimonials/anderson-silva.jpg" alt="Anderson Silva" loading="lazy" decoding="async" width="44" height="44"></div>
-        <div class="testimonial-meta">
-          <strong>Anderson Silva</strong>
-          <small>Vendedor · AutoPeças Sul</small>
-        </div>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -4076,27 +3890,6 @@
       }
     }
 
-    // ── 10. Continuous live counter ─────────────────────
-    function setupLiveCounter() {
-      if (prefersReduced) return;
-      const els = document.querySelectorAll('[data-counter-live]');
-      els.forEach(el => {
-        let val = parseInt(el.getAttribute('data-counter-live'), 10) || parseInt(el.textContent.replace(/\D/g, ''), 10) || 0;
-        function blip() {
-          val += 1;
-          el.textContent = val.toLocaleString('pt-BR');
-          el.classList.add('is-blipping');
-          setTimeout(() => el.classList.remove('is-blipping'), 400);
-        }
-        // Primeiro increment depois de 25s, depois a cada 35-60s
-        function schedule() {
-          const delay = 25000 + Math.random() * 35000;
-          setTimeout(() => { blip(); schedule(); }, delay);
-        }
-        schedule();
-      });
-    }
-
     // ── 11. Easter egg: triple-click no logo-mark ───────
     function setupEasterEgg() {
       const targets = document.querySelectorAll('.logo-mark');
@@ -4283,7 +4076,6 @@
       setupActiveNav();
       // setupPricing3D() desativado a pedido: cards de plano ficam estáticos no hover.
       setupExitModal();
-      setupLiveCounter();
       setupEasterEgg();
       setupSalesStack();
       // Re-render lucide icons inserted dinamicamente (exit modal, ticker etc.)
@@ -4427,19 +4219,6 @@
   }
 })();
 
-  // DASH-01: a CSP manda `script-src-attr 'none'`, que bloqueia onerror inline.
-  document.querySelectorAll('[data-hide-on-error]').forEach((el) => {
-    // Sem capture, e só quando o erro é do PRÓPRIO elemento. Um <video> tem
-    // vários <source>; o que não casa com o `media` falha sozinho e isso é
-    // normal. Com capture, esse erro de um source escondia o vídeo inteiro —
-    // era o comportamento do onerror antigo que precisava ser mantido: ele
-    // ficava no <video> e só dispara quando NENHUM source toca.
-    el.addEventListener('error', (ev) => {
-      if (ev.target !== el) return;
-      el.style.display = 'none';
-      el.parentElement?.classList.add('no-video');
-    });
-  });
 </script>
 
 </body>
