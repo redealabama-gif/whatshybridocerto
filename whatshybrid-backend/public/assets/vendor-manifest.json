@@ -1,11 +1,6 @@
 {
   "gerado_em": "2026-11-22T21:00:29.762Z",
   "assets": {
-    "js/vendor/lenis.js": {
-      "bytes": 13020,
-      "origem": "cdn.jsdelivr.net",
-      "local": true
-    },
     "js/vendor/cobe.js": {
       "bytes": 11533,
       "origem": "esm.sh",

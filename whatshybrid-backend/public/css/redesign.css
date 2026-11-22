@@ -92,20 +92,6 @@ html{ overflow-x:clip; }
   html{ scroll-behavior:auto !important; }
 }
 
-/* Com o Lenis no comando (js/suave.js), a rolagem suave NATIVA do
-   css/futuristic.css:32 disputa com a dele e a pagina treme. O proprio
-   Lenis poe estas classes na raiz; as regras sao dele, que nao
-   carregamos em CSS separado. */
-html.lenis,
-html.lenis body{ height:auto; }
-/* Medido: esta versao do Lenis poe so a classe `lenis` na raiz, nao
-   `lenis-smooth`. A regra oficial dele exige as duas e, com ela, o
-   scroll-behavior continuava `smooth` e as duas rolagens disputavam.
-   Basta `lenis` — que e justamente "o Lenis esta no comando". */
-html.lenis{ scroll-behavior:auto !important; }
-.lenis.lenis-smooth{ scroll-behavior:auto !important; }
-.lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
-.lenis.lenis-stopped{ overflow:hidden; }
 
 /* ── 2. TIPOGRAFIA ──────────────────────────────────────────────── */
 body{ font-family:var(--f-text); }
@@ -224,13 +210,36 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   margin:var(--s4) 0 0; max-width:54ch;
 }
 /* Qualquer outro filho — hoje só o alternador mensal/anual em "Planos" —
-   entra na coluna do texto, abaixo da descrição. Tentei primeiro numa
-   terceira coluna à direita do título, e no navegador ela cai debaixo do
-   aviso flutuante de prova social, que é position:fixed naquele canto:
-   o controle mais importante da seção ficava encoberto. Abaixo do texto
-   ele também lê melhor — título, explicação, e então o controle. */
+   entra na coluna do texto, abaixo da descrição. */
 .text-center[data-sec] > *:not(.section-eyebrow):not(h2):not(p){
   grid-column:2; grid-row:3; justify-self:start; margin:var(--s5) 0 0;
+}
+
+/* ── PLANOS: o cabeçalho volta ao centro ─────────────────────────
+   O índice lateral funciona nas outras nove seções, onde o texto abre a
+   seção sozinho. Aqui embaixo vêm QUATRO COLUNAS que ocupam a largura
+   toda, e um título encostado à esquerda, com o alternador mensal/anual
+   embaixo dele, fica solto: não responde a nada do que vem a seguir.
+   Centralizado, título e controle passam a coroar a tabela — que é como
+   estava antes e é o certo para esta seção. */
+#pricing .text-center[data-sec]{
+  display:block;
+  text-align:center;
+}
+#pricing .text-center[data-sec]::before{
+  display:block;
+  margin-bottom:var(--s2);
+}
+#pricing .text-center[data-sec] > .section-eyebrow{
+  display:block;
+  margin-bottom:var(--s4);
+}
+#pricing .text-center[data-sec] > h2{ margin:0 auto; }
+#pricing .text-center[data-sec] > p{ margin:var(--s4) auto 0; }
+/* O alternador é o controle da tabela: centralizado sobre ela. */
+#pricing .text-center[data-sec] > *:not(.section-eyebrow):not(h2):not(p){
+  margin:var(--s6) auto 0;
+  justify-self:center;
 }
 
 /* O cabecalho 06 ("Disparo em massa") tem uma regra propria num 2o
@@ -503,8 +512,12 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
              border-color var(--fast) var(--ease),
              color var(--fast) var(--ease);
 }
+/* O botao principal e CIANO, nao branco. Eu tinha trocado por branco
+   achando que o ciano "gritava" — mas ele e a cor de acao da marca e
+   aparece no canto superior direito de todas as paginas. Trocar isso
+   nao era direcao de arte, era mexer na identidade, e nao foi pedido. */
 .btn-cyan,.btn-primary{
-  background:var(--text);
+  background:var(--brand-cyan);
   color:var(--brand-dark);
   border:1px solid transparent;
 }
@@ -512,7 +525,7 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
   background:var(--brand-cyan);
   color:var(--brand-dark);
   transform:translateY(-1px);
-  box-shadow:none;
+  box-shadow:0 0 24px rgba(0,255,255,.28);
 }
 .btn-ghost{
   background:transparent;
@@ -705,9 +718,9 @@ small{ font-size:var(--t-mono); letter-spacing:.02em; }
 
    Feito com `animation-timeline: view()` — nativo, sem biblioteca. O
    progresso vem da posição do elemento na janela, não de um listener de
-   scroll: roda no compositor, não trava a rolagem e não disputa com o
-   Lenis. Onde o navegador não suporta, nada acontece e a página fica
-   como estava; por isso tudo mora dentro do @supports.
+   scroll: roda no compositor e não trava a rolagem. Onde o navegador
+   não suporta, nada acontece e a página fica como estava; por isso
+   tudo mora dentro do @supports.
 
    O sistema .reveal (landing-revamp.css:10) segue responsável pela
    ENTRADA de cada bloco. Isto é outra camada: o que acontece ENQUANTO a
