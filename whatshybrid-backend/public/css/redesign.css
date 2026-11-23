@@ -886,29 +886,51 @@ h3, .plan-price-value, .stat-value {
 
 .mb-pista {
   position: relative;
-  height: 200vh;
+  height: 300vh;                   /* runway */
   /* [6 do briefing anterior] fundo preto quase total e liso */
   background: linear-gradient(180deg,
     transparent 0, #07070b 9vh, #07070b calc(100% - 4vh), transparent 100%);
 }
-.mb-rabo { height: 90vh; pointer-events: none; background: linear-gradient(180deg, #07070b 0, transparent 100%); }
+/* .mb-rabo foi removido: existia para o transbordo da tampa quando o
+   notebook rolava solto. Com o palco `sticky` a foto nunca sai dele, e
+   o rabo virou um vao preto de 90vh antes do bloco 01. */
 
+/* ERRO 1 — O NOTEBOOK NAO FICAVA PARADO.
+   `.mb-palco` era `static`: o conjunto inteiro rolava com a pagina e a
+   animacao acontecia fora da area visivel. Agora e um palco `sticky`
+   dentro do runway de 300vh: o notebook fica PARADO enquanto a pessoa
+   rola, e so o screenshot se move.
+   z-index 101 fica acima da .navbar (sticky, z-index 100), senao o
+   header escondia o painel no topo. */
 .mb-palco {
-  display: flex; flex-direction: column; align-items: center;
-  gap: var(--s6);
-  padding-top: clamp(var(--s7), 12vh, 140px);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 101;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: var(--s5);
+  overflow: hidden;
 }
 .mb-legenda { text-align: center; padding: 0 var(--s5); }
 .mb-legenda .section-eyebrow { display: block; margin-bottom: var(--s3); }
 .mb-legenda h2 { margin: 0 auto; max-width: 20ch; }
 
-.mb-conjunto { --w: min(70vw, 1000px); width: var(--w); }
+/* 43vw deixa a razao entre o painel final e a janela quase constante
+   (o scale 2,2 cai em ~89-95vw de 1440 a 1920); o teto de 72vh e so
+   para janelas baixas, onde o conjunto nao caberia no palco. */
+.mb-conjunto { --w: min(43vw, 72vh); width: var(--w); position: relative; }
 
 /* ── a tampa ───────────────────────────────────────────────────── */
+/* ERRO 2 — A FOTO PASSAVA POR BAIXO DO TECLADO.
+   `.mb-area` tinha `perspective`, e isso cria CONTEXTO DE
+   EMPILHAMENTO: o z-index da foto ficava preso la dentro e `.mb-area`
+   (z auto) perdia para `.mb-base` (z 2). Medido com elementsFromPoint
+   no centro do teclado: o primeiro elemento era `mb-k`, uma tecla.
+   Agora `.mb-area` e so `position: relative` — nao cria contexto — e a
+   perspectiva passou para dentro do transform de cada camada. */
 .mb-area {
   position: relative;
-  /* [2] P = 1,25B faz a ampliacao no topo ser exatamente 1,25 */
-  perspective: calc(var(--w) * 1.25);
   /* Com origem na dobradica (embaixo) a borda de BAIXO da casca nao se
      move: a altura de layout e a propria altura da casca. */
   height: calc(var(--w) * .537);
@@ -932,7 +954,7 @@ h3, .plan-price-value, .stat-value {
   border-radius: calc(var(--w) * .030) calc(var(--w) * .030) 0 0;
   background: #2b2b2e;
   transform-origin: bottom;
-  transform: rotateX(-28deg);     /* [5] PARADO: angulo constante */
+  transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg);
 }
 .mb-corpo {
   height: 100%;
@@ -966,11 +988,15 @@ h3, .plan-price-value, .stat-value {
   inset: 0;
   box-sizing: border-box;
   padding: calc(var(--w) * .030);
-  z-index: 1;                      /* [3] ATRAS da base no repouso */
+  z-index: 3;                      /* NA FRENTE da base */
   background: none;
+  /* No REPOUSO a foto parece atras da base por RECORTE, nao por
+     z-index: assim nao ha pulo visual quando ela comeca a descer.
+     --corte vai a 0 entre p 0,20 e p 0,30. */
+  clip-path: inset(0 0 var(--corte, 0px) 0 round calc(var(--w) * .006));
   transform-origin: bottom;        /* a mesma da casca */
-  transform: rotateX(-28deg);
-  will-change: transform;
+  transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg);
+  will-change: transform, clip-path;
 }
 .mb-tela {
   width: 100%; height: 100%; display: block;
@@ -1093,46 +1119,71 @@ h3, .plan-price-value, .stat-value {
   box-shadow: 0 0 0 1px rgba(0,0,0,.28) inset;
 }
 
+/* --corte precisa ser registrado para INTERPOLAR; sem @property ele
+   trocaria em degrau e o recorte abriria de uma vez. */
+@property --corte {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
+    /* O progresso vem do RUNWAY, nao do elemento:
+         entry 100% = topo da secao no topo da janela      -> p = 0
+         exit 0%    = fundo da secao no fundo da janela    -> p = 1
+       E exatamente o `-rect.top / (offsetHeight - innerHeight)` do
+       briefing, e e o mesmo p para recorte, translateY, scale, rotateX
+       e a opacidade do titulo. */
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
-    /* [5] UM progresso so, monotonico e reversivel, para foto e titulo.
-         0,00-0,25 repouso, so a pagina sobe
-         0,25-0,45 a foto desce; o corpo preto e o aro aparecem acima
-         0,45-0,70 cresce ~1,3x, rotateX -28 -> -8
-         0,70-0,85 cobre quase todo o teclado
-         0,85-1,00 rotateX -> 0, painel plano maior que a base */
+
     .mb-foto {
-      --tv: 150vh;
+      /* escala final: leva o painel a ~92vw. Depende de --w, entao e
+         parametro, nao numero cravado — no celular --w e bem maior em
+         proporcao e 2,2 jogava o painel para 198vw. */
+      --escala: 2.2;
+      --desloc: 34vh;   /* quanto a foto desce no total */
       animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
-      animation-range: entry 100% exit 100%;
+      animation-range: entry 100% exit 0%;
     }
-    /* [3] o z-index sobe em degrau depois de 0,25: antes disso nada da
-       foto pode cobrir a base; a partir dai ela desliza POR CIMA. */
+    /* 0,00-0,20 repouso, recortada pela base
+       0,20-0,30 o recorte abre e ela comeca a descer
+       0,30-0,50 desce na frente das primeiras fileiras
+       0,50-0,80 cobre o teclado, cresce, rotateX -28 -> -8
+       0,80-1,00 rotateX -> 0, painel plano ocupando ~93vw
+       So translateY, rotateX e scale. */
     @keyframes nb-foto {
-      0%   { z-index: 1; transform: translateY(0)         rotateX(-28deg) scale(1); }
-      25%  { z-index: 1; transform: translateY(0)         rotateX(-28deg) scale(1); }
-      26%  { z-index: 4; transform: translateY(calc(var(--tv) * .01)) rotateX(-28deg) scale(1.004); }
-      45%  { z-index: 4; transform: translateY(calc(var(--tv) * .20)) rotateX(-24deg) scale(1.08); }
-      70%  { z-index: 4; transform: translateY(calc(var(--tv) * .52)) rotateX(-8deg)  scale(1.30); }
-      85%  { z-index: 4; transform: translateY(calc(var(--tv) * .76)) rotateX(-4deg)  scale(1.44); }
-      100% { z-index: 4; transform: translateY(var(--tv))             rotateX(0deg)   scale(1.56); }
+      0%, 20% { --corte: calc(var(--w) * .07);
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(0) scale(1); }
+      30%     { --corte: 0px;
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(calc(var(--desloc) * .18))  scale(calc(1 + (var(--escala) - 1) * 0.05)); }
+      /* em 0,45 a foto ja tem de estar NA FRENTE do centro do teclado:
+         medido, com 12vh em 0,50 ela ainda nao chegava la. */
+      50%     { --corte: 0px;
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-24deg) translateY(calc(var(--desloc) * .59)) scale(calc(1 + (var(--escala) - 1) * 0.28)); }
+      80%     { --corte: 0px;
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-8deg)  translateY(calc(var(--desloc) * .88)) scale(calc(1 + (var(--escala) - 1) * 0.68)); }
+      100%    { --corte: 0px;
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(0deg)   translateY(var(--desloc)) scale(calc(1 + (var(--escala) - 1) * 1.0)); }
     }
     .mb-legenda {
       animation: nb-titulo linear both;
       animation-timeline: --pista-notebook;
-      animation-range: entry 100% exit 100%;
+      animation-range: entry 100% exit 0%;
     }
-    @keyframes nb-titulo { 0%, 25% { opacity: 1; } 45%, 100% { opacity: 0; } }
+    @keyframes nb-titulo { 0%, 20% { opacity: 1; } 30%, 100% { opacity: 0; } }
   }
 }
 
 @media (max-width: 860px) {
-  .mb-pista { height: 170vh; }
-  .mb-conjunto { --w: min(90vw, 440px); }
+  .mb-pista { height: 260vh; }
+  .mb-conjunto { --w: min(72vw, 420px); }
+  /* no celular o conjunto e proporcionalmente maior e a pista menor,
+     entao o percurso tambem encolhe: com 34vh a foto passava direto do
+     centro do teclado e deixava as teclas a mostra de novo. */
+  .mb-foto { --escala: 1.28; --desloc: 16vh; }
   .mb-foto { --tv: 118vh; }
-  .mb-rabo { height: 80vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */
   .mb-k { box-shadow: none; }
