@@ -45,6 +45,12 @@ const ALVOS = [
   // A marca aparece em TODAS as páginas, exibida em 89x34 — e o arquivo
   // tinha 1105x422 e 235 KB. 240w cobre até 2,7x de densidade de tela.
   { arquivo: 'vortex-pro-wordmark.png', larguras: [240], qualidade: 90 },
+  /* A captura da extensao dentro do WhatsApp Web. O painel final da
+     secao #mostra chega a ~1361 CSS px numa janela de 1440, entao a
+     versao de 2048 cobre 1,50x de densidade. Para 2x cheio seriam
+     precisos 2722 px de origem; o arquivo que o dono enviou tem 2048.
+     As de 1600 e 1000 servem telas comuns e o celular. */
+  { arquivo: 'tela-extensao.png', larguras: [2048, 1600, 1000], qualidade: 82 },
 ];
 
 function kb(p) { return Math.round(fs.statSync(p).size / 1024); }
