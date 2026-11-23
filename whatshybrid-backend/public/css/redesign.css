@@ -887,7 +887,18 @@ h3, .plan-price-value, .stat-value {
 /* B = largura da base. UMA variavel; tudo no mockup deriva dela.
    Medido: a referencia tem a base em 31% da janela e a nossa estava em
    43%. O teto em vh e so para janelas baixas. */
-:root { --B: min(31vw, 52vh); --header-h: 80px; }
+:root {
+  --header-h: 80px;
+  /* --teto-altura: o maior --w que ainda deixa o conjunto INTEIRO
+     dentro do palco. Do topo do palco ate a base da tampa gastam-se
+     0,593 x --w (0,20 de respiro+gap mais 0,393 da area) alem da
+     legenda, que mede 138px no desktop e ~100px no celular — 138 e o
+     valor conservador. Nas janelas normais este termo nunca manda
+     (em 1366x600 ele daria 644px contra os 312px de 52vh); ele so
+     entra em caso extremo, como celular deitado. */
+  --teto-altura: calc((100svh - var(--header-h) - 138px) / .593);
+  --B: min(31vw, 52vh, var(--teto-altura));
+}
 
 .mb-pista {
   position: relative;
@@ -1172,16 +1183,32 @@ h3, .plan-price-value, .stat-value {
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
 
     .mb-foto {
-      /* escala final: leva o painel a ~92vw. Depende de --w, entao e
-         parametro, nao numero cravado — no celular --w e bem maior em
-         proporcao e 2,2 jogava o painel para 198vw. */
-      /* B caiu de 43vw para 31vw, entao a escala final sobe para manter
-         o painel em ~92vw: 0,92 x 100vw / 0,31 x 100vw = 2,97; 3,05
-         cobre tambem a janela de 1920, onde o teto em vh prende B. */
-      --escala: 3.05;
-      /* 44vh deixa o painel CENTRALIZADO no palco em p=1 (com 34vh ele
-         parava alto e sobrava faixa preta embaixo). */
-      --desloc: 40vh;
+      /* Quanto o painel cresce de --w ate o fim da pista. E parametro,
+         nao numero cravado, porque no celular --w e bem maior em
+         proporcao. 2,5 deixa o painel final entre 73vw e 78vw (medido:
+         998px numa janela de 1366, 1116px em 1440, 1302px em 1680,
+         1404px em 1920). Estava em 3,05, que dava ~94vw: o dono
+         reclamou que a imagem aberta ficava grande demais.
+         De quebra, ocupar menos tela SOBE a densidade: com a captura
+         de 2048px o painel recebe de 1,46x (janela 1920) a 2,05x
+         (janela 1366), contra ~1,50x no tamanho anterior — a imagem
+         fica mais nitida justamente por ficar menor. */
+      --escala: 2.5;
+      /* Quanto o painel DESCE ate o fim da pista. Como a origem da
+         transformacao e embaixo, a escala cresce para cima e e so este
+         valor que decide onde fica a base do painel.
+         40vh e o alvo, mas em janela baixa a base saia do palco (que
+         tem overflow:hidden) e o rodape da captura era CORTADO: medido
+         -43px em 1280x600, -31px em 1366x640, -13px em 1366x700.
+         A sala real abaixo do conjunto e
+             100svh - header - 138px (a legenda) - 0,593 x --w
+         conferida px a px de 1024x768 a 2560x1440 (erro 0); em telas
+         estreitas e no celular a formula subestima a sala, o que so
+         deixa o painel um pouco mais alto. O min() mantem os 40vh onde
+         cabem e encurta onde nao cabem; o max() impede valor negativo
+         em celular deitado. */
+      --desloc: min(40vh, max(0px,
+        calc(100svh - var(--header-h) - 138px - var(--w) * .593)));
       animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
       animation-range: entry 100% exit 0%;
@@ -1218,11 +1245,15 @@ h3, .plan-price-value, .stat-value {
 @media (max-width: 860px) {
   :root { --header-h: 73px; }   /* a navbar e mais baixa no celular */
   .mb-pista { height: 260vh; }
-  .mb-conjunto { --w: min(72vw, 420px); }
+  .mb-conjunto { --w: min(72vw, 420px, var(--teto-altura)); }
   /* no celular o conjunto e proporcionalmente maior e a pista menor,
      entao o percurso tambem encolhe: com 34vh a foto passava direto do
      centro do teclado e deixava as teclas a mostra de novo. */
-  .mb-foto { --escala: 1.28; --desloc: 26vh; }
+  .mb-foto { --escala: 1.28;
+    /* mesma protecao do desktop: no celular em pe 26vh sobra folga,
+       mas DEITADO o palco fica com ~320px e a base sairia do palco. */
+    --desloc: min(26vh, max(0px,
+      calc(100svh - var(--header-h) - 138px - var(--w) * .593))); }
   .mb-foto { --tv: 118vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */

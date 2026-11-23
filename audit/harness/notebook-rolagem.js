@@ -237,7 +237,14 @@ const caixa = (page, sel) => page.evaluate((s) => {
       const f = document.querySelector('.mb-foto').getBoundingClientRect();
       return +(f.width / innerWidth * 100).toFixed(1);
     });
-    ok(fim >= 88 && fim <= 98, 'em p=1 o painel plano ocupa ~90-96vw', fim + 'vw');
+    // 78vw em vez de 94vw: o painel estava grande demais, e com a captura
+    // de 2048px essa reducao ainda SOBE a densidade (de 1,46x a 2,05x
+    // conforme a janela, contra ~1,50x antes).
+    // No celular o painel continua maior de proposito: numa tela de
+    // 390px, 78vw dariam 304px e a captura ficaria ilegivel. A queixa
+    // do dono ("fica muito grande") era no desktop.
+    const fx = vp.width <= 860 ? [84, 94] : [72, 84];
+    ok(fim >= fx[0] && fim <= fx[1], 'em p=1 o painel ocupa ~' + fx[0] + '-' + fx[1] + 'vw', fim + 'vw');
 
     // A tampa nao pode cair em cima do bloco 01.
     const invade = await page.evaluate(async () => {
@@ -327,6 +334,34 @@ const caixa = (page, sel) => page.evaluate((s) => {
   ok(red.alturaTela > 100, 'a tela da extensão está visível', red.alturaTela + 'px');
   ok(red.tecladoVisivel, 'o teclado continua na tela');
   await ctx.close();
+
+  // ── o painel aberto nao pode ser cortado pelo palco ──────────────
+  // O palco tem overflow:hidden e o painel desce --desloc ao abrir.
+  // Com --desloc cravado em 40vh a base saia fora em janela baixa e o
+  // rodape da captura era cortado: -43px em 1280x600, -31px em
+  // 1366x640, -13px em 1366x700 (medido). As duas janelas do laco
+  // principal (1440x900 e 390x844) tem folga de sobra e nao pegavam
+  // isso, por isso esta varredura separada de janelas baixas.
+  console.log('\n--- o painel aberto cabe no palco (janelas baixas) ---');
+  for (const vp of [{ width: 1280, height: 600 }, { width: 1366, height: 640 },
+                    { width: 1366, height: 700 }, { width: 1366, height: 768 },
+                    { width: 1024, height: 768 }, { width: 900, height: 700 },
+                    { width: 844, height: 390 }]) {
+    const c = await browser.newContext({ viewport: vp, deviceScaleFactor: 1 });
+    const pg = await c.newPage();
+    await pg.goto(URL_BASE, { waitUntil: 'load' });
+    await pg.waitForTimeout(350);
+    await naPista(pg, 1);
+    const g = await pg.evaluate(() => {
+      const pal = document.querySelector('.mb-palco').getBoundingClientRect();
+      const f = document.querySelector('.mb-foto').getBoundingClientRect();
+      return { baixo: Math.round(pal.bottom - f.bottom), cima: Math.round(f.top - pal.top) };
+    });
+    ok(g.baixo >= 0 && g.cima >= 0,
+       'em ' + vp.width + 'x' + vp.height + ' o painel nao e cortado pelo palco',
+       'folga ' + g.cima + 'px em cima, ' + g.baixo + 'px embaixo');
+    await c.close();
+  }
 
   await browser.close();
   console.log('\n' + (falhas === 0 ? 'TODAS AS VERIFICAÇÕES PASSARAM' : falhas + ' VERIFICAÇÃO(ÕES) FALHARAM'));
