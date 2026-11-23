@@ -859,71 +859,42 @@ h3, .plan-price-value, .stat-value {
 }
 
 /* ── 19. NOTEBOOK QUE ABRE AO ROLAR ──────────────────────────────
-   Copia do MacBook Scroll da Aceternity UI, cuja fonte o dono mandou
-   por inteiro. Aquele componente e React + Motion + Tailwind, e este
-   projeto nao tem nenhum dos tres (nem components.json, nem bundler).
-   Mas a fonte da Aceternity existe PARA ser copiada, e o que nao vem
-   junto da para escrever a mao. Aqui esta a mesma coisa em HTML e CSS.
+   Refeito contra o briefing em unidades de B = largura da base.
+   Cada bloco cita o item que resolve.
 
-   O GESTO — foi o que eu tinha errado, e so o video do dono mostrou
-   Na fonte o `translate` vai SO NA TAMPA, 0 -> 1500px, ao longo da
-   pista inteira. A pagina sobe 200vh levando o TECLADO embora pelo
-   topo, e a tampa e empurrada 1500px PARA BAIXO na mesma medida: ela
-   fica praticamente parada na tela enquanto o corpo sai de cena. No
-   fim sobra so a tela, grande e reta, parada.
+   [5] O QUE SE MEXE: so a camada do SCREENSHOT.
+   A casca da tampa (aro de aluminio + corpo preto + bezel) fica PARADA,
+   com angulo constante. A foto comeca encaixada dentro do bezel e
+   desliza para baixo, passando NA FRENTE do teclado, escalando e
+   endireitando. Ao sair, o corpo preto e o aro ficam para tras e
+   aparecem acima dela — e isso que da a nocao de tampa de notebook.
+   Nas versoes anteriores o bezel ia junto com a foto, e por isso a tela
+   parecia "uma imagem solta colada em cima de um teclado".
 
-   Eu tinha posto `position: sticky` no conjunto todo e animado so a
-   proporcao da tampa. Resultado: o notebook inteiro congelado, trocando
-   de forma. Nada de sticky agora — o palco rola normal e quem se mexe
-   e a tampa, exatamente como na fonte.
+   [2] O TRAPEZIO: topo = 1,25B, dobradica = 1,0B.
+   Vem so de rotateX com origem na dobradica e perspectiva centralizada.
+   A ampliacao no topo e P/(P - h.sen28), e com P = 1,25B ela da 1,25.
+   Nada de skew, rotateY ou rotateZ.
 
-   1500px sobre os 1800px de rolagem de uma janela de 900 = 83%. Em vh
-   isso e `0 -> 166vh` sobre uma pista de 200vh, e assim vale para
-   qualquer altura de janela — ao contrario do 1500 fixo da fonte, que
-   numa janela baixa faz o notebook DESCER em vez de subir.
+   DIVERGENCIA QUE PRECISA SER DITA
+   O briefing pede altura visivel da tampa ~0,40B. Com a captura do dono
+   em 1600x812 (razao 1,97:1) a altura natural da tela ja e 0,507B, e
+   encurtada pelos 28 graus ela da ~0,47B. Os tres numeros (topo 1,25B,
+   dobradica 1,0B e altura 0,40B) nao fecham juntos com essa razao de
+   imagem: so fechariam cortando a captura, que e o primeiro defeito que
+   o dono apontou. Mantive o trapezio exato e a imagem inteira. */
 
-   A CURVA, da fonte:
-     translateY  0 -> 1500px    em todo o progresso   (aqui 0 -> 166vh)
-     scaleX      1,2 -> 1,5     em [0, 0,3]
-     scaleY      0,6 -> 1,5     em [0, 0,3]
-     rotateX     -28deg -> 0    em [0,1, 0,3]
-     origem da transformacao: topo da tampa
-     perspectiva 800px
+.mb-pista {
+  position: relative;
+  height: 200vh;
+  /* [6 do briefing anterior] fundo preto quase total e liso */
+  background: linear-gradient(180deg,
+    transparent 0, #07070b 9vh, #07070b calc(100% - 4vh), transparent 100%);
+}
+.mb-rabo { height: 90vh; pointer-events: none; background: linear-gradient(180deg, #07070b 0, transparent 100%); }
 
-   O ENCAIXE DA TELA COM O TECLADO
-   Na fonte tampa e base tem A MESMA largura (`w-[32rem]` nas duas). A
-   tela so parece maior porque o scaleX e aplicado nela e nao na base.
-   Eu tinha medido 0,81 numa captura que JA estava com scaleX 1,24 e
-   cravado `width: 80%` na base — contando o mesmo efeito duas vezes, e
-   a razao real virava 0,60 em vez de 0,81. Agora as duas tem --w e a
-   razao sai da animacao: 1/1,2 = 0,83 no inicio, 1/1,5 = 0,67 no fim.
-
-   O TAMANHO
-   A fonte usa 512px (32rem) com scale-[0.35]/sm:50/md:100. Medido nas
-   capturas do dono, o notebook ocupa 42% da largura da janela na
-   referencia; o meu estava em 85%, o dobro. --w volta para os 512px da
-   fonte, e com scale 1,5 no fim da ~53% — na faixa certa.
-
-   TUDO DERIVA DE --w, a largura da base (= largura da tampa sem
-   escala). Trocar --w redimensiona o notebook inteiro.
-
-   DEGRADACAO
-   Sem suporte a animation-timeline e com prefers-reduced-motion a
-   tampa fica sem transform: notebook fechado, reto e legivel, com o
-   titulo acima. Nunca uma tela deitada e ilegivel. */
-
-.mb-pista { position: relative; height: 240vh; }
-/* Area vazia onde a tampa termina de descer, entre esta secao e o
-   bloco 01. Sem ela o transbordo cairia em cima de "Em 3 passos". */
-.mb-rabo { height: 50vh; pointer-events: none; }
-
-/* Sem sticky, de proposito: o palco rola junto com a pagina, e e isso
-   que leva o teclado embora pelo topo. O titulo nao tem animacao
-   nenhuma — ele sai de cena rolando, como na fonte. */
 .mb-palco {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: flex; flex-direction: column; align-items: center;
   gap: var(--s6);
   padding-top: clamp(var(--s7), 12vh, 140px);
 }
@@ -931,191 +902,239 @@ h3, .plan-price-value, .stat-value {
 .mb-legenda .section-eyebrow { display: block; margin-bottom: var(--s3); }
 .mb-legenda h2 { margin: 0 auto; max-width: 20ch; }
 
-.mb-conjunto {
-  --w: min(62vw, 512px);        /* os 32rem da fonte */
-  width: var(--w);
-  perspective: 800px;           /* o 800px da fonte */
+.mb-conjunto { --w: min(70vw, 1000px); width: var(--w); }
+
+/* ── a tampa ───────────────────────────────────────────────────── */
+.mb-area {
+  position: relative;
+  /* [2] P = 1,25B faz a ampliacao no topo ser exatamente 1,25 */
+  perspective: calc(var(--w) * 1.25);
+  /* Com origem na dobradica (embaixo) a borda de BAIXO da casca nao se
+     move: a altura de layout e a propria altura da casca. */
+  height: calc(var(--w) * .537);
 }
 
-/* ── tampa ─────────────────────────────────────────────────────── */
-.mb-tampa {
-  position: relative;
-  z-index: 2;
-  padding: calc(var(--w) * .0156);                  /* p-2 */
-  border-radius: calc(var(--w) * .03125) calc(var(--w) * .03125)
-                 calc(var(--w) * .0078) calc(var(--w) * .0078);
-  background: #010101;
-  /* A dobradica fica EMBAIXO, onde a tampa encosta no corpo. A fonte
-     diz `transformOrigin: top`, mas la a tampa animada e
-     `absolute inset-0` sobre uma carcaca estatica que preenche o vao;
-     aqui ha uma tampa so, e com origem no topo o scaleY(.6) do inicio
-     abria um vao entre a tampa e o teclado — o notebook ficava com a
-     tela flutuando. Com origem embaixo ela encosta, como na referencia. */
+/* [3] casca: aro cinza-aluminio de 0,01B em todo o contorno, cantos de
+   cima arredondados em 0,03B; dentro dele o corpo preto com o bezel.
+   [1] a caixa desce 0,02B ABAIXO da base para que a borda de baixo e os
+   cantos inferiores fiquem escondidos atras dela. */
+.mb-casca {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  z-index: 1;
+  /* [1] bezel UNIFORME de 0,02B: a area interna fica
+     0,94B x 0,477B, que e exatamente a razao 1,9704 da captura.
+     Antes o bezel era 0,013B e a altura nao batia com a razao da
+     imagem, entao o `cover` cortava. */
+  height: calc(var(--w) * .537);
+  box-sizing: border-box;
+  padding: calc(var(--w) * .010);
+  border-radius: calc(var(--w) * .030) calc(var(--w) * .030) 0 0;
+  background: #2b2b2e;
   transform-origin: bottom;
-  /* Quanto a tampa desce ao longo da pista.
-     A deriva liquida = altura da pista - este valor, e e ela que diz se
-     a tela parece PARADA ou se vai embora cedo. Medido no video da
-     fonte: 34vh de deriva sobre 200vh de pista = 17% da rolagem. Com
-     150vh aqui dava 90vh sobre 240vh = 37%, e a tela sumia na metade.
-     200vh sobre 240vh devolve os mesmos 17%.
-     Para isso a tampa precisa TRANSBORDAR a secao no fim — e o que a
-     fonte faz tambem (la a tampa passa ~670px do container; so nao se
-     ve porque a pagina de demonstracao nao tem nada depois). O rabo
-     vazio .mb-rabo existe para esse transbordo cair em area limpa e
-     nao por cima do bloco 01. */
-  --tv: 200vh;
-  box-shadow: 0 calc(var(--w) * .05) calc(var(--w) * .11) rgba(0,0,0,.55);
+  transform: rotateX(-28deg);     /* [5] PARADO: angulo constante */
 }
-.mb-moldura {
-  aspect-ratio: 1600 / 812;     /* a razao exata da captura do dono */
-  border-radius: calc(var(--w) * .0156);
-  background: #272729;
-  overflow: hidden;
+.mb-corpo {
+  height: 100%;
+  box-sizing: border-box;
+  padding: calc(var(--w) * .020);   /* [1] bezel uniforme */
+  border-radius: calc(var(--w) * .022) calc(var(--w) * .022) 0 0;
+  background: #010101;            /* corpo preto */
+}
+.mb-encaixe {                      /* o bezel: o poco onde a foto encaixa */
+  height: 100%;
+  border-radius: calc(var(--w) * .008);
+  background: #0a0a0d;
+  box-shadow: 0 0 calc(var(--w) * .004) rgba(0,0,0,.9) inset;
+}
+
+/* [5] A FOTO: so o screenshot, sem bezel proprio, cantos 0,006B.
+   Mesma geometria do encaixe, para nascer dentro dele. */
+/* [1] MESMA ORIGEM DA CASCA. Era este o defeito: a casca girava com
+   origem na dobradica (embaixo) e a foto com origem no topo. Origens
+   diferentes dao trapezios diferentes — no topo a casca ampliava 1,26x
+   e a foto 1,00x, e sobravam 0,154B de preto de CADA lado. Agora as
+   duas compartilham o mesmo trapezio.
+   A caixa da foto e exatamente a area interna do bezel: 0,94B x 0,477B,
+   que e a razao 1,9704 da captura. Nada e cortado. */
+.mb-foto {
+  position: absolute;
+  /* A caixa cobre a casca INTEIRA e o bezel vira padding: assim o pivo
+     da rotacao e o mesmo da casca e os dois trapezios ficam
+     concentricos. Com a caixa recuada 0,03B o pivo subia junto e
+     sobravam 0,054B de preto de cada lado. */
+  inset: 0;
+  box-sizing: border-box;
+  padding: calc(var(--w) * .030);
+  z-index: 1;                      /* [3] ATRAS da base no repouso */
+  background: none;
+  transform-origin: bottom;        /* a mesma da casca */
+  transform: rotateX(-28deg);
+  will-change: transform;
 }
 .mb-tela {
-  width: 100%; height: 100%;
-  display: block;
-  object-fit: cover;
-  object-position: left top;    /* object-left-top, da fonte */
-}
-.mb-tampa::after {              /* reflexo no vidro */
-  content: '';
-  position: absolute; inset: calc(var(--w) * .0156);
-  border-radius: calc(var(--w) * .0156);
-  pointer-events: none;
-  background: linear-gradient(104deg,
-    rgba(255,255,255,0) 38%, rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 56%);
+  width: 100%; height: 100%; display: block;
+  border-radius: calc(var(--w) * .006);   /* cantos concentricos com o bezel */
+  object-fit: cover; object-position: left top;
 }
 
-/* ── base: mesma largura da tampa, como na fonte ───────────────── */
+/* ── [4] a base ────────────────────────────────────────────────── */
 .mb-base {
   position: relative;
-  z-index: 1;
+  z-index: 2;                      /* cobre a borda de baixo da casca */
+  /* Medido: com -0,02B sobrava 0,06B de vao, entao a conta real e
+     -0,08B para a base cobrir 0,02B da tampa. */
+  margin-top: calc(var(--w) * -.02);
   width: 100%;
   box-sizing: border-box;
-  padding: calc(var(--w) * .0117) 10% calc(var(--w) * .05);
-  border-radius: 0 0 calc(var(--w) * .03125) calc(var(--w) * .03125);
-  background: #272729;
-  box-shadow: 0 calc(var(--w) * .03) calc(var(--w) * .06) rgba(0,0,0,.45);
+  padding: 0 9% calc(var(--w) * .055);
+  overflow: hidden;   /* a faixa nao vaza dos cantos arredondados */
+  border-radius: calc(var(--w) * .040) calc(var(--w) * .040)     /* cantos de cima arredondados */
+                 calc(var(--w) * .026) calc(var(--w) * .026);
+  background: #262626;             /* grafite uniforme, sem banding */
+  box-shadow: 0 calc(var(--w) * .03) calc(var(--w) * .06) rgba(0,0,0,.5);
 }
-.mb-barra {                     /* h-4 w-[80%] bg-[#050505] */
-  height: calc(var(--w) * .03125);
-  margin-bottom: calc(var(--w) * .0195);
-  background: #050505;
+/* faixa da dobradica: preta, 0,80B, encostada na borda de cima, sem
+   margem cinza acima e sem cantos de pilula */
+/* [2] em FLUXO, nao absoluta: colada na borda de cima da base, e o
+   teclado vem 0,05B abaixo dela — 0,08B no total, como o briefing pede.
+   Como absoluta, a margem do poco colapsava e o teclado encostava no
+   display. */
+.mb-barra {
+  /* 0,80B da BASE; vive dentro do padding de 9%, entao 80/82 da area util */
+  width: 97.6%;
+  height: calc(var(--w) * .030);
+  margin: 0 auto;
+  background: #000;
 }
-/* SpeakerGrid: os dois 10% das laterais, em matriz de furos */
-.mb-base::before {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  top: calc(var(--w) * .055); height: calc(var(--w) * .34);
-  pointer-events: none;
-  background-image: radial-gradient(circle, #0b0a0e calc(var(--w) * .002), transparent calc(var(--w) * .0024));
-  background-size: calc(var(--w) * .0065) calc(var(--w) * .0065);
-  -webkit-mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
-          mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
-}
-.mb-base::after {               /* o pe da frente, h-2 w-20 */
-  content: '';
-  position: absolute;
-  left: 50%; transform: translateX(-50%); bottom: 0;
-  width: 15.6%; height: calc(var(--w) * .0156);
-  border-radius: calc(var(--w) * .03) calc(var(--w) * .03) 0 0;
-  background: linear-gradient(to top, #272729, #050505 50%, #272729);
-}
-
-/* ── teclado: 6 fileiras, 78 teclas ────────────────────────────── */
-.mb-teclado {
+/* o teclado comeca 0,08B abaixo da borda de cima da base */
+.mb-poco {
   position: relative;
-  display: flex; flex-direction: column;
-  gap: calc(var(--w) * .0039);
+  margin-top: calc(var(--w) * .050);
+  padding: calc(var(--w) * .007);
+  border-radius: calc(var(--w) * .010);
+  background: #09090c;
+  box-shadow: 0 calc(var(--w) * .0015) calc(var(--w) * .004) rgba(0,0,0,.9) inset;
 }
-/* A luz por baixo das teclas. Sem `filter: blur()`: o gradiente ja
-   nasce macio, e o filtro custava um passe de renderizacao por quadro. */
-.mb-teclado::before {
+.mb-teclado { display: flex; flex-direction: column; gap: calc(var(--w) * .0035); }
+/* luz branca forte vazando da borda de baixo das teclas, mais intensa
+   sob a barra de espaco, caindo 0,05B sobre o trackpad */
+.mb-poco::after {
   content: '';
-  position: absolute; inset: calc(var(--w) * -.016);
+  position: absolute; left: -5%; right: -5%;
+  top: 100%; height: calc(var(--w) * .05);
   pointer-events: none;
-  border-radius: calc(var(--w) * .03);
   background:
-    radial-gradient(52% 78% at 50% 112%, rgba(255,255,255,.42), transparent 70%),
-    radial-gradient(92% 150% at 50% 100%, rgba(255,255,255,.14), transparent 75%);
+    radial-gradient(42% 100% at 50% 0%, rgba(255,255,255,.80), transparent 74%),
+    radial-gradient(92% 150% at 50% -6%, rgba(255,255,255,.22), transparent 80%);
 }
-/* 15 colunas: (80% - 14 vaos de 0,0039) / 15 = 0,0497 da largura. */
-.mb-fila { display: flex; gap: calc(var(--w) * .0039); height: calc(var(--w) * .0497); }
+.mb-base::before {                 /* grelhas de alto-falante */
+  content: '';
+  position: absolute; left: 0; right: 0;
+  top: calc(var(--w) * .085); height: calc(var(--w) * .30);
+  pointer-events: none;
+  background-image: radial-gradient(circle, #161616 calc(var(--w) * .0017), transparent calc(var(--w) * .0021));
+  background-size: calc(var(--w) * .0058) calc(var(--w) * .0058);
+  -webkit-mask: linear-gradient(90deg, #000 1.5% 7%, transparent 8.5% 91.5%, #000 93% 98.5%);
+          mask: linear-gradient(90deg, #000 1.5% 7%, transparent 8.5% 91.5%, #000 93% 98.5%);
+}
+.mb-base::after {                  /* recorte do dedo na borda frontal */
+  content: '';
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 0; width: 13%; height: calc(var(--w) * .013);
+  border-radius: calc(var(--w) * .02) calc(var(--w) * .02) 0 0;
+  background: #121215;
+}
+.mb-fila { display: flex; gap: calc(var(--w) * .0035); height: calc(var(--w) * .0455); }
 .mb-k {
   flex: 1;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
+  gap: calc(var(--w) * .0012);
   height: 100%;
-  border-radius: calc(var(--w) * .0078);
-  background: #0a090d;
-  box-shadow: 0 calc(var(--w) * -.001) calc(var(--w) * .0033) 0 #0d0d0f inset,
-              calc(var(--w) * -.001) 0 calc(var(--w) * .0033) 0 #0d0d0f inset,
-              0 calc(var(--w) * .001) 0 0 rgba(255,255,255,.06) inset;
-  color: #d3d3d9;
+  border-radius: calc(var(--w) * .0062);
+  background: #0e0e12;
+  /* brilho sutil nas bordas das teclas */
+  box-shadow: 0 calc(var(--w) * .0012) calc(var(--w) * .002) rgba(0,0,0,.8),
+              0 0 0 1px rgba(255,255,255,.055) inset;
+  color: #e9e9ee;
   font-family: var(--f-mono, ui-monospace, monospace);
-  font-size: calc(var(--w) * .0098);      /* text-[5px] da fonte */
-  line-height: 1.15;
+  font-size: calc(var(--w) * .0092);
+  line-height: 1.1;
   overflow: hidden;
 }
-.mb-k-esq { align-items: flex-start; padding-left: calc(var(--w) * .0078); }
-.mb-k-dir { align-items: flex-end;   padding-right: calc(var(--w) * .0078); }
-.mb-k2 { opacity: .85; }
-.mb-k-liga::after {
+.mb-k-esq { align-items: flex-start; padding-left: calc(var(--w) * .007); }
+.mb-k-dir { align-items: flex-end;   padding-right: calc(var(--w) * .007); }
+.mb-k2 { opacity: .9; }
+.mb-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.mb-ico { width: calc(var(--w) * .0145); height: calc(var(--w) * .0145); display: block; }
+.mb-k-mod .mb-k2 { font-size: calc(var(--w) * .0115); line-height: 1; }
+.mb-k-fn .mb-ico { width: calc(var(--w) * .0105); height: calc(var(--w) * .0105); }
+.mb-k-touchid { background: #0a0a0d; }
+.mb-k-touchid .mb-k1 { display: none; }
+.mb-k-touchid::after {
   content: '';
-  width: calc(var(--w) * .022); height: calc(var(--w) * .022);
+  width: calc(var(--w) * .021); height: calc(var(--w) * .021);
   border-radius: 50%;
-  background: #080709;
-  box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset;
+  background: radial-gradient(circle at 38% 32%, #18181d, #060608 70%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset;
 }
-.mb-setas { display: flex; gap: calc(var(--w) * .0039); }
+.mb-setas { display: flex; gap: calc(var(--w) * .0035); }
 .mb-setas > .mb-k { height: 100%; }
-.mb-setas-v { flex: 1; display: flex; flex-direction: column; gap: calc(var(--w) * .002); }
+.mb-setas-v { flex: 1; display: flex; flex-direction: column; gap: calc(var(--w) * .0018); }
 .mb-setas-v > .mb-k { flex: 1; height: auto; }
-.mb-k-seta { font-size: calc(var(--w) * .0075); }
-
-/* ── trackpad: w-[40%] da base, 1,6:1 ──────────────────────────── */
+.mb-k-seta { font-size: calc(var(--w) * .0068); }
 .mb-trackpad {
-  width: 50%;                   /* 40% da base = 50% da area util */
-  aspect-ratio: 1.6 / 1;
-  margin: calc(var(--w) * .0273) auto 0;
-  border-radius: calc(var(--w) * .0156);
-  box-shadow: 0 0 1px 1px rgba(0,0,0,.14) inset;
+  width: 46%;
+  aspect-ratio: 1.58 / 1;
+  margin: calc(var(--w) * .028) auto 0;
+  border-radius: calc(var(--w) * .010);
+  background: #2a2a2a;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.28) inset;
 }
 
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
-
-    .mb-tampa {
-      animation: nb-abrir linear both;
+    /* [5] UM progresso so, monotonico e reversivel, para foto e titulo.
+         0,00-0,25 repouso, so a pagina sobe
+         0,25-0,45 a foto desce; o corpo preto e o aro aparecem acima
+         0,45-0,70 cresce ~1,3x, rotateX -28 -> -8
+         0,70-0,85 cobre quase todo o teclado
+         0,85-1,00 rotateX -> 0, painel plano maior que a base */
+    .mb-foto {
+      --tv: 150vh;
+      animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
-      /* `entry 100%` = topo da pista no topo da janela (o "start start"
-         da fonte). `exit 100%` = fundo da pista no topo da janela (o
-         "end start"). Entre os dois a pagina rola a pista inteira. */
       animation-range: entry 100% exit 100%;
     }
-    @keyframes nb-abrir {
-      0%   { transform: translateY(0)                       rotateX(-28deg) scaleX(1.2) scaleY(.60); }
-      10%  { transform: translateY(calc(var(--tv) * .1))    rotateX(-28deg) scaleX(1.3) scaleY(.90); }
-      30%  { transform: translateY(calc(var(--tv) * .3))    rotateX(0deg)   scale(1.5); }
-      100% { transform: translateY(var(--tv))               rotateX(0deg)   scale(1.5); }
+    /* [3] o z-index sobe em degrau depois de 0,25: antes disso nada da
+       foto pode cobrir a base; a partir dai ela desliza POR CIMA. */
+    @keyframes nb-foto {
+      0%   { z-index: 1; transform: translateY(0)         rotateX(-28deg) scale(1); }
+      25%  { z-index: 1; transform: translateY(0)         rotateX(-28deg) scale(1); }
+      26%  { z-index: 4; transform: translateY(calc(var(--tv) * .01)) rotateX(-28deg) scale(1.004); }
+      45%  { z-index: 4; transform: translateY(calc(var(--tv) * .20)) rotateX(-24deg) scale(1.08); }
+      70%  { z-index: 4; transform: translateY(calc(var(--tv) * .52)) rotateX(-8deg)  scale(1.30); }
+      85%  { z-index: 4; transform: translateY(calc(var(--tv) * .76)) rotateX(-4deg)  scale(1.44); }
+      100% { z-index: 4; transform: translateY(var(--tv))             rotateX(0deg)   scale(1.56); }
     }
+    .mb-legenda {
+      animation: nb-titulo linear both;
+      animation-timeline: --pista-notebook;
+      animation-range: entry 100% exit 100%;
+    }
+    @keyframes nb-titulo { 0%, 25% { opacity: 1; } 45%, 100% { opacity: 0; } }
   }
 }
 
 @media (max-width: 860px) {
-  /* 220vh de rolagem num celular e muito dedo para pouco efeito. */
   .mb-pista { height: 170vh; }
-  .mb-conjunto { --w: min(56vw, 300px); }
-  .mb-tampa { --tv: 140vh; }   /* pista menor, percurso proporcional */
-  .mb-rabo { height: 34vh; }
+  .mb-conjunto { --w: min(90vw, 440px); }
+  .mb-foto { --tv: 118vh; }
+  .mb-rabo { height: 80vh; }
   .mb-legenda h2 { max-width: 16ch; }
-  /* CUSTO DE PINTURA: em 390px a tecla fica com 12px e o rotulo com
-     3px, ilegivel de qualquer jeito, mas as 78 teclas com tres sombras
-     internas e texto cada uma dobravam o p50 do trecho (16,7 -> 33,3ms,
-     medido em audit/harness/notebook-rolagem.js). Aqui ficam as formas. */
+  /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */
   .mb-k { box-shadow: none; }
   .mb-k1, .mb-k2 { display: none; }
 }
