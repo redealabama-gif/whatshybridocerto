@@ -22,6 +22,14 @@ function ok(cond, titulo, detalhe) {
 
 // f = 0 com a pista entrando pela base da janela; f = 1 com o fim dela
 // no topo. E a mesma parametrizacao do `offset` da fonte.
+// p do briefing: -rect.top / (offsetHeight - innerHeight)
+async function emP(page, P) {
+  await page.evaluate((pp) => {
+    const s = document.querySelector('#mostra');
+    window.scrollTo({ top: s.offsetTop + (s.offsetHeight - innerHeight) * pp, behavior: 'instant' });
+  }, P);
+  await page.waitForTimeout(220);
+}
 async function naPista(page, f) {
   await page.evaluate((ff) => {
     const s = document.querySelector('#mostra');
@@ -55,7 +63,19 @@ const caixa = (page, sel) => page.evaluate((s) => {
     ok(lugar.i >= 0, 'a seção #mostra existe');
     ok(lugar.i >= 0 && lugar.iHow === lugar.i + 1, 'vem logo antes do bloco 01 (#how)',
        lugar.ids.slice(Math.max(0, lugar.i - 1), lugar.i + 2).join(' > '));
-    ok(lugar.rabo, 'existe a área vazia .mb-rabo onde a tampa termina de descer');
+    // O .mb-rabo foi REMOVIDO: so existia porque a tampa transbordava a
+    // secao quando o notebook rolava solto. Com o palco `sticky` ela
+    // nunca sai do palco, e o rabo virava um vao preto de 90vh.
+    ok(!lugar.rabo, 'o vão vazio .mb-rabo não existe mais');
+    const palco = await page.evaluate(() => {
+      const e = document.querySelector('.mb-palco');
+      return { pos: getComputedStyle(e).position, alt: Math.round(e.getBoundingClientRect().height),
+               z: getComputedStyle(e).zIndex,
+               zNav: document.querySelector('.navbar') ? +getComputedStyle(document.querySelector('.navbar')).zIndex : 0 };
+    });
+    ok(palco.pos === 'sticky', 'o palco é sticky (o notebook fica parado enquanto rola)', palco.pos);
+    ok(Math.abs(palco.alt - vp.height) < 4, 'o palco tem 100vh', palco.alt + 'px de ' + vp.height);
+    ok(+palco.z > palco.zNav, 'o palco pinta acima do header fixo', 'palco z=' + palco.z + ', navbar z=' + palco.zNav);
 
     const img = await page.evaluate(() => {
       const e = document.querySelector('.mb-tela'); if (!e) return null;
@@ -90,7 +110,13 @@ const caixa = (page, sel) => page.evaluate((s) => {
     await naPista(page, 0.3);
     const b2 = await caixa(page, '.mb-base');
     const fatia = b2.w / vp.width;
-    ok(fatia > 0.55 && fatia < 0.95, 'o corpo ocupa entre 55% e 95% da largura da janela',
+    // 43vw: o conjunto inteiro tem de caber no palco de 100vh junto com
+    // o titulo. O painel FINAL e que ocupa ~90vw, por escala.
+    // No celular o corpo e proporcionalmente maior de proposito: a 43vw
+    // num aparelho de 390px a captura seria ilegivel.
+    const faixa = vp.width <= 860 ? [0.60, 0.85] : [0.33, 0.60];
+    ok(fatia > faixa[0] && fatia < faixa[1],
+       'o corpo ocupa entre ' + (faixa[0]*100) + '% e ' + (faixa[1]*100) + '% da largura da janela',
        (fatia * 100).toFixed(0) + '%');
 
     // [1] ENCAIXE: a base tem de SOBREPOR a borda de baixo da tampa.
@@ -114,20 +140,28 @@ const caixa = (page, sel) => page.evaluate((s) => {
     // O z-index da foto sobe em DEGRAU depois de 25% do progresso: no
     // repouso ela fica atras da base (nada dela cobre o teclado), e so
     // ao deslizar passa para a frente. Por isso ha duas medidas.
-    const zRepouso = await page.evaluate(() => +getComputedStyle(document.querySelector('.mb-foto')).zIndex);
-    ok(zRepouso < enc.zb, 'no repouso a foto fica ATRÁS da base', 'foto z=' + zRepouso + ', base z=' + enc.zb);
-    await naPista(page, 0.7);
-    // O z-index e propriedade discreta numa animacao de ViewTimeline:
-    // o valor computado pode levar um quadro a mais para atualizar
-    // depois do scroll. Le ate estabilizar.
-    let zDescendo = 0;
-    for (let i = 0; i < 10; i++) {
-      zDescendo = await page.evaluate(() => +getComputedStyle(document.querySelector('.mb-foto')).zIndex);
-      if (zDescendo > 2) break;
-      await page.waitForTimeout(120);
+    // TESTE DE CAMADA POR elementsFromPoint, nao por z-index.
+    // Eu checava `getComputedStyle().zIndex` e via 4 — numero que nao
+    // significa NADA dentro de contexto de empilhamento. O z-index da
+    // foto estava preso em `.mb-area` (que tinha `perspective`) e a
+    // base pintava por cima. So o hit-test no centro do teclado pega
+    // isso: la o primeiro elemento era `mb-k`, uma tecla.
+    const noTeclado = async (P) => {
+      await emP(page, P);
+      return page.evaluate(() => {
+        const k = document.querySelector('.mb-poco').getBoundingClientRect();
+        const e = document.elementsFromPoint(k.left + k.width / 2, k.top + k.height / 2)[0];
+        return e && e.className && typeof e.className === 'string' ? e.className.trim().split(/\s+/)[0] : 'nada';
+      });
+    };
+    const daBase = (n) => ['mb-k', 'mb-fila', 'mb-poco', 'mb-base', 'mb-teclado', 'mb-setas'].includes(n);
+    const daFoto = (n) => ['mb-foto', 'mb-tela'].includes(n);
+    const r0 = await noTeclado(0);
+    ok(daBase(r0), 'em p=0 o teclado está NA FRENTE (a foto parece atrás)', r0);
+    for (const P of [0.45, 0.60, 0.75, 0.90, 1.00]) {
+      const r = await noTeclado(P);
+      ok(daFoto(r), 'em p=' + P.toFixed(2) + ' a FOTO cobre o centro do teclado', r);
     }
-    ok(zDescendo > enc.zb, 'ao deslizar a foto passa para a FRENTE da base',
-       'foto z=' + zDescendo + ', base z=' + enc.zb);
     ok(enc.barra > 0.74 && enc.barra < 0.86, 'a faixa da dobradiça tem ~0,80B', (enc.barra * 100).toFixed(0) + '%');
     // [1] o screenshot preenche a area interna do bezel: os dois
     // trapezios tem de ser CONCENTRICOS (mesmo pivo de rotacao).
@@ -177,13 +211,21 @@ const caixa = (page, sel) => page.evaluate((s) => {
       if (c.b > 0 && c.t < vp.height) { baseCedo = c; break; }
     }
     baseCedo = baseCedo || await caixa(page, '.mb-base');
-    await naPista(page, 0.92);
+    await emP(page, 0.92);
     const baseTarde = await caixa(page, '.mb-base'), tampaTarde = await caixa(page, '.mb-foto');
     ok(baseCedo.b > 0 && baseCedo.t < vp.height, 'o teclado aparece na janela durante a montagem',
        'topo ' + baseCedo.t + ' fundo ' + baseCedo.b);
-    ok(baseTarde.b < 0, 'no fim o teclado já saiu pelo topo da janela', 'fundo em ' + baseTarde.b);
+    // Com o palco fixo o teclado NAO sai mais pelo topo: ele fica e e
+    // coberto pela foto. Era o gesto antigo, e era o errado.
+    ok(baseTarde.b > 0 && baseTarde.t < vp.height, 'no fim o teclado continua no palco (coberto, não some)',
+       'topo ' + baseTarde.t + ' fundo ' + baseTarde.b);
     ok(tampaTarde.b > 0 && tampaTarde.t < vp.height, 'no fim a FOTO continua na janela',
        'topo ' + tampaTarde.t + ' fundo ' + tampaTarde.b);
+    const fim = await page.evaluate(() => {
+      const f = document.querySelector('.mb-foto').getBoundingClientRect();
+      return +(f.width / innerWidth * 100).toFixed(1);
+    });
+    ok(fim >= 88 && fim <= 98, 'em p=1 o painel plano ocupa ~90-96vw', fim + 'vw');
 
     // A tampa nao pode cair em cima do bloco 01.
     const invade = await page.evaluate(async () => {
