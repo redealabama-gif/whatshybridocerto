@@ -859,97 +859,116 @@ h3, .plan-price-value, .stat-value {
 }
 
 /* ── 19. NOTEBOOK QUE ABRE AO ROLAR ──────────────────────────────
-   Copia da estrutura do MacBook Scroll da Aceternity UI, cuja fonte o
-   dono mandou por inteiro. Aquele componente e React + Motion +
-   Tailwind, e este projeto nao tem nenhum dos tres (nem
-   components.json, nem bundler): o .tsx nao roda aqui. Mas a fonte da
-   Aceternity e feita PARA ser copiada — e o que nao vem junto
-   (React/Tailwind/Motion) da para escrever a mao. Entao aqui esta a
-   mesma estrutura, em HTML e CSS:
+   Copia do MacBook Scroll da Aceternity UI, cuja fonte o dono mandou
+   por inteiro. Aquele componente e React + Motion + Tailwind, e este
+   projeto nao tem nenhum dos tres (nem components.json, nem bundler).
+   Mas a fonte da Aceternity existe PARA ser copiada, e o que nao vem
+   junto da para escrever a mao. Aqui esta a mesma coisa em HTML e CSS.
 
-     Lid    tampa w-[32rem], moldura interna, imagem object-left-top
-     Base   bg-[#272729], barra h-4 w-[80%] bg-[#050505],
-            SpeakerGrid 10% | Keypad 80% | SpeakerGrid 10%,
-            Trackpad w-[40%] em 1,6:1, pe h-2 w-20
-     Keypad 6 fileiras, 78 teclas bg-[#0A090D] com sombra interna,
-            rotulos de verdade (esc, F1..F12, QWERTY, shift, command,
-            setas), luz de fundo por baixo
-     curva  scaleX 1,2 -> 1,5   scaleY 0,6 -> 1,5   rotateX -28 -> 0
-     perspectiva 800px, raio 16px, respiro 8px
+   O GESTO — foi o que eu tinha errado, e so o video do dono mostrou
+   Na fonte o `translate` vai SO NA TAMPA, 0 -> 1500px, ao longo da
+   pista inteira. A pagina sobe 200vh levando o TECLADO embora pelo
+   topo, e a tampa e empurrada 1500px PARA BAIXO na mesma medida: ela
+   fica praticamente parada na tela enquanto o corpo sai de cena. No
+   fim sobra so a tela, grande e reta, parada.
 
-   TUDO e derivado de --w, a largura do conjunto. Trocar --w redimensiona
-   o notebook inteiro sem mexer em mais nada. E o equivalente ao
-   scale-[0.35] / sm:scale-50 / md:scale-100 da fonte.
+   Eu tinha posto `position: sticky` no conjunto todo e animado so a
+   proporcao da tampa. Resultado: o notebook inteiro congelado, trocando
+   de forma. Nada de sticky agora — o palco rola normal e quem se mexe
+   e a tampa, exatamente como na fonte.
 
-   ONDE DIVERGE DA FONTE, E POR QUE
-   1. A TELA TEM A PROPORCAO DA IMAGEM DO DONO (1600x812 = 1,97:1), nao
-      os 4:3 da fonte. Na primeira versao eu deixei 16:10 com
-      `object-fit: cover`, e isso cortava 23,2% da largura — sumia com o
-      painel "Sugestao de IA", que e justamente o que a secao vende.
-      Nada de corte: a moldura tem a razao exata da imagem.
-   2. Palco `sticky` com o titulo EM FLUXO acima. A fonte nao usa
-      sticky: empurra a tela 1500px para baixo enquanto a pagina sobe
-      1800px, o que da uma deriva liquida de ~33vh para cima. Esse 1500
-      e um numero fixo que assume uma janela especifica. Aqui o palco e
-      sticky e a deriva de 33vh esta reproduzida de proposito em
-      nb-derivar, entao o gesto e o mesmo sem depender do tamanho da
-      tela de quem olha.
-   3. As teclas de funcao mostram so F1..F12, sem os icones do @tabler.
-      Glifo de icone em fonte de sistema vira emoji colorido em metade
-      dos aparelhos; F1..F12 e o que sempre aparece igual.
-   4. Uma tampa so, nao a carcaca estatica em -25deg mais a tela
-      animada por cima: o desenho fica o mesmo com um elemento a menos.
+   1500px sobre os 1800px de rolagem de uma janela de 900 = 83%. Em vh
+   isso e `0 -> 166vh` sobre uma pista de 200vh, e assim vale para
+   qualquer altura de janela — ao contrario do 1500 fixo da fonte, que
+   numa janela baixa faz o notebook DESCER em vez de subir.
+
+   A CURVA, da fonte:
+     translateY  0 -> 1500px    em todo o progresso   (aqui 0 -> 166vh)
+     scaleX      1,2 -> 1,5     em [0, 0,3]
+     scaleY      0,6 -> 1,5     em [0, 0,3]
+     rotateX     -28deg -> 0    em [0,1, 0,3]
+     origem da transformacao: topo da tampa
+     perspectiva 800px
+
+   O ENCAIXE DA TELA COM O TECLADO
+   Na fonte tampa e base tem A MESMA largura (`w-[32rem]` nas duas). A
+   tela so parece maior porque o scaleX e aplicado nela e nao na base.
+   Eu tinha medido 0,81 numa captura que JA estava com scaleX 1,24 e
+   cravado `width: 80%` na base — contando o mesmo efeito duas vezes, e
+   a razao real virava 0,60 em vez de 0,81. Agora as duas tem --w e a
+   razao sai da animacao: 1/1,2 = 0,83 no inicio, 1/1,5 = 0,67 no fim.
+
+   O TAMANHO
+   A fonte usa 512px (32rem) com scale-[0.35]/sm:50/md:100. Medido nas
+   capturas do dono, o notebook ocupa 42% da largura da janela na
+   referencia; o meu estava em 85%, o dobro. --w volta para os 512px da
+   fonte, e com scale 1,5 no fim da ~53% — na faixa certa.
+
+   TUDO DERIVA DE --w, a largura da base (= largura da tampa sem
+   escala). Trocar --w redimensiona o notebook inteiro.
 
    DEGRADACAO
-   Em repouso, sem suporte a animation-timeline e com
-   prefers-reduced-motion, a tela aparece ABERTA e o titulo legivel. */
+   Sem suporte a animation-timeline e com prefers-reduced-motion a
+   tampa fica sem transform: notebook fechado, reto e legivel, com o
+   titulo acima. Nunca uma tela deitada e ilegivel. */
 
-.mb-pista { position: relative; height: 260vh; }
+.mb-pista { position: relative; height: 240vh; }
+/* Area vazia onde a tampa termina de descer, entre esta secao e o
+   bloco 01. Sem ela o transbordo cairia em cima de "Em 3 passos". */
+.mb-rabo { height: 50vh; pointer-events: none; }
 
-.mb-fixo {
-  position: sticky; top: 0;
-  height: 100vh;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
-  padding-top: clamp(12px, 4vh, 44px);
-  gap: var(--s5);
-  overflow: hidden;
+/* Sem sticky, de proposito: o palco rola junto com a pagina, e e isso
+   que leva o teclado embora pelo topo. O titulo nao tem animacao
+   nenhuma — ele sai de cena rolando, como na fonte. */
+.mb-palco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s6);
+  padding-top: clamp(var(--s7), 12vh, 140px);
 }
-
-/* Em FLUXO acima do notebook, como na fonte: os dois aparecem juntos e
-   um nunca cobre o outro. O espaco fica reservado mesmo quando o titulo
-   some, entao o notebook nao pula. */
 .mb-legenda { text-align: center; padding: 0 var(--s5); }
 .mb-legenda .section-eyebrow { display: block; margin-bottom: var(--s3); }
 .mb-legenda h2 { margin: 0 auto; max-width: 20ch; }
 
-/* --w manda em tudo. 1,2325 e a altura do conjunto em funcao da
-   largura, somando tampa e base; o limite em vh e o que faz caber na
-   janela de 100vh do palco, com o titulo. */
 .mb-conjunto {
-  /* Medido: o conjunto tem 1,19x a largura de altura. O palco de 100vh
-     ainda carrega o titulo (~15vh) e o respiro, entao a largura maxima
-     que fecha a conta e 72vh, agora que a base estreita baixou a altura
-     do conjunto de 1,19 para 1,06 da largura. */
-  --w: min(92vw, 900px, 72vh);
+  --w: min(62vw, 512px);        /* os 32rem da fonte */
   width: var(--w);
-  perspective: 800px;
+  perspective: 800px;           /* o 800px da fonte */
 }
 
 /* ── tampa ─────────────────────────────────────────────────────── */
 .mb-tampa {
   position: relative;
   z-index: 2;
-  padding: calc(var(--w) * .0105);        /* p-2 */
-  border-radius: calc(var(--w) * .021) calc(var(--w) * .021)
-                 calc(var(--w) * .005) calc(var(--w) * .005);
+  padding: calc(var(--w) * .0156);                  /* p-2 */
+  border-radius: calc(var(--w) * .03125) calc(var(--w) * .03125)
+                 calc(var(--w) * .0078) calc(var(--w) * .0078);
   background: #010101;
-  transform-origin: 50% 100%;
-  box-shadow: 0 calc(var(--w) * .04) calc(var(--w) * .09) rgba(0,0,0,.5);
+  /* A dobradica fica EMBAIXO, onde a tampa encosta no corpo. A fonte
+     diz `transformOrigin: top`, mas la a tampa animada e
+     `absolute inset-0` sobre uma carcaca estatica que preenche o vao;
+     aqui ha uma tampa so, e com origem no topo o scaleY(.6) do inicio
+     abria um vao entre a tampa e o teclado — o notebook ficava com a
+     tela flutuando. Com origem embaixo ela encosta, como na referencia. */
+  transform-origin: bottom;
+  /* Quanto a tampa desce ao longo da pista.
+     A deriva liquida = altura da pista - este valor, e e ela que diz se
+     a tela parece PARADA ou se vai embora cedo. Medido no video da
+     fonte: 34vh de deriva sobre 200vh de pista = 17% da rolagem. Com
+     150vh aqui dava 90vh sobre 240vh = 37%, e a tela sumia na metade.
+     200vh sobre 240vh devolve os mesmos 17%.
+     Para isso a tampa precisa TRANSBORDAR a secao no fim — e o que a
+     fonte faz tambem (la a tampa passa ~670px do container; so nao se
+     ve porque a pagina de demonstracao nao tem nada depois). O rabo
+     vazio .mb-rabo existe para esse transbordo cair em area limpa e
+     nao por cima do bloco 01. */
+  --tv: 200vh;
+  box-shadow: 0 calc(var(--w) * .05) calc(var(--w) * .11) rgba(0,0,0,.55);
 }
 .mb-moldura {
-  aspect-ratio: 1600 / 812;               /* a razao exata da imagem */
-  border-radius: calc(var(--w) * .011);
+  aspect-ratio: 1600 / 812;     /* a razao exata da captura do dono */
+  border-radius: calc(var(--w) * .0156);
   background: #272729;
   overflow: hidden;
 }
@@ -957,62 +976,51 @@ h3, .plan-price-value, .stat-value {
   width: 100%; height: 100%;
   display: block;
   object-fit: cover;
-  object-position: left top;              /* object-left-top, da fonte */
+  object-position: left top;    /* object-left-top, da fonte */
 }
-.mb-tampa::after {                        /* reflexo no vidro */
+.mb-tampa::after {              /* reflexo no vidro */
   content: '';
-  position: absolute; inset: calc(var(--w) * .0105);
-  border-radius: calc(var(--w) * .011);
+  position: absolute; inset: calc(var(--w) * .0156);
+  border-radius: calc(var(--w) * .0156);
   pointer-events: none;
   background: linear-gradient(104deg,
     rgba(255,255,255,0) 38%, rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 56%);
 }
 
-/* ── base ──────────────────────────────────────────────────────── */
-/* A BASE E MAIS ESTREITA QUE A TELA — 80% dela. Isto nao e enfeite:
-   medido na referencia que o dono mandou, a base tem 0,81 da largura
-   do painel da tela. Na fonte isso sai do `scaleX` da animacao, que
-   termina em 1,5 e deixa a tela maior que o corpo. Na primeira versao
-   eu fiz os dois com a mesma largura e o resultado nao parecia um
-   notebook: parecia, nas palavras do dono, "um bloco retangular
-   encaixado numa imagem". A razao da base (0,8 / 0,5288 = 1,51) fica
-   perto dos 1,47 da referencia. */
+/* ── base: mesma largura da tampa, como na fonte ───────────────── */
 .mb-base {
   position: relative;
   z-index: 1;
+  width: 100%;
   box-sizing: border-box;
-  width: 80%;
-  margin: 0 auto;
-  padding: calc(var(--w) * .0104) 10% calc(var(--w) * .0208);
-  border-radius: 0 0 calc(var(--w) * .021) calc(var(--w) * .021);
+  padding: calc(var(--w) * .0117) 10% calc(var(--w) * .05);
+  border-radius: 0 0 calc(var(--w) * .03125) calc(var(--w) * .03125);
   background: #272729;
-  box-shadow: 0 calc(var(--w) * .024) calc(var(--w) * .05) rgba(0,0,0,.45);
+  box-shadow: 0 calc(var(--w) * .03) calc(var(--w) * .06) rgba(0,0,0,.45);
 }
-.mb-barra {                               /* h-4 w-[80%] bg-[#050505] */
-  height: calc(var(--w) * .0144);
-  margin-bottom: calc(var(--w) * .0096);
+.mb-barra {                     /* h-4 w-[80%] bg-[#050505] */
+  height: calc(var(--w) * .03125);
+  margin-bottom: calc(var(--w) * .0195);
   background: #050505;
 }
-/* SpeakerGrid: os dois 10% das laterais, em matriz de pontos */
+/* SpeakerGrid: os dois 10% das laterais, em matriz de furos */
 .mb-base::before {
   content: '';
   position: absolute;
   left: 0; right: 0;
-  top: calc(var(--w) * .035); height: calc(var(--w) * .27);
+  top: calc(var(--w) * .055); height: calc(var(--w) * .34);
   pointer-events: none;
-  /* Medido na referencia: furos de ~4px num corpo de 920. Na primeira
-     versao o raio saia em 0,45px — abaixo de um pixel, invisivel. */
-  background-image: radial-gradient(circle, #0b0a0e calc(var(--w) * .0016), transparent calc(var(--w) * .0019));
-  background-size: calc(var(--w) * .0052) calc(var(--w) * .0052);
+  background-image: radial-gradient(circle, #0b0a0e calc(var(--w) * .002), transparent calc(var(--w) * .0024));
+  background-size: calc(var(--w) * .0065) calc(var(--w) * .0065);
   -webkit-mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
           mask: linear-gradient(90deg, #000 0 7.5%, transparent 9% 91%, #000 92.5% 100%);
 }
-.mb-base::after {                         /* o pe da frente, h-2 w-20 */
+.mb-base::after {               /* o pe da frente, h-2 w-20 */
   content: '';
   position: absolute;
   left: 50%; transform: translateX(-50%); bottom: 0;
-  width: 16%; height: calc(var(--w) * .0053);
-  border-radius: calc(var(--w) * .02) calc(var(--w) * .02) 0 0;
+  width: 15.6%; height: calc(var(--w) * .0156);
+  border-radius: calc(var(--w) * .03) calc(var(--w) * .03) 0 0;
   background: linear-gradient(to top, #272729, #050505 50%, #272729);
 }
 
@@ -1020,72 +1028,59 @@ h3, .plan-price-value, .stat-value {
 .mb-teclado {
   position: relative;
   display: flex; flex-direction: column;
-  gap: calc(var(--w) * .0044);
+  gap: calc(var(--w) * .0039);
 }
-/* A luz por baixo das teclas. Na fonte e `shadow-white` em cada tecla
-   acesa; um brilho so, atras do bloco, da a mesma leitura por um
-   centesimo do custo de pintura. */
+/* A luz por baixo das teclas. Sem `filter: blur()`: o gradiente ja
+   nasce macio, e o filtro custava um passe de renderizacao por quadro. */
 .mb-teclado::before {
   content: '';
-  position: absolute; inset: calc(var(--w) * -.012);
+  position: absolute; inset: calc(var(--w) * -.016);
   pointer-events: none;
-  border-radius: calc(var(--w) * .02);
+  border-radius: calc(var(--w) * .03);
   background:
-    radial-gradient(52% 78% at 50% 112%, rgba(255,255,255,.40), transparent 70%),
-    radial-gradient(90% 150% at 50% 100%, rgba(255,255,255,.13), transparent 75%);
-  /* Sem `filter: blur()`. O gradiente radial ja nasce macio, e o filtro
-     custava um passe de renderizacao fora da tela a cada quadro: no
-     celular o p50 do trecho dobrou de 16,7ms para 33,3ms com ele.
-     Medido em audit/harness/notebook-rolagem.js. */
+    radial-gradient(52% 78% at 50% 112%, rgba(255,255,255,.42), transparent 70%),
+    radial-gradient(92% 150% at 50% 100%, rgba(255,255,255,.14), transparent 75%);
 }
-/* Altura explicita na fileira. Com `aspect-ratio: 1/1` nas teclas a
-   medida saia 25x38: num flex row o `align-items: stretch` manda na
-   altura e o aspect-ratio e ignorado. 0,048 da largura e exatamente a
-   largura que sobra para cada uma das 15 colunas depois dos vaos. */
-/* A area util agora e 0,64 da largura (80% da base, que e 80% da tela).
-   15 colunas menos 14 vaos de 0,0044 da 0,0386 por tecla — quadrada. */
-.mb-fila { display: flex; gap: calc(var(--w) * .0044); height: calc(var(--w) * .036); }
+/* 15 colunas: (80% - 14 vaos de 0,0039) / 15 = 0,0497 da largura. */
+.mb-fila { display: flex; gap: calc(var(--w) * .0039); height: calc(var(--w) * .0497); }
 .mb-k {
   flex: 1;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   height: 100%;
-  border-radius: calc(var(--w) * .005);
+  border-radius: calc(var(--w) * .0078);
   background: #0a090d;
-  box-shadow: 0 calc(var(--w) * -.0007) calc(var(--w) * .0026) 0 #0d0d0f inset,
-              calc(var(--w) * -.0007) 0 calc(var(--w) * .0026) 0 #0d0d0f inset,
-              0 calc(var(--w) * .0008) 0 0 rgba(255,255,255,.06) inset;
+  box-shadow: 0 calc(var(--w) * -.001) calc(var(--w) * .0033) 0 #0d0d0f inset,
+              calc(var(--w) * -.001) 0 calc(var(--w) * .0033) 0 #0d0d0f inset,
+              0 calc(var(--w) * .001) 0 0 rgba(255,255,255,.06) inset;
   color: #d3d3d9;
   font-family: var(--f-mono, ui-monospace, monospace);
-  font-size: calc(var(--w) * .0095);      /* text-[5px] da fonte */
+  font-size: calc(var(--w) * .0098);      /* text-[5px] da fonte */
   line-height: 1.15;
-  letter-spacing: 0;
   overflow: hidden;
 }
-/* Teclas largas: param de ser quadradas e o rotulo encosta num lado,
-   como no teclado de verdade. */
-.mb-k-esq { align-items: flex-start; padding-left: calc(var(--w) * .006); }
-.mb-k-dir { align-items: flex-end;  padding-right: calc(var(--w) * .006); }
+.mb-k-esq { align-items: flex-start; padding-left: calc(var(--w) * .0078); }
+.mb-k-dir { align-items: flex-end;   padding-right: calc(var(--w) * .0078); }
 .mb-k2 { opacity: .85; }
 .mb-k-liga::after {
   content: '';
-  width: calc(var(--w) * .018); height: calc(var(--w) * .018);
+  width: calc(var(--w) * .022); height: calc(var(--w) * .022);
   border-radius: 50%;
   background: #080709;
   box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset;
 }
-.mb-setas { display: flex; gap: calc(var(--w) * .0044); }
+.mb-setas { display: flex; gap: calc(var(--w) * .0039); }
 .mb-setas > .mb-k { height: 100%; }
-.mb-setas-v { flex: 1; display: flex; flex-direction: column; gap: calc(var(--w) * .0022); }
+.mb-setas-v { flex: 1; display: flex; flex-direction: column; gap: calc(var(--w) * .002); }
 .mb-setas-v > .mb-k { flex: 1; height: auto; }
-.mb-k-seta { font-size: calc(var(--w) * .007); }
+.mb-k-seta { font-size: calc(var(--w) * .0075); }
 
 /* ── trackpad: w-[40%] da base, 1,6:1 ──────────────────────────── */
 .mb-trackpad {
   width: 50%;                   /* 40% da base = 50% da area util */
   aspect-ratio: 1.6 / 1;
-  margin: calc(var(--w) * .02) auto 0;
-  border-radius: calc(var(--w) * .011);
+  margin: calc(var(--w) * .0273) auto 0;
+  border-radius: calc(var(--w) * .0156);
   box-shadow: 0 0 1px 1px rgba(0,0,0,.14) inset;
 }
 
@@ -1093,62 +1088,34 @@ h3, .plan-price-value, .stat-value {
   @media (prefers-reduced-motion: no-preference) {
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
 
-    /* A curva da fonte: a tela comeca deitada em -28deg e achatada em
-       scaleY .6, e se levanta crescendo. O 1,5 de la era para crescer
-       dentro de um palco fixo de 512px; aqui o conjunto ja nasce no
-       tamanho final e chegar a 1 basta. */
     .mb-tampa {
       animation: nb-abrir linear both;
       animation-timeline: --pista-notebook;
-      animation-range: entry 100% cover 46%;
+      /* `entry 100%` = topo da pista no topo da janela (o "start start"
+         da fonte). `exit 100%` = fundo da pista no topo da janela (o
+         "end start"). Entre os dois a pagina rola a pista inteira. */
+      animation-range: entry 100% exit 100%;
     }
     @keyframes nb-abrir {
-      from { transform: rotateX(-28deg) scaleX(1.2) scaleY(.6); }
-      to   { transform: rotateX(0deg) scale(1); }
-    }
-
-    /* A deriva da fonte. La o conjunto sobe 1800px enquanto a tela e
-       empurrada 1500px para baixo: sobra ~33vh de subida ao longo da
-       pista inteira. Sem isso o notebook fica congelado no centro, que
-       foi a reclamacao do dono sobre a primeira versao. */
-    .mb-conjunto {
-      animation: nb-derivar linear both;
-      animation-timeline: --pista-notebook;
-      animation-range: entry 100% exit 0%;
-    }
-    @keyframes nb-derivar {
-      from { transform: translateY(4vh); }
-      to   { transform: translateY(-15vh); }
-    }
-
-    /* O titulo sai de cena quando a tela toma a frente: opacidade 1->0
-       e 100px para cima, como na fonte. */
-    .mb-legenda {
-      animation: nb-legenda linear both;
-      animation-timeline: --pista-notebook;
-      animation-range: entry 100% cover 32%;
-    }
-    @keyframes nb-legenda {
-      from { opacity: 1; transform: none; }
-      to   { opacity: 0; transform: translateY(-60px); }
+      0%   { transform: translateY(0)                       rotateX(-28deg) scaleX(1.2) scaleY(.60); }
+      10%  { transform: translateY(calc(var(--tv) * .1))    rotateX(-28deg) scaleX(1.3) scaleY(.90); }
+      30%  { transform: translateY(calc(var(--tv) * .3))    rotateX(0deg)   scale(1.5); }
+      100% { transform: translateY(var(--tv))               rotateX(0deg)   scale(1.5); }
     }
   }
 }
 
 @media (max-width: 860px) {
-  /* 260vh de rolagem num celular e muito dedo para pouco efeito. */
+  /* 220vh de rolagem num celular e muito dedo para pouco efeito. */
   .mb-pista { height: 170vh; }
-
-  /* CUSTO DE PINTURA. Em 390px o conjunto tem 367px: cada tecla fica
-     com 14px e o rotulo com 3,5px — ilegivel de qualquer jeito. Mas as
-     78 teclas com tres sombras internas e texto cada uma custavam
-     caro: medido em audit/harness/notebook-rolagem.js, o p50 do trecho
-     dobrava de 16,7ms para 33,3ms (60 -> 30 quadros por segundo) so
-     por ter o notebook na tela, de forma estavel em varias passagens.
-     Aqui ficam as teclas como formas, sem texto e sem sombra: no
-     tamanho em que aparecem, identico aos olhos, e o quadro volta. */
+  .mb-conjunto { --w: min(56vw, 300px); }
+  .mb-tampa { --tv: 140vh; }   /* pista menor, percurso proporcional */
+  .mb-rabo { height: 34vh; }
+  .mb-legenda h2 { max-width: 16ch; }
+  /* CUSTO DE PINTURA: em 390px a tecla fica com 12px e o rotulo com
+     3px, ilegivel de qualquer jeito, mas as 78 teclas com tres sombras
+     internas e texto cada uma dobravam o p50 do trecho (16,7 -> 33,3ms,
+     medido em audit/harness/notebook-rolagem.js). Aqui ficam as formas. */
   .mb-k { box-shadow: none; }
   .mb-k1, .mb-k2 { display: none; }
-  .mb-conjunto { --w: min(94vw, 70vh); }
-  .mb-legenda h2 { max-width: 16ch; }
 }
