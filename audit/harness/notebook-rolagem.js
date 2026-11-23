@@ -219,16 +219,23 @@ const caixa = (page, sel) => page.evaluate((s) => {
       await new Promise((r) => setTimeout(r, 350));
       const d = []; let ant = performance.now(), i = 0;
       await new Promise((res) => { (function f(t) { d.push(t - ant); ant = t;
-        window.scrollTo({ top: ini + (fim - ini) * (i / 80), behavior: 'instant' });
-        if (++i <= 80) requestAnimationFrame(f); else res(); })(performance.now()); });
+        window.scrollTo({ top: ini + (fim - ini) * (i / 40), behavior: 'instant' });
+        if (++i <= 40) requestAnimationFrame(f); else res(); })(performance.now()); });
       d.shift(); const o = [...d].sort((a, b) => a - b);
       return { p50: +o[(o.length * .5) | 0].toFixed(1), p95: +o[(o.length * .95) | 0].toFixed(1) };
     });
     const mostrar = (v) => page.evaluate((x) => { document.querySelector('.mb-conjunto').style.visibility = x ? '' : 'hidden'; }, v);
     const meio = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+    // CURTO-CIRCUITO: 5 pares sempre faziam esta checagem sozinha levar
+    // quase uma hora neste conteiner. Dois pares que ja concordam
+    // bastam; o terceiro so entra para desempatar.
     await varre();
     const cs = [], ss = [];
-    for (let i = 0; i < 5; i++) { await mostrar(true); cs.push(await varre()); await mostrar(false); ss.push(await varre()); }
+    for (let i = 0; i < 3; i++) {
+      await mostrar(true);  cs.push(await varre());
+      await mostrar(false); ss.push(await varre());
+      if (i >= 1 && cs[0].p50 === cs[1].p50 && ss[0].p50 === ss[1].p50) break;
+    }
     await mostrar(true);
     const com = { p50: meio(cs.map((x) => x.p50)), p95: meio(cs.map((x) => x.p95)) };
     const sem = { p50: meio(ss.map((x) => x.p50)), p95: meio(ss.map((x) => x.p95)) };
