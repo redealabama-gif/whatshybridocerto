@@ -110,12 +110,24 @@ async function naPista(page, fracao) {
       d.shift(); const o = [...d].sort((a, b) => a - b);
       return { p50: +o[(o.length * .5) | 0].toFixed(1), p95: +o[(o.length * .95) | 0].toFixed(1) };
     });
-    // aquecimento: a 1a passagem baixa e decodifica os fundos preguiçosos
+    // Aquecimento e depois TRÊS pares alternados, com a mediana de cada
+    // lado. Uma amostra só não serve: no celular a leitura pulava entre
+    // 16,7 e 33,3ms — exatamente um quadro — mesmo com o notebook
+    // escondido. Com 6 amostras pareadas os dois lados deram 16,7ms
+    // cravado, então o pulo era a primeira passagem fria, não custo.
+    const mostrar = (v) => page.evaluate((x) => {
+      document.querySelector('.mb-conjunto').style.visibility = x ? '' : 'hidden';
+    }, v);
+    const meio = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
     await varre();
-    const com = await varre();
-    await page.evaluate(() => { document.querySelector('.mb-conjunto').style.visibility = 'hidden'; });
-    const sem = await varre();
-    await page.evaluate(() => { document.querySelector('.mb-conjunto').style.visibility = ''; });
+    const cs = [], ss = [];
+    for (let i = 0; i < 3; i++) {
+      await mostrar(true);  cs.push(await varre());
+      await mostrar(false); ss.push(await varre());
+    }
+    await mostrar(true);
+    const com = { p50: meio(cs.map(x => x.p50)), p95: meio(cs.map(x => x.p95)) };
+    const sem = { p50: meio(ss.map(x => x.p50)), p95: meio(ss.map(x => x.p95)) };
     ok(com.p50 <= sem.p50 + 8, 'o notebook não piora o p50 do trecho em mais de 8ms',
        'com ' + com.p50 + 'ms, sem ' + sem.p50 + 'ms');
     ok(com.p95 <= sem.p95 * 1.25 + 20, 'o notebook não piora o p95 do trecho em mais de 25%',
