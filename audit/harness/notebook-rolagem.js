@@ -95,15 +95,16 @@ const caixa = (page, sel) => page.evaluate((s) => {
        'a base fica entre 0,62 e 0,90 da largura da tampa (referência: 0,81)',
        (b1.w / t1.w).toFixed(3));
 
-    // O TAMANHO: medido nas capturas da referência, o notebook ocupa 42%
-    // da janela. O meu já esteve em 85% — o dobro.
-    await naPista(page, 0.6);
-    const t2 = await caixa(page, '.mb-tampa');
-    const fatia = t2.w / vp.width;
-    // No celular a faixa de cima e maior de proposito: num aparelho de
-    // 390px uma tampa a 53% daria 207px e a captura seria ilegivel.
-    const teto = vp.width <= 860 ? 0.88 : 0.75;
-    ok(fatia > 0.35 && fatia < teto, 'a tampa ocupa entre 35% e ' + (teto*100) + '% da largura da janela',
+    // O TAMANHO. Mede o CORPO no comeco, nao a tampa no fim: a tampa
+    // termina em scale(1.5) e passa de 100% da janela de proposito (nas
+    // capturas da referencia ela tambem sai cortada nas bordas). O
+    // corpo e o numero estavel. Nas capturas do dono ele ocupa ~70% da
+    // largura; o meu ja esteve em 36% (copiando os 512px fixos da
+    // fonte) e em 85% (quando eu o inflei para caber na janela).
+    await naPista(page, 0.3);
+    const b2 = await caixa(page, '.mb-base');
+    const fatia = b2.w / vp.width;
+    ok(fatia > 0.55 && fatia < 0.95, 'o corpo ocupa entre 55% e 95% da largura da janela',
        (fatia * 100).toFixed(0) + '%');
 
     // O GESTO: o teclado sai pelo topo e a tampa fica.

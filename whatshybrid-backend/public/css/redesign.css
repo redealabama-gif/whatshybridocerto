@@ -912,10 +912,13 @@ h3, .plan-price-value, .stat-value {
    tampa fica sem transform: notebook fechado, reto e legivel, com o
    titulo acima. Nunca uma tela deitada e ilegivel. */
 
-.mb-pista { position: relative; height: 240vh; }
+.mb-pista { position: relative; height: 200vh; }
 /* Area vazia onde a tampa termina de descer, entre esta secao e o
    bloco 01. Sem ela o transbordo cairia em cima de "Em 3 passos". */
-.mb-rabo { height: 50vh; pointer-events: none; }
+/* O transbordo cresce junto com o notebook: com --w maior a tampa
+   desce mais longe. 90vh foi o que a medicao pediu para ela nunca
+   encostar no bloco 01. */
+.mb-rabo { height: 90vh; pointer-events: none; }
 
 /* Sem sticky, de proposito: o palco rola junto com a pagina, e e isso
    que leva o teclado embora pelo topo. O titulo nao tem animacao
@@ -932,7 +935,14 @@ h3, .plan-price-value, .stat-value {
 .mb-legenda h2 { margin: 0 auto; max-width: 20ch; }
 
 .mb-conjunto {
-  --w: min(62vw, 512px);        /* os 32rem da fonte */
+  /* PROPORCIONAL A JANELA, nao os 512px fixos da fonte.
+     A fonte usa `w-[32rem]` com scale-[0.35]/sm:50/md:100, entao o
+     tamanho aparente depende so da largura da janela de quem olha: nas
+     capturas do dono o corpo ocupa ~70% da tela, e com os mesmos
+     512px numa janela de 1440 daria 36%. Eu copiei o numero fixo e o
+     notebook saiu com metade do tamanho que ele ve. Em vw a leitura e
+     a mesma em qualquer largura. */
+  --w: min(70vw, 1000px);
   width: var(--w);
   perspective: 800px;           /* o 800px da fonte */
 }
@@ -945,13 +955,18 @@ h3, .plan-price-value, .stat-value {
   border-radius: calc(var(--w) * .03125) calc(var(--w) * .03125)
                  calc(var(--w) * .0078) calc(var(--w) * .0078);
   background: #010101;
-  /* A dobradica fica EMBAIXO, onde a tampa encosta no corpo. A fonte
-     diz `transformOrigin: top`, mas la a tampa animada e
-     `absolute inset-0` sobre uma carcaca estatica que preenche o vao;
-     aqui ha uma tampa so, e com origem no topo o scaleY(.6) do inicio
-     abria um vao entre a tampa e o teclado — o notebook ficava com a
-     tela flutuando. Com origem embaixo ela encosta, como na referencia. */
-  transform-origin: bottom;
+  /* ORIGEM NO TOPO, como na fonte. Isto nao e detalhe.
+     Com origem EMBAIXO, o rotateX(-28deg) traz o topo da tampa na
+     direcao de quem olha, e a perspectiva de 800px AMPLIA esse topo:
+     o avanco em z e 276 x sen(28) = 129px, logo 800/(800-129) = 1,193x.
+     A tela virava um outdoor largo demais para o corpo — razao
+     corpo/tela de 0,58 medida na captura do dono, contra 0,808 da
+     referencia. Com origem no topo o topo fica parado em z=0, so o
+     fundo recua, e a razao e exatamente 1/scaleX = 0,833.
+     O vao que a origem embaixo fechava e preenchido pela carcaca
+     estatica .mb-tampa-fixa, que e o que a fonte faz e o que aparece
+     como o bloco escuro entre a tela e o corpo na referencia. */
+  transform-origin: top;
   /* Quanto a tampa desce ao longo da pista.
      A deriva liquida = altura da pista - este valor, e e ela que diz se
      a tela parece PARADA ou se vai embora cedo. Medido no video da
@@ -963,7 +978,7 @@ h3, .plan-price-value, .stat-value {
      ve porque a pagina de demonstracao nao tem nada depois). O rabo
      vazio .mb-rabo existe para esse transbordo cair em area limpa e
      nao por cima do bloco 01. */
-  --tv: 200vh;
+  --tv: 165vh;
   box-shadow: 0 calc(var(--w) * .05) calc(var(--w) * .11) rgba(0,0,0,.55);
 }
 .mb-moldura {
@@ -986,6 +1001,14 @@ h3, .plan-price-value, .stat-value {
   background: linear-gradient(104deg,
     rgba(255,255,255,0) 38%, rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 56%);
 }
+
+/* A CARCACA ESTATICA, o `h-[12rem] rotateX(-25deg)` da fonte. Em
+   repouso ela nao existe (veja o @supports la embaixo): sem animacao a
+   tampa fica em fluxo e o notebook aparece reto e legivel. Com
+   animacao ela vira o bloco escuro da dobradica, atras da tampa, e e o
+   que impede o vao quando o scaleY(.6) encolhe a tampa para cima. */
+.mb-area { position: relative; z-index: 2; }
+.mb-tampa-fixa { display: none; }
 
 /* ── base: mesma largura da tampa, como na fonte ───────────────── */
 .mb-base {
@@ -1088,7 +1111,34 @@ h3, .plan-price-value, .stat-value {
   @media (prefers-reduced-motion: no-preference) {
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
 
+    /* h-[12rem] sobre h-96 na fonte = metade da altura da tampa. */
+    /* IRMA da tampa, nao mae: na fonte as duas sao filhas do mesmo
+       wrapper `relative [perspective:800px]`. Na primeira tentativa eu
+       fiz a carcaca ser a MAE, e a tampa herdou a rotacao dela e o
+       `inset: 0` da altura — a tela ENCOLHIA ao longo da pista (663 ->
+       409px) em vez de crescer. */
+    .mb-tampa-fixa {
+      display: block;
+      /* h-[12rem] = 192px sobre os 512 da fonte = 0,375 da largura.
+         Eu tinha posto 0,269 (metade da altura da MINHA tampa) e o
+         painel preto que fica para tras saia baixo demais: nas
+         capturas da referencia ele e uma area preta alta, com o
+         cursor ">" dentro, enquanto a imagem desliza para fora dele. */
+      height: calc(var(--w) * .375);
+      padding: calc(var(--w) * .0156);
+      border-radius: calc(var(--w) * .03125) calc(var(--w) * .03125)
+                     calc(var(--w) * .0078) calc(var(--w) * .0078);
+      background: #010101;
+      transform: rotateX(-25deg);
+      transform-origin: bottom;
+    }
+    /* `top/left/right` sem `bottom`: a altura continua vindo da razao
+       da imagem, entao nada e cortado. A fonte poe `h-96` fixo e corta
+       com object-cover; aqui a imagem do dono precisa aparecer
+       inteira. */
     .mb-tampa {
+      position: absolute;
+      top: 0; left: 0; right: 0;
       animation: nb-abrir linear both;
       animation-timeline: --pista-notebook;
       /* `entry 100%` = topo da pista no topo da janela (o "start start"
@@ -1108,9 +1158,9 @@ h3, .plan-price-value, .stat-value {
 @media (max-width: 860px) {
   /* 220vh de rolagem num celular e muito dedo para pouco efeito. */
   .mb-pista { height: 170vh; }
-  .mb-conjunto { --w: min(56vw, 300px); }
-  .mb-tampa { --tv: 140vh; }   /* pista menor, percurso proporcional */
-  .mb-rabo { height: 34vh; }
+  .mb-conjunto { --w: min(88vw, 420px); }
+  .mb-tampa { --tv: 120vh; }   /* pista menor, percurso proporcional */
+  .mb-rabo { height: 80vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* CUSTO DE PINTURA: em 390px a tecla fica com 12px e o rotulo com
      3px, ilegivel de qualquer jeito, mas as 78 teclas com tres sombras
