@@ -884,13 +884,27 @@ h3, .plan-price-value, .stat-value {
    imagem: so fechariam cortando a captura, que e o primeiro defeito que
    o dono apontou. Mantive o trapezio exato e a imagem inteira. */
 
+/* B = largura da base. UMA variavel; tudo no mockup deriva dela.
+   Medido: a referencia tem a base em 31% da janela e a nossa estava em
+   43%. O teto em vh e so para janelas baixas. */
+:root { --B: min(31vw, 52vh); --header-h: 80px; }
+
 .mb-pista {
   position: relative;
-  height: 300vh;                   /* runway */
+  /* runway = altura do palco + 200vh de animacao. O palco e o ULTIMO
+     elemento, entao ao soltar o pin o fundo dele coincide com o fundo
+     do runway: nao sobra faixa preta. */
+  height: calc(100svh - var(--header-h) + 200vh);
   /* [6 do briefing anterior] fundo preto quase total e liso */
   background: linear-gradient(180deg,
     transparent 0, #07070b 9vh, #07070b calc(100% - 4vh), transparent 100%);
 }
+/* Nenhuma margem extra aqui. O proprio palco ja deixa ~0,14B abaixo do
+   painel centralizado (o painel e limitado pela largura de 92vw, entao
+   nao preenche a altura toda do palco). Somar 0,12B por fora dava
+   0,27B de faixa preta — a soma dupla era o defeito. */
+#mostra + section { margin-top: 0; }
+
 /* .mb-rabo foi removido: existia para o transbordo da tampa quando o
    notebook rolava solto. Com o palco `sticky` a foto nunca sai dele, e
    o rabo virou um vao preto de 90vh antes do bloco 01. */
@@ -904,12 +918,14 @@ h3, .plan-price-value, .stat-value {
    header escondia o painel no topo. */
 .mb-palco {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: var(--header-h);
+  height: calc(100svh - var(--header-h));
   z-index: 101;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: var(--s5);
+  align-items: center;
+  justify-content: flex-start;     /* alinhado ao TOPO */
+  padding-top: calc(var(--B) * .10);
+  gap: calc(var(--B) * .10);
   overflow: hidden;
 }
 .mb-legenda { text-align: center; padding: 0 var(--s5); }
@@ -919,7 +935,7 @@ h3, .plan-price-value, .stat-value {
 /* 43vw deixa a razao entre o painel final e a janela quase constante
    (o scale 2,2 cai em ~89-95vw de 1440 a 1920); o teto de 72vh e so
    para janelas baixas, onde o conjunto nao caberia no palco. */
-.mb-conjunto { --w: min(43vw, 72vh); width: var(--w); position: relative; }
+.mb-conjunto { --w: var(--B); width: var(--w); position: relative; }
 
 /* ── a tampa ───────────────────────────────────────────────────── */
 /* ERRO 2 — A FOTO PASSAVA POR BAIXO DO TECLADO.
@@ -931,9 +947,11 @@ h3, .plan-price-value, .stat-value {
    perspectiva passou para dentro do transform de cada camada. */
 .mb-area {
   position: relative;
-  /* Com origem na dobradica (embaixo) a borda de BAIXO da casca nao se
-     move: a altura de layout e a propria altura da casca. */
-  height: calc(var(--w) * .537);
+  /* A caixa tem a altura RENDERIZADA (0,393B com -54deg), nao a
+     natural: as camadas sao ancoradas pelo FUNDO (a dobradica), e o que
+     sobra da caixa fica acima, fora do fluxo. Com a altura natural
+     sobrava 0,144B de vao entre o titulo e a tampa. */
+  height: calc(var(--w) * .393);
 }
 
 /* [3] casca: aro cinza-aluminio de 0,01B em todo o contorno, cantos de
@@ -942,7 +960,7 @@ h3, .plan-price-value, .stat-value {
    cantos inferiores fiquem escondidos atras dela. */
 .mb-casca {
   position: absolute;
-  left: 0; right: 0; top: 0;
+  left: 0; right: 0; bottom: 0;   /* ancorada pela dobradica */
   z-index: 1;
   /* [1] bezel UNIFORME de 0,02B: a area interna fica
      0,94B x 0,477B, que e exatamente a razao 1,9704 da captura.
@@ -954,7 +972,7 @@ h3, .plan-price-value, .stat-value {
   border-radius: calc(var(--w) * .030) calc(var(--w) * .030) 0 0;
   background: #2b2b2e;
   transform-origin: bottom;
-  transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg);
+  transform: perspective(calc(var(--w) * 2.2)) rotateX(-54deg);
 }
 .mb-corpo {
   height: 100%;
@@ -985,7 +1003,8 @@ h3, .plan-price-value, .stat-value {
      da rotacao e o mesmo da casca e os dois trapezios ficam
      concentricos. Com a caixa recuada 0,03B o pivo subia junto e
      sobravam 0,054B de preto de cada lado. */
-  inset: 0;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--w) * .537);
   box-sizing: border-box;
   padding: calc(var(--w) * .030);
   z-index: 3;                      /* NA FRENTE da base */
@@ -995,7 +1014,7 @@ h3, .plan-price-value, .stat-value {
      --corte vai a 0 entre p 0,20 e p 0,30. */
   clip-path: inset(0 0 var(--corte, 0px) 0 round calc(var(--w) * .006));
   transform-origin: bottom;        /* a mesma da casca */
-  transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg);
+  transform: perspective(calc(var(--w) * 2.2)) rotateX(-54deg);
   will-change: transform, clip-path;
 }
 .mb-tela {
@@ -1039,8 +1058,15 @@ h3, .plan-price-value, .stat-value {
   margin-top: calc(var(--w) * .050);
   padding: calc(var(--w) * .007);
   border-radius: calc(var(--w) * .010);
-  background: #09090c;
-  box-shadow: 0 calc(var(--w) * .0015) calc(var(--w) * .004) rgba(0,0,0,.9) inset;
+  /* O POCO E A LUZ. Antes era preto chapado e o brilho era uma elipse
+     separada FORA dele: por isso os vaos entre as teclas saiam pretos.
+     Na referencia a luz vem de dentro, por baixo dos keycaps. */
+  background:
+    radial-gradient(42% 70% at 50% 100%, rgba(255,255,255,.95), transparent 72%),
+    linear-gradient(to top,
+      rgba(255,255,255,.85) 0%, rgba(255,255,255,.55) 25%,
+      rgba(255,255,255,.25) 55%, rgba(255,255,255,.08) 100%),
+    #0a0a0f;
 }
 .mb-teclado { display: flex; flex-direction: column; gap: calc(var(--w) * .0035); }
 /* luz branca forte vazando da borda de baixo das teclas, mais intensa
@@ -1050,9 +1076,10 @@ h3, .plan-price-value, .stat-value {
   position: absolute; left: -5%; right: -5%;
   top: 100%; height: calc(var(--w) * .05);
   pointer-events: none;
+  /* a MESMA luz continua para fora do poco, sem corte na borda */
   background:
     radial-gradient(42% 100% at 50% 0%, rgba(255,255,255,.80), transparent 74%),
-    radial-gradient(92% 150% at 50% -6%, rgba(255,255,255,.22), transparent 80%);
+    linear-gradient(to bottom, rgba(255,255,255,.34), transparent 82%);
 }
 .mb-base::before {                 /* grelhas de alto-falante */
   content: '';
@@ -1071,7 +1098,14 @@ h3, .plan-price-value, .stat-value {
   border-radius: calc(var(--w) * .02) calc(var(--w) * .02) 0 0;
   background: #121215;
 }
-.mb-fila { display: flex; gap: calc(var(--w) * .0035); height: calc(var(--w) * .0455); }
+/* vao = 0,11 do passo da tecla (era 0,065: os vaos ficavam fechados e
+   a luz nao passava entre as teclas). */
+.mb-fila { display: flex; gap: calc(var(--w) * .0059); height: calc(var(--w) * .0455); --halo: .10; }
+.mb-fila:nth-child(2) { --halo: .14; }
+.mb-fila:nth-child(3) { --halo: .20; }
+.mb-fila:nth-child(4) { --halo: .27; }
+.mb-fila:nth-child(5) { --halo: .34; }
+.mb-fila:nth-child(6) { --halo: .42; }
 .mb-k {
   flex: 1;
   display: flex; flex-direction: column;
@@ -1079,10 +1113,10 @@ h3, .plan-price-value, .stat-value {
   gap: calc(var(--w) * .0012);
   height: 100%;
   border-radius: calc(var(--w) * .0062);
-  background: #0e0e12;
-  /* brilho sutil nas bordas das teclas */
-  box-shadow: 0 calc(var(--w) * .0012) calc(var(--w) * .002) rgba(0,0,0,.8),
-              0 0 0 1px rgba(255,255,255,.055) inset;
+  /* tecla OPACA por cima da luz: e ela que recorta o brilho */
+  background: linear-gradient(180deg, #0b0b10 0%, #050508 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08),
+              0 1px 3px rgba(255,255,255, var(--halo, .1));
   color: #e9e9ee;
   font-family: var(--f-mono, ui-monospace, monospace);
   font-size: calc(var(--w) * .0092);
@@ -1141,8 +1175,13 @@ h3, .plan-price-value, .stat-value {
       /* escala final: leva o painel a ~92vw. Depende de --w, entao e
          parametro, nao numero cravado — no celular --w e bem maior em
          proporcao e 2,2 jogava o painel para 198vw. */
-      --escala: 2.2;
-      --desloc: 34vh;   /* quanto a foto desce no total */
+      /* B caiu de 43vw para 31vw, entao a escala final sobe para manter
+         o painel em ~92vw: 0,92 x 100vw / 0,31 x 100vw = 2,97; 3,05
+         cobre tambem a janela de 1920, onde o teto em vh prende B. */
+      --escala: 3.05;
+      /* 44vh deixa o painel CENTRALIZADO no palco em p=1 (com 34vh ele
+         parava alto e sobrava faixa preta embaixo). */
+      --desloc: 40vh;
       animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
       animation-range: entry 100% exit 0%;
@@ -1155,17 +1194,17 @@ h3, .plan-price-value, .stat-value {
        So translateY, rotateX e scale. */
     @keyframes nb-foto {
       0%, 20% { --corte: calc(var(--w) * .07);
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(0) scale(1); }
+                transform: perspective(calc(var(--w) * 2.2)) rotateX(-54deg) translateY(0) scale(1); }
       30%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(calc(var(--desloc) * .18))  scale(calc(1 + (var(--escala) - 1) * 0.05)); }
+                transform: perspective(calc(var(--w) * 2.2)) rotateX(-54deg) translateY(calc(var(--desloc) * .18))  scale(calc(1 + (var(--escala) - 1) * 0.05)); }
       /* em 0,45 a foto ja tem de estar NA FRENTE do centro do teclado:
          medido, com 12vh em 0,50 ela ainda nao chegava la. */
       50%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-24deg) translateY(calc(var(--desloc) * .59)) scale(calc(1 + (var(--escala) - 1) * 0.28)); }
+                transform: perspective(calc(var(--w) * 2.2)) rotateX(-40deg) translateY(calc(var(--desloc) * .59)) scale(calc(1 + (var(--escala) - 1) * 0.28)); }
       80%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-8deg)  translateY(calc(var(--desloc) * .88)) scale(calc(1 + (var(--escala) - 1) * 0.68)); }
+                transform: perspective(calc(var(--w) * 2.2)) rotateX(-14deg)  translateY(calc(var(--desloc) * .88)) scale(calc(1 + (var(--escala) - 1) * 0.68)); }
       100%    { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(0deg)   translateY(var(--desloc)) scale(calc(1 + (var(--escala) - 1) * 1.0)); }
+                transform: perspective(calc(var(--w) * 2.2)) rotateX(0deg)   translateY(var(--desloc)) scale(calc(1 + (var(--escala) - 1) * 1.0)); }
     }
     .mb-legenda {
       animation: nb-titulo linear both;
@@ -1177,12 +1216,13 @@ h3, .plan-price-value, .stat-value {
 }
 
 @media (max-width: 860px) {
+  :root { --header-h: 73px; }   /* a navbar e mais baixa no celular */
   .mb-pista { height: 260vh; }
   .mb-conjunto { --w: min(72vw, 420px); }
   /* no celular o conjunto e proporcionalmente maior e a pista menor,
      entao o percurso tambem encolhe: com 34vh a foto passava direto do
      centro do teclado e deixava as teclas a mostra de novo. */
-  .mb-foto { --escala: 1.28; --desloc: 16vh; }
+  .mb-foto { --escala: 1.28; --desloc: 26vh; }
   .mb-foto { --tv: 118vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */

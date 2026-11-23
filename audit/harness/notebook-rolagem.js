@@ -67,14 +67,24 @@ const caixa = (page, sel) => page.evaluate((s) => {
     // secao quando o notebook rolava solto. Com o palco `sticky` ela
     // nunca sai do palco, e o rabo virava um vao preto de 90vh.
     ok(!lugar.rabo, 'o vão vazio .mb-rabo não existe mais');
+    // le com o pin ATIVO: antes disso o palco ainda esta no fluxo
+    await emP(page, 0.5);
     const palco = await page.evaluate(() => {
       const e = document.querySelector('.mb-palco');
       return { pos: getComputedStyle(e).position, alt: Math.round(e.getBoundingClientRect().height),
+               top: Math.round(e.getBoundingClientRect().top),
                z: getComputedStyle(e).zIndex,
                zNav: document.querySelector('.navbar') ? +getComputedStyle(document.querySelector('.navbar')).zIndex : 0 };
     });
     ok(palco.pos === 'sticky', 'o palco é sticky (o notebook fica parado enquanto rola)', palco.pos);
-    ok(Math.abs(palco.alt - vp.height) < 4, 'o palco tem 100vh', palco.alt + 'px de ' + vp.height);
+    // o palco agora comeca ABAIXO do header: 100svh - header.
+    const hdr = await page.evaluate(() => {
+      const n = document.querySelector('.navbar');
+      return n ? Math.round(n.getBoundingClientRect().height) : 0;
+    });
+    ok(Math.abs(palco.alt - (vp.height - hdr)) < 10, 'o palco tem 100svh menos o header',
+       palco.alt + 'px de ' + (vp.height - hdr));
+    ok(Math.abs(palco.top - hdr) < 3, 'o palco cola logo abaixo do header', 'top ' + palco.top + ', header ' + hdr);
     ok(+palco.z > palco.zNav, 'o palco pinta acima do header fixo', 'palco z=' + palco.z + ', navbar z=' + palco.zNav);
 
     const img = await page.evaluate(() => {
@@ -114,7 +124,9 @@ const caixa = (page, sel) => page.evaluate((s) => {
     // o titulo. O painel FINAL e que ocupa ~90vw, por escala.
     // No celular o corpo e proporcionalmente maior de proposito: a 43vw
     // num aparelho de 390px a captura seria ilegivel.
-    const faixa = vp.width <= 860 ? [0.60, 0.85] : [0.33, 0.60];
+    // a referencia tem a base em 31% da janela; o celular e maior de
+    // proposito, senao a captura ficaria ilegivel.
+    const faixa = vp.width <= 860 ? [0.60, 0.85] : [0.28, 0.36];
     ok(fatia > faixa[0] && fatia < faixa[1],
        'o corpo ocupa entre ' + (faixa[0]*100) + '% e ' + (faixa[1]*100) + '% da largura da janela',
        (fatia * 100).toFixed(0) + '%');
