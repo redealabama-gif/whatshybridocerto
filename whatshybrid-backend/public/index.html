@@ -1991,6 +1991,41 @@
   </div>
 </section>
 
+<!-- A extensao dentro do WhatsApp Web, numa tela que abre ao rolar.
+     Referencia trazida pelo dono: o MacBook Scroll da Aceternity UI.
+     Aquele componente e React + Framer Motion + Tailwind; aqui o efeito
+     foi reconstruido em CSS, com a mesma curva. Ver css/redesign.css,
+     secao 19. -->
+<section class="mb-pista" id="mostra" aria-labelledby="mostra-titulo">
+  <div class="mb-fixo">
+
+    <div class="mb-legenda">
+      <span class="section-eyebrow">Por dentro</span>
+      <h2 id="mostra-titulo">O Vórtex vive <span class="text-gradient">dentro do seu WhatsApp</span></h2>
+    </div>
+
+    <div class="mb-conjunto">
+      <div class="mb-tampa">
+        <div class="mb-moldura">
+          <img class="mb-tela"
+               src="assets/tela-extensao-1600w.webp"
+               srcset="assets/tela-extensao-1000w.webp 1000w, assets/tela-extensao-1600w.webp 1600w"
+               sizes="(max-width: 860px) 92vw, min(760px, 62vh)"
+               width="1600" height="812"
+               loading="lazy" decoding="async"
+               alt="WhatsApp Web com o painel do Vórtex Pro aberto à direita, mostrando uma sugestão de resposta pronta para aprovar.">
+        </div>
+      </div>
+      <div class="mb-base" aria-hidden="true">
+        <div class="mb-barra"></div>
+        <div class="mb-teclado"></div>
+        <div class="mb-trackpad"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <!-- How it works -->
 <section class="py-16 pfx-section" id="how" data-pfx-tone="steps" data-pfx-speed="0.15">
   <div class="pfx-bg" data-fundo="bg-steps"></div>
