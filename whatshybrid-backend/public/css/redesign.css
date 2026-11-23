@@ -1138,6 +1138,11 @@ h3, .plan-price-value, .stat-value {
     .mb-pista { view-timeline-name: --pista-notebook; view-timeline-axis: block; }
 
     .mb-foto {
+      /* escala final: leva o painel a ~92vw. Depende de --w, entao e
+         parametro, nao numero cravado — no celular --w e bem maior em
+         proporcao e 2,2 jogava o painel para 198vw. */
+      --escala: 2.2;
+      --desloc: 34vh;   /* quanto a foto desce no total */
       animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
       animation-range: entry 100% exit 0%;
@@ -1152,15 +1157,15 @@ h3, .plan-price-value, .stat-value {
       0%, 20% { --corte: calc(var(--w) * .07);
                 transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(0) scale(1); }
       30%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(6vh)  scale(1.06); }
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-28deg) translateY(calc(var(--desloc) * .18))  scale(calc(1 + (var(--escala) - 1) * 0.05)); }
       /* em 0,45 a foto ja tem de estar NA FRENTE do centro do teclado:
          medido, com 12vh em 0,50 ela ainda nao chegava la. */
       50%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-24deg) translateY(20vh) scale(1.34); }
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-24deg) translateY(calc(var(--desloc) * .59)) scale(calc(1 + (var(--escala) - 1) * 0.28)); }
       80%     { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(-8deg)  translateY(30vh) scale(1.82); }
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(-8deg)  translateY(calc(var(--desloc) * .88)) scale(calc(1 + (var(--escala) - 1) * 0.68)); }
       100%    { --corte: 0px;
-                transform: perspective(calc(var(--w) * 1.25)) rotateX(0deg)   translateY(34vh) scale(2.20); }
+                transform: perspective(calc(var(--w) * 1.25)) rotateX(0deg)   translateY(var(--desloc)) scale(calc(1 + (var(--escala) - 1) * 1.0)); }
     }
     .mb-legenda {
       animation: nb-titulo linear both;
@@ -1172,8 +1177,12 @@ h3, .plan-price-value, .stat-value {
 }
 
 @media (max-width: 860px) {
-  .mb-pista { height: 170vh; }
-  .mb-conjunto { --w: min(90vw, 440px); }
+  .mb-pista { height: 260vh; }
+  .mb-conjunto { --w: min(72vw, 420px); }
+  /* no celular o conjunto e proporcionalmente maior e a pista menor,
+     entao o percurso tambem encolhe: com 34vh a foto passava direto do
+     centro do teclado e deixava as teclas a mostra de novo. */
+  .mb-foto { --escala: 1.28; --desloc: 16vh; }
   .mb-foto { --tv: 118vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */
