@@ -237,7 +237,14 @@ const caixa = (page, sel) => page.evaluate((s) => {
       const f = document.querySelector('.mb-foto').getBoundingClientRect();
       return +(f.width / innerWidth * 100).toFixed(1);
     });
-    ok(fim >= 88 && fim <= 98, 'em p=1 o painel plano ocupa ~90-96vw', fim + 'vw');
+    // 78vw em vez de 94vw: o painel estava grande demais, e com a captura
+    // de 2048px essa reducao ainda SOBE a densidade (de 1,46x a 2,05x
+    // conforme a janela, contra ~1,50x antes).
+    // No celular o painel continua maior de proposito: numa tela de
+    // 390px, 78vw dariam 304px e a captura ficaria ilegivel. A queixa
+    // do dono ("fica muito grande") era no desktop.
+    const fx = vp.width <= 860 ? [84, 94] : [72, 84];
+    ok(fim >= fx[0] && fim <= fx[1], 'em p=1 o painel ocupa ~' + fx[0] + '-' + fx[1] + 'vw', fim + 'vw');
 
     // A tampa nao pode cair em cima do bloco 01.
     const invade = await page.evaluate(async () => {
