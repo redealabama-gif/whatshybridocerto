@@ -1270,12 +1270,23 @@ h3, .plan-price-value, .stat-value {
      Com 72vw/1,28 — o que estava no ar — a moldura vazia da tampa
      aparecia 137px acima da captura em TODO celular (medido em
      390x844), e a captura ficava parecendo um adesivo solto. */
-  /* --teto-painel: --escala 2,2 faz o painel ABERTO ter 1,181 x --w de
-     altura. Em celular DEITADO o palco fica com ~317px e o painel
-     passava 6px do topo. Os 28px sao a margem de respiro (12 nao
-     bastaram: a legenda mede mais que 100px numa janela de 844). */
+  /* O palco tem a altura da janela inteira, mas no celular o conjunto
+     e proporcionalmente pequeno: alinhado ao topo, sobrava de 282px
+     (iPhone SE) a 568px de preto embaixo — mais da METADE do palco num
+     iPhone 14 Pro Max. Centralizado, a mesma sobra se divide entre
+     cima e baixo e deixa de parecer um buraco antes do bloco 01. */
+  .mb-palco { justify-content: center; padding-top: 0; }
+
   .mb-conjunto {
-    --teto-painel: calc((100svh - var(--header-h) - 28px) / 1.181);
+    /* --teto-painel: com --escala 2,2 o painel ABERTO tem 1,181 x --w
+       de altura. Em celular DEITADO o palco fica com ~317px e o painel
+       passava do topo. Os 110px sao margem de respiro, medida em tres
+       rodadas: com 12px sobravam 6px de estouro, com 28px sobravam 47
+       depois que o palco passou a centralizar (centralizado o painel
+       sobe, entao precisa de mais folga).
+       Em celular EM PE este termo nunca manda: num 390x844 ele daria
+       560px contra os 172px que 44vw ja impoe. */
+    --teto-painel: calc((100svh - var(--header-h) - 110px) / 1.181);
     --w: min(44vw, 260px, var(--teto-altura), var(--teto-painel));
   }
   /* no celular o conjunto e proporcionalmente maior e a pista menor,
