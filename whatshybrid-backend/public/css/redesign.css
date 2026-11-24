@@ -1189,26 +1189,44 @@ h3, .plan-price-value, .stat-value {
          998px numa janela de 1366, 1116px em 1440, 1302px em 1680,
          1404px em 1920). Estava em 3,05, que dava ~94vw: o dono
          reclamou que a imagem aberta ficava grande demais.
-         De quebra, ocupar menos tela SOBE a densidade: com a captura
-         de 2048px o painel recebe de 1,46x (janela 1920) a 2,05x
-         (janela 1366), contra ~1,50x no tamanho anterior — a imagem
-         fica mais nitida justamente por ficar menor. */
+         NAO BAIXAR MAIS QUE ISSO. A captura precisa cobrir DUAS coisas
+         ao mesmo tempo: a carcaca da tampa, acima dela, e o centro do
+         teclado, abaixo. Com 2,3 ela ja nao alcanca as duas pontas —
+         medido: em p=0,45 e p=0,60 o teclado reaparece no meio da
+         rolagem (audit/harness/notebook-rolagem.js acusa). 2,5 e o
+         menor valor que atende as duas.
+         O borrao de que o dono reclamou nao vinha do tamanho e sim da
+         compressao: o WebP saia em qualidade 75 porque o ImageMagick
+         ignora o -quality (ver scripts/otimizar-imagens.js). */
       --escala: 2.5;
+      /* --sala: espaco livre abaixo do conjunto dentro do palco.
+         Do topo do palco ate a base da tampa gastam-se a legenda
+         (138px no desktop) mais 0,593 x --w. Conferido px a px de
+         1024x768 a 2560x1440 com erro zero. */
+      --sala: calc(100svh - var(--header-h) - 138px - var(--w) * .593);
+      /* --cobre: o MAIOR deslocamento que ainda deixa a captura
+         cobrindo a carcaca da tampa. A carcaca fica parada e tem
+         0,392 x --w de altura projetada; a captura tem
+         0,537 x --w x --escala e desce --desloc, entao ela descobre a
+         carcaca em (--desloc - 0,537 x --escala x --w + 0,392 x --w).
+         Formula conferida nos tres valores medidos: 0,682 x --w em
+         1366, 1440 e 1920 com --escala 2,0. */
+      /* -3px de margem: as constantes .537/.392 sao medidas, e o
+         arredondamento deixava 1px da carcaca aparecendo. */
+      --cobre: calc(var(--w) * (var(--escala) * .537 - .392) - 3px);
       /* Quanto o painel DESCE ate o fim da pista. Como a origem da
-         transformacao e embaixo, a escala cresce para cima e e so este
-         valor que decide onde fica a base do painel.
-         40vh e o alvo, mas em janela baixa a base saia do palco (que
-         tem overflow:hidden) e o rodape da captura era CORTADO: medido
-         -43px em 1280x600, -31px em 1366x640, -13px em 1366x700.
-         A sala real abaixo do conjunto e
-             100svh - header - 138px (a legenda) - 0,593 x --w
-         conferida px a px de 1024x768 a 2560x1440 (erro 0); em telas
-         estreitas e no celular a formula subestima a sala, o que so
-         deixa o painel um pouco mais alto. O min() mantem os 40vh onde
-         cabem e encurta onde nao cabem; o max() impede valor negativo
-         em celular deitado. */
-      --desloc: min(40vh, max(0px,
-        calc(100svh - var(--header-h) - 138px - var(--w) * .593)));
+         transformacao e embaixo, a escala cresce para CIMA e so este
+         valor decide onde fica a base do painel. Era 40vh cravado,
+         calibrado a mao para --escala 3,05.
+         Agora sai de duas regras: a do briefing (a base para a 0,12 x
+         --w do fim do palco) e a da cobertura, que manda quando a
+         janela e alta. Sem a segunda a moldura vazia da tampa aparecia
+         acima da captura — 137px em 390x844, ou seja, em TODO celular,
+         e 56px em 1440x1200. O max() prende em 0 e o min() em --sala,
+         que e o fundo do palco (overflow:hidden). */
+      --desloc: max(0px, min(var(--cobre),
+                             calc(var(--sala) - var(--w) * .12),
+                             var(--sala)));
       animation: nb-foto linear both;
       animation-timeline: --pista-notebook;
       animation-range: entry 100% exit 0%;
@@ -1245,15 +1263,31 @@ h3, .plan-price-value, .stat-value {
 @media (max-width: 860px) {
   :root { --header-h: 73px; }   /* a navbar e mais baixa no celular */
   .mb-pista { height: 260vh; }
-  .mb-conjunto { --w: min(72vw, 420px, var(--teto-altura)); }
+  /* 44vw, nao 72vw. No celular a captura precisa cobrir a carcaca da
+     tampa (acima) e o centro do teclado (abaixo) ao mesmo tempo, e a
+     conta so fecha com --escala >= 2,2. Com o conjunto em 72vw essa
+     escala jogaria o painel para 158vw; em 44vw ele fecha em 97vw.
+     Com 72vw/1,28 — o que estava no ar — a moldura vazia da tampa
+     aparecia 137px acima da captura em TODO celular (medido em
+     390x844), e a captura ficava parecendo um adesivo solto. */
+  /* --teto-painel: --escala 2,2 faz o painel ABERTO ter 1,181 x --w de
+     altura. Em celular DEITADO o palco fica com ~317px e o painel
+     passava 6px do topo. Os 28px sao a margem de respiro (12 nao
+     bastaram: a legenda mede mais que 100px numa janela de 844). */
+  .mb-conjunto {
+    --teto-painel: calc((100svh - var(--header-h) - 28px) / 1.181);
+    --w: min(44vw, 260px, var(--teto-altura), var(--teto-painel));
+  }
   /* no celular o conjunto e proporcionalmente maior e a pista menor,
      entao o percurso tambem encolhe: com 34vh a foto passava direto do
      centro do teclado e deixava as teclas a mostra de novo. */
-  .mb-foto { --escala: 1.28;
-    /* mesma protecao do desktop: no celular em pe 26vh sobra folga,
-       mas DEITADO o palco fica com ~320px e a base sairia do palco. */
-    --desloc: min(26vh, max(0px,
-      calc(100svh - var(--header-h) - 138px - var(--w) * .593))); }
+  .mb-foto { --escala: 2.2;
+    /* a legenda no celular mede ~100px, nao 138px */
+    --sala: calc(100svh - var(--header-h) - 100px - var(--w) * .593);
+    --cobre: calc(var(--w) * (var(--escala) * .537 - .392) - 3px);
+    --desloc: max(0px, min(var(--cobre),
+                           calc(var(--sala) - var(--w) * .12),
+                           var(--sala))); }
   .mb-foto { --tv: 118vh; }
   .mb-legenda h2 { max-width: 16ch; }
   /* custo de pintura: em 390px a tecla tem 12px e o rotulo 3px */

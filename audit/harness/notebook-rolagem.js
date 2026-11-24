@@ -122,11 +122,15 @@ const caixa = (page, sel) => page.evaluate((s) => {
     const fatia = b2.w / vp.width;
     // 43vw: o conjunto inteiro tem de caber no palco de 100vh junto com
     // o titulo. O painel FINAL e que ocupa ~90vw, por escala.
-    // No celular o corpo e proporcionalmente maior de proposito: a 43vw
-    // num aparelho de 390px a captura seria ilegivel.
-    // a referencia tem a base em 31% da janela; o celular e maior de
-    // proposito, senao a captura ficaria ilegivel.
-    const faixa = vp.width <= 860 ? [0.60, 0.85] : [0.28, 0.36];
+    // A referencia tem a base em 31% da janela — e esse e o alvo do
+    // desktop. O celular era 72vw (corpo em ~70% da janela) para a
+    // captura nao ficar ilegivel, mas nesse tamanho a captura nao
+    // conseguia cobrir a carcaca da tampa e o centro do teclado ao
+    // mesmo tempo: era preciso --escala >= 2,2, que em 72vw jogaria o
+    // painel para 158vw. Em 44vw a conta fecha e, apesar do notebook
+    // menor em repouso, o painel ABERTO fica maior (97vw contra 92vw),
+    // que e o momento em que a captura precisa ser legivel.
+    const faixa = vp.width <= 860 ? [0.38, 0.52] : [0.28, 0.36];
     ok(fatia > faixa[0] && fatia < faixa[1],
        'o corpo ocupa entre ' + (faixa[0]*100) + '% e ' + (faixa[1]*100) + '% da largura da janela',
        (fatia * 100).toFixed(0) + '%');
@@ -237,13 +241,15 @@ const caixa = (page, sel) => page.evaluate((s) => {
       const f = document.querySelector('.mb-foto').getBoundingClientRect();
       return +(f.width / innerWidth * 100).toFixed(1);
     });
-    // 78vw em vez de 94vw: o painel estava grande demais, e com a captura
-    // de 2048px essa reducao ainda SOBE a densidade (de 1,46x a 2,05x
-    // conforme a janela, contra ~1,50x antes).
+    // 78vw em vez de 94vw: o painel estava grande demais. Nao da para
+    // baixar mais: com --escala 2,3 a captura deixa de cobrir o centro
+    // do teclado no meio da rolagem (ver o comentario de --escala no
+    // CSS). A faixa real do desktop vai de 61vw a 78vw conforme a
+    // janela.
     // No celular o painel continua maior de proposito: numa tela de
     // 390px, 78vw dariam 304px e a captura ficaria ilegivel. A queixa
     // do dono ("fica muito grande") era no desktop.
-    const fx = vp.width <= 860 ? [84, 94] : [72, 84];
+    const fx = vp.width <= 860 ? [90, 99] : [60, 84];
     ok(fim >= fx[0] && fim <= fx[1], 'em p=1 o painel ocupa ~' + fx[0] + '-' + fx[1] + 'vw', fim + 'vw');
 
     // A tampa nao pode cair em cima do bloco 01.
@@ -335,18 +341,28 @@ const caixa = (page, sel) => page.evaluate((s) => {
   ok(red.tecladoVisivel, 'o teclado continua na tela');
   await ctx.close();
 
-  // ── o painel aberto nao pode ser cortado pelo palco ──────────────
-  // O palco tem overflow:hidden e o painel desce --desloc ao abrir.
-  // Com --desloc cravado em 40vh a base saia fora em janela baixa e o
-  // rodape da captura era cortado: -43px em 1280x600, -31px em
-  // 1366x640, -13px em 1366x700 (medido). As duas janelas do laco
-  // principal (1440x900 e 390x844) tem folga de sobra e nao pegavam
-  // isso, por isso esta varredura separada de janelas baixas.
-  console.log('\n--- o painel aberto cabe no palco (janelas baixas) ---');
+  // ── o painel aberto: nao pode ser cortado nem deixar a carcaca a
+  //    mostra, em NENHUMA janela ─────────────────────────────────────
+  // Dois defeitos diferentes, os dois invisiveis para as duas janelas
+  // do laco principal (1440x900 e 390x844), por isso esta varredura.
+  //
+  // 1) CORTE. O palco tem overflow:hidden e o painel desce --desloc.
+  //    Com --desloc cravado em 40vh a base saia fora em janela baixa e
+  //    o rodape da captura era cortado: -43px em 1280x600, -31px em
+  //    1366x640, -13px em 1366x700.
+  // 2) CARCACA A MOSTRA. A carcaca da tampa fica parada; a captura
+  //    cresce para cima e desce --desloc. Se desce demais, a moldura
+  //    vazia aparece ACIMA da captura, que fica parecendo um adesivo
+  //    solto. Media 137px em 390x844 — ou seja, em todo celular — e
+  //    56px em 1440x1200.
+  console.log('\n--- o painel aberto nao e cortado nem deixa a carcaca a mostra ---');
   for (const vp of [{ width: 1280, height: 600 }, { width: 1366, height: 640 },
                     { width: 1366, height: 700 }, { width: 1366, height: 768 },
-                    { width: 1024, height: 768 }, { width: 900, height: 700 },
-                    { width: 844, height: 390 }]) {
+                    { width: 1366, height: 1050 }, { width: 1440, height: 1200 },
+                    { width: 1680, height: 1050 }, { width: 1920, height: 1440 },
+                    { width: 2560, height: 1440 }, { width: 1024, height: 768 },
+                    { width: 900, height: 700 }, { width: 844, height: 390 },
+                    { width: 390, height: 844 }, { width: 430, height: 932 }]) {
     const c = await browser.newContext({ viewport: vp, deviceScaleFactor: 1 });
     const pg = await c.newPage();
     await pg.goto(URL_BASE, { waitUntil: 'load' });
@@ -355,11 +371,15 @@ const caixa = (page, sel) => page.evaluate((s) => {
     const g = await pg.evaluate(() => {
       const pal = document.querySelector('.mb-palco').getBoundingClientRect();
       const f = document.querySelector('.mb-foto').getBoundingClientRect();
-      return { baixo: Math.round(pal.bottom - f.bottom), cima: Math.round(f.top - pal.top) };
+      const ca = document.querySelector('.mb-casca').getBoundingClientRect();
+      return { baixo: Math.round(pal.bottom - f.bottom), cima: Math.round(f.top - pal.top),
+               exposto: Math.round(f.top - ca.top) };
     });
-    ok(g.baixo >= 0 && g.cima >= 0,
-       'em ' + vp.width + 'x' + vp.height + ' o painel nao e cortado pelo palco',
+    const nome = vp.width + 'x' + vp.height;
+    ok(g.baixo >= 0 && g.cima >= 0, 'em ' + nome + ' o painel nao e cortado pelo palco',
        'folga ' + g.cima + 'px em cima, ' + g.baixo + 'px embaixo');
+    ok(g.exposto <= 0, 'em ' + nome + ' a captura cobre a carcaca da tampa',
+       g.exposto <= 0 ? 'cobre com ' + (-g.exposto) + 'px de sobra' : g.exposto + 'px da carcaca a mostra');
     await c.close();
   }
 
