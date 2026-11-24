@@ -1846,16 +1846,18 @@
       <div class="hero-text">
         <div class="pill mb-6 reveal">
           <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
-          <span>Novo · Aprendizado neural validado</span>
+          <span>Modo Copiloto · a IA assume o atendimento</span>
         </div>
         <h1 class="reveal delay-1">
-          A IA que <span class="text-gradient">aprende</span><br>
-          a vender no <span class="text-glow">WhatsApp</span>
+          Você ensina.<br>
+          Ela <span class="text-gradient">atende sozinha</span>
+          no <span class="text-glow">WhatsApp</span>
         </h1>
         <p class="lead reveal delay-2">
-          Vórtex Pro automatiza seu atendimento, aprende com seus melhores fechamentos,
-          e responde clientes 24/7 com a voz da sua empresa. Instale a extensão no Chrome,
-          conecte ao WhatsApp Web, e comece em 5 minutos.
+          Nas primeiras conversas você aprova cada resposta — é assim que o Vórtex Pro
+          aprende o seu negócio e o seu tom. Com 80% de acerto, o Modo Copiloto é liberado
+          e passa a responder sozinho, 24/7, chamando você só quando a conversa pede.
+          Instale no Chrome e comece em 5 minutos.
         </p>
 
         <div class="hero-ctas reveal delay-3">
@@ -1879,8 +1881,8 @@
             <div class="stat-label">Para configurar</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" data-target="100" data-suffix="%">100%</div>
-            <div class="stat-label">Multi-tenant</div>
+            <div class="stat-value" data-target="80" data-suffix="%">80%</div>
+            <div class="stat-label">Para soltar sozinha</div>
           </div>
         </div>
       </div>
@@ -1953,8 +1955,8 @@
       <div class="hero-feat">
         <div class="ico"><i data-lucide="bot"></i></div>
         <div>
-          <p class="title">Chatbot Inteligente</p>
-          <p class="desc">Atendimento 24/7 que aprende sozinho.</p>
+          <p class="title">Modo Copiloto</p>
+          <p class="desc">Assume as conversas depois que você calibra.</p>
         </div>
       </div>
       <div class="hero-feat">
@@ -2001,7 +2003,7 @@
 
     <div class="mb-legenda">
       <span class="section-eyebrow">Por dentro</span>
-      <h2 id="mostra-titulo">O Vórtex vive <span class="text-gradient">dentro do seu WhatsApp</span></h2>
+      <h2 id="mostra-titulo">Um atendente a mais <span class="text-gradient">dentro do seu WhatsApp</span></h2>
     </div>
 
     <div class="mb-conjunto">
@@ -2082,9 +2084,24 @@
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="02">
-    <span class="section-eyebrow">IA em ação</span>
-    <h2 class="mb-4">Veja a IA <span class="text-gradient">conversando com cliente</span></h2>
-    <p class="text-muted">À esquerda, o cliente. À direita, a sugestão que a IA gera pra você aprovar — no tom da sua empresa.</p>
+    <span class="section-eyebrow">Modo Copiloto</span>
+    <h2 class="mb-4">Da sua aprovação <span class="text-gradient">até ela responder sozinha</span></h2>
+    <p class="text-muted">A mesma conversa, nos dois momentos. Troque abaixo e veja o que muda quando o Copiloto é liberado.</p>
+
+    <!-- as duas fases reais do produto: em treino a resposta espera
+         aprovação; liberado, ela vai sozinha -->
+    <div class="cop-switch" role="tablist" aria-label="Fase do Copiloto">
+      <button type="button" class="cop-tab is-on" role="tab" aria-selected="true"
+              id="cop-tab-treino" aria-controls="cop-painel" data-fase="treino">
+        <span class="cop-tab-n">Primeiras semanas</span>
+        <span class="cop-tab-d">você aprova</span>
+      </button>
+      <button type="button" class="cop-tab" role="tab" aria-selected="false"
+              id="cop-tab-solta" aria-controls="cop-painel" data-fase="solta">
+        <span class="cop-tab-n">Depois de calibrada</span>
+        <span class="cop-tab-d">responde sozinha</span>
+      </button>
+    </div>
   </div>
 
   <div class="demo-split">
@@ -2114,17 +2131,39 @@
         </div>
       </div>
 
-      <!-- AI suggestion card with typing animation -->
-      <div class="chat-ai-card" role="region" aria-label="Sugestão da IA">
-        <div class="chat-ai-head">
-          <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
-          Sugestão da IA · alta confiança
+      <!-- O MESMO conteúdo em duas fases. Em treino a resposta fica
+           parada esperando aprovação; liberado, ela já foi enviada. O
+           texto que a IA escreve é o mesmo nos dois (#chat-ai-cycle),
+           só muda quem apertou o botão. -->
+      <div id="cop-painel" role="tabpanel" aria-labelledby="cop-tab-treino">
+
+        <div class="chat-ai-card" data-fase="treino" role="region" aria-label="Resposta aguardando sua aprovação">
+          <div class="chat-ai-head">
+            <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
+            Aguardando você · alta confiança
+          </div>
+          <div class="chat-ai-text" id="chat-ai-cycle"></div>
+          <div class="chat-ai-actions">
+            <button type="button" class="chat-ai-btn"><i data-lucide="refresh-cw"></i>Reescrever</button>
+            <button type="button" class="chat-ai-btn primary"><i data-lucide="send"></i>Aprovar e enviar</button>
+          </div>
         </div>
-        <div class="chat-ai-text" id="chat-ai-cycle"></div>
-        <div class="chat-ai-actions">
-          <button type="button" class="chat-ai-btn"><i data-lucide="refresh-cw"></i>Reescrever</button>
-          <button type="button" class="chat-ai-btn primary"><i data-lucide="send"></i>Aprovar e enviar</button>
+
+        <div class="chat-ai-card is-solta" data-fase="solta" hidden role="region" aria-label="Resposta enviada automaticamente">
+          <div class="chat-ai-head">
+            <i data-lucide="check-check" style="width:14px;height:14px;"></i>
+            Respondida sozinha · 14:21
+          </div>
+          <div class="chat-ai-text">Oi, Maria! Obrigado pelo interesse no plano Premium 🚀<br>
+            O valor é R$ 297/mês e já inclui suporte 24h. Posso te enviar o link de pagamento?</div>
+          <div class="cop-nota">
+            <i data-lucide="shield" style="width:13px;height:13px;"></i>
+            <span>Você não precisou abrir o celular. O Copiloto devolve a conversa
+            para você quando o cliente pede um atendente, quando reclama, quando o
+            assunto é delicado e quando entra negociação ou cancelamento.</span>
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -2264,7 +2303,8 @@
   <div class="text-center reveal reveal-blur" data-sec="03">
     <span class="section-eyebrow">Recursos</span>
     <h2 class="mb-4">Recursos que <span class="text-gradient">vendem</span></h2>
-    <p class="text-muted">Não é só um chatbot. É um vendedor digital que melhora sozinho.</p>
+    <p class="text-muted">Não é um chatbot com respostas prontas. É um atendente que você treina
+    e que depois toca as conversas sem você.</p>
   </div>
 
   <div class="features-grid features-grid-with-robot">
@@ -2277,7 +2317,8 @@
       <div class="card tilt reveal delay-2" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
         <div class="card-icon" data-magnetic-child><i data-lucide="shield-check" aria-hidden="true"></i></div>
         <h4>Modo Copiloto</h4>
-        <p class="text-muted mt-2">A IA sugere, você aprova com 1 clique. Zero risco de mensagem inadequada para cliente.</p>
+        <p class="text-muted mt-2">Começa pedindo a sua aprovação. Quando acerta 80% em 30 conversas,
+        passa a responder sozinha — e volta a pedir aprovação se a qualidade cair.</p>
       </div>
       <div class="card tilt reveal delay-3" data-magnetic data-magnetic-strength="0.18" data-magnetic-max="10">
         <div class="card-icon" data-magnetic-child><i data-lucide="building-2" aria-hidden="true"></i></div>
@@ -2320,9 +2361,11 @@
   <div class="pfx-veil"></div>
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="04">
-    <span class="section-eyebrow">Como a IA aprende</span>
-    <h2 class="mb-4">A IA que <span class="text-gradient">gradua sozinha</span></h2>
-    <p class="text-muted">Cada resposta sua vira treino. Padrões só viram exemplo permanente depois de validados.</p>
+    <span class="section-eyebrow">Do treino à autonomia</span>
+    <h2 class="mb-4">O caminho até ela <span class="text-gradient">responder sem você</span></h2>
+    <p class="text-muted">Cada resposta que você aprova ou corrige é uma aula. Quando a taxa de acerto
+    chega a 80% em pelo menos 30 conversas, o sistema avisa que ela está pronta — e a decisão de
+    soltar continua sendo sua.</p>
   </div>
 
   <div class="learn-flow">
@@ -2418,6 +2461,38 @@
       <div class="learn-step-num">Passo 03</div>
       <h4>Padrão graduado</h4>
       <p>O exemplo entra no prompt do modelo e a IA passa a repetir a fórmula que funciona com seu cliente. Quanto mais você usa, melhor fica.</p>
+    </div>
+
+    <div class="learn-arrow reveal delay-5" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none"><path d="M4 14 L24 14 M16 6 L24 14 L16 22" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="learn-card reveal delay-6">
+      <div class="learn-illustration">
+        <svg viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="learnG4" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#00ffff"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <!-- a mao larga o volante: tracejado ate o ponto, dai solto -->
+          <path d="M 10 42 L 52 42" stroke="url(#learnG4)" stroke-width="2" stroke-dasharray="5 4"/>
+          <path d="M 52 42 L 110 42" stroke="url(#learnG4)" stroke-width="2"/>
+          <circle cx="52" cy="42" r="4" fill="url(#learnG4)"/>
+          <!-- selo de liberado -->
+          <circle cx="86" cy="20" r="11" fill="none" stroke="url(#learnG4)" stroke-width="1.5"/>
+          <path d="M 81 20 L 85 24 L 92 16" stroke="#22c55e" stroke-width="2" fill="none"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 20 16 L 20 24 M 16 20 L 24 20" stroke="#00ffff" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="learn-step-num">Passo 04</div>
+      <h4>Copiloto liberado</h4>
+      <p>Com 80% de acerto em 30 conversas, o sistema avisa que ela está pronta e você decide soltar.
+      A partir daí ela responde sozinha — e se a taxa cair abaixo de 60%, ela mesma volta a pedir
+      a sua aprovação.</p>
     </div>
   </div>
   </div>
@@ -2698,7 +2773,7 @@
   <div class="text-center reveal reveal-blur" data-sec="07">
     <span class="section-eyebrow">Antes &amp; depois</span>
     <h2 class="mb-4">Seu dia <span class="text-gradient">com</span> e <span style="color:#f87171;">sem</span> Vórtex</h2>
-    <p class="text-muted">Mesma equipe, mesma estrutura — só muda quem responde primeiro. <em style="color:var(--brand-cyan);">Arraste a barra abaixo</em>.</p>
+    <p class="text-muted">Mesma equipe, mesma estrutura. A diferença é que ninguém precisa estar online para o cliente ser atendido. <em style="color:var(--brand-cyan);">Arraste a barra abaixo</em>.</p>
   </div>
 
   <!-- Interactive drag-reveal split-view -->
@@ -3124,6 +3199,22 @@
   <div class="faq-list">
     <div class="faq-item reveal delay-1">
       <button class="faq-question">
+        <span class="q-icon"><i data-lucide="shield" aria-hidden="true"></i></span>
+        <span class="q-text">A IA responde sozinha mesmo? E se ela errar com um cliente?</span>
+        <i data-lucide="chevron-down" aria-hidden="true"></i>
+      </button>
+      <div class="faq-answer"><p>Responde, mas não desde o primeiro dia — e essa é a diferença.
+      No começo ela escreve e espera a sua aprovação: você aprova, corrige ou descarta, e cada
+      uma dessas ações é uma aula. Só quando acerta 80% das vezes em pelo menos 30 conversas o
+      sistema avisa que ela está pronta, e quem decide soltar é você.<br><br>
+      Depois de solta, ela devolve a conversa para um humano sempre que o cliente pede um
+      atendente, quando reclama ou está irritado, quando o assunto é delicado, quando entra
+      negociação ou cancelamento, e quando a pergunta exige uma informação que você não ensinou
+      — nesse caso ela prefere chamar você a inventar. E se a taxa de acerto cair abaixo de 60%,
+      ela mesma volta a pedir aprovação até se recuperar.</p></div>
+    </div>
+    <div class="faq-item reveal delay-1">
+      <button class="faq-question">
         <span class="q-icon"><i data-lucide="link" aria-hidden="true"></i></span>
         <span class="q-text">Como funciona a integração com WhatsApp?</span>
         <i data-lucide="chevron-down" aria-hidden="true"></i>
@@ -3430,6 +3521,39 @@
       a.textContent = 'Meu painel';
     });
   }
+
+  // ════════════════════════════════════════════════════════
+  // Modo Copiloto: troca entre a fase de treino (a resposta espera
+  // aprovação) e a fase liberada (a resposta já foi sozinha).
+  // Sem JS a página mostra a fase de treino, que é por onde todo
+  // cliente começa — o estado honesto para quem acabou de chegar.
+  // ════════════════════════════════════════════════════════
+  (function () {
+    const abas = document.querySelectorAll('.cop-tab');
+    const cartoes = document.querySelectorAll('#cop-painel .chat-ai-card');
+    if (!abas.length || !cartoes.length) return;
+
+    function mostrar(fase) {
+      abas.forEach((a) => {
+        const ligada = a.dataset.fase === fase;
+        a.classList.toggle('is-on', ligada);
+        a.setAttribute('aria-selected', ligada ? 'true' : 'false');
+      });
+      cartoes.forEach((c) => { c.hidden = c.dataset.fase !== fase; });
+      const painel = document.getElementById('cop-painel');
+      if (painel) painel.setAttribute('aria-labelledby', 'cop-tab-' +
+        (fase === 'treino' ? 'treino' : 'solta'));
+    }
+
+    abas.forEach((a) => a.addEventListener('click', () => mostrar(a.dataset.fase)));
+    /* setas do teclado, como manda o padrão de abas */
+    abas.forEach((a, i) => a.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      const prox = abas[(i + (e.key === 'ArrowRight' ? 1 : abas.length - 1)) % abas.length];
+      prox.focus(); mostrar(prox.dataset.fase);
+    }));
+  })();
 
   // ════════════════════════════════════════════════════════
   // Chat cycle / chart entry animations / ROI flash
