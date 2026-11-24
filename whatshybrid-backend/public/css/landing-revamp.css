@@ -615,7 +615,8 @@
 /* ── Learning steps (flow) ─────────────────────────────────────── */
 .learn-flow {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
+  /* quatro passos: o 04 (copiloto liberado) fecha a historia */
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
   align-items: stretch;
   gap: 16px;
   margin-top: 48px;

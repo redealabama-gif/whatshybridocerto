@@ -1356,3 +1356,63 @@ h3, .plan-price-value, .stat-value {
      e o data-show que abre o artigo */
   a[data-show]:not(.btn) { display: inline-block; padding-block: 12px; }
 }
+
+/* ── 21. MODO COPILOTO: AS DUAS FASES NA SEÇÃO #ai-action ─────────
+   A seção mostrava só a sugestão esperando aprovação, e o visitante saía
+   achando que o produto para por aí. Agora a mesma conversa aparece nos
+   dois momentos reais do produto — em treino a resposta espera você, e
+   depois de calibrada ela já foi — e o visitante troca entre eles.
+
+   Nenhuma cor nova: tudo sai das variáveis da identidade
+   (--brand-cyan, --brand-panel, --border, --success). */
+.cop-switch {
+  display: inline-flex;
+  gap: 4px;
+  margin: var(--s5) auto 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
+}
+.cop-tab {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 18px;
+  border: 0; border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: background .18s ease, color .18s ease;
+}
+.cop-tab:hover { color: var(--text); }
+.cop-tab .cop-tab-n { font-size: 14px; font-weight: 600; }
+.cop-tab .cop-tab-d { font-size: 12px; opacity: .75; }
+.cop-tab.is-on {
+  background: rgba(0, 255, 255, .10);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 255, .28);
+}
+.cop-tab:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 2px; }
+
+/* O cartão da fase liberada é o mesmo da sugestão, só que já resolvido:
+   borda verde em vez de ciano, sem botões, com a nota de quando ela
+   devolve a conversa para o dono. */
+.chat-ai-card.is-solta { border-color: rgba(34, 197, 94, .35); }
+.chat-ai-card.is-solta .chat-ai-head { color: var(--success); }
+.cop-nota {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--text-muted);
+}
+.cop-nota i, .cop-nota svg { flex: 0 0 auto; margin-top: 2px; color: var(--success); }
+
+@media (max-width: 860px) {
+  /* em 390px as duas abas lado a lado passavam de 92vw */
+  .cop-switch { display: flex; width: 100%; }
+  .cop-tab { flex: 1; padding: 9px 10px; min-height: 40px; }
+  .cop-tab .cop-tab-n { font-size: 13px; }
+  .cop-tab .cop-tab-d { font-size: 12px; }
+}
