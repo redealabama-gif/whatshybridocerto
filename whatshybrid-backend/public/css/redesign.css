@@ -1305,3 +1305,54 @@ h3, .plan-price-value, .stat-value {
   .mb-k { box-shadow: none; }
   .mb-k1, .mb-k2 { display: none; }
 }
+
+/* ── 20. CELULAR: PISO DE LEGIBILIDADE E DE ALVO DE TOQUE ─────────
+   Levantado por audit/harness/mobile-responsivo.js rodando em iPhone SE,
+   iPhone 12, Pixel 7 e iPhone 14 Pro Max.
+
+   TEXTO. Doze rótulos da home caíam abaixo de 12px no celular — o menor
+   com 9,6px ("Compra Segura"). Abaixo de 12px o leitor precisa dar zoom,
+   e dar zoom numa página de venda é perder a pessoa. No desktop os
+   mesmos rótulos continuam como estão: lá a distância de leitura é
+   outra e o tamanho pequeno é parte da direção de arte. */
+@media (max-width: 860px) {
+  .section-eyebrow,
+  .stat-label,
+  .dash-stat-label,
+  .dash-stat-delta,
+  .chat-mock-status,
+  .globe-hint,
+  .pricing-toggle-badge,
+  .plan-locked-label,
+  .plan-badge,
+  .rating-sub,
+  .pill > span,
+  /* os avisos flutuantes de prova social so entram no DOM depois,
+     por isso nao apareciam na primeira varredura */
+  .activity-ticker-time,
+  .sales-plan,
+  .sales-value,
+  /* seals.css usa .seal-text .t-micro, mais especifico que .t-micro */
+  .seal-text .t-micro,
+  .t-micro { font-size: 12px; }
+
+  /* ALVO DE TOQUE. O guia da Apple pede 44px e o do Google 48; 40px é o
+     piso que uso aqui, suficiente para o dedo acertar sem redesenhar a
+     página. Em todos os casos abaixo o que cresce é a ÁREA CLICÁVEL,
+     não o desenho: o padding entra sem mexer no tamanho do texto nem
+     do ícone. */
+  .logo { padding-block: 4px; }                 /* era 34px de altura */
+  .toggle-pwd { width: 40px; height: 40px; }    /* era 34x34 */
+  /* o exit-modal-close e estilizado num <style> dentro do index.html,
+     que ganha de width/height daqui; min-* resolve sem disputa */
+  .exit-modal-close { min-width: 40px; min-height: 40px; box-sizing: border-box; }
+  .pricing-toggle button { min-height: 40px; }  /* era 38px */
+  /* links soltos de apoio ("Esqueci minha senha", "Criar conta", os do
+     rodapé do help): tinham de 16px a 22px de altura */
+  .auth-card a:not(.btn):not(.logo),
+  .auth-aside a:not(.btn):not(.logo),
+  footer a:not(.btn):not(.logo),
+  /* os "Ler guia →" do help nao tem classe nenhuma; o que os identifica
+     e o data-show que abre o artigo */
+  a[data-show]:not(.btn) { display: inline-block; padding-block: 12px; }
+}
