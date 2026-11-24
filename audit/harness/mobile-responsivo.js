@@ -222,6 +222,15 @@ async function medirVaos(page) {
       await page.waitForTimeout(500);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(350);
+      /* Congela animacoes e transicoes ANTES de medir. Sem isto a
+         medicao pega elementos no meio do voo e inventa defeito: o
+         aviso flutuante de vendas foi apanhado com a classe is-in mas
+         ainda em scale(0,96) e deslocado 46px, e apareceu como se
+         estourasse 22px da tela. Congelado, ele mede os 279px certos
+         dentro da janela. */
+      await page.addStyleTag({ content:
+        '*,*::before,*::after{animation:none !important;transition:none !important}' });
+      await page.waitForTimeout(220);
 
       const m = await page.evaluate(medir);
       const rot = (t) => pg + ': ' + t;

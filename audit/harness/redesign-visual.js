@@ -248,13 +248,28 @@ const reg = (m) => { falhas.push(m); console.log('  ✗ ' + m); };
       const el = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(12, r.height / 2));
       return !!el && (resp === el || resp.contains(el));
     };
+    /* Espera a altura PARAR de mudar em vez de contar 1,5 s no relogio.
+       A transicao do acordeao e de 0,35 s, mas neste conteiner a thread
+       principal as vezes engasga (as animacoes da home chegam a quadros
+       de 600 ms) e a leitura caia no meio do fechamento: o teste
+       acusava "nao fecha" com a altura ainda em 280px, de forma
+       intermitente. Assentar e o que importa, nao o tempo. */
+    const assentar = async (limite = 3000) => {
+      let antes = -1, parado = 0, gasto = 0;
+      while (gasto < limite) {
+        await esp(60); gasto += 60;
+        const h = Math.round(resp.getBoundingClientRect().height);
+        if (h === antes) { parado += 60; if (parado >= 240) return; }
+        else { parado = 0; antes = h; }
+      }
+    };
     it.querySelector('.faq-question').click();
-    await esp(1500);
+    await assentar();
     const aberto = it.classList.contains('open');
     const alturaResp = resp.getBoundingClientRect().height;
     const visivel = alcancavel();
     it.querySelector('.faq-question').click();
-    await esp(1500);
+    await assentar();
     return { aberto, alturaResp, visivel,
              alturaFechada: resp.getBoundingClientRect().height,
              fechou: !it.classList.contains('open') };
