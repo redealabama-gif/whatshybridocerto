@@ -148,8 +148,14 @@
   --mscale: 1;
   transform: translate3d(var(--mx), var(--my), 0) scale(var(--mscale));
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
 }
+/* O will-change estava na regra de cima, valendo sempre. Medido na
+   home: 26 elementos (18 cartoes, 4 botoes, 4 planos) ficavam
+   promovidos a camada propria de GPU do primeiro quadro ao ultimo,
+   mesmo sem ninguem passar o mouse. O efeito magnetico so acontece sob
+   o ponteiro, entao o aviso ao navegador tambem so precisa existir ai. */
+[data-magnetic]:hover,
+[data-magnetic]:focus-within { will-change: transform; }
 
 [data-magnetic].is-magnetizing {
   transition: transform 0.12s linear;

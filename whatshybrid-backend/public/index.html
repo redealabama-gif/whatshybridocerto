@@ -968,6 +968,7 @@
     @keyframes chart-area-in { to { opacity: 1; } }
 
     .dash-mock .chart-line-stroke {
+    .dash-mock .chart-line-stroke {
       stroke-dasharray: 620;
       stroke-dashoffset: 620;
     }
@@ -2503,9 +2504,16 @@
 
     <div class="ncore-stage reveal reveal-zoom" aria-hidden="true">
       <div class="ncore-crystal" id="neural-core-crystal">
-        <video class="ncore-video" autoplay loop muted playsinline preload="auto" poster="assets/neural-core-crystal-1140w.webp">
-          <source src="assets/neural-core-crystal.mp4" type="video/mp4">
-        </video>
+        <!-- Era autoplay + preload="auto": o navegador baixava os 1,9 MB
+             deste enfeite no carregamento da pagina (83% de tudo que a
+             home transfere) e ficava decodificando em laco mesmo com a
+             secao a 9.800px de rolagem.
+             Agora o arquivo so e pedido quando a secao se aproxima, e o
+             video pausa quando ela sai da tela. Sem JS fica o poster, que
+             e a mesma imagem e pesa 23 KB. -->
+        <video class="ncore-video" loop muted playsinline preload="none"
+               data-src="assets/neural-core-crystal.mp4"
+               poster="assets/neural-core-crystal-1140w.webp"></video>
       </div>
     </div>
 
@@ -3520,6 +3528,48 @@
       a.textContent = 'Meu painel';
     });
   }
+
+  // ════════════════════════════════════════════════════════
+  // Rede neural do hero: pausa quando o hero sai da tela
+  // ════════════════════════════════════════════════════════
+  (function () {
+    const rede = document.querySelector('.neural-bg');
+    const hero = document.getElementById('hero');
+    if (!rede || !hero || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((ents) => {
+      for (const e of ents) rede.classList.toggle('nn-pausada', !e.isIntersecting);
+    }, { rootMargin: '120px 0px' });
+    io.observe(hero);
+  })();
+
+  // ════════════════════════════════════════════════════════
+  // Video do Nucleo Neural: so baixa perto da tela, e pausa fora dela
+  // ════════════════════════════════════════════════════════
+  (function () {
+    const v = document.querySelector('.ncore-video[data-src]');
+    if (!v) return;
+    if (!('IntersectionObserver' in window)) {   // navegador antigo: fica o poster
+      return;
+    }
+    let carregou = false;
+    const io = new IntersectionObserver((ents) => {
+      for (const e of ents) {
+        if (e.isIntersecting) {
+          if (!carregou) {
+            carregou = true;
+            const src = document.createElement('source');
+            src.src = v.dataset.src; src.type = 'video/mp4';
+            v.appendChild(src);
+            v.load();
+          }
+          v.play().catch(() => {});   // navegador pode recusar autoplay
+        } else if (carregou) {
+          v.pause();                  // fora da tela nao decodifica nada
+        }
+      }
+    }, { rootMargin: '400px 0px' });  // comeca a baixar uma tela antes
+    io.observe(v);
+  })();
 
   // ════════════════════════════════════════════════════════
   // Modo Copiloto: troca entre a fase de treino (a resposta espera
