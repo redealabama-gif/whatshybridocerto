@@ -93,6 +93,16 @@
 .neural-bg .nn-node:nth-child(3n) { animation-delay: -1.5s; }
 .neural-bg .nn-node:nth-child(5n) { animation-delay: -2.2s; }
 
+/* A rede neural do hero tem 37 animacoes infinitas (20 linhas, 13 nos,
+   4 pacotes) e elas continuavam rodando com o hero fora da tela — o
+   navegador segue recalculando e repintando um SVG que ninguem ve.
+   .nn-pausada e posta por um IntersectionObserver no index.html quando
+   o hero sai da janela. Sem JS nada muda: a classe nunca aparece e as
+   animacoes rodam como antes. */
+.neural-bg.nn-pausada .nn-line,
+.neural-bg.nn-pausada .nn-node,
+.neural-bg.nn-pausada .nn-packet { animation-play-state: paused; }
+
 @keyframes nn-pulse-line {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.55; }
@@ -358,11 +368,14 @@
   letter-spacing: 0.4px;
 }
 .dash-stat-value {
-  font-family: 'Fraunces', Georgia, serif;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: white;
-  margin-top: 4px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;   /* algarismos de mesma largura */
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-top: 6px;
   line-height: 1;
 }
 .dash-stat-delta {

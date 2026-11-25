@@ -1416,3 +1416,86 @@ h3, .plan-price-value, .stat-value {
   .cop-tab .cop-tab-n { font-size: 13px; }
   .cop-tab .cop-tab-d { font-size: 12px; }
 }
+
+/* ── 22. BLOCO 2: ACABAMENTO DO PAINEL DE DEMONSTRAÇÃO ────────────
+   O dono disse que os indicadores e o gráfico pareciam amadores. Ao
+   medir, os motivos eram concretos, não de gosto:
+
+     1. o cartão do gráfico de linha ficava esticado até a altura do
+        donut ao lado e um terço dele era vazio;
+     2. o donut tinha ~230px de diâmetro — maior que os três
+        indicadores somados, invertendo a hierarquia;
+     3. os três indicadores eram caixas idênticas, sem ordem de
+        leitura;
+     4. os números saíam em fonte de display serifada, de largura
+        variável, então as colunas nunca alinhavam.
+
+   Nada aqui inventa cor: só --brand-cyan, --border e --text-muted,
+   que já são da identidade. */
+
+/* O donut deixa de mandar na altura da linha. 150px é o tamanho em que
+   ele ainda lê de longe sem competir com os indicadores. */
+.dash-chart-card.donut-wrap { position: relative; }
+.dash-chart-card.donut-wrap > svg {
+  display: block;
+  width: 100%;
+  max-width: 150px;
+  margin: 0 auto;
+}
+/* o valor central acompanha o donut menor */
+.dash-chart-card.donut-wrap .donut-value {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Os dois cartões da primeira fileira passam a ter a mesma altura por
+   conteúdo, não por esticamento: o da linha cresce até encostar, o do
+   donut centraliza o que tem. */
+.dash-charts > .dash-chart-card { display: flex; flex-direction: column; }
+.dash-charts > .dash-chart-card > svg { flex: 1 1 auto; min-height: 0; }
+.dash-chart-card.donut-wrap { justify-content: center; }
+
+/* Indicadores: rótulo discreto, número firme, variação numa tarja —
+   a mesma estrutura de antes, só com ordem de leitura. */
+.dash-stat { padding: 12px 13px 11px; }
+.dash-stat-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+.dash-stat-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 7px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  background: rgba(74, 222, 128, .10);
+}
+.dash-stat-delta.down { background: rgba(0, 255, 255, .10); }
+
+/* Cabeçalho do painel: uma régua separando o título dos números, para
+   o painel ler como um painel e não como uma pilha de caixas. */
+.dash-mock-header { align-items: baseline; }
+.dash-mock-title { letter-spacing: 0.3px; }
+
+/* Item de grid nasce com min-width:auto, entao nao encolhe abaixo do
+   conteudo: num iPhone SE os dois paineis mediam 370px dentro de uma
+   coluna de 351px e os 19px de sobra eram cortados pelo overflow-x do
+   html. O defeito e antigo; ficava escondido do auditor porque o tilt
+   3D punha um matrix3d nesses elementos, e a varredura isenta faces
+   giradas em 3D (o retangulo delas vem inflado). Sem o tilt, apareceu. */
+.demo-split > .chat-mock,
+.demo-split > .dash-mock { min-width: 0; }
+
+@media (max-width: 860px) {
+  .dash-chart-card.donut-wrap > svg { max-width: 128px; }
+  .dash-stat-value { font-size: 1.3rem; }
+  /* o 0.66rem acima da a 10,6px e passa por baixo do piso de 12px da
+     secao 20 (esta regra vem depois na folha, entao ganhava). No
+     desktop o rotulo pequeno e proposital; no celular, nao. */
+  .dash-stat-label { font-size: 12px; }
+}
