@@ -368,11 +368,14 @@
   letter-spacing: 0.4px;
 }
 .dash-stat-value {
-  font-family: 'Fraunces', Georgia, serif;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: white;
-  margin-top: 4px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;   /* algarismos de mesma largura */
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-top: 6px;
   line-height: 1;
 }
 .dash-stat-delta {

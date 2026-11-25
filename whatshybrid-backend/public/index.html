@@ -968,9 +968,11 @@
     @keyframes chart-area-in { to { opacity: 1; } }
 
     .dash-mock .chart-line-stroke {
-    .dash-mock .chart-line-stroke {
-      stroke-dasharray: 620;
-      stroke-dashoffset: 620;
+      /* 280 = comprimento real do traco, medido com getTotalLength().
+         Estava em 620: a linha ficava invisivel durante os primeiros
+         55% da animacao e so entao comecava a desenhar. */
+      stroke-dasharray: 280;
+      stroke-dashoffset: 280;
     }
     .dash-mock.charts-animate .chart-line-stroke {
       animation: chart-line-draw 1.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
@@ -2196,10 +2198,16 @@
         <!-- Line chart: messages over time -->
         <div class="dash-chart-card">
           <h5>Mensagens automatizadas · 7 dias</h5>
-          <svg viewBox="0 0 320 130" xmlns="http://www.w3.org/2000/svg" aria-label="Gráfico de mensagens por dia">
+          <!-- viewBox 130 -> 170: com 130 o SVG rendia a 0,41 da largura do
+               cartao e sobrava um terco de vazio embaixo, porque o cartao e
+               esticado ate a altura do donut ao lado.
+               A serie termina em 1.847, que e exatamente o numero do
+               indicador "Interacoes" acima — antes os dois nao conversavam. -->
+          <svg viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg"
+               aria-label="Mensagens automatizadas por dia, de 980 na segunda a 1.847 no domingo">
             <defs>
               <linearGradient id="g-area" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#00ffff" stop-opacity="0.4"/>
+                <stop offset="0%" stop-color="#00ffff" stop-opacity="0.28"/>
                 <stop offset="100%" stop-color="#00ffff" stop-opacity="0"/>
               </linearGradient>
               <linearGradient id="g-stroke" x1="0" x2="1" y1="0" y2="0">
@@ -2207,29 +2215,43 @@
                 <stop offset="100%" stop-color="#6f00ff"/>
               </linearGradient>
             </defs>
-            <!-- grid -->
-            <g stroke="rgba(255,255,255,0.04)" stroke-width="1">
-              <line x1="0" y1="30" x2="320" y2="30"/>
-              <line x1="0" y1="60" x2="320" y2="60"/>
-              <line x1="0" y1="90" x2="320" y2="90"/>
+
+            <!-- escala: antes havia tres linhas sem numero nenhum, entao o
+                 grafico nao dizia se eram 10 ou 10.000 mensagens -->
+            <g stroke="rgba(255,255,255,0.07)" stroke-width="1">
+              <line x1="40" y1="18"  x2="306" y2="18"/>
+              <line x1="40" y1="73"  x2="306" y2="73"/>
             </g>
-            <!-- area fill -->
-            <path class="chart-line-area" d="M 10 110 L 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22 L 310 110 Z"
+            <line x1="40" y1="128" x2="306" y2="128" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+            <!-- 12,6 unidades x escala 0,87 = ~11px na tela -->
+            <g fill="rgba(148,163,184,0.75)"
+               font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+               font-size="12.6" text-anchor="end">
+              <text x="32" y="22">2k</text>
+              <text x="32" y="77">1k</text>
+              <text x="32" y="132">0</text>
+            </g>
+
+            <path class="chart-line-area"
+                  d="M 40 128 L 40 74.1 L 84.3 64.8 L 128.7 77.4 L 173 49.4 L 217.3 44.4 L 261.7 34 L 306 26.4 L 306 128 Z"
                   fill="url(#g-area)"/>
-            <!-- line -->
-            <path class="chart-line-stroke" d="M 10 85 L 56 75 L 102 88 L 148 60 L 194 55 L 240 38 L 286 28 L 310 22"
-                  fill="none" stroke="url(#g-stroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- end dot -->
-            <circle class="chart-line-dot" cx="310" cy="22" r="4" fill="#00ffff" filter="drop-shadow(0 0 6px #00ffff)"/>
-            <!-- x labels -->
-            <g fill="rgba(148,163,184,0.7)" font-family="Inter" font-size="9">
-              <text x="10" y="125">seg</text>
-              <text x="56" y="125">ter</text>
-              <text x="102" y="125">qua</text>
-              <text x="148" y="125">qui</text>
-              <text x="194" y="125">sex</text>
-              <text x="240" y="125">sáb</text>
-              <text x="286" y="125">dom</text>
+            <path class="chart-line-stroke"
+                  d="M 40 74.1 L 84.3 64.8 L 128.7 77.4 L 173 49.4 L 217.3 44.4 L 261.7 34 L 306 26.4"
+                  fill="none" stroke="url(#g-stroke)" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <circle class="chart-line-dot" cx="306" cy="26.4" r="3.5" fill="#00ffff"
+                    filter="drop-shadow(0 0 5px #00ffff)"/>
+
+            <g fill="rgba(148,163,184,0.75)"
+               font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+               font-size="12.6" text-anchor="middle">
+              <text x="40" y="150">seg</text>
+              <text x="84.3" y="150">ter</text>
+              <text x="128.7" y="150">qua</text>
+              <text x="173" y="150">qui</text>
+              <text x="217.3" y="150">sex</text>
+              <text x="261.7" y="150">sáb</text>
+              <text x="306" y="150">dom</text>
             </g>
           </svg>
         </div>
@@ -2257,20 +2279,24 @@
         <!-- Bars: tokens by hour -->
         <div class="dash-chart-card" style="grid-column: 1 / -1;">
           <h5>Tokens consumidos por horário</h5>
-          <svg viewBox="0 0 320 70" xmlns="http://www.w3.org/2000/svg" aria-label="Barras de tokens por hora">
+          <svg viewBox="0 0 320 86" xmlns="http://www.w3.org/2000/svg" aria-label="Barras de tokens por hora">
             <defs>
               <linearGradient id="g-bar" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stop-color="#6f00ff"/>
                 <stop offset="100%" stop-color="#00ffff"/>
               </linearGradient>
             </defs>
-            <rect x="8" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.575"/><rect x="20.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.55"/><rect x="33" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="45.5" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="58" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.5375"/><rect x="70.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.55"/><rect x="83" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.575"/><rect x="95.5" y="48" width="9" height="12" rx="2" fill="url(#g-bar)" opacity="0.65"/><rect x="108" y="32" width="9" height="28" rx="2" fill="url(#g-bar)" opacity="0.85"/><rect x="120.5" y="26" width="9" height="34" rx="2" fill="url(#g-bar)" opacity="0.925"/><rect x="133" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="1.025"/><rect x="145.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="1.1"/><rect x="158" y="8" width="9" height="52" rx="2" fill="url(#g-bar)" opacity="1.15"/><rect x="170.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="1.1"/><rect x="183" y="15" width="9" height="45" rx="2" fill="url(#g-bar)" opacity="1.0625"/><rect x="195.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="1"/><rect x="208" y="22" width="9" height="38" rx="2" fill="url(#g-bar)" opacity="0.975"/><rect x="220.5" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="1.025"/><rect x="233" y="14" width="9" height="46" rx="2" fill="url(#g-bar)" opacity="1.075"/><rect x="245.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="1"/><rect x="258" y="28" width="9" height="32" rx="2" fill="url(#g-bar)" opacity="0.9"/><rect x="270.5" y="38" width="9" height="22" rx="2" fill="url(#g-bar)" opacity="0.775"/><rect x="283" y="46" width="9" height="14" rx="2" fill="url(#g-bar)" opacity="0.675"/><rect x="295.5" y="51" width="9" height="9" rx="2" fill="url(#g-bar)" opacity="0.6125"/>
-            <g fill="rgba(148,163,184,0.7)" font-family="Inter" font-size="9">
-              <text x="6" y="68">0h</text>
-              <text x="78" y="68">6h</text>
-              <text x="150" y="68">12h</text>
-              <text x="222" y="68">18h</text>
-              <text x="290" y="68">24h</text>
+            <rect x="8" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.418"/><rect x="20.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.393"/><rect x="33" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.380"/><rect x="45.5" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.380"/><rect x="58" y="57" width="9" height="3" rx="2" fill="url(#g-bar)" opacity="0.380"/><rect x="70.5" y="56" width="9" height="4" rx="2" fill="url(#g-bar)" opacity="0.393"/><rect x="83" y="54" width="9" height="6" rx="2" fill="url(#g-bar)" opacity="0.418"/><rect x="95.5" y="48" width="9" height="12" rx="2" fill="url(#g-bar)" opacity="0.494"/><rect x="108" y="32" width="9" height="28" rx="2" fill="url(#g-bar)" opacity="0.696"/><rect x="120.5" y="26" width="9" height="34" rx="2" fill="url(#g-bar)" opacity="0.772"/><rect x="133" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="0.873"/><rect x="145.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="0.949"/><rect x="158" y="8" width="9" height="52" rx="2" fill="url(#g-bar)" opacity="1.000"/><rect x="170.5" y="12" width="9" height="48" rx="2" fill="url(#g-bar)" opacity="0.949"/><rect x="183" y="15" width="9" height="45" rx="2" fill="url(#g-bar)" opacity="0.911"/><rect x="195.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="0.848"/><rect x="208" y="22" width="9" height="38" rx="2" fill="url(#g-bar)" opacity="0.823"/><rect x="220.5" y="18" width="9" height="42" rx="2" fill="url(#g-bar)" opacity="0.873"/><rect x="233" y="14" width="9" height="46" rx="2" fill="url(#g-bar)" opacity="0.924"/><rect x="245.5" y="20" width="9" height="40" rx="2" fill="url(#g-bar)" opacity="0.848"/><rect x="258" y="28" width="9" height="32" rx="2" fill="url(#g-bar)" opacity="0.747"/><rect x="270.5" y="38" width="9" height="22" rx="2" fill="url(#g-bar)" opacity="0.620"/><rect x="283" y="46" width="9" height="14" rx="2" fill="url(#g-bar)" opacity="0.519"/><rect x="295.5" y="51" width="9" height="9" rx="2" fill="url(#g-bar)" opacity="0.456"/>
+            <!-- linha de base: as barras flutuavam sem apoio -->
+            <line x1="8" y1="60.5" x2="304.5" y2="60.5" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+            <g fill="rgba(148,163,184,0.75)"
+               font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+               font-size="7" letter-spacing="0.3">
+              <text x="8" y="74">0h</text>
+              <text x="80" y="74" text-anchor="middle">6h</text>
+              <text x="152" y="74" text-anchor="middle">12h</text>
+              <text x="224" y="74" text-anchor="middle">18h</text>
+              <text x="304.5" y="74" text-anchor="end">24h</text>
             </g>
           </svg>
         </div>
@@ -2779,7 +2805,12 @@
   <div class="container">
   <div class="text-center reveal reveal-blur" data-sec="07">
     <span class="section-eyebrow">Antes &amp; depois</span>
-    <h2 class="mb-4">Seu dia <span class="text-gradient">com</span> e <span style="color:#f87171;">sem</span> Vórtex</h2>
+    <!-- "com" em ciano e "sem" em vermelho, as MESMAS cores das bordas
+         dos dois quadros logo abaixo (.col-with usa rgb(0,255,255),
+         .col-without o vermelho). O .text-gradient que estava aqui
+         rendia branco chapado, porque o gradiente foi neutralizado no
+         redesign — o titulo nao apontava para quadro nenhum. -->
+    <h2 class="mb-4">Seu dia <span style="color:var(--brand-cyan);">com</span> e <span style="color:#f87171;">sem</span> Vórtex</h2>
     <p class="text-muted">Mesma equipe, mesma estrutura. A diferença é que ninguém precisa estar online para o cliente ser atendido. <em style="color:var(--brand-cyan);">Arraste a barra abaixo</em>.</p>
   </div>
 
