@@ -184,37 +184,6 @@
   }
 
   // ════════════════════════════════════════════════════════
-  //  TILT 3D + sheen (frames grandes, não-magnéticos)
-  // ════════════════════════════════════════════════════════
-  function makeTilt(el, max) {
-    if (!el || coarse || reduceMotion) return;
-    max = max || 7;
-    el.classList.add('fx-tilt');
-    const edge = document.createElement('div'); edge.className = 'fx-edge';
-    const sheen = document.createElement('div'); sheen.className = 'fx-sheen';
-    el.appendChild(edge); el.appendChild(sheen);
-    let frame = null;
-    el.addEventListener('pointermove', (e) => {
-      const r = el.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width;
-      const py = (e.clientY - r.top) / r.height;
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        el.style.setProperty('--ry', ((px - 0.5) * 2 * max).toFixed(2) + 'deg');
-        el.style.setProperty('--rx', (-(py - 0.5) * 2 * max).toFixed(2) + 'deg');
-        el.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
-        el.style.setProperty('--my', (py * 100).toFixed(1) + '%');
-        el.classList.add('is-tilting');
-      });
-    });
-    el.addEventListener('pointerleave', () => {
-      el.classList.remove('is-tilting');
-      el.style.setProperty('--rx', '0deg');
-      el.style.setProperty('--ry', '0deg');
-    });
-  }
-
-  // ════════════════════════════════════════════════════════
   //  HUD brackets nos cantos
   // ════════════════════════════════════════════════════════
   function addHud(el) {
@@ -324,11 +293,20 @@
     // O efeito de "scramble" embaralhava h1 do hero e .section-eyebrow
     // ao carregar/scrollar — confundia a leitura, foi desligado.
 
-    // —— Tilt em frames grandes não-magnéticos ———————————————
-    // .laptop-frame ficou de fora: o contexto 3D (perspective + preserve-3d)
-    // pode bloquear o render do <video> de demo dentro de .laptop-screen.
-    makeTilt($('.chat-mock'), 5);
-    makeTilt($('.dash-mock'), 5);
+    // —— Tilt em frames grandes: DESLIGADO no bloco de demonstração ——
+    // .chat-mock e .dash-mock tinham um tilt 3D de 5°: os dois painéis
+    // giravam em 3D atrás do cursor, com brilho seguindo o ponteiro.
+    // O dono pediu para tirar — "afunda, parece infantil" — e tem
+    // razão: um painel de produto tem de transmitir estabilidade, não
+    // reagir a cada passada de mouse.
+    // Tirar também custa menos: eram dois pointermove com
+    // requestAnimationFrame a cada movimento, mais `will-change:
+    // transform` e `transform-style: preserve-3d` promovendo dois
+    // painéis grandes a camada própria o tempo todo.
+    // Nada some do visual em repouso: .fx-edge e .fx-sheen já ficavam
+    // em opacity 0 e só acendiam durante o giro (css/hero-fx.css:139-166).
+    // .laptop-frame nunca entrou aqui: o contexto 3D pode bloquear o
+    // render do <video> de demo dentro de .laptop-screen.
 
     // —— HUD brackets —————————————————————————————————————————
     addHud($('.hero-visual'));
